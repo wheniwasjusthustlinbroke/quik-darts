@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Quik Darts - Championship Edition</title>
   <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;600;700&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
@@ -10,7 +10,13 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: 'Oswald', sans-serif; }
+    body {
+      font-family: 'Oswald', sans-serif;
+      -webkit-tap-highlight-color: transparent;
+      -webkit-touch-callout: none;
+      -webkit-user-select: none;
+      touch-action: manipulation;
+    }
   </style>
 </head>
 <body>
@@ -44,16 +50,138 @@
       const [showScorePopup, setShowScorePopup] = useState(null);
       const [gameStats, setGameStats] = useState({});
       const [winner, setWinner] = useState(null);
-      const [skillLevel, setSkillLevel] = useState(50);
+      const [skillLevel, setSkillLevel] = useState(60); // Default to Intermediate
       const [soundEnabled, setSoundEnabled] = useState(true);
       const [showStats, setShowStats] = useState(false);
-      const [playerSetup, setPlayerSetup] = useState({ count: 1, names: ['Player 1', 'Player 2', 'Player 3', 'Player 4'], gameMode: 501, aiPlayers: [false, false, false, false], aiDifficulty: [null, null, null, null] });
+      const [playerSetup, setPlayerSetup] = useState({ count: 1, names: ['Player 1', 'Player 2', 'Player 3', 'Player 4'], gameMode: 501, aiPlayers: [false, false, false, false], aiDifficulty: [null, null, null, null], legsPerSet: 3, setsToWin: 1, flags: ['🏴󠁧󠁢󠁥󠁮󠁧󠁿', '🏴󠁧󠁢󠁥󠁮󠁧󠁿', '🏴󠁧󠁢󠁥󠁮󠁧󠁿', '🏴󠁧󠁢󠁥󠁮󠁧󠁿'] });
       const [animatingDart, setAnimatingDart] = useState(null);
       const [checkout, setCheckout] = useState(null);
+      const [triplesHit, setTriplesHit] = useState(0);
+      const [isCheckoutPosition, setIsCheckoutPosition] = useState(false);
+      const [legScores, setLegScores] = useState([]); // Track legs won per player
+      const [setScores, setSetScores] = useState([]); // Track sets won per player
+      const [matchWinner, setMatchWinner] = useState(null);
+      const [legDartsThrown, setLegDartsThrown] = useState([]); // Track darts thrown per player in current leg
+      const [showNineDarter, setShowNineDarter] = useState(false);
+      const [currentTurnThrows, setCurrentTurnThrows] = useState([]); // Track throws in current turn for wobble detection
+      const [aimWobble, setAimWobble] = useState({ x: 0, y: 0 }); // Wobble offset for aim position
 
       const boardRef = useRef(null);
       const powerIntervalRef = useRef(null);
       const audioContext = useRef(null);
+
+      const countries = [
+        { name: 'Afghanistan', flag: '🇦🇫' },
+        { name: 'Albania', flag: '🇦🇱' },
+        { name: 'Algeria', flag: '🇩🇿' },
+        { name: 'Argentina', flag: '🇦🇷' },
+        { name: 'Armenia', flag: '🇦🇲' },
+        { name: 'Australia', flag: '🇦🇺' },
+        { name: 'Austria', flag: '🇦🇹' },
+        { name: 'Azerbaijan', flag: '🇦🇿' },
+        { name: 'Bahrain', flag: '🇧🇭' },
+        { name: 'Bangladesh', flag: '🇧🇩' },
+        { name: 'Belarus', flag: '🇧🇾' },
+        { name: 'Belgium', flag: '🇧🇪' },
+        { name: 'Bolivia', flag: '🇧🇴' },
+        { name: 'Bosnia', flag: '🇧🇦' },
+        { name: 'Brazil', flag: '🇧🇷' },
+        { name: 'Bulgaria', flag: '🇧🇬' },
+        { name: 'Cambodia', flag: '🇰🇭' },
+        { name: 'Canada', flag: '🇨🇦' },
+        { name: 'Chile', flag: '🇨🇱' },
+        { name: 'China', flag: '🇨🇳' },
+        { name: 'Colombia', flag: '🇨🇴' },
+        { name: 'Costa Rica', flag: '🇨🇷' },
+        { name: 'Croatia', flag: '🇭🇷' },
+        { name: 'Cuba', flag: '🇨🇺' },
+        { name: 'Cyprus', flag: '🇨🇾' },
+        { name: 'Czech Republic', flag: '🇨🇿' },
+        { name: 'Denmark', flag: '🇩🇰' },
+        { name: 'Ecuador', flag: '🇪🇨' },
+        { name: 'Egypt', flag: '🇪🇬' },
+        { name: 'England', flag: '🏴󠁧󠁢󠁥󠁮󠁧󠁿' },
+        { name: 'Estonia', flag: '🇪🇪' },
+        { name: 'Ethiopia', flag: '🇪🇹' },
+        { name: 'Finland', flag: '🇫🇮' },
+        { name: 'France', flag: '🇫🇷' },
+        { name: 'Georgia', flag: '🇬🇪' },
+        { name: 'Germany', flag: '🇩🇪' },
+        { name: 'Ghana', flag: '🇬🇭' },
+        { name: 'Greece', flag: '🇬🇷' },
+        { name: 'Hong Kong', flag: '🇭🇰' },
+        { name: 'Hungary', flag: '🇭🇺' },
+        { name: 'Iceland', flag: '🇮🇸' },
+        { name: 'India', flag: '🇮🇳' },
+        { name: 'Indonesia', flag: '🇮🇩' },
+        { name: 'Iran', flag: '🇮🇷' },
+        { name: 'Iraq', flag: '🇮🇶' },
+        { name: 'Ireland', flag: '🇮🇪' },
+        { name: 'Israel', flag: '🇮🇱' },
+        { name: 'Italy', flag: '🇮🇹' },
+        { name: 'Jamaica', flag: '🇯🇲' },
+        { name: 'Japan', flag: '🇯🇵' },
+        { name: 'Jordan', flag: '🇯🇴' },
+        { name: 'Kazakhstan', flag: '🇰🇿' },
+        { name: 'Kenya', flag: '🇰🇪' },
+        { name: 'Kuwait', flag: '🇰🇼' },
+        { name: 'Latvia', flag: '🇱🇻' },
+        { name: 'Lebanon', flag: '🇱🇧' },
+        { name: 'Libya', flag: '🇱🇾' },
+        { name: 'Lithuania', flag: '🇱🇹' },
+        { name: 'Luxembourg', flag: '🇱🇺' },
+        { name: 'Malaysia', flag: '🇲🇾' },
+        { name: 'Malta', flag: '🇲🇹' },
+        { name: 'Mexico', flag: '🇲🇽' },
+        { name: 'Morocco', flag: '🇲🇦' },
+        { name: 'Nepal', flag: '🇳🇵' },
+        { name: 'Netherlands', flag: '🇳🇱' },
+        { name: 'New Zealand', flag: '🇳🇿' },
+        { name: 'Nigeria', flag: '🇳🇬' },
+        { name: 'North Korea', flag: '🇰🇵' },
+        { name: 'Northern Ireland', flag: '🇬🇧' },
+        { name: 'Norway', flag: '🇳🇴' },
+        { name: 'Pakistan', flag: '🇵🇰' },
+        { name: 'Palestine', flag: '🇵🇸' },
+        { name: 'Panama', flag: '🇵🇦' },
+        { name: 'Peru', flag: '🇵🇪' },
+        { name: 'Philippines', flag: '🇵🇭' },
+        { name: 'Poland', flag: '🇵🇱' },
+        { name: 'Portugal', flag: '🇵🇹' },
+        { name: 'Qatar', flag: '🇶🇦' },
+        { name: 'Romania', flag: '🇷🇴' },
+        { name: 'Russia', flag: '🇷🇺' },
+        { name: 'Saudi Arabia', flag: '🇸🇦' },
+        { name: 'Scotland', flag: '🏴󠁧󠁢󠁳󠁣󠁴󠁿' },
+        { name: 'Senegal', flag: '🇸🇳' },
+        { name: 'Serbia', flag: '🇷🇸' },
+        { name: 'Singapore', flag: '🇸🇬' },
+        { name: 'Slovakia', flag: '🇸🇰' },
+        { name: 'Slovenia', flag: '🇸🇮' },
+        { name: 'South Africa', flag: '🇿🇦' },
+        { name: 'South Korea', flag: '🇰🇷' },
+        { name: 'Spain', flag: '🇪🇸' },
+        { name: 'Sri Lanka', flag: '🇱🇰' },
+        { name: 'Sweden', flag: '🇸🇪' },
+        { name: 'Switzerland', flag: '🇨🇭' },
+        { name: 'Syria', flag: '🇸🇾' },
+        { name: 'Taiwan', flag: '🇹🇼' },
+        { name: 'Thailand', flag: '🇹🇭' },
+        { name: 'Tunisia', flag: '🇹🇳' },
+        { name: 'Turkey', flag: '🇹🇷' },
+        { name: 'UAE', flag: '🇦🇪' },
+        { name: 'Uganda', flag: '🇺🇬' },
+        { name: 'Ukraine', flag: '🇺🇦' },
+        { name: 'United Kingdom', flag: '🇬🇧' },
+        { name: 'Uruguay', flag: '🇺🇾' },
+        { name: 'USA', flag: '🇺🇸' },
+        { name: 'Uzbekistan', flag: '🇺🇿' },
+        { name: 'Venezuela', flag: '🇻🇪' },
+        { name: 'Vietnam', flag: '🇻🇳' },
+        { name: 'Wales', flag: '🏴󠁧󠁢󠁷󠁬󠁳󠁿' },
+        { name: 'Yemen', flag: '🇾🇪' },
+        { name: 'Zimbabwe', flag: '🇿🇼' }
+      ];
 
       const checkoutSuggestions = {
         170: 'T20 T20 Bull', 167: 'T20 T19 Bull', 164: 'T20 T18 Bull', 161: 'T20 T17 Bull',
@@ -146,6 +274,63 @@
               osc.stop(ctx.currentTime + i * 0.15 + 0.2);
             });
             break;
+          case '180':
+            // Exciting ascending celebration sound for 180!
+            [392, 523, 659, 784, 1047, 1319].forEach((freq, i) => {
+              const osc = ctx.createOscillator();
+              const gain = ctx.createGain();
+              osc.connect(gain);
+              gain.connect(ctx.destination);
+              osc.frequency.setValueAtTime(freq, ctx.currentTime + i * 0.08);
+              gain.gain.setValueAtTime(0.4, ctx.currentTime + i * 0.08);
+              gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + i * 0.08 + 0.15);
+              osc.start(ctx.currentTime + i * 0.08);
+              osc.stop(ctx.currentTime + i * 0.08 + 0.15);
+            });
+            break;
+          case 'ninedarter':
+            // Epic crowd roar effect
+            // Create white noise for crowd roar
+            const bufferSize = ctx.sampleRate * 3; // 3 seconds
+            const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+            const data = buffer.getChannelData(0);
+            for (let i = 0; i < bufferSize; i++) {
+              data[i] = Math.random() * 2 - 1;
+            }
+            const crowdNoise = ctx.createBufferSource();
+            crowdNoise.buffer = buffer;
+
+            const crowdFilter = ctx.createBiquadFilter();
+            crowdFilter.type = 'bandpass';
+            crowdFilter.frequency.setValueAtTime(800, ctx.currentTime);
+            crowdFilter.Q.setValueAtTime(1, ctx.currentTime);
+
+            const crowdGain = ctx.createGain();
+            crowdGain.gain.setValueAtTime(0, ctx.currentTime);
+            crowdGain.gain.linearRampToValueAtTime(0.3, ctx.currentTime + 0.5);
+            crowdGain.gain.setValueAtTime(0.3, ctx.currentTime + 2);
+            crowdGain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 3);
+
+            crowdNoise.connect(crowdFilter);
+            crowdFilter.connect(crowdGain);
+            crowdGain.connect(ctx.destination);
+            crowdNoise.start(ctx.currentTime);
+            crowdNoise.stop(ctx.currentTime + 3);
+
+            // Add epic fanfare over the crowd roar
+            [523, 659, 784, 1047, 1319, 1568].forEach((freq, i) => {
+              const osc = ctx.createOscillator();
+              const gain = ctx.createGain();
+              osc.type = 'triangle';
+              osc.connect(gain);
+              gain.connect(ctx.destination);
+              osc.frequency.setValueAtTime(freq, ctx.currentTime + i * 0.15);
+              gain.gain.setValueAtTime(0.25, ctx.currentTime + i * 0.15);
+              gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + i * 0.15 + 0.4);
+              osc.start(ctx.currentTime + i * 0.15);
+              osc.stop(ctx.currentTime + i * 0.15 + 0.4);
+            });
+            break;
         }
       }, [soundEnabled]);
 
@@ -172,10 +357,29 @@
         return { score: baseScore, label: `${baseScore}`, multiplier: 1, base: baseScore };
       }, []);
 
-      const addRandomness = useCallback((targetX, targetY, power) => {
+      const addRandomness = useCallback((targetX, targetY, power, isInPerfectZone) => {
+        // If in perfect zone, guarantee 100% accuracy - no randomness at all
+        if (isInPerfectZone) {
+          return {
+            x: targetX,
+            y: targetY
+          };
+        }
+
+        // Not in perfect zone - apply massive penalty to make hitting targets nearly impossible
         const skillFactor = (100 - skillLevel) / 100;
         const powerFactor = Math.abs(power - 50) / 50;
-        const randomness = (skillFactor * 60 + powerFactor * 40) * (1 + Math.random() * 0.5);
+
+        const skillRandomness = skillFactor * 25;
+        const powerRandomness = powerFactor * 20;
+
+        // Calculate how far from perfect zone (50%)
+        const distanceFromPerfect = Math.abs(power - 50);
+        // Huge penalty: 80 base + up to 60 more based on distance from 50%
+        const perfectZonePenalty = 80 + (distanceFromPerfect * 1.2);
+
+        // Total randomness - very high when outside perfect zone
+        const randomness = skillRandomness + powerRandomness + perfectZonePenalty;
 
         const angle = Math.random() * Math.PI * 2;
         const offset = Math.random() * randomness;
@@ -251,14 +455,107 @@
         }
       };
 
+      const handleLegWin = useCallback((playerIndex, dartsInLeg = null) => {
+        // Check for nine-darter (only possible in 501)
+        // Use passed dartsInLeg if provided, otherwise read from state
+        const playerDartsInLeg = dartsInLeg !== null ? dartsInLeg : (legDartsThrown[playerIndex] || 0);
+        if (playerSetup.gameMode === 501 && playerDartsInLeg === 9) {
+          setShowNineDarter(true);
+          playSound('ninedarter'); // Epic crowd roar and fanfare
+          setTimeout(() => setShowNineDarter(false), 6000);
+        }
+
+        if (playerSetup.gameMode !== 501 || playerDartsInLeg !== 9) {
+          playSound('win'); // Only play regular win sound if not a nine-darter
+        }
+
+        // Update leg scores
+        const newLegScores = [...legScores];
+        newLegScores[playerIndex] = (newLegScores[playerIndex] || 0) + 1;
+        setLegScores(newLegScores);
+
+        // Check if player won the set (first to legsPerSet wins)
+        if (newLegScores[playerIndex] >= playerSetup.legsPerSet) {
+          // Player won the set!
+          const newSetScores = [...setScores];
+          newSetScores[playerIndex] = (newSetScores[playerIndex] || 0) + 1;
+          setSetScores(newSetScores);
+
+          // Check if player won the match (first to setsToWin wins)
+          if (newSetScores[playerIndex] >= playerSetup.setsToWin) {
+            // Player won the match!
+            setMatchWinner(players[playerIndex]);
+            setWinner(players[playerIndex]);
+            return;
+          }
+
+          // Reset legs for new set
+          setLegScores(new Array(players.length).fill(0));
+        }
+
+        // Start new leg
+        setTimeout(() => {
+          const newPlayers = players.map(p => ({
+            ...p,
+            score: playerSetup.gameMode
+          }));
+          setPlayers(newPlayers);
+          setDartsThrown(0);
+          setCurrentTurnScore(0);
+          setDartPositions([]);
+          setTriplesHit(0);
+          setThrowHistory([]);
+          setWinner(null);
+          setLegDartsThrown(new Array(players.length).fill(0));
+        }, 2000);
+      }, [legScores, setScores, players, playerSetup, playSound, legDartsThrown]);
+
       const throwDart = useCallback(() => {
         if (dartsThrown >= 3 || winner) return;
-        
+
         playSound('throw');
-        
-        const finalPosition = addRandomness(aimPosition.x, aimPosition.y, power);
+
+        // Apply wobble offset to aim position (expert mode 180 challenge)
+        const effectiveAimX = aimPosition.x + aimWobble.x;
+        const effectiveAimY = aimPosition.y + aimWobble.y;
+
+        // Check if player is aiming at the winning double
+        const currentPlayer = players[currentPlayerIndex];
+        const aimingAt = calculateScore(effectiveAimX, effectiveAimY);
+        const isAimingAtWinningDouble = isCheckoutPosition && aimingAt.multiplier === 2 && aimingAt.score === currentPlayer.score;
+
+        // Calculate if power is in perfect zone
+        // Beginner mode (40% or below): constant 10% zone, no shrinking
+        // Intermediate (41-80%): shrinks by 2.5% for each perfect hit
+        // Expert (81%+): shrinks by 3% for each perfect hit
+        // Aiming at winning double: ultra-small 2% zone
+        let perfectZoneWidth;
+        if (skillLevel <= 40) {
+          // Beginner mode - constant 10% zone, no shrinking
+          perfectZoneWidth = 10;
+        } else {
+          // Normal mode - shrinking zones
+          if (isAimingAtWinningDouble) {
+            perfectZoneWidth = 2; // Ultra-small zone for winning double
+          } else {
+            const baseZoneWidth = 10;
+            const shrinkRate = skillLevel >= 81 ? 3 : 2.5; // 2.5% for 41-80%, 3% for 81%+
+            perfectZoneWidth = Math.max(baseZoneWidth - (triplesHit * shrinkRate), 4);
+          }
+        }
+        const perfectZoneLeft = 50 - (perfectZoneWidth / 2);
+        const perfectZoneRight = 50 + (perfectZoneWidth / 2);
+        const isInPerfectZone = power > perfectZoneLeft && power < perfectZoneRight;
+
+        // Use effective aim position (includes wobble for expert mode)
+        const finalPosition = addRandomness(effectiveAimX, effectiveAimY, power, isInPerfectZone);
         const result = calculateScore(finalPosition.x, finalPosition.y);
-        
+
+        // Increase difficulty by shrinking perfect zone when perfect throw is hit
+        if (isInPerfectZone) {
+          setTriplesHit(prev => prev + 1);
+        }
+
         setAnimatingDart({ start: { x: CENTER, y: BOARD_SIZE + 50 }, end: finalPosition });
         
         setTimeout(() => {
@@ -271,9 +568,22 @@
           const currentPlayer = players[currentPlayerIndex];
           const newScore = currentPlayer.score - result.score;
           
-          setShowScorePopup({ ...result, position: finalPosition });
-          setTimeout(() => setShowScorePopup(null), 1000);
-          
+          // Track throw for wobble detection (expert mode 180 challenge)
+          setCurrentTurnThrows(prev => [...prev, { score: result.score, multiplier: result.multiplier }]);
+
+          // Check for 180 FIRST (before setting regular popup)
+          const newTurnScore = currentTurnScore + result.score;
+          const is180 = newTurnScore === 180 && dartsThrown + 1 === 3;
+
+          if (is180) {
+            playSound('180');
+            setShowScorePopup({ score: 180, label: '180!!!', position: finalPosition });
+            setTimeout(() => setShowScorePopup(null), 2000);
+          } else {
+            setShowScorePopup({ ...result, position: finalPosition });
+            setTimeout(() => setShowScorePopup(null), 1000);
+          }
+
           if (newScore < 0 || newScore === 1 || (newScore === 0 && result.multiplier !== 2)) {
             playSound('bust');
             setShowScorePopup({ score: 'BUST!', label: 'BUST!', position: finalPosition });
@@ -283,31 +593,47 @@
             }, 1500);
             return;
           }
-          
+
           if (newScore === 0 && result.multiplier === 2) {
-            playSound('win');
-            setWinner(currentPlayer);
             const newPlayers = [...players];
             newPlayers[currentPlayerIndex] = { ...currentPlayer, score: 0 };
             setPlayers(newPlayers);
             updateStats(currentPlayerIndex, result);
+
+            // Calculate final dart count including this winning dart
+            const finalDartCount = (legDartsThrown[currentPlayerIndex] || 0) + 1;
+
+            // Increment leg darts before checking for nine-darter
+            setLegDartsThrown(prev => {
+              const newLegDarts = [...prev];
+              newLegDarts[currentPlayerIndex] = finalDartCount;
+              return newLegDarts;
+            });
+
+            setWinner(currentPlayer); // Set temporary leg winner for display
+            handleLegWin(currentPlayerIndex, finalDartCount);
             return;
           }
-          
+
           const newPlayers = [...players];
           newPlayers[currentPlayerIndex] = { ...currentPlayer, score: newScore };
           setPlayers(newPlayers);
-          
+
           setCurrentTurnScore(prev => prev + result.score);
           setThrowHistory(prev => [...prev, { player: currentPlayerIndex, ...result, remaining: newScore }]);
           setDartsThrown(prev => prev + 1);
+          setLegDartsThrown(prev => {
+            const newLegDarts = [...prev];
+            newLegDarts[currentPlayerIndex] = (newLegDarts[currentPlayerIndex] || 0) + 1;
+            return newLegDarts;
+          });
           updateStats(currentPlayerIndex, result);
-          
+
           if (dartsThrown + 1 >= 3) {
             setTimeout(() => nextPlayer(false), 1000);
           }
         }, 300);
-      }, [aimPosition, power, dartsThrown, players, currentPlayerIndex, winner, calculateScore, addRandomness, playSound]);
+      }, [aimPosition, aimWobble, power, dartsThrown, players, currentPlayerIndex, winner, calculateScore, addRandomness, playSound, isCheckoutPosition, triplesHit, handleLegWin, updateStats, nextPlayer]);
 
       const updateStats = useCallback((playerIndex, result) => {
         setGameStats(prev => {
@@ -340,10 +666,13 @@
           newPlayers[currentPlayerIndex] = { ...players[currentPlayerIndex], score: players[currentPlayerIndex].score + currentTurnScore };
           setPlayers(newPlayers);
         }
-        
+
         setDartsThrown(0);
         setCurrentTurnScore(0);
         setDartPositions([]);
+        setTriplesHit(0);
+        setCurrentTurnThrows([]); // Reset turn throws for wobble detection
+        setAimWobble({ x: 0, y: 0 }); // Reset wobble
         setCurrentPlayerIndex((currentPlayerIndex + 1) % players.length);
       }, [currentPlayerIndex, players, currentTurnScore]);
 
@@ -388,6 +717,59 @@
         }
       }, [isPowerCharging, throwDart]);
 
+      // Touch event handlers for mobile devices (iPhone, iPad, etc.)
+      const handleTouchMove = useCallback((e) => {
+        if (!boardRef.current || isPowerCharging) return;
+        e.preventDefault();
+        const touch = e.touches[0];
+        const rect = boardRef.current.getBoundingClientRect();
+        const x = ((touch.clientX - rect.left) / rect.width) * BOARD_SIZE;
+        const y = ((touch.clientY - rect.top) / rect.height) * BOARD_SIZE;
+        setAimPosition({ x, y });
+      }, [isPowerCharging]);
+
+      const handleTouchStart = useCallback((e) => {
+        const currentPlayer = players[currentPlayerIndex];
+        if (dartsThrown >= 3 || winner || animatingDart || (currentPlayer && currentPlayer.isAI)) return;
+        e.preventDefault();
+
+        // Update aim position on touch start
+        const touch = e.touches[0];
+        const rect = boardRef.current.getBoundingClientRect();
+        const x = ((touch.clientX - rect.left) / rect.width) * BOARD_SIZE;
+        const y = ((touch.clientY - rect.top) / rect.height) * BOARD_SIZE;
+        setAimPosition({ x, y });
+
+        setIsPowerCharging(true);
+        setPower(0);
+
+        let increasing = true;
+        let currentPower = 0;
+
+        powerIntervalRef.current = setInterval(() => {
+          if (increasing) {
+            currentPower += 2;
+            if (currentPower >= 100) increasing = false;
+          } else {
+            currentPower -= 2;
+            if (currentPower <= 0) increasing = true;
+          }
+          setPower(currentPower);
+        }, 20);
+      }, [dartsThrown, winner, animatingDart, players, currentPlayerIndex]);
+
+      const handleTouchEnd = useCallback((e) => {
+        e.preventDefault();
+        if (powerIntervalRef.current) {
+          clearInterval(powerIntervalRef.current);
+          powerIntervalRef.current = null;
+        }
+        if (isPowerCharging) {
+          setIsPowerCharging(false);
+          throwDart();
+        }
+      }, [isPowerCharging, throwDart]);
+
       useEffect(() => {
         return () => {
           if (powerIntervalRef.current) clearInterval(powerIntervalRef.current);
@@ -398,10 +780,51 @@
         const currentPlayer = players[currentPlayerIndex];
         if (currentPlayer && checkoutSuggestions[currentPlayer.score]) {
           setCheckout(checkoutSuggestions[currentPlayer.score]);
+          setIsCheckoutPosition(true);
         } else {
           setCheckout(null);
+          // Also check for simple double finishes (2-40, even numbers)
+          if (currentPlayer && currentPlayer.score >= 2 && currentPlayer.score <= 40 && currentPlayer.score % 2 === 0) {
+            setIsCheckoutPosition(true);
+          } else {
+            setIsCheckoutPosition(false);
+          }
         }
       }, [players, currentPlayerIndex]);
+
+      // Wobble mechanics: Apply aim wobble for pressure moments
+      useEffect(() => {
+        const currentPlayer = players[currentPlayerIndex];
+        if (!currentPlayer || currentPlayer.isAI) return; // Only for human players
+
+        // Condition 1: Expert mode (81%+) and 2 T20s hit in a row (180 attempt)
+        const twoT20sHit = currentTurnThrows.length === 2 &&
+                          currentTurnThrows[0].score === 20 && currentTurnThrows[0].multiplier === 3 &&
+                          currentTurnThrows[1].score === 20 && currentTurnThrows[1].multiplier === 3;
+        const wobbleFor180 = skillLevel >= 81 && twoT20sHit && dartsThrown === 2;
+
+        // Condition 2: Intermediate/Expert (41%+) aiming at winning double (final dart to win leg)
+        const aimingAt = calculateScore(aimPosition.x, aimPosition.y);
+        const isAimingAtWinningDouble = isCheckoutPosition && aimingAt.multiplier === 2 && aimingAt.score === currentPlayer.score;
+        const wobbleForWinningDart = skillLevel >= 41 && isAimingAtWinningDouble && !isPowerCharging;
+
+        // Apply wobble if either condition is met
+        if (wobbleFor180 || wobbleForWinningDart) {
+          // Apply continuous wobble
+          const wobbleInterval = setInterval(() => {
+            const wobbleAmount = 8; // pixels of wobble
+            setAimWobble({
+              x: (Math.random() - 0.5) * wobbleAmount,
+              y: (Math.random() - 0.5) * wobbleAmount
+            });
+          }, 50); // Update every 50ms for smooth wobble
+
+          return () => clearInterval(wobbleInterval);
+        } else {
+          // No wobble - reset
+          setAimWobble({ x: 0, y: 0 });
+        }
+      }, [skillLevel, currentTurnThrows, dartsThrown, isPowerCharging, players, currentPlayerIndex, aimPosition, isCheckoutPosition, calculateScore]);
 
       useEffect(() => {
         const currentPlayer = players[currentPlayerIndex];
@@ -413,18 +836,68 @@
 
             playSound('throw');
 
-            // Apply AI-specific randomness
-            const accuracyFactor = (100 - aiAccuracy) / 100;
-            const randomness = accuracyFactor * 70;
-            const angle = Math.random() * Math.PI * 2;
-            const offset = Math.random() * randomness;
+            // Check if AI is aiming at the winning double
+            const aimingAt = calculateScore(target.x, target.y);
+            const isAimingAtWinningDouble = isCheckoutPosition && aimingAt.multiplier === 2 && aimingAt.score === currentPlayer.score;
 
-            const finalPosition = {
-              x: target.x + Math.cos(angle) * offset,
-              y: target.y + Math.sin(angle) * offset
-            };
+            // Calculate if AI power is in perfect zone
+            // Beginner mode (40% or below): constant 10% zone, no shrinking
+            // Intermediate (41-80%): shrinks by 2.5% for each perfect hit
+            // Expert (81%+): shrinks by 3% for each perfect hit
+            // Aiming at winning double: ultra-small 2% zone
+            let perfectZoneWidth;
+            if (skillLevel <= 40) {
+              // Beginner mode - constant 10% zone, no shrinking
+              perfectZoneWidth = 10;
+            } else {
+              // Normal mode - shrinking zones
+              if (isAimingAtWinningDouble) {
+                perfectZoneWidth = 2; // Ultra-small zone for winning double
+              } else {
+                const baseZoneWidth = 10;
+                const shrinkRate = skillLevel >= 81 ? 3 : 2.5; // 2.5% for 41-80%, 3% for 81%+
+                perfectZoneWidth = Math.max(baseZoneWidth - (triplesHit * shrinkRate), 4);
+              }
+            }
+            const perfectZoneLeft = 50 - (perfectZoneWidth / 2);
+            const perfectZoneRight = 50 + (perfectZoneWidth / 2);
+            const isInPerfectZone = aiPower > perfectZoneLeft && aiPower < perfectZoneRight;
+
+            // Calculate final position with same logic as human players
+            let finalPosition;
+            if (isInPerfectZone) {
+              // Perfect zone hit - 100% accuracy, no randomness
+              finalPosition = {
+                x: target.x,
+                y: target.y
+              };
+            } else {
+              // Not in perfect zone - apply randomness based on AI accuracy and power
+              const effectiveSkillLevel = aiAccuracy;
+              const skillFactor = (100 - effectiveSkillLevel) / 100;
+              const powerFactor = Math.abs(aiPower - 50) / 50;
+              const skillRandomness = skillFactor * 25;
+              const powerRandomness = powerFactor * 20;
+
+              const distanceFromPerfect = Math.abs(aiPower - 50);
+              const perfectZonePenalty = 80 + (distanceFromPerfect * 1.2);
+
+              const randomness = skillRandomness + powerRandomness + perfectZonePenalty;
+              const angle = Math.random() * Math.PI * 2;
+              const offset = Math.random() * randomness;
+
+              finalPosition = {
+                x: target.x + Math.cos(angle) * offset,
+                y: target.y + Math.sin(angle) * offset
+              };
+            }
 
             const result = calculateScore(finalPosition.x, finalPosition.y);
+
+            // Increase difficulty by shrinking perfect zone when perfect throw is hit
+            if (isInPerfectZone) {
+              setTriplesHit(prev => prev + 1);
+            }
 
             setAnimatingDart({ start: { x: CENTER, y: BOARD_SIZE + 50 }, end: finalPosition });
 
@@ -437,8 +910,18 @@
 
               const newScore = currentPlayer.score - result.score;
 
-              setShowScorePopup({ ...result, position: finalPosition });
-              setTimeout(() => setShowScorePopup(null), 1000);
+              // Check for 180 FIRST (before setting regular popup)
+              const newTurnScore = currentTurnScore + result.score;
+              const is180 = newTurnScore === 180 && dartsThrown + 1 === 3;
+
+              if (is180) {
+                playSound('180');
+                setShowScorePopup({ score: 180, label: '180!!!', position: finalPosition });
+                setTimeout(() => setShowScorePopup(null), 2000);
+              } else {
+                setShowScorePopup({ ...result, position: finalPosition });
+                setTimeout(() => setShowScorePopup(null), 1000);
+              }
 
               if (newScore < 0 || newScore === 1 || (newScore === 0 && result.multiplier !== 2)) {
                 playSound('bust');
@@ -451,12 +934,23 @@
               }
 
               if (newScore === 0 && result.multiplier === 2) {
-                playSound('win');
-                setWinner(currentPlayer);
                 const newPlayers = [...players];
                 newPlayers[currentPlayerIndex] = { ...currentPlayer, score: 0 };
                 setPlayers(newPlayers);
                 updateStats(currentPlayerIndex, result);
+
+                // Calculate final dart count including this winning dart
+                const finalDartCount = (legDartsThrown[currentPlayerIndex] || 0) + 1;
+
+                // Increment leg darts before checking for nine-darter
+                setLegDartsThrown(prev => {
+                  const newLegDarts = [...prev];
+                  newLegDarts[currentPlayerIndex] = finalDartCount;
+                  return newLegDarts;
+                });
+
+                setWinner(currentPlayer); // Set temporary leg winner for display
+                handleLegWin(currentPlayerIndex, finalDartCount);
                 return;
               }
 
@@ -467,6 +961,11 @@
               setCurrentTurnScore(prev => prev + result.score);
               setThrowHistory(prev => [...prev, { player: currentPlayerIndex, ...result, remaining: newScore }]);
               setDartsThrown(prev => prev + 1);
+              setLegDartsThrown(prev => {
+                const newLegDarts = [...prev];
+                newLegDarts[currentPlayerIndex] = (newLegDarts[currentPlayerIndex] || 0) + 1;
+                return newLegDarts;
+              });
               updateStats(currentPlayerIndex, result);
 
               if (dartsThrown + 1 >= 3) {
@@ -484,7 +983,8 @@
           name: playerSetup.names[i] || `Player ${i + 1}`,
           score: playerSetup.gameMode,
           isAI: playerSetup.aiPlayers[i] || false,
-          aiDifficulty: playerSetup.aiDifficulty[i] || null
+          aiDifficulty: playerSetup.aiDifficulty[i] || null,
+          flag: playerSetup.flags[i] || '🏴󠁧󠁢󠁥󠁮󠁧󠁿'
         }));
         setPlayers(newPlayers);
         setCurrentPlayerIndex(0);
@@ -494,6 +994,12 @@
         setDartPositions([]);
         setGameStats({});
         setWinner(null);
+        setMatchWinner(null);
+        setTriplesHit(0);
+        setIsCheckoutPosition(false);
+        setLegScores(new Array(playerSetup.count).fill(0));
+        setSetScores(new Array(playerSetup.count).fill(0));
+        setLegDartsThrown(new Array(playerSetup.count).fill(0));
         setGameState('playing');
       };
 
@@ -581,6 +1087,24 @@
               </div>
 
               <div style={{ marginBottom: '30px' }}>
+                <label style={{ color: '#ffd700', fontSize: '14px', letterSpacing: '2px', display: 'block', marginBottom: '10px' }}>LEGS PER SET</label>
+                <div style={{ display: 'flex', gap: '10px' }}>
+                  {[1, 3, 5, 7].map(legs => (
+                    <button key={legs} onClick={() => setPlayerSetup(prev => ({ ...prev, legsPerSet: legs }))} style={{ flex: 1, padding: '15px', fontSize: '20px', fontWeight: '600', background: playerSetup.legsPerSet === legs ? 'linear-gradient(135deg, #ffd700, #ffed4a)' : 'rgba(255, 255, 255, 0.1)', color: playerSetup.legsPerSet === legs ? '#1a1a2e' : '#e8d5b7', border: 'none', borderRadius: '10px', cursor: 'pointer', fontFamily: "'Oswald', sans-serif" }}>{legs}</button>
+                  ))}
+                </div>
+              </div>
+
+              <div style={{ marginBottom: '30px' }}>
+                <label style={{ color: '#ffd700', fontSize: '14px', letterSpacing: '2px', display: 'block', marginBottom: '10px' }}>SETS TO WIN</label>
+                <div style={{ display: 'flex', gap: '10px' }}>
+                  {[1, 3, 5, 7].map(sets => (
+                    <button key={sets} onClick={() => setPlayerSetup(prev => ({ ...prev, setsToWin: sets }))} style={{ flex: 1, padding: '15px', fontSize: '20px', fontWeight: '600', background: playerSetup.setsToWin === sets ? 'linear-gradient(135deg, #ffd700, #ffed4a)' : 'rgba(255, 255, 255, 0.1)', color: playerSetup.setsToWin === sets ? '#1a1a2e' : '#e8d5b7', border: 'none', borderRadius: '10px', cursor: 'pointer', fontFamily: "'Oswald', sans-serif" }}>{sets}</button>
+                  ))}
+                </div>
+              </div>
+
+              <div style={{ marginBottom: '30px' }}>
                 <label style={{ color: '#ffd700', fontSize: '14px', letterSpacing: '2px', display: 'block', marginBottom: '10px' }}>NUMBER OF PLAYERS</label>
                 <div style={{ display: 'flex', gap: '10px' }}>
                   {[1, 2, 3, 4].map(num => (
@@ -592,6 +1116,17 @@
               {Array.from({ length: playerSetup.count }).map((_, i) => (
                 <div key={i} style={{ marginBottom: '20px', background: 'rgba(255, 255, 255, 0.05)', padding: '15px', borderRadius: '10px', border: '1px solid rgba(255, 215, 0, 0.2)' }}>
                   <input type="text" value={playerSetup.names[i]} onChange={(e) => { const newNames = [...playerSetup.names]; newNames[i] = e.target.value; setPlayerSetup(prev => ({ ...prev, names: newNames })); }} placeholder={`Player ${i + 1}`} style={{ width: '100%', padding: '12px', fontSize: '16px', background: 'rgba(255, 255, 255, 0.1)', border: '1px solid rgba(255, 215, 0, 0.3)', borderRadius: '8px', color: '#e8d5b7', outline: 'none', fontFamily: "'Roboto Mono', monospace", boxSizing: 'border-box', marginBottom: '10px' }} />
+
+                  <div style={{ marginBottom: '10px' }}>
+                    <label style={{ color: '#888', fontSize: '11px', letterSpacing: '1px', display: 'block', marginBottom: '8px' }}>NATIONALITY</label>
+                    <select value={playerSetup.flags[i]} onChange={(e) => { const newFlags = [...playerSetup.flags]; newFlags[i] = e.target.value; setPlayerSetup(prev => ({ ...prev, flags: newFlags })); }} style={{ width: '100%', padding: '10px', fontSize: '16px', background: 'rgba(255, 255, 255, 0.1)', border: '1px solid rgba(255, 215, 0, 0.3)', borderRadius: '8px', color: '#e8d5b7', outline: 'none', fontFamily: "'Roboto Mono', monospace", cursor: 'pointer', boxSizing: 'border-box' }}>
+                      {countries.map(country => (
+                        <option key={country.name} value={country.flag} style={{ background: '#1a1a2e', color: '#e8d5b7' }}>
+                          {country.flag} {country.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
 
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: playerSetup.aiPlayers[i] ? '10px' : '0' }}>
                     <span style={{ color: '#888', fontSize: '13px', letterSpacing: '1px' }}>AI OPPONENT</span>
@@ -626,9 +1161,66 @@
               ))}
               
               <div style={{ marginBottom: '30px', marginTop: '30px' }}>
-                <label style={{ color: '#ffd700', fontSize: '14px', letterSpacing: '2px', display: 'block', marginBottom: '10px' }}>SKILL LEVEL: {skillLevel}%</label>
-                <input type="range" min="10" max="100" value={skillLevel} onChange={(e) => setSkillLevel(parseInt(e.target.value))} style={{ width: '100%', accentColor: '#ffd700' }} />
-                <div style={{ display: 'flex', justifyContent: 'space-between', color: '#888', fontSize: '12px', marginTop: '5px' }}><span>Novice</span><span>Pro</span></div>
+                <label style={{ color: '#ffd700', fontSize: '14px', letterSpacing: '2px', display: 'block', marginBottom: '15px' }}>SKILL LEVEL</label>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px' }}>
+                  <button
+                    onClick={() => setSkillLevel(30)}
+                    style={{
+                      padding: '15px 10px',
+                      background: skillLevel <= 40 ? 'linear-gradient(135deg, #228b22, #32cd32)' : 'rgba(255, 255, 255, 0.1)',
+                      color: skillLevel <= 40 ? '#fff' : '#888',
+                      border: skillLevel <= 40 ? '2px solid #32cd32' : '2px solid transparent',
+                      borderRadius: '10px',
+                      cursor: 'pointer',
+                      fontFamily: "'Oswald', sans-serif",
+                      fontSize: '14px',
+                      fontWeight: '600',
+                      transition: 'all 0.2s'
+                    }}
+                  >
+                    <div style={{ fontSize: '16px', marginBottom: '5px' }}>🟢</div>
+                    BEGINNER
+                    <div style={{ fontSize: '10px', marginTop: '5px', opacity: 0.8 }}>1-40%</div>
+                  </button>
+                  <button
+                    onClick={() => setSkillLevel(60)}
+                    style={{
+                      padding: '15px 10px',
+                      background: skillLevel >= 41 && skillLevel <= 80 ? 'linear-gradient(135deg, #ffa500, #ffb732)' : 'rgba(255, 255, 255, 0.1)',
+                      color: skillLevel >= 41 && skillLevel <= 80 ? '#fff' : '#888',
+                      border: skillLevel >= 41 && skillLevel <= 80 ? '2px solid #ffb732' : '2px solid transparent',
+                      borderRadius: '10px',
+                      cursor: 'pointer',
+                      fontFamily: "'Oswald', sans-serif",
+                      fontSize: '14px',
+                      fontWeight: '600',
+                      transition: 'all 0.2s'
+                    }}
+                  >
+                    <div style={{ fontSize: '16px', marginBottom: '5px' }}>🟡</div>
+                    INTERMEDIATE
+                    <div style={{ fontSize: '10px', marginTop: '5px', opacity: 0.8 }}>41-80%</div>
+                  </button>
+                  <button
+                    onClick={() => setSkillLevel(90)}
+                    style={{
+                      padding: '15px 10px',
+                      background: skillLevel >= 81 ? 'linear-gradient(135deg, #c41e3a, #e74c3c)' : 'rgba(255, 255, 255, 0.1)',
+                      color: skillLevel >= 81 ? '#fff' : '#888',
+                      border: skillLevel >= 81 ? '2px solid #e74c3c' : '2px solid transparent',
+                      borderRadius: '10px',
+                      cursor: 'pointer',
+                      fontFamily: "'Oswald', sans-serif",
+                      fontSize: '14px',
+                      fontWeight: '600',
+                      transition: 'all 0.2s'
+                    }}
+                  >
+                    <div style={{ fontSize: '16px', marginBottom: '5px' }}>🔴</div>
+                    EXPERT
+                    <div style={{ fontSize: '10px', marginTop: '5px', opacity: 0.8 }}>81-100%</div>
+                  </button>
+                </div>
               </div>
               
               <div style={{ marginBottom: '30px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -655,6 +1247,7 @@
                 <div key={index} style={{ background: currentPlayerIndex === index ? 'linear-gradient(135deg, rgba(255, 215, 0, 0.2), rgba(255, 215, 0, 0.1))' : 'rgba(255, 255, 255, 0.05)', borderRadius: '15px', padding: '20px', marginBottom: '15px', border: currentPlayerIndex === index ? '2px solid #ffd700' : '1px solid rgba(255, 255, 255, 0.1)' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '5px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span style={{ fontSize: '20px' }}>{player.flag}</span>
                       <span style={{ color: '#e8d5b7', fontSize: '16px' }}>{player.name}</span>
                       {player.isAI && <span style={{ background: 'rgba(100, 149, 237, 0.3)', color: '#6495ed', padding: '2px 8px', borderRadius: '10px', fontSize: '10px', fontWeight: '600', letterSpacing: '1px' }}>AI</span>}
                     </div>
@@ -663,6 +1256,11 @@
                   {player.isAI && <div style={{ fontSize: '10px', color: '#6495ed', marginBottom: '5px', textTransform: 'uppercase' }}>{player.aiDifficulty}</div>}
                   <div style={{ fontSize: '48px', fontWeight: '700', color: player.score <= 170 ? '#32cd32' : '#fff', textAlign: 'center', margin: '10px 0', fontFamily: "'Roboto Mono', monospace" }}>{player.score}</div>
                   {gameStats[index] && <div style={{ fontSize: '12px', color: '#888', textAlign: 'center' }}>Avg: {gameStats[index].averagePerDart} per dart</div>}
+                  {(playerSetup.legsPerSet > 1 || playerSetup.setsToWin > 1) && (
+                    <div style={{ fontSize: '11px', color: '#ffd700', textAlign: 'center', marginTop: '8px', letterSpacing: '1px' }}>
+                      Sets: {setScores[index] || 0} | Legs: {legScores[index] || 0}
+                    </div>
+                  )}
                 </div>
               ))}
               
@@ -687,7 +1285,7 @@
             
             {/* Dartboard */}
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-              <div ref={boardRef} onMouseMove={handleMouseMove} onMouseDown={handleMouseDown} onMouseUp={handleMouseUp} onMouseLeave={handleMouseUp} style={{ width: `${BOARD_SIZE}px`, height: `${BOARD_SIZE}px`, borderRadius: '50%', cursor: isPowerCharging ? 'grabbing' : 'crosshair', boxShadow: '0 0 60px rgba(0, 0, 0, 0.8), inset 0 0 30px rgba(0, 0, 0, 0.5)', position: 'relative', userSelect: 'none' }}>
+              <div ref={boardRef} onMouseMove={handleMouseMove} onMouseDown={handleMouseDown} onMouseUp={handleMouseUp} onMouseLeave={handleMouseUp} onTouchMove={handleTouchMove} onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd} style={{ width: `${BOARD_SIZE}px`, height: `${BOARD_SIZE}px`, borderRadius: '50%', cursor: isPowerCharging ? 'grabbing' : 'crosshair', boxShadow: '0 0 60px rgba(0, 0, 0, 0.8), inset 0 0 30px rgba(0, 0, 0, 0.5)', position: 'relative', userSelect: 'none' }}>
                 <svg width={BOARD_SIZE} height={BOARD_SIZE} style={{ filter: 'drop-shadow(0 0 10px rgba(0,0,0,0.5))' }}>
                   <defs><radialGradient id="boardGradient" cx="50%" cy="50%" r="50%"><stop offset="0%" stopColor="#2a2a4e" /><stop offset="100%" stopColor="#1a1a2e" /></radialGradient></defs>
                   <circle cx={CENTER} cy={CENTER} r={CENTER - 5} fill="url(#boardGradient)" stroke="#b8860b" strokeWidth="8" />
@@ -695,9 +1293,10 @@
                   
                   {!isPowerCharging && !animatingDart && (
                     <g>
-                      <circle cx={aimPosition.x} cy={aimPosition.y} r="15" fill="none" stroke="rgba(255, 215, 0, 0.5)" strokeWidth="2" strokeDasharray="5,5" />
-                      <line x1={aimPosition.x - 20} y1={aimPosition.y} x2={aimPosition.x + 20} y2={aimPosition.y} stroke="rgba(255, 215, 0, 0.5)" strokeWidth="1" />
-                      <line x1={aimPosition.x} y1={aimPosition.y - 20} x2={aimPosition.x} y2={aimPosition.y + 20} stroke="rgba(255, 215, 0, 0.5)" strokeWidth="1" />
+                      {/* Apply wobble offset for expert mode 180 challenge */}
+                      <circle cx={aimPosition.x + aimWobble.x} cy={aimPosition.y + aimWobble.y} r="15" fill="none" stroke="rgba(255, 215, 0, 0.5)" strokeWidth="2" strokeDasharray="5,5" />
+                      <line x1={aimPosition.x + aimWobble.x - 20} y1={aimPosition.y + aimWobble.y} x2={aimPosition.x + aimWobble.x + 20} y2={aimPosition.y + aimWobble.y} stroke="rgba(255, 215, 0, 0.5)" strokeWidth="1" />
+                      <line x1={aimPosition.x + aimWobble.x} y1={aimPosition.y + aimWobble.y - 20} x2={aimPosition.x + aimWobble.x} y2={aimPosition.y + aimWobble.y + 20} stroke="rgba(255, 215, 0, 0.5)" strokeWidth="1" />
                     </g>
                   )}
                   
@@ -706,17 +1305,81 @@
                 </svg>
                 
                 {showScorePopup && (
-                  <div style={{ position: 'absolute', left: showScorePopup.position.x, top: showScorePopup.position.y - 40, transform: 'translateX(-50%)', background: showScorePopup.label === 'BUST!' ? '#c41e3a' : showScorePopup.score === 50 ? '#ffd700' : '#228b22', color: showScorePopup.score === 50 ? '#1a1a2e' : '#fff', padding: '8px 16px', borderRadius: '20px', fontSize: '20px', fontWeight: '700', animation: 'popUp 0.5s ease-out', pointerEvents: 'none', zIndex: 10 }}>{showScorePopup.label}</div>
+                  <div style={{
+                    position: 'absolute',
+                    left: showScorePopup.position.x,
+                    top: showScorePopup.position.y - 40,
+                    transform: 'translateX(-50%)',
+                    background: showScorePopup.label === '180!!!' ? 'linear-gradient(135deg, #ffd700, #ffed4a)' : showScorePopup.label === 'BUST!' ? '#c41e3a' : showScorePopup.score === 50 ? '#ffd700' : '#228b22',
+                    color: (showScorePopup.score === 50 || showScorePopup.label === '180!!!') ? '#1a1a2e' : '#fff',
+                    padding: showScorePopup.label === '180!!!' ? '12px 24px' : '8px 16px',
+                    borderRadius: '20px',
+                    fontSize: showScorePopup.label === '180!!!' ? '32px' : '20px',
+                    fontWeight: '700',
+                    animation: 'popUp 0.5s ease-out',
+                    pointerEvents: 'none',
+                    zIndex: 10,
+                    boxShadow: showScorePopup.label === '180!!!' ? '0 0 30px rgba(255, 215, 0, 0.8)' : 'none'
+                  }}>{showScorePopup.label}</div>
                 )}
               </div>
               
               <div style={{ width: `${BOARD_SIZE}px`, marginTop: '20px' }}>
                 <div style={{ background: 'rgba(255, 255, 255, 0.1)', borderRadius: '10px', height: '30px', overflow: 'hidden', position: 'relative' }}>
-                  <div style={{ height: '100%', width: `${power}%`, background: power > 40 && power < 60 ? 'linear-gradient(90deg, #228b22, #32cd32)' : 'linear-gradient(90deg, #c41e3a, #e74c3c)', transition: isPowerCharging ? 'none' : 'width 0.2s', borderRadius: '10px' }} />
-                  <div style={{ position: 'absolute', left: '50%', top: 0, bottom: 0, width: '4px', marginLeft: '-2px', background: '#ffd700', opacity: 0.5 }} />
-                  <div style={{ position: 'absolute', left: '40%', top: 0, bottom: 0, width: '20%', background: 'rgba(50, 205, 50, 0.2)', borderRadius: '5px' }} />
+                  {(() => {
+                    // Check if player is aiming at the winning double
+                    const currentPlayer = players[currentPlayerIndex];
+                    const aimingAt = currentPlayer ? calculateScore(aimPosition.x, aimPosition.y) : { multiplier: 0, score: 0 };
+                    const isAimingAtWinningDouble = isCheckoutPosition && aimingAt.multiplier === 2 && aimingAt.score === currentPlayer?.score;
+
+                    // Calculate perfect zone width
+                    // Beginner mode (40% or below): constant 10% zone, no shrinking
+                    // Intermediate (41-80%): shrinks by 2.5% for each perfect hit
+                    // Expert (81%+): shrinks by 3% for each perfect hit
+                    // Aiming at winning double: ultra-small 2% zone
+                    let perfectZoneWidth;
+                    if (skillLevel <= 40) {
+                      // Beginner mode - constant 10% zone, no shrinking
+                      perfectZoneWidth = 10;
+                    } else {
+                      // Normal mode - shrinking zones
+                      if (isAimingAtWinningDouble) {
+                        perfectZoneWidth = 2; // Ultra-small zone for winning double
+                      } else {
+                        const baseZoneWidth = 10;
+                        const shrinkRate = skillLevel >= 81 ? 3 : 2.5; // 2.5% for 41-80%, 3% for 81%+
+                        perfectZoneWidth = Math.max(baseZoneWidth - (triplesHit * shrinkRate), 4);
+                      }
+                    }
+
+                    const perfectZoneLeft = 50 - (perfectZoneWidth / 2);
+                    const perfectZoneRight = 50 + (perfectZoneWidth / 2);
+                    const isInPerfectZone = power > perfectZoneLeft && power < perfectZoneRight;
+                    return (
+                      <>
+                        <div style={{ height: '100%', width: `${power}%`, background: isInPerfectZone ? 'linear-gradient(90deg, #228b22, #32cd32)' : 'linear-gradient(90deg, #c41e3a, #e74c3c)', transition: isPowerCharging ? 'none' : 'width 0.2s', borderRadius: '10px' }} />
+                        <div style={{ position: 'absolute', left: '50%', top: 0, bottom: 0, width: '4px', marginLeft: '-2px', background: '#ffd700', opacity: 0.5 }} />
+                        <div style={{ position: 'absolute', left: `${perfectZoneLeft}%`, top: 0, bottom: 0, width: `${perfectZoneWidth}%`, background: 'rgba(50, 205, 50, 0.2)', borderRadius: '5px' }} />
+                      </>
+                    );
+                  })()}
                 </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', color: '#888', fontSize: '12px', marginTop: '5px' }}><span>WEAK</span><span style={{ color: '#32cd32' }}>PERFECT</span><span>STRONG</span></div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', color: '#888', fontSize: '12px', marginTop: '5px' }}>
+                  <span>WEAK</span>
+                  <span style={{ color: isCheckoutPosition ? '#ffd700' : '#32cd32', fontWeight: isCheckoutPosition ? '700' : 'normal' }}>
+                    {(() => {
+                      if (skillLevel <= 40) {
+                        return isCheckoutPosition ? 'CHECKOUT!' : 'PERFECT';
+                      }
+                      const shrinkRate = skillLevel >= 81 ? 3 : 2.5;
+                      const totalShrink = triplesHit > 0 ? triplesHit * shrinkRate : 0;
+                      return isCheckoutPosition
+                        ? `CHECKOUT! ${totalShrink > 0 ? `(-${totalShrink}%)` : ''}`
+                        : `PERFECT ${totalShrink > 0 ? `(-${totalShrink}%)` : ''}`;
+                    })()}
+                  </span>
+                  <span>STRONG</span>
+                </div>
               </div>
               
               <p style={{ color: '#888', marginTop: '15px', fontSize: '14px', textAlign: 'center' }}>{isPowerCharging ? 'Release to throw!' : 'Click and hold to charge, release to throw'}</p>
@@ -734,7 +1397,135 @@
               {throwHistory.length === 0 && <p style={{ color: '#666', textAlign: 'center', fontSize: '14px' }}>No throws yet</p>}
             </div>
           </div>
-          
+
+          {/* Nine-Darter Star Celebration */}
+          {showNineDarter && (
+            <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 200, pointerEvents: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              {/* Background glow effect */}
+              <div style={{
+                position: 'absolute',
+                top: '50%',
+                left: '50%',
+                transform: 'translate(-50%, -50%)',
+                width: '400px',
+                height: '400px',
+                background: 'radial-gradient(circle, rgba(255,215,0,0.3) 0%, rgba(255,215,0,0) 70%)',
+                animation: 'pulseGlow 2s ease-in-out infinite',
+                borderRadius: '50%'
+              }} />
+
+              {/* Sparkle particles */}
+              {[...Array(20)].map((_, i) => (
+                <div key={i} style={{
+                  position: 'absolute',
+                  top: '50%',
+                  left: '50%',
+                  width: '6px',
+                  height: '6px',
+                  background: '#ffd700',
+                  borderRadius: '50%',
+                  boxShadow: '0 0 10px #ffd700',
+                  animation: `sparkle${i % 4} 2s ease-out infinite`,
+                  animationDelay: `${i * 0.1}s`,
+                  opacity: 0
+                }} />
+              ))}
+
+              {/* Star container with epic animation */}
+              <div style={{
+                position: 'relative',
+                animation: 'epicStarEntry 6s cubic-bezier(0.34, 1.56, 0.64, 1)',
+                transformOrigin: 'center center'
+              }}>
+                <svg width="250" height="250" viewBox="0 0 200 200" style={{
+                  filter: 'drop-shadow(0 0 20px rgba(255,215,0,0.8)) drop-shadow(0 0 40px rgba(255,215,0,0.4))',
+                  animation: 'starGlowSequence 6s cubic-bezier(0.34, 1.56, 0.64, 1)'
+                }}>
+                  <defs>
+                    {/* Gold gradient for star */}
+                    <radialGradient id="starGradient">
+                      <stop offset="0%" stopColor="#ffed4a" />
+                      <stop offset="50%" stopColor="#ffd700" />
+                      <stop offset="100%" stopColor="#daa520" />
+                    </radialGradient>
+
+                    {/* Inner glow gradient */}
+                    <radialGradient id="starInnerGlow">
+                      <stop offset="0%" stopColor="#fff" stopOpacity="0.8" />
+                      <stop offset="50%" stopColor="#ffd700" stopOpacity="0.4" />
+                      <stop offset="100%" stopColor="#ffd700" stopOpacity="0" />
+                    </radialGradient>
+                  </defs>
+
+                  {/* Outer glow circles (pulsing) */}
+                  <circle cx="100" cy="100" r="70" fill="url(#starInnerGlow)" opacity="0.6" style={{ animation: 'starPulse 2s ease-in-out infinite' }} />
+                  <circle cx="100" cy="100" r="50" fill="url(#starInnerGlow)" opacity="0.4" style={{ animation: 'starPulse 2s ease-in-out infinite 0.3s' }} />
+
+                  {/* Main 5-pointed star */}
+                  <path
+                    d="M 100 20 L 115 70 L 170 75 L 125 110 L 140 165 L 100 135 L 60 165 L 75 110 L 30 75 L 85 70 Z"
+                    fill="url(#starGradient)"
+                    stroke="#daa520"
+                    strokeWidth="3"
+                    style={{ animation: 'starRotate 4s linear infinite 2s' }}
+                  />
+
+                  {/* Inner star for depth */}
+                  <path
+                    d="M 100 40 L 110 80 L 150 85 L 118 108 L 127 148 L 100 125 L 73 148 L 82 108 L 50 85 L 90 80 Z"
+                    fill="#ffed4a"
+                    opacity="0.7"
+                    style={{ animation: 'starRotate 4s linear infinite 2s' }}
+                  />
+
+                  {/* Center brilliant point */}
+                  <circle cx="100" cy="100" r="15" fill="#fff" opacity="0.9" style={{ animation: 'starTwinkle 1.5s ease-in-out infinite' }} />
+                  <circle cx="100" cy="100" r="8" fill="#ffed4a" style={{ animation: 'starTwinkle 1.5s ease-in-out infinite 0.2s' }} />
+                </svg>
+
+                {/* Epic text */}
+                <div style={{
+                  position: 'absolute',
+                  top: '-80px',
+                  left: '50%',
+                  transform: 'translateX(-50%)',
+                  fontSize: '64px',
+                  fontWeight: '900',
+                  color: '#ffd700',
+                  textShadow: '0 0 30px rgba(255,215,0,1), 0 0 60px rgba(255,215,0,0.8), 0 4px 10px rgba(0,0,0,0.5)',
+                  whiteSpace: 'nowrap',
+                  fontFamily: "'Oswald', sans-serif",
+                  letterSpacing: '4px',
+                  animation: 'textPulse 2s ease-in-out infinite 3s',
+                  opacity: 0,
+                  animationFillMode: 'forwards'
+                }}>
+                  NINE DARTER!!!
+                </div>
+
+                {/* Subtitle */}
+                <div style={{
+                  position: 'absolute',
+                  bottom: '-60px',
+                  left: '50%',
+                  transform: 'translateX(-50%)',
+                  fontSize: '24px',
+                  fontWeight: '600',
+                  color: '#ffed4a',
+                  textShadow: '0 0 20px rgba(255,215,0,0.8)',
+                  whiteSpace: 'nowrap',
+                  fontFamily: "'Oswald', sans-serif",
+                  letterSpacing: '2px',
+                  animation: 'textPulse 2s ease-in-out infinite 3.5s',
+                  opacity: 0,
+                  animationFillMode: 'forwards'
+                }}>
+                  LEGENDARY!
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Stats Modal */}
           {showStats && (
             <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0, 0, 0, 0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }} onClick={() => setShowStats(false)}>
@@ -764,13 +1555,15 @@
           {winner && (
             <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0, 0, 0, 0.9)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }}>
               <div style={{ textAlign: 'center', animation: 'fadeIn 0.5s ease-out' }}>
-                <div style={{ fontSize: '100px', marginBottom: '20px' }}>🏆</div>
-                <h1 style={{ fontSize: '48px', color: '#ffd700', margin: '0 0 10px 0', textShadow: '0 0 30px rgba(255, 215, 0, 0.5)' }}>{winner.name} WINS!</h1>
-                <p style={{ color: '#e8d5b7', fontSize: '20px', marginBottom: '30px' }}>Game Over - Double Out Victory!</p>
-                <div style={{ display: 'flex', gap: '15px', justifyContent: 'center' }}>
-                  <button onClick={startGame} style={{ padding: '15px 40px', background: 'linear-gradient(135deg, #228b22, #32cd32)', color: '#fff', border: 'none', borderRadius: '10px', fontSize: '18px', fontWeight: '600', cursor: 'pointer', fontFamily: "'Oswald', sans-serif" }}>PLAY AGAIN</button>
-                  <button onClick={resetGame} style={{ padding: '15px 40px', background: 'rgba(255, 255, 255, 0.1)', color: '#e8d5b7', border: 'none', borderRadius: '10px', fontSize: '18px', fontWeight: '600', cursor: 'pointer', fontFamily: "'Oswald', sans-serif" }}>MAIN MENU</button>
-                </div>
+                <div style={{ fontSize: '100px', marginBottom: '20px' }}>{matchWinner ? '🏆' : '✓'}</div>
+                <h1 style={{ fontSize: '48px', color: '#ffd700', margin: '0 0 10px 0', textShadow: '0 0 30px rgba(255, 215, 0, 0.5)' }}>{winner.name} {matchWinner ? 'WINS THE MATCH!' : 'WINS THE LEG!'}</h1>
+                <p style={{ color: '#e8d5b7', fontSize: '20px', marginBottom: '30px' }}>{matchWinner ? 'Match Complete - Champion Crowned!' : 'Next leg starting soon...'}</p>
+                {matchWinner && (
+                  <div style={{ display: 'flex', gap: '15px', justifyContent: 'center' }}>
+                    <button onClick={startGame} style={{ padding: '15px 40px', background: 'linear-gradient(135deg, #228b22, #32cd32)', color: '#fff', border: 'none', borderRadius: '10px', fontSize: '18px', fontWeight: '600', cursor: 'pointer', fontFamily: "'Oswald', sans-serif" }}>PLAY AGAIN</button>
+                    <button onClick={resetGame} style={{ padding: '15px 40px', background: 'rgba(255, 255, 255, 0.1)', color: '#e8d5b7', border: 'none', borderRadius: '10px', fontSize: '18px', fontWeight: '600', cursor: 'pointer', fontFamily: "'Oswald', sans-serif" }}>MAIN MENU</button>
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -779,6 +1572,75 @@
             @keyframes popUp { 0% { transform: translateX(-50%) scale(0.5); opacity: 0; } 50% { transform: translateX(-50%) scale(1.2); } 100% { transform: translateX(-50%) scale(1); opacity: 1; } }
             @keyframes fadeIn { from { opacity: 0; transform: scale(0.9); } to { opacity: 1; transform: scale(1); } }
             @keyframes throwDart { from { opacity: 0; transform: translateY(50px); } to { opacity: 1; transform: translateY(0); } }
+
+            /* Epic Nine-Darter Star Animations */
+            @keyframes epicStarEntry {
+              0% { transform: scale(0.3) translateY(100px); opacity: 0; }
+              15% { transform: scale(1.3) translateY(-80px) rotate(0deg); opacity: 1; }
+              30% { transform: scale(1.2) translateY(-60px) rotate(360deg); }
+              45% { transform: scale(1.25) translateY(-40px) rotate(360deg); }
+              60% { transform: scale(1.1) translateY(0px) rotate(720deg); }
+              75% { transform: scale(1.15) translateY(-10px) rotate(720deg); }
+              85% { transform: scale(1.05) translateY(5px) rotate(720deg); }
+              100% { transform: scale(1.1) translateY(0px) rotate(720deg); }
+            }
+
+            @keyframes starGlowSequence {
+              0% { filter: drop-shadow(0 0 10px rgba(255,215,0,0.3)); }
+              50% { filter: drop-shadow(0 0 50px rgba(255,215,0,1)) drop-shadow(0 0 100px rgba(255,215,0,0.8)); }
+              100% { filter: drop-shadow(0 0 40px rgba(255,215,0,0.9)) drop-shadow(0 0 80px rgba(255,215,0,0.6)); }
+            }
+
+            @keyframes starRotate {
+              0% { transform: rotate(0deg); }
+              100% { transform: rotate(360deg); }
+            }
+
+            @keyframes starPulse {
+              0%, 100% { transform: scale(1); opacity: 0.6; }
+              50% { transform: scale(1.2); opacity: 0.3; }
+            }
+
+            @keyframes starTwinkle {
+              0%, 100% { opacity: 0.9; transform: scale(1); }
+              50% { opacity: 0.4; transform: scale(0.7); }
+            }
+
+            @keyframes pulseGlow {
+              0%, 100% { transform: translate(-50%, -50%) scale(1); opacity: 0.4; }
+              50% { transform: translate(-50%, -50%) scale(1.3); opacity: 0.7; }
+            }
+
+            @keyframes textPulse {
+              0% { opacity: 0; transform: translateX(-50%) scale(0.5); }
+              10% { opacity: 1; transform: translateX(-50%) scale(1.2); }
+              20% { opacity: 1; transform: translateX(-50%) scale(1); }
+              30%, 100% { opacity: 1; transform: translateX(-50%) scale(1); }
+            }
+
+            @keyframes sparkle0 {
+              0% { transform: translate(0, 0) scale(0); opacity: 0; }
+              10% { opacity: 1; }
+              100% { transform: translate(120px, -150px) scale(1); opacity: 0; }
+            }
+
+            @keyframes sparkle1 {
+              0% { transform: translate(0, 0) scale(0); opacity: 0; }
+              10% { opacity: 1; }
+              100% { transform: translate(-130px, -140px) scale(1); opacity: 0; }
+            }
+
+            @keyframes sparkle2 {
+              0% { transform: translate(0, 0) scale(0); opacity: 0; }
+              10% { opacity: 1; }
+              100% { transform: translate(140px, 120px) scale(1); opacity: 0; }
+            }
+
+            @keyframes sparkle3 {
+              0% { transform: translate(0, 0) scale(0); opacity: 0; }
+              10% { opacity: 1; }
+              100% { transform: translate(-110px, 130px) scale(1); opacity: 0; }
+            }
           `}</style>
         </div>
       );
