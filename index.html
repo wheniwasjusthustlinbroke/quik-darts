@@ -53,7 +53,7 @@
       const [skillLevel, setSkillLevel] = useState(50);
       const [soundEnabled, setSoundEnabled] = useState(true);
       const [showStats, setShowStats] = useState(false);
-      const [playerSetup, setPlayerSetup] = useState({ count: 1, names: ['Player 1', 'Player 2', 'Player 3', 'Player 4'], gameMode: 501, aiPlayers: [false, false, false, false], aiDifficulty: [null, null, null, null], legsPerSet: 3, setsToWin: 1 });
+      const [playerSetup, setPlayerSetup] = useState({ count: 1, names: ['Player 1', 'Player 2', 'Player 3', 'Player 4'], gameMode: 501, aiPlayers: [false, false, false, false], aiDifficulty: [null, null, null, null], legsPerSet: 3, setsToWin: 1, flags: ['🏴󠁧󠁢󠁥󠁮󠁧󠁿', '🏴󠁧󠁢󠁥󠁮󠁧󠁿', '🏴󠁧󠁢󠁥󠁮󠁧󠁿', '🏴󠁧󠁢󠁥󠁮󠁧󠁿'] });
       const [animatingDart, setAnimatingDart] = useState(null);
       const [checkout, setCheckout] = useState(null);
       const [triplesHit, setTriplesHit] = useState(0);
@@ -65,6 +65,119 @@
       const boardRef = useRef(null);
       const powerIntervalRef = useRef(null);
       const audioContext = useRef(null);
+
+      const countries = [
+        { name: 'Afghanistan', flag: '🇦🇫' },
+        { name: 'Albania', flag: '🇦🇱' },
+        { name: 'Algeria', flag: '🇩🇿' },
+        { name: 'Argentina', flag: '🇦🇷' },
+        { name: 'Armenia', flag: '🇦🇲' },
+        { name: 'Australia', flag: '🇦🇺' },
+        { name: 'Austria', flag: '🇦🇹' },
+        { name: 'Azerbaijan', flag: '🇦🇿' },
+        { name: 'Bahrain', flag: '🇧🇭' },
+        { name: 'Bangladesh', flag: '🇧🇩' },
+        { name: 'Belarus', flag: '🇧🇾' },
+        { name: 'Belgium', flag: '🇧🇪' },
+        { name: 'Bolivia', flag: '🇧🇴' },
+        { name: 'Bosnia', flag: '🇧🇦' },
+        { name: 'Brazil', flag: '🇧🇷' },
+        { name: 'Bulgaria', flag: '🇧🇬' },
+        { name: 'Cambodia', flag: '🇰🇭' },
+        { name: 'Canada', flag: '🇨🇦' },
+        { name: 'Chile', flag: '🇨🇱' },
+        { name: 'China', flag: '🇨🇳' },
+        { name: 'Colombia', flag: '🇨🇴' },
+        { name: 'Costa Rica', flag: '🇨🇷' },
+        { name: 'Croatia', flag: '🇭🇷' },
+        { name: 'Cuba', flag: '🇨🇺' },
+        { name: 'Cyprus', flag: '🇨🇾' },
+        { name: 'Czech Republic', flag: '🇨🇿' },
+        { name: 'Denmark', flag: '🇩🇰' },
+        { name: 'Ecuador', flag: '🇪🇨' },
+        { name: 'Egypt', flag: '🇪🇬' },
+        { name: 'England', flag: '🏴󠁧󠁢󠁥󠁮󠁧󠁿' },
+        { name: 'Estonia', flag: '🇪🇪' },
+        { name: 'Ethiopia', flag: '🇪🇹' },
+        { name: 'Finland', flag: '🇫🇮' },
+        { name: 'France', flag: '🇫🇷' },
+        { name: 'Georgia', flag: '🇬🇪' },
+        { name: 'Germany', flag: '🇩🇪' },
+        { name: 'Ghana', flag: '🇬🇭' },
+        { name: 'Greece', flag: '🇬🇷' },
+        { name: 'Hong Kong', flag: '🇭🇰' },
+        { name: 'Hungary', flag: '🇭🇺' },
+        { name: 'Iceland', flag: '🇮🇸' },
+        { name: 'India', flag: '🇮🇳' },
+        { name: 'Indonesia', flag: '🇮🇩' },
+        { name: 'Iran', flag: '🇮🇷' },
+        { name: 'Iraq', flag: '🇮🇶' },
+        { name: 'Ireland', flag: '🇮🇪' },
+        { name: 'Israel', flag: '🇮🇱' },
+        { name: 'Italy', flag: '🇮🇹' },
+        { name: 'Jamaica', flag: '🇯🇲' },
+        { name: 'Japan', flag: '🇯🇵' },
+        { name: 'Jordan', flag: '🇯🇴' },
+        { name: 'Kazakhstan', flag: '🇰🇿' },
+        { name: 'Kenya', flag: '🇰🇪' },
+        { name: 'Kuwait', flag: '🇰🇼' },
+        { name: 'Latvia', flag: '🇱🇻' },
+        { name: 'Lebanon', flag: '🇱🇧' },
+        { name: 'Libya', flag: '🇱🇾' },
+        { name: 'Lithuania', flag: '🇱🇹' },
+        { name: 'Luxembourg', flag: '🇱🇺' },
+        { name: 'Malaysia', flag: '🇲🇾' },
+        { name: 'Malta', flag: '🇲🇹' },
+        { name: 'Mexico', flag: '🇲🇽' },
+        { name: 'Morocco', flag: '🇲🇦' },
+        { name: 'Nepal', flag: '🇳🇵' },
+        { name: 'Netherlands', flag: '🇳🇱' },
+        { name: 'New Zealand', flag: '🇳🇿' },
+        { name: 'Nigeria', flag: '🇳🇬' },
+        { name: 'North Korea', flag: '🇰🇵' },
+        { name: 'Northern Ireland', flag: '🇬🇧' },
+        { name: 'Norway', flag: '🇳🇴' },
+        { name: 'Pakistan', flag: '🇵🇰' },
+        { name: 'Palestine', flag: '🇵🇸' },
+        { name: 'Panama', flag: '🇵🇦' },
+        { name: 'Peru', flag: '🇵🇪' },
+        { name: 'Philippines', flag: '🇵🇭' },
+        { name: 'Poland', flag: '🇵🇱' },
+        { name: 'Portugal', flag: '🇵🇹' },
+        { name: 'Qatar', flag: '🇶🇦' },
+        { name: 'Romania', flag: '🇷🇴' },
+        { name: 'Russia', flag: '🇷🇺' },
+        { name: 'Saudi Arabia', flag: '🇸🇦' },
+        { name: 'Scotland', flag: '🏴󠁧󠁢󠁳󠁣󠁴󠁿' },
+        { name: 'Senegal', flag: '🇸🇳' },
+        { name: 'Serbia', flag: '🇷🇸' },
+        { name: 'Singapore', flag: '🇸🇬' },
+        { name: 'Slovakia', flag: '🇸🇰' },
+        { name: 'Slovenia', flag: '🇸🇮' },
+        { name: 'South Africa', flag: '🇿🇦' },
+        { name: 'South Korea', flag: '🇰🇷' },
+        { name: 'Spain', flag: '🇪🇸' },
+        { name: 'Sri Lanka', flag: '🇱🇰' },
+        { name: 'Sweden', flag: '🇸🇪' },
+        { name: 'Switzerland', flag: '🇨🇭' },
+        { name: 'Syria', flag: '🇸🇾' },
+        { name: 'Taiwan', flag: '🇹🇼' },
+        { name: 'Thailand', flag: '🇹🇭' },
+        { name: 'Tunisia', flag: '🇹🇳' },
+        { name: 'Turkey', flag: '🇹🇷' },
+        { name: 'UAE', flag: '🇦🇪' },
+        { name: 'Uganda', flag: '🇺🇬' },
+        { name: 'Ukraine', flag: '🇺🇦' },
+        { name: 'United Kingdom', flag: '🇬🇧' },
+        { name: 'Uruguay', flag: '🇺🇾' },
+        { name: 'USA', flag: '🇺🇸' },
+        { name: 'Uzbekistan', flag: '🇺🇿' },
+        { name: 'Venezuela', flag: '🇻🇪' },
+        { name: 'Vietnam', flag: '🇻🇳' },
+        { name: 'Wales', flag: '🏴󠁧󠁢󠁷󠁬󠁳󠁿' },
+        { name: 'Yemen', flag: '🇾🇪' },
+        { name: 'Zimbabwe', flag: '🇿🇼' }
+      ];
 
       const checkoutSuggestions = {
         170: 'T20 T20 Bull', 167: 'T20 T19 Bull', 164: 'T20 T18 Bull', 161: 'T20 T17 Bull',
@@ -681,7 +794,8 @@
           name: playerSetup.names[i] || `Player ${i + 1}`,
           score: playerSetup.gameMode,
           isAI: playerSetup.aiPlayers[i] || false,
-          aiDifficulty: playerSetup.aiDifficulty[i] || null
+          aiDifficulty: playerSetup.aiDifficulty[i] || null,
+          flag: playerSetup.flags[i] || '🏴󠁧󠁢󠁥󠁮󠁧󠁿'
         }));
         setPlayers(newPlayers);
         setCurrentPlayerIndex(0);
@@ -813,6 +927,17 @@
                 <div key={i} style={{ marginBottom: '20px', background: 'rgba(255, 255, 255, 0.05)', padding: '15px', borderRadius: '10px', border: '1px solid rgba(255, 215, 0, 0.2)' }}>
                   <input type="text" value={playerSetup.names[i]} onChange={(e) => { const newNames = [...playerSetup.names]; newNames[i] = e.target.value; setPlayerSetup(prev => ({ ...prev, names: newNames })); }} placeholder={`Player ${i + 1}`} style={{ width: '100%', padding: '12px', fontSize: '16px', background: 'rgba(255, 255, 255, 0.1)', border: '1px solid rgba(255, 215, 0, 0.3)', borderRadius: '8px', color: '#e8d5b7', outline: 'none', fontFamily: "'Roboto Mono', monospace", boxSizing: 'border-box', marginBottom: '10px' }} />
 
+                  <div style={{ marginBottom: '10px' }}>
+                    <label style={{ color: '#888', fontSize: '11px', letterSpacing: '1px', display: 'block', marginBottom: '8px' }}>NATIONALITY</label>
+                    <select value={playerSetup.flags[i]} onChange={(e) => { const newFlags = [...playerSetup.flags]; newFlags[i] = e.target.value; setPlayerSetup(prev => ({ ...prev, flags: newFlags })); }} style={{ width: '100%', padding: '10px', fontSize: '16px', background: 'rgba(255, 255, 255, 0.1)', border: '1px solid rgba(255, 215, 0, 0.3)', borderRadius: '8px', color: '#e8d5b7', outline: 'none', fontFamily: "'Roboto Mono', monospace", cursor: 'pointer', boxSizing: 'border-box' }}>
+                      {countries.map(country => (
+                        <option key={country.name} value={country.flag} style={{ background: '#1a1a2e', color: '#e8d5b7' }}>
+                          {country.flag} {country.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: playerSetup.aiPlayers[i] ? '10px' : '0' }}>
                     <span style={{ color: '#888', fontSize: '13px', letterSpacing: '1px' }}>AI OPPONENT</span>
                     <button onClick={() => {
@@ -875,6 +1000,7 @@
                 <div key={index} style={{ background: currentPlayerIndex === index ? 'linear-gradient(135deg, rgba(255, 215, 0, 0.2), rgba(255, 215, 0, 0.1))' : 'rgba(255, 255, 255, 0.05)', borderRadius: '15px', padding: '20px', marginBottom: '15px', border: currentPlayerIndex === index ? '2px solid #ffd700' : '1px solid rgba(255, 255, 255, 0.1)' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '5px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span style={{ fontSize: '20px' }}>{player.flag}</span>
                       <span style={{ color: '#e8d5b7', fontSize: '16px' }}>{player.name}</span>
                       {player.isAI && <span style={{ background: 'rgba(100, 149, 237, 0.3)', color: '#6495ed', padding: '2px 8px', borderRadius: '10px', fontSize: '10px', fontWeight: '600', letterSpacing: '1px' }}>AI</span>}
                     </div>
