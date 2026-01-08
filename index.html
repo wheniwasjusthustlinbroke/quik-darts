@@ -473,7 +473,8 @@
 
         // Calculate if power is in perfect zone
         // Beginner mode (40% or below): constant 10% zone, no shrinking
-        // Normal/Checkout: shrinks by 2% for each perfect hit
+        // Intermediate (41-80%): shrinks by 2.5% for each perfect hit
+        // Expert (81%+): shrinks by 2% for each perfect hit
         // Aiming at winning double: ultra-small 2% zone
         let perfectZoneWidth;
         if (skillLevel <= 40) {
@@ -485,7 +486,8 @@
             perfectZoneWidth = 2; // Ultra-small zone for winning double
           } else {
             const baseZoneWidth = 10;
-            perfectZoneWidth = Math.max(baseZoneWidth - (triplesHit * 2), 4);
+            const shrinkRate = skillLevel >= 81 ? 2 : 2.5; // 2.5% for 41-80%, 2% for 81%+
+            perfectZoneWidth = Math.max(baseZoneWidth - (triplesHit * shrinkRate), 4);
           }
         }
         const perfectZoneLeft = 50 - (perfectZoneWidth / 2);
@@ -734,7 +736,8 @@
 
             // Calculate if AI power is in perfect zone
             // Beginner mode (40% or below): constant 10% zone, no shrinking
-            // Normal/Checkout: shrinks by 2% for each perfect hit
+            // Intermediate (41-80%): shrinks by 2.5% for each perfect hit
+            // Expert (81%+): shrinks by 2% for each perfect hit
             // Aiming at winning double: ultra-small 2% zone
             let perfectZoneWidth;
             if (skillLevel <= 40) {
@@ -746,7 +749,8 @@
                 perfectZoneWidth = 2; // Ultra-small zone for winning double
               } else {
                 const baseZoneWidth = 10;
-                perfectZoneWidth = Math.max(baseZoneWidth - (triplesHit * 2), 4);
+                const shrinkRate = skillLevel >= 81 ? 2 : 2.5; // 2.5% for 41-80%, 2% for 81%+
+                perfectZoneWidth = Math.max(baseZoneWidth - (triplesHit * shrinkRate), 4);
               }
             }
             const perfectZoneLeft = 50 - (perfectZoneWidth / 2);
@@ -1153,7 +1157,8 @@
 
                     // Calculate perfect zone width
                     // Beginner mode (40% or below): constant 10% zone, no shrinking
-                    // Normal/Checkout: shrinks by 2% for each perfect hit
+                    // Intermediate (41-80%): shrinks by 2.5% for each perfect hit
+                    // Expert (81%+): shrinks by 2% for each perfect hit
                     // Aiming at winning double: ultra-small 2% zone
                     let perfectZoneWidth;
                     if (skillLevel <= 40) {
@@ -1165,7 +1170,8 @@
                         perfectZoneWidth = 2; // Ultra-small zone for winning double
                       } else {
                         const baseZoneWidth = 10;
-                        perfectZoneWidth = Math.max(baseZoneWidth - (triplesHit * 2), 4);
+                        const shrinkRate = skillLevel >= 81 ? 2 : 2.5; // 2.5% for 41-80%, 2% for 81%+
+                        perfectZoneWidth = Math.max(baseZoneWidth - (triplesHit * shrinkRate), 4);
                       }
                     }
 
@@ -1184,7 +1190,16 @@
                 <div style={{ display: 'flex', justifyContent: 'space-between', color: '#888', fontSize: '12px', marginTop: '5px' }}>
                   <span>WEAK</span>
                   <span style={{ color: isCheckoutPosition ? '#ffd700' : '#32cd32', fontWeight: isCheckoutPosition ? '700' : 'normal' }}>
-                    {isCheckoutPosition ? `CHECKOUT! ${triplesHit > 0 ? `(-${triplesHit * 2}%)` : ''}` : `PERFECT ${triplesHit > 0 ? `(-${triplesHit * 2}%)` : ''}`}
+                    {(() => {
+                      if (skillLevel <= 40) {
+                        return isCheckoutPosition ? 'CHECKOUT!' : 'PERFECT';
+                      }
+                      const shrinkRate = skillLevel >= 81 ? 2 : 2.5;
+                      const totalShrink = triplesHit > 0 ? triplesHit * shrinkRate : 0;
+                      return isCheckoutPosition
+                        ? `CHECKOUT! ${totalShrink > 0 ? `(-${totalShrink}%)` : ''}`
+                        : `PERFECT ${totalShrink > 0 ? `(-${totalShrink}%)` : ''}`;
+                    })()}
                   </span>
                   <span>STRONG</span>
                 </div>
