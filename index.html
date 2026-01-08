@@ -448,14 +448,20 @@
         const isAimingAtCheckoutDouble = isCheckoutPosition && aimingAt.multiplier === 2 && aimingAt.score === currentPlayer.score;
 
         // Calculate if power is in perfect zone
-        // Normal: 10%, Aiming at winning double: 2%
-        let baseZoneWidth;
+        // Normal: 10% (shrinks with triples), Checkout: 10% (no shrinking), Aiming at winning double: 2%
+        let perfectZoneWidth;
         if (isAimingAtCheckoutDouble) {
-          baseZoneWidth = 2; // Aiming at winning double - ultra small
+          // Aiming at winning double - ultra small zone that can shrink
+          const baseZoneWidth = 2;
+          perfectZoneWidth = Math.max(baseZoneWidth - (triplesHit * 2), 1);
+        } else if (isCheckoutPosition) {
+          // On checkout but not aiming at winning double - keep zone at 10%, no shrinking
+          perfectZoneWidth = 10;
         } else {
-          baseZoneWidth = 10; // Normal throw (including checkout position)
+          // Normal throw - zone can shrink based on triples hit
+          const baseZoneWidth = 10;
+          perfectZoneWidth = Math.max(baseZoneWidth - (triplesHit * 2), 4);
         }
-        const perfectZoneWidth = Math.max(baseZoneWidth - (triplesHit * 2), isAimingAtCheckoutDouble ? 1 : 4);
         const perfectZoneLeft = 50 - (perfectZoneWidth / 2);
         const perfectZoneRight = 50 + (perfectZoneWidth / 2);
         const isInPerfectZone = power > perfectZoneLeft && power < perfectZoneRight;
@@ -688,14 +694,20 @@
             const isAimingAtCheckoutDouble = isCheckoutPosition && aimingAt.multiplier === 2 && aimingAt.score === currentPlayer.score;
 
             // Calculate if AI power is in perfect zone
-            // Normal: 10%, Aiming at winning double: 2%
-            let baseZoneWidth;
+            // Normal: 10% (shrinks with triples), Checkout: 10% (no shrinking), Aiming at winning double: 2%
+            let perfectZoneWidth;
             if (isAimingAtCheckoutDouble) {
-              baseZoneWidth = 2; // Aiming at winning double - ultra small
+              // Aiming at winning double - ultra small zone that can shrink
+              const baseZoneWidth = 2;
+              perfectZoneWidth = Math.max(baseZoneWidth - (triplesHit * 2), 1);
+            } else if (isCheckoutPosition) {
+              // On checkout but not aiming at winning double - keep zone at 10%, no shrinking
+              perfectZoneWidth = 10;
             } else {
-              baseZoneWidth = 10; // Normal throw (including checkout position)
+              // Normal throw - zone can shrink based on triples hit
+              const baseZoneWidth = 10;
+              perfectZoneWidth = Math.max(baseZoneWidth - (triplesHit * 2), 4);
             }
-            const perfectZoneWidth = Math.max(baseZoneWidth - (triplesHit * 2), isAimingAtCheckoutDouble ? 1 : 4);
             const perfectZoneLeft = 50 - (perfectZoneWidth / 2);
             const perfectZoneRight = 50 + (perfectZoneWidth / 2);
             const isInPerfectZone = aiPower > perfectZoneLeft && aiPower < perfectZoneRight;
