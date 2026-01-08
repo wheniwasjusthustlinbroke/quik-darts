@@ -422,8 +422,8 @@
               gameMode: playerSetup.gameMode,
               dartsThrown: 0,
               currentTurnScore: 0,
-              throwHistory: [],
-              dartPositions: [],
+              throwHistory: {},
+              dartPositions: {},
               legScores: [0, 0],
               setScores: [0, 0],
               status: 'playing',
@@ -518,8 +518,15 @@
           setCurrentPlayerIndex(gameData.currentPlayer);
           setDartsThrown(gameData.dartsThrown);
           setCurrentTurnScore(gameData.currentTurnScore);
-          setThrowHistory(gameData.throwHistory || []);
-          setDartPositions(gameData.dartPositions || []);
+
+          // Convert throwHistory from Firebase object to array
+          const throwsArray = gameData.throwHistory ? Object.values(gameData.throwHistory) : [];
+          setThrowHistory(throwsArray);
+
+          // Convert dartPositions from Firebase object to array
+          const dartsArray = gameData.dartPositions ? Object.values(gameData.dartPositions) : [];
+          setDartPositions(dartsArray);
+
           setLegScores(gameData.legScores || [0, 0]);
           setSetScores(gameData.setScores || [0, 0]);
 
@@ -535,9 +542,14 @@
       const syncThrowToFirebase = useCallback((throwData) => {
         if (!onlineMode || !gameRoomRef.current) return;
 
+        // Push the throw to history
         gameRoomRef.current.child('throwHistory').push(throwData);
+
+        // Add dart position to array
+        gameRoomRef.current.child('dartPositions').push(throwData.position);
+
+        // Update game state
         gameRoomRef.current.update({
-          dartPositions: firebase.database.ServerValue.increment(1),
           dartsThrown: throwData.dartsThrown,
           currentTurnScore: throwData.currentTurnScore,
           currentPlayer: throwData.currentPlayer
