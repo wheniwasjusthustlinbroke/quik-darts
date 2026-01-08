@@ -8,6 +8,10 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
+
+  <!-- Firebase SDKs -->
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
@@ -23,6 +27,29 @@
   <div id="root"></div>
   <script type="text/babel">
     const { useState, useRef, useEffect, useCallback } = React;
+
+    // Firebase Configuration
+    // IMPORTANT: Replace with your Firebase project credentials from Firebase Console
+    const firebaseConfig = {
+      apiKey: "YOUR_API_KEY",
+      authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
+      databaseURL: "https://YOUR_PROJECT_ID-default-rtdb.firebaseio.com",
+      projectId: "YOUR_PROJECT_ID",
+      storageBucket: "YOUR_PROJECT_ID.appspot.com",
+      messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
+      appId: "YOUR_APP_ID"
+    };
+
+    // Initialize Firebase
+    let database = null;
+    try {
+      if (!firebase.apps.length) {
+        firebase.initializeApp(firebaseConfig);
+      }
+      database = firebase.database();
+    } catch (error) {
+      console.warn('Firebase not configured. Online multiplayer disabled.', error);
+    }
 
     const BOARD_SIZE = 500;
     const CENTER = BOARD_SIZE / 2;
@@ -65,6 +92,15 @@
       const [showNineDarter, setShowNineDarter] = useState(false);
       const [currentTurnThrows, setCurrentTurnThrows] = useState([]); // Track throws in current turn for wobble detection
       const [aimWobble, setAimWobble] = useState({ x: 0, y: 0 }); // Wobble offset for aim position
+
+      // Online multiplayer states
+      const [onlineMode, setOnlineMode] = useState(false); // true when in online multiplayer
+      const [matchmakingState, setMatchmakingState] = useState(null); // null, 'searching', 'found', 'playing'
+      const [gameRoomId, setGameRoomId] = useState(null); // Firebase room ID
+      const [playerId, setPlayerId] = useState(null); // Player 1 or Player 2
+      const [opponentName, setOpponentName] = useState('');
+      const [opponentFlag, setOpponentFlag] = useState('🌍');
+      const gameRoomRef = useRef(null); // Firebase room reference
 
       const boardRef = useRef(null);
       const powerIntervalRef = useRef(null);
@@ -334,6 +370,207 @@
         }
       }, [soundEnabled]);
 
+      // ========== ONLINE MULTIPLAYER FUNCTIONS ==========
+
+      // Start matchmaking - find a random opponent
+      const startMatchmaking = useCallback(() => {
+        if (!database) {
+          alert('Firebase not configured. Please add your Firebase credentials to play online.');
+          return;
+        }
+
+        setMatchmakingState('searching');
+        setOnlineMode(true);
+        const queueRef = database.ref('matchmaking_queue');
+
+        // Generate unique player ID
+        const myPlayerId = database.ref().push().key;
+        setPlayerId(myPlayerId);
+
+        // Look for available opponent in queue
+        queueRef.orderByChild('timestamp').limitToFirst(1).once('value', (snapshot) => {
+          if (snapshot.exists()) {
+            // Found an opponent - join their game
+            const opponentId = Object.keys(snapshot.val())[0];
+            const opponentData = snapshot.val()[opponentId];
+
+            // Remove opponent from queue
+            queueRef.child(opponentId).remove();
+
+            // Create game room
+            const roomId = database.ref().push().key;
+            setGameRoomId(roomId);
+            gameRoomRef.current = database.ref(`games/${roomId}`);
+
+            // Set up game data
+            gameRoomRef.current.set({
+              player1: {
+                id: opponentData.playerId,
+                name: opponentData.name,
+                flag: opponentData.flag,
+                score: playerSetup.gameMode,
+                ready: true
+              },
+              player2: {
+                id: myPlayerId,
+                name: playerSetup.names[0] || 'Player 2',
+                flag: playerSetup.flags[0] || '🌍',
+                score: playerSetup.gameMode,
+                ready: true
+              },
+              currentPlayer: 0,
+              gameMode: playerSetup.gameMode,
+              dartsThrown: 0,
+              currentTurnScore: 0,
+              throwHistory: [],
+              dartPositions: [],
+              legScores: [0, 0],
+              setScores: [0, 0],
+              status: 'playing',
+              createdAt: firebase.database.ServerValue.TIMESTAMP
+            });
+
+            setOpponentName(opponentData.name);
+            setOpponentFlag(opponentData.flag);
+            setMatchmakingState('found');
+
+            // Start game as player 2
+            setTimeout(() => startOnlineGame(roomId, 1), 1500);
+
+          } else {
+            // No opponent found - add self to queue
+            const myQueueEntry = {
+              playerId: myPlayerId,
+              name: playerSetup.names[0] || 'Player 1',
+              flag: playerSetup.flags[0] || '🌍',
+              timestamp: firebase.database.ServerValue.TIMESTAMP
+            };
+
+            queueRef.child(myPlayerId).set(myQueueEntry);
+
+            // Listen for when someone joins
+            const checkInterval = setInterval(() => {
+              database.ref(`games`).orderByChild('player1/id').equalTo(myPlayerId).once('value', (gameSnapshot) => {
+                if (gameSnapshot.exists()) {
+                  clearInterval(checkInterval);
+                  queueRef.child(myPlayerId).remove();
+
+                  const roomId = Object.keys(gameSnapshot.val())[0];
+                  const gameData = gameSnapshot.val()[roomId];
+
+                  setGameRoomId(roomId);
+                  gameRoomRef.current = database.ref(`games/${roomId}`);
+                  setOpponentName(gameData.player2.name);
+                  setOpponentFlag(gameData.player2.flag);
+                  setMatchmakingState('found');
+
+                  setTimeout(() => startOnlineGame(roomId, 0), 1500);
+                }
+              });
+            }, 2000);
+
+            // Timeout after 60 seconds
+            setTimeout(() => {
+              if (matchmakingState === 'searching') {
+                clearInterval(checkInterval);
+                queueRef.child(myPlayerId).remove();
+                cancelMatchmaking();
+                alert('No opponent found. Please try again.');
+              }
+            }, 60000);
+          }
+        });
+      }, [database, playerSetup, matchmakingState]);
+
+      // Start the online game
+      const startOnlineGame = useCallback((roomId, playerIndex) => {
+        setMatchmakingState('playing');
+        setGameState('playing');
+        setPlayerId(playerIndex);
+
+        // Listen for game state changes
+        const roomRef = database.ref(`games/${roomId}`);
+        gameRoomRef.current = roomRef;
+
+        roomRef.on('value', (snapshot) => {
+          const gameData = snapshot.val();
+          if (!gameData) return;
+
+          // Update local game state from Firebase
+          const myPlayer = playerIndex === 0 ? gameData.player1 : gameData.player2;
+          const opponent = playerIndex === 0 ? gameData.player2 : gameData.player1;
+
+          setPlayers([
+            {
+              name: gameData.player1.name,
+              flag: gameData.player1.flag,
+              score: gameData.player1.score,
+              isAI: false
+            },
+            {
+              name: gameData.player2.name,
+              flag: gameData.player2.flag,
+              score: gameData.player2.score,
+              isAI: false
+            }
+          ]);
+
+          setCurrentPlayerIndex(gameData.currentPlayer);
+          setDartsThrown(gameData.dartsThrown);
+          setCurrentTurnScore(gameData.currentTurnScore);
+          setThrowHistory(gameData.throwHistory || []);
+          setDartPositions(gameData.dartPositions || []);
+          setLegScores(gameData.legScores || [0, 0]);
+          setSetScores(gameData.setScores || [0, 0]);
+
+          // Check for winner
+          if (gameData.winner !== undefined) {
+            const winnerIndex = gameData.winner;
+            setMatchWinner(winnerIndex === playerIndex ? myPlayer : opponent);
+          }
+        });
+      }, [database]);
+
+      // Sync throw to Firebase
+      const syncThrowToFirebase = useCallback((throwData) => {
+        if (!onlineMode || !gameRoomRef.current) return;
+
+        gameRoomRef.current.child('throwHistory').push(throwData);
+        gameRoomRef.current.update({
+          dartPositions: firebase.database.ServerValue.increment(1),
+          dartsThrown: throwData.dartsThrown,
+          currentTurnScore: throwData.currentTurnScore,
+          currentPlayer: throwData.currentPlayer
+        });
+
+        // Update player score
+        const playerKey = playerId === 0 ? 'player1' : 'player2';
+        gameRoomRef.current.child(`${playerKey}/score`).set(throwData.newScore);
+      }, [onlineMode, playerId]);
+
+      // Cancel matchmaking
+      const cancelMatchmaking = useCallback(() => {
+        if (playerId && database) {
+          database.ref('matchmaking_queue').child(playerId).remove();
+        }
+        setMatchmakingState(null);
+        setOnlineMode(false);
+        setGameRoomId(null);
+        setPlayerId(null);
+        setGameState('menu');
+      }, [playerId, database]);
+
+      // Leave online game
+      const leaveOnlineGame = useCallback(() => {
+        if (gameRoomRef.current) {
+          gameRoomRef.current.off();
+          gameRoomRef.current = null;
+        }
+        cancelMatchmaking();
+      }, [cancelMatchmaking]);
+
+      // ========== END ONLINE MULTIPLAYER FUNCTIONS ==========
+
       const calculateScore = useCallback((x, y) => {
         const dx = x - CENTER;
         const dy = y - CENTER;
@@ -513,6 +750,11 @@
       const throwDart = useCallback(() => {
         if (dartsThrown >= 3 || winner) return;
 
+        // Online mode: only allow throws on your turn
+        if (onlineMode && currentPlayerIndex !== playerId) {
+          return; // Not your turn
+        }
+
         playSound('throw');
 
         // Apply wobble offset to aim position (expert mode 180 challenge)
@@ -620,9 +862,12 @@
           newPlayers[currentPlayerIndex] = { ...currentPlayer, score: newScore };
           setPlayers(newPlayers);
 
-          setCurrentTurnScore(prev => prev + result.score);
+          const newCurrentTurnScore = currentTurnScore + result.score;
+          const newDartsThrown = dartsThrown + 1;
+
+          setCurrentTurnScore(newCurrentTurnScore);
           setThrowHistory(prev => [...prev, { player: currentPlayerIndex, ...result, remaining: newScore }]);
-          setDartsThrown(prev => prev + 1);
+          setDartsThrown(newDartsThrown);
           setLegDartsThrown(prev => {
             const newLegDarts = [...prev];
             newLegDarts[currentPlayerIndex] = (newLegDarts[currentPlayerIndex] || 0) + 1;
@@ -630,11 +875,27 @@
           });
           updateStats(currentPlayerIndex, result);
 
+          // Sync throw to Firebase in online mode
+          if (onlineMode) {
+            syncThrowToFirebase({
+              player: currentPlayerIndex,
+              score: result.score,
+              multiplier: result.multiplier,
+              label: result.label,
+              newScore: newScore,
+              remaining: newScore,
+              dartsThrown: newDartsThrown,
+              currentTurnScore: newCurrentTurnScore,
+              currentPlayer: newDartsThrown >= 3 ? (currentPlayerIndex + 1) % players.length : currentPlayerIndex,
+              position: finalPosition
+            });
+          }
+
           if (dartsThrown + 1 >= 3) {
             setTimeout(() => nextPlayer(false), 1000);
           }
         }, 300);
-      }, [aimPosition, aimWobble, power, dartsThrown, players, currentPlayerIndex, winner, calculateScore, addRandomness, playSound, isCheckoutPosition, triplesHit, handleLegWin, updateStats, nextPlayer]);
+      }, [aimPosition, aimWobble, power, dartsThrown, players, currentPlayerIndex, winner, calculateScore, addRandomness, playSound, isCheckoutPosition, triplesHit, handleLegWin, updateStats, nextPlayer, onlineMode, playerId, syncThrowToFirebase, currentTurnScore]);
 
       const updateStats = useCallback((playerIndex, result) => {
         setGameStats(prev => {
@@ -826,6 +1087,19 @@
           setAimWobble({ x: 0, y: 0 });
         }
       }, [skillLevel, currentTurnThrows, dartsThrown, isPowerCharging, players, currentPlayerIndex, aimPosition, isCheckoutPosition, calculateScore]);
+
+      // Online multiplayer cleanup: Handle disconnection and cleanup
+      useEffect(() => {
+        return () => {
+          // Cleanup when component unmounts or leaves online mode
+          if (gameRoomRef.current) {
+            gameRoomRef.current.off();
+          }
+          if (playerId && database && onlineMode) {
+            database.ref('matchmaking_queue').child(playerId).remove();
+          }
+        };
+      }, [onlineMode, playerId, database]);
 
       useEffect(() => {
         const currentPlayer = players[currentPlayerIndex];
@@ -1231,11 +1505,59 @@
                 <span style={{ color: '#e8d5b7', fontSize: '14px', letterSpacing: '2px' }}>SOUND EFFECTS</span>
                 <button onClick={() => setSoundEnabled(!soundEnabled)} style={{ padding: '10px 20px', background: soundEnabled ? 'linear-gradient(135deg, #228b22, #32cd32)' : 'rgba(255, 255, 255, 0.1)', color: soundEnabled ? '#fff' : '#888', border: 'none', borderRadius: '20px', cursor: 'pointer', fontFamily: "'Oswald', sans-serif", fontSize: '14px' }}>{soundEnabled ? 'ON' : 'OFF'}</button>
               </div>
-              
+
+              <button onClick={startMatchmaking} style={{ width: '100%', padding: '20px', fontSize: '24px', fontWeight: '700', background: 'linear-gradient(135deg, #4a90e2, #357abd)', color: '#fff', border: 'none', borderRadius: '15px', cursor: 'pointer', fontFamily: "'Oswald', sans-serif", letterSpacing: '4px', textTransform: 'uppercase', boxShadow: '0 4px 15px rgba(74, 144, 226, 0.4)', marginBottom: '15px' }}>🌍 Play Online</button>
+
               <button onClick={startGame} style={{ width: '100%', padding: '20px', fontSize: '24px', fontWeight: '700', background: 'linear-gradient(135deg, #c41e3a, #e74c3c)', color: '#fff', border: 'none', borderRadius: '15px', cursor: 'pointer', fontFamily: "'Oswald', sans-serif", letterSpacing: '4px', textTransform: 'uppercase', boxShadow: '0 4px 15px rgba(196, 30, 58, 0.4)' }}>Start Game</button>
             </div>
             
             <p style={{ color: '#666', marginTop: '30px', fontSize: '14px' }}>Hold mouse to charge power • Release to throw</p>
+          </div>
+        );
+      }
+
+      // Matchmaking screen
+      if (matchmakingState === 'searching' || matchmakingState === 'found') {
+        return (
+          <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f0f23 100%)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '20px', fontFamily: "'Oswald', sans-serif" }}>
+            <div style={{ background: 'rgba(255, 255, 255, 0.05)', borderRadius: '20px', padding: '60px 40px', backdropFilter: 'blur(10px)', border: '1px solid rgba(255, 215, 0, 0.2)', maxWidth: '500px', textAlign: 'center' }}>
+              {matchmakingState === 'searching' && (
+                <>
+                  <div style={{ fontSize: '64px', marginBottom: '30px', animation: 'spin 2s linear infinite' }}>🌍</div>
+                  <h2 style={{ color: '#ffd700', fontSize: '32px', marginBottom: '20px', letterSpacing: '3px' }}>FINDING OPPONENT...</h2>
+                  <p style={{ color: '#e8d5b7', fontSize: '16px', marginBottom: '40px' }}>Searching for players worldwide</p>
+                  <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', marginBottom: '30px' }}>
+                    <div style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#4a90e2', animation: 'pulse 1.5s ease-in-out infinite' }}></div>
+                    <div style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#4a90e2', animation: 'pulse 1.5s ease-in-out infinite 0.2s' }}></div>
+                    <div style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#4a90e2', animation: 'pulse 1.5s ease-in-out infinite 0.4s' }}></div>
+                  </div>
+                  <button onClick={cancelMatchmaking} style={{ padding: '15px 40px', background: 'rgba(255, 255, 255, 0.1)', color: '#e8d5b7', border: '1px solid rgba(255, 215, 0, 0.3)', borderRadius: '10px', fontSize: '16px', fontWeight: '600', cursor: 'pointer', fontFamily: "'Oswald', sans-serif", letterSpacing: '2px' }}>CANCEL</button>
+                </>
+              )}
+
+              {matchmakingState === 'found' && (
+                <>
+                  <div style={{ fontSize: '64px', marginBottom: '30px' }}>✓</div>
+                  <h2 style={{ color: '#32cd32', fontSize: '32px', marginBottom: '20px', letterSpacing: '3px' }}>OPPONENT FOUND!</h2>
+                  <div style={{ background: 'rgba(255, 255, 255, 0.05)', padding: '20px', borderRadius: '10px', marginBottom: '20px' }}>
+                    <div style={{ fontSize: '40px', marginBottom: '10px' }}>{opponentFlag}</div>
+                    <div style={{ color: '#ffd700', fontSize: '24px', fontWeight: '600' }}>{opponentName}</div>
+                  </div>
+                  <p style={{ color: '#e8d5b7', fontSize: '16px' }}>Starting game...</p>
+                </>
+              )}
+            </div>
+
+            <style>{`
+              @keyframes spin {
+                0% { transform: rotate(0deg); }
+                100% { transform: rotate(360deg); }
+              }
+              @keyframes pulse {
+                0%, 100% { opacity: 0.3; transform: scale(0.8); }
+                50% { opacity: 1; transform: scale(1.2); }
+              }
+            `}</style>
           </div>
         );
       }
@@ -1275,15 +1597,24 @@
                 </div>
               )}
               
+              {onlineMode && (
+                <div style={{ marginTop: '20px', padding: '15px', background: 'linear-gradient(135deg, rgba(74, 144, 226, 0.2), rgba(53, 122, 189, 0.2))', borderRadius: '10px', border: '2px solid #4a90e2' }}>
+                  <div style={{ color: '#4a90e2', fontSize: '12px', fontWeight: '600', letterSpacing: '2px', marginBottom: '8px' }}>🌍 ONLINE MATCH</div>
+                  <div style={{ color: currentPlayerIndex === playerId ? '#32cd32' : '#ffd700', fontSize: '16px', fontWeight: '700', letterSpacing: '1px' }}>
+                    {currentPlayerIndex === playerId ? '▶ YOUR TURN' : '⏸ OPPONENT\'S TURN'}
+                  </div>
+                </div>
+              )}
+
               <div style={{ marginTop: '20px', padding: '15px', background: 'rgba(255, 255, 255, 0.05)', borderRadius: '10px' }}>
                 <div style={{ color: '#888', fontSize: '12px', marginBottom: '5px' }}>TURN SCORE</div>
                 <div style={{ color: '#ffd700', fontSize: '32px', fontWeight: '700', fontFamily: "'Roboto Mono', monospace" }}>{currentTurnScore}</div>
                 <div style={{ color: '#888', fontSize: '14px', marginTop: '5px' }}>Darts: {'🎯'.repeat(dartsThrown)}{'○'.repeat(3 - dartsThrown)}</div>
               </div>
-              
+
               <div style={{ marginTop: '20px', display: 'flex', gap: '10px' }}>
                 <button onClick={() => setShowStats(true)} style={{ flex: 1, padding: '12px', background: 'rgba(255, 255, 255, 0.1)', color: '#e8d5b7', border: 'none', borderRadius: '10px', cursor: 'pointer', fontFamily: "'Oswald', sans-serif", fontSize: '14px' }}>STATS</button>
-                <button onClick={resetGame} style={{ flex: 1, padding: '12px', background: 'rgba(196, 30, 58, 0.3)', color: '#e8d5b7', border: 'none', borderRadius: '10px', cursor: 'pointer', fontFamily: "'Oswald', sans-serif", fontSize: '14px' }}>MENU</button>
+                <button onClick={onlineMode ? leaveOnlineGame : resetGame} style={{ flex: 1, padding: '12px', background: 'rgba(196, 30, 58, 0.3)', color: '#e8d5b7', border: 'none', borderRadius: '10px', cursor: 'pointer', fontFamily: "'Oswald', sans-serif", fontSize: '14px' }}>{onlineMode ? 'LEAVE' : 'MENU'}</button>
               </div>
             </div>
             
