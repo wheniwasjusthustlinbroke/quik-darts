@@ -905,6 +905,19 @@
               currentPlayer: nextPlayerIndex,
               position: finalPosition
             });
+
+            // After 3 darts, clear the board in Firebase
+            if (newDartsThrown >= 3) {
+              setTimeout(() => {
+                if (gameRoomRef.current) {
+                  gameRoomRef.current.update({
+                    dartPositions: {},
+                    dartsThrown: 0,
+                    currentTurnScore: 0
+                  });
+                }
+              }, 1000);
+            }
           } else {
             // Offline mode: update local state directly
             const newPlayers = [...players];
