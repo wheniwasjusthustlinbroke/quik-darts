@@ -452,7 +452,12 @@
 
         const finalPosition = addRandomness(aimPosition.x, aimPosition.y, power, isInPerfectZone);
         const result = calculateScore(finalPosition.x, finalPosition.y);
-        
+
+        // Increase difficulty by shrinking perfect zone when perfect throw is hit
+        if (isInPerfectZone) {
+          setTriplesHit(prev => prev + 1);
+        }
+
         setAnimatingDart({ start: { x: CENTER, y: BOARD_SIZE + 50 }, end: finalPosition });
         
         setTimeout(() => {
@@ -496,11 +501,6 @@
           setThrowHistory(prev => [...prev, { player: currentPlayerIndex, ...result, remaining: newScore }]);
           setDartsThrown(prev => prev + 1);
           updateStats(currentPlayerIndex, result);
-
-          // Increase difficulty by shrinking perfect zone when perfect throw is hit
-          if (isInPerfectZone) {
-            setTriplesHit(prev => prev + 1);
-          }
 
           if (dartsThrown + 1 >= 3) {
             setTimeout(() => nextPlayer(false), 1000);
@@ -712,6 +712,11 @@
 
             const result = calculateScore(finalPosition.x, finalPosition.y);
 
+            // Increase difficulty by shrinking perfect zone when perfect throw is hit
+            if (isInPerfectZone) {
+              setTriplesHit(prev => prev + 1);
+            }
+
             setAnimatingDart({ start: { x: CENTER, y: BOARD_SIZE + 50 }, end: finalPosition });
 
             setTimeout(() => {
@@ -754,11 +759,6 @@
               setThrowHistory(prev => [...prev, { player: currentPlayerIndex, ...result, remaining: newScore }]);
               setDartsThrown(prev => prev + 1);
               updateStats(currentPlayerIndex, result);
-
-              // Increase difficulty by shrinking perfect zone when perfect throw is hit
-              if (isInPerfectZone) {
-                setTriplesHit(prev => prev + 1);
-              }
 
               if (dartsThrown + 1 >= 3) {
                 setTimeout(() => nextPlayer(false), 1000);
