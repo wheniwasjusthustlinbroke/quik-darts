@@ -472,14 +472,21 @@
         const isAimingAtWinningDouble = isCheckoutPosition && aimingAt.multiplier === 2 && aimingAt.score === currentPlayer.score;
 
         // Calculate if power is in perfect zone
+        // Beginner mode (40% or below): constant 10% zone, no shrinking
         // Normal/Checkout: shrinks by 2% for each perfect hit
         // Aiming at winning double: ultra-small 2% zone
         let perfectZoneWidth;
-        if (isAimingAtWinningDouble) {
-          perfectZoneWidth = 2; // Ultra-small zone for winning double
+        if (skillLevel <= 40) {
+          // Beginner mode - constant 10% zone, no shrinking
+          perfectZoneWidth = 10;
         } else {
-          const baseZoneWidth = 10;
-          perfectZoneWidth = Math.max(baseZoneWidth - (triplesHit * 2), 4);
+          // Normal mode - shrinking zones
+          if (isAimingAtWinningDouble) {
+            perfectZoneWidth = 2; // Ultra-small zone for winning double
+          } else {
+            const baseZoneWidth = 10;
+            perfectZoneWidth = Math.max(baseZoneWidth - (triplesHit * 2), 4);
+          }
         }
         const perfectZoneLeft = 50 - (perfectZoneWidth / 2);
         const perfectZoneRight = 50 + (perfectZoneWidth / 2);
@@ -726,14 +733,21 @@
             const isAimingAtWinningDouble = isCheckoutPosition && aimingAt.multiplier === 2 && aimingAt.score === currentPlayer.score;
 
             // Calculate if AI power is in perfect zone
+            // Beginner mode (40% or below): constant 10% zone, no shrinking
             // Normal/Checkout: shrinks by 2% for each perfect hit
             // Aiming at winning double: ultra-small 2% zone
             let perfectZoneWidth;
-            if (isAimingAtWinningDouble) {
-              perfectZoneWidth = 2; // Ultra-small zone for winning double
+            if (skillLevel <= 40) {
+              // Beginner mode - constant 10% zone, no shrinking
+              perfectZoneWidth = 10;
             } else {
-              const baseZoneWidth = 10;
-              perfectZoneWidth = Math.max(baseZoneWidth - (triplesHit * 2), 4);
+              // Normal mode - shrinking zones
+              if (isAimingAtWinningDouble) {
+                perfectZoneWidth = 2; // Ultra-small zone for winning double
+              } else {
+                const baseZoneWidth = 10;
+                perfectZoneWidth = Math.max(baseZoneWidth - (triplesHit * 2), 4);
+              }
             }
             const perfectZoneLeft = 50 - (perfectZoneWidth / 2);
             const perfectZoneRight = 50 + (perfectZoneWidth / 2);
@@ -1138,14 +1152,21 @@
                     const isAimingAtWinningDouble = isCheckoutPosition && aimingAt.multiplier === 2 && aimingAt.score === currentPlayer?.score;
 
                     // Calculate perfect zone width
+                    // Beginner mode (40% or below): constant 10% zone, no shrinking
                     // Normal/Checkout: shrinks by 2% for each perfect hit
                     // Aiming at winning double: ultra-small 2% zone
                     let perfectZoneWidth;
-                    if (isAimingAtWinningDouble) {
-                      perfectZoneWidth = 2; // Ultra-small zone for winning double
+                    if (skillLevel <= 40) {
+                      // Beginner mode - constant 10% zone, no shrinking
+                      perfectZoneWidth = 10;
                     } else {
-                      const baseZoneWidth = 10;
-                      perfectZoneWidth = Math.max(baseZoneWidth - (triplesHit * 2), 4);
+                      // Normal mode - shrinking zones
+                      if (isAimingAtWinningDouble) {
+                        perfectZoneWidth = 2; // Ultra-small zone for winning double
+                      } else {
+                        const baseZoneWidth = 10;
+                        perfectZoneWidth = Math.max(baseZoneWidth - (triplesHit * 2), 4);
+                      }
                     }
 
                     const perfectZoneLeft = 50 - (perfectZoneWidth / 2);
