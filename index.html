@@ -304,10 +304,15 @@
             if (!wasInPerfectZone && isCheckoutPosition) {
               playSound('bust');
               setShowScorePopup({ score: 'MISSED!', label: 'MISSED CHECKOUT!', position: finalPosition });
-              setTimeout(() => {
-                setShowScorePopup(null);
-                nextPlayer(true);
-              }, 1500);
+              setTimeout(() => setShowScorePopup(null), 1000);
+
+              // If this was the last dart, end the turn
+              if (dartsThrown + 1 >= 3) {
+                setTimeout(() => nextPlayer(true), 1000);
+              } else {
+                // Otherwise, increment darts thrown and continue
+                setDartsThrown(prev => prev + 1);
+              }
               return;
             }
 
@@ -501,10 +506,15 @@
                 if (!wasInPerfectZone && isCheckoutPosition) {
                   playSound('bust');
                   setShowScorePopup({ score: 'MISSED!', label: 'MISSED CHECKOUT!', position: finalPosition });
-                  setTimeout(() => {
-                    setShowScorePopup(null);
-                    nextPlayer(true);
-                  }, 1500);
+                  setTimeout(() => setShowScorePopup(null), 1000);
+
+                  // If this was the last dart, end the turn
+                  if (dartsThrown + 1 >= 3) {
+                    setTimeout(() => nextPlayer(true), 1000);
+                  } else {
+                    // Otherwise, increment darts thrown and continue
+                    setDartsThrown(prev => prev + 1);
+                  }
                   return;
                 }
 
