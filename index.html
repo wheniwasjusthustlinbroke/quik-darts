@@ -51,6 +51,7 @@
       const [animatingDart, setAnimatingDart] = useState(null);
       const [checkout, setCheckout] = useState(null);
       const [triplesHit, setTriplesHit] = useState(0);
+      const [isCheckoutPosition, setIsCheckoutPosition] = useState(false);
 
       const boardRef = useRef(null);
       const powerIntervalRef = useRef(null);
@@ -292,6 +293,24 @@
           }
           
           if (newScore === 0 && result.multiplier === 2) {
+            // Check if power was in perfect zone for checkout
+            const baseZoneWidth = isCheckoutPosition ? 2 : 10;
+            const perfectZoneWidth = Math.max(baseZoneWidth - (triplesHit * 2), isCheckoutPosition ? 1 : 4);
+            const perfectZoneLeft = 50 - (perfectZoneWidth / 2);
+            const perfectZoneRight = 50 + (perfectZoneWidth / 2);
+            const wasInPerfectZone = power > perfectZoneLeft && power < perfectZoneRight;
+
+            // Only allow checkout if power was in the perfect zone
+            if (!wasInPerfectZone && isCheckoutPosition) {
+              playSound('bust');
+              setShowScorePopup({ score: 'MISSED!', label: 'MISSED CHECKOUT!', position: finalPosition });
+              setTimeout(() => {
+                setShowScorePopup(null);
+                nextPlayer(true);
+              }, 1500);
+              return;
+            }
+
             playSound('win');
             setWinner(currentPlayer);
             const newPlayers = [...players];
@@ -411,8 +430,15 @@
         const currentPlayer = players[currentPlayerIndex];
         if (currentPlayer && checkoutSuggestions[currentPlayer.score]) {
           setCheckout(checkoutSuggestions[currentPlayer.score]);
+          setIsCheckoutPosition(true);
         } else {
           setCheckout(null);
+          // Also check for simple double finishes (2-40, even numbers)
+          if (currentPlayer && currentPlayer.score >= 2 && currentPlayer.score <= 40 && currentPlayer.score % 2 === 0) {
+            setIsCheckoutPosition(true);
+          } else {
+            setIsCheckoutPosition(false);
+          }
         }
       }, [players, currentPlayerIndex]);
 
@@ -464,6 +490,24 @@
               }
 
               if (newScore === 0 && result.multiplier === 2) {
+                // Check if AI power was in perfect zone for checkout
+                const baseZoneWidth = isCheckoutPosition ? 2 : 10;
+                const perfectZoneWidth = Math.max(baseZoneWidth - (triplesHit * 2), isCheckoutPosition ? 1 : 4);
+                const perfectZoneLeft = 50 - (perfectZoneWidth / 2);
+                const perfectZoneRight = 50 + (perfectZoneWidth / 2);
+                const wasInPerfectZone = aiPower > perfectZoneLeft && aiPower < perfectZoneRight;
+
+                // Only allow checkout if power was in the perfect zone
+                if (!wasInPerfectZone && isCheckoutPosition) {
+                  playSound('bust');
+                  setShowScorePopup({ score: 'MISSED!', label: 'MISSED CHECKOUT!', position: finalPosition });
+                  setTimeout(() => {
+                    setShowScorePopup(null);
+                    nextPlayer(true);
+                  }, 1500);
+                  return;
+                }
+
                 playSound('win');
                 setWinner(currentPlayer);
                 const newPlayers = [...players];
@@ -513,6 +557,7 @@
         setGameStats({});
         setWinner(null);
         setTriplesHit(0);
+        setIsCheckoutPosition(false);
         setGameState('playing');
       };
 
@@ -732,7 +777,9 @@
               <div style={{ width: `${BOARD_SIZE}px`, marginTop: '20px' }}>
                 <div style={{ background: 'rgba(255, 255, 255, 0.1)', borderRadius: '10px', height: '30px', overflow: 'hidden', position: 'relative' }}>
                   {(() => {
-                    const perfectZoneWidth = Math.max(10 - (triplesHit * 2), 4);
+                    // Ultra small zone for checkout darts, normal for regular throws
+                    const baseZoneWidth = isCheckoutPosition ? 2 : 10;
+                    const perfectZoneWidth = Math.max(baseZoneWidth - (triplesHit * 2), isCheckoutPosition ? 1 : 4);
                     const perfectZoneLeft = 50 - (perfectZoneWidth / 2);
                     const perfectZoneRight = 50 + (perfectZoneWidth / 2);
                     const isInPerfectZone = power > perfectZoneLeft && power < perfectZoneRight;
@@ -747,7 +794,9 @@
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', color: '#888', fontSize: '12px', marginTop: '5px' }}>
                   <span>WEAK</span>
-                  <span style={{ color: '#32cd32' }}>PERFECT {triplesHit > 0 ? `(-${triplesHit * 2}%)` : ''}</span>
+                  <span style={{ color: isCheckoutPosition ? '#ffd700' : '#32cd32', fontWeight: isCheckoutPosition ? '700' : 'normal' }}>
+                    {isCheckoutPosition ? 'CHECKOUT!' : `PERFECT ${triplesHit > 0 ? `(-${triplesHit * 2}%)` : ''}`}
+                  </span>
                   <span>STRONG</span>
                 </div>
               </div>
