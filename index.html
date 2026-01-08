@@ -1290,7 +1290,7 @@
             </div>
           </div>
 
-          {/* Nine-Darter Lion Celebration */}
+          {/* Nine-Darter Star Celebration */}
           {showNineDarter && (
             <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 200, pointerEvents: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               {/* Background glow effect */}
@@ -1323,58 +1323,56 @@
                 }} />
               ))}
 
-              {/* Lion container with epic animation */}
+              {/* Star container with epic animation */}
               <div style={{
                 position: 'relative',
-                animation: 'epicLionEntry 6s cubic-bezier(0.34, 1.56, 0.64, 1)',
+                animation: 'epicStarEntry 6s cubic-bezier(0.34, 1.56, 0.64, 1)',
                 transformOrigin: 'center center'
               }}>
-                <svg width="200" height="220" viewBox="0 0 150 170" style={{
+                <svg width="250" height="250" viewBox="0 0 200 200" style={{
                   filter: 'drop-shadow(0 0 20px rgba(255,215,0,0.8)) drop-shadow(0 0 40px rgba(255,215,0,0.4))',
-                  animation: 'lionPoseSequence 6s cubic-bezier(0.34, 1.56, 0.64, 1)'
+                  animation: 'starGlowSequence 6s cubic-bezier(0.34, 1.56, 0.64, 1)'
                 }}>
-                  {/* Lion face */}
-                  <circle cx="75" cy="75" r="40" fill="#f4a460" />
-
-                  {/* Animated mane with gradient */}
                   <defs>
-                    <radialGradient id="maneGradient">
-                      <stop offset="0%" stopColor="#ffd700" />
+                    {/* Gold gradient for star */}
+                    <radialGradient id="starGradient">
+                      <stop offset="0%" stopColor="#ffed4a" />
+                      <stop offset="50%" stopColor="#ffd700" />
                       <stop offset="100%" stopColor="#daa520" />
                     </radialGradient>
+
+                    {/* Inner glow gradient */}
+                    <radialGradient id="starInnerGlow">
+                      <stop offset="0%" stopColor="#fff" stopOpacity="0.8" />
+                      <stop offset="50%" stopColor="#ffd700" stopOpacity="0.4" />
+                      <stop offset="100%" stopColor="#ffd700" stopOpacity="0" />
+                    </radialGradient>
                   </defs>
-                  <circle cx="50" cy="50" r="15" fill="url(#maneGradient)" style={{ animation: 'maneGlow 2s ease-in-out infinite' }} />
-                  <circle cx="100" cy="50" r="15" fill="url(#maneGradient)" style={{ animation: 'maneGlow 2s ease-in-out infinite 0.1s' }} />
-                  <circle cx="50" cy="100" r="15" fill="url(#maneGradient)" style={{ animation: 'maneGlow 2s ease-in-out infinite 0.2s' }} />
-                  <circle cx="100" cy="100" r="15" fill="url(#maneGradient)" style={{ animation: 'maneGlow 2s ease-in-out infinite 0.3s' }} />
-                  <circle cx="40" cy="75" r="15" fill="url(#maneGradient)" style={{ animation: 'maneGlow 2s ease-in-out infinite 0.4s' }} />
-                  <circle cx="110" cy="75" r="15" fill="url(#maneGradient)" style={{ animation: 'maneGlow 2s ease-in-out infinite 0.5s' }} />
-                  <circle cx="75" cy="40" r="15" fill="url(#maneGradient)" style={{ animation: 'maneGlow 2s ease-in-out infinite 0.6s' }} />
-                  <circle cx="75" cy="110" r="15" fill="url(#maneGradient)" style={{ animation: 'maneGlow 2s ease-in-out infinite 0.7s' }} />
 
-                  {/* Face details */}
-                  <ellipse cx="65" cy="70" rx="5" ry="8" fill="#000" />
-                  <ellipse cx="85" cy="70" rx="5" ry="8" fill="#000" />
-                  <circle cx="75" cy="82" r="4" fill="#000" />
-                  <path d="M 75 82 Q 70 88 65 85" stroke="#000" strokeWidth="2" fill="none" />
-                  <path d="M 75 82 Q 80 88 85 85" stroke="#000" strokeWidth="2" fill="none" />
+                  {/* Outer glow circles (pulsing) */}
+                  <circle cx="100" cy="100" r="70" fill="url(#starInnerGlow)" opacity="0.6" style={{ animation: 'starPulse 2s ease-in-out infinite' }} />
+                  <circle cx="100" cy="100" r="50" fill="url(#starInnerGlow)" opacity="0.4" style={{ animation: 'starPulse 2s ease-in-out infinite 0.3s' }} />
 
-                  {/* Body */}
-                  <ellipse cx="75" cy="130" rx="22" ry="28" fill="#f4a460" />
+                  {/* Main 5-pointed star */}
+                  <path
+                    d="M 100 20 L 115 70 L 170 75 L 125 110 L 140 165 L 100 135 L 60 165 L 75 110 L 30 75 L 85 70 Z"
+                    fill="url(#starGradient)"
+                    stroke="#daa520"
+                    strokeWidth="3"
+                    style={{ animation: 'starRotate 4s linear infinite 2s' }}
+                  />
 
-                  {/* Animated arms - SUIII pose */}
-                  <g style={{ animation: 'armSequence 6s cubic-bezier(0.34, 1.56, 0.64, 1)' }}>
-                    {/* Left arm spread wide */}
-                    <line x1="75" y1="120" x2="30" y2="100" stroke="#f4a460" strokeWidth="10" strokeLinecap="round" />
-                    <circle cx="27" cy="97" r="7" fill="#f4a460" />
-                    {/* Right arm spread wide */}
-                    <line x1="75" y1="120" x2="120" y2="100" stroke="#f4a460" strokeWidth="10" strokeLinecap="round" />
-                    <circle cx="123" cy="97" r="7" fill="#f4a460" />
-                  </g>
+                  {/* Inner star for depth */}
+                  <path
+                    d="M 100 40 L 110 80 L 150 85 L 118 108 L 127 148 L 100 125 L 73 148 L 82 108 L 50 85 L 90 80 Z"
+                    fill="#ffed4a"
+                    opacity="0.7"
+                    style={{ animation: 'starRotate 4s linear infinite 2s' }}
+                  />
 
-                  {/* Legs */}
-                  <line x1="65" y1="150" x2="60" y2="170" stroke="#f4a460" strokeWidth="10" strokeLinecap="round" />
-                  <line x1="85" y1="150" x2="90" y2="170" stroke="#f4a460" strokeWidth="10" strokeLinecap="round" />
+                  {/* Center brilliant point */}
+                  <circle cx="100" cy="100" r="15" fill="#fff" opacity="0.9" style={{ animation: 'starTwinkle 1.5s ease-in-out infinite' }} />
+                  <circle cx="100" cy="100" r="8" fill="#ffed4a" style={{ animation: 'starTwinkle 1.5s ease-in-out infinite 0.2s' }} />
                 </svg>
 
                 {/* Epic text */}
@@ -1467,41 +1465,42 @@
             @keyframes fadeIn { from { opacity: 0; transform: scale(0.9); } to { opacity: 1; transform: scale(1); } }
             @keyframes throwDart { from { opacity: 0; transform: translateY(50px); } to { opacity: 1; transform: translateY(0); } }
 
-            /* Epic Nine-Darter Animations */
-            @keyframes epicLionEntry {
+            /* Epic Nine-Darter Star Animations */
+            @keyframes epicStarEntry {
               0% { transform: scale(0.3) translateY(100px); opacity: 0; }
-              15% { transform: scale(1.2) translateY(-80px) rotate(0deg); opacity: 1; }
-              30% { transform: scale(1.1) translateY(-60px) rotate(360deg); }
-              45% { transform: scale(1.15) translateY(-40px) rotate(360deg); }
-              60% { transform: scale(1) translateY(0px) rotate(720deg); }
-              75% { transform: scale(1.05) translateY(-10px) rotate(720deg); }
-              85% { transform: scale(0.98) translateY(5px) rotate(720deg); }
-              100% { transform: scale(1) translateY(0px) rotate(720deg); }
+              15% { transform: scale(1.3) translateY(-80px) rotate(0deg); opacity: 1; }
+              30% { transform: scale(1.2) translateY(-60px) rotate(360deg); }
+              45% { transform: scale(1.25) translateY(-40px) rotate(360deg); }
+              60% { transform: scale(1.1) translateY(0px) rotate(720deg); }
+              75% { transform: scale(1.15) translateY(-10px) rotate(720deg); }
+              85% { transform: scale(1.05) translateY(5px) rotate(720deg); }
+              100% { transform: scale(1.1) translateY(0px) rotate(720deg); }
             }
 
-            @keyframes lionPoseSequence {
+            @keyframes starGlowSequence {
               0% { filter: drop-shadow(0 0 10px rgba(255,215,0,0.3)); }
-              50% { filter: drop-shadow(0 0 40px rgba(255,215,0,1)) drop-shadow(0 0 80px rgba(255,215,0,0.6)); }
-              100% { filter: drop-shadow(0 0 30px rgba(255,215,0,0.9)) drop-shadow(0 0 60px rgba(255,215,0,0.5)); }
+              50% { filter: drop-shadow(0 0 50px rgba(255,215,0,1)) drop-shadow(0 0 100px rgba(255,215,0,0.8)); }
+              100% { filter: drop-shadow(0 0 40px rgba(255,215,0,0.9)) drop-shadow(0 0 80px rgba(255,215,0,0.6)); }
             }
 
-            @keyframes armSequence {
-              0% { transform: translateY(10px) rotate(0deg); opacity: 0.5; }
-              20% { transform: translateY(-5px) rotate(-5deg); opacity: 1; }
-              40% { transform: translateY(0px) rotate(5deg); opacity: 1; }
-              60% { transform: translateY(0px) rotate(-3deg); opacity: 1; }
-              80% { transform: translateY(0px) rotate(2deg); opacity: 1; }
-              100% { transform: translateY(0px) rotate(0deg); opacity: 1; }
+            @keyframes starRotate {
+              0% { transform: rotate(0deg); }
+              100% { transform: rotate(360deg); }
+            }
+
+            @keyframes starPulse {
+              0%, 100% { transform: scale(1); opacity: 0.6; }
+              50% { transform: scale(1.2); opacity: 0.3; }
+            }
+
+            @keyframes starTwinkle {
+              0%, 100% { opacity: 0.9; transform: scale(1); }
+              50% { opacity: 0.4; transform: scale(0.7); }
             }
 
             @keyframes pulseGlow {
               0%, 100% { transform: translate(-50%, -50%) scale(1); opacity: 0.4; }
               50% { transform: translate(-50%, -50%) scale(1.3); opacity: 0.7; }
-            }
-
-            @keyframes maneGlow {
-              0%, 100% { opacity: 1; }
-              50% { opacity: 0.7; }
             }
 
             @keyframes textPulse {
