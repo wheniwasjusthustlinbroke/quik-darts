@@ -442,21 +442,12 @@
 
         playSound('throw');
 
-        // Check if player is aiming at a checkout double
-        const currentPlayer = players[currentPlayerIndex];
-        const aimingAt = calculateScore(aimPosition.x, aimPosition.y);
-        const isAimingAtCheckoutDouble = isCheckoutPosition && aimingAt.multiplier === 2 && aimingAt.score === currentPlayer.score;
-
         // Calculate if power is in perfect zone
-        // Normal: 10% (shrinks with triples), Checkout: always 10%, Aiming at winning double: always 2%
+        // Normal: 10% (shrinks with triples), Checkout: ALWAYS 10% (completely fixed)
         let perfectZoneWidth;
         if (isCheckoutPosition) {
-          // On checkout - fixed zones, no shrinking regardless of triples hit
-          if (isAimingAtCheckoutDouble) {
-            perfectZoneWidth = 2; // Aiming at winning double - fixed 2%
-          } else {
-            perfectZoneWidth = 10; // On checkout but not aiming at winning double - fixed 10%
-          }
+          // On checkout - ALWAYS 10%, completely fixed and consistent
+          perfectZoneWidth = 10;
         } else {
           // Normal throw - zone can shrink based on triples hit
           const baseZoneWidth = 10;
@@ -689,20 +680,12 @@
 
             playSound('throw');
 
-            // Check if AI is aiming at a checkout double
-            const aimingAt = calculateScore(target.x, target.y);
-            const isAimingAtCheckoutDouble = isCheckoutPosition && aimingAt.multiplier === 2 && aimingAt.score === currentPlayer.score;
-
             // Calculate if AI power is in perfect zone
-            // Normal: 10% (shrinks with triples), Checkout: always 10%, Aiming at winning double: always 2%
+            // Normal: 10% (shrinks with triples), Checkout: ALWAYS 10% (completely fixed)
             let perfectZoneWidth;
             if (isCheckoutPosition) {
-              // On checkout - fixed zones, no shrinking regardless of triples hit
-              if (isAimingAtCheckoutDouble) {
-                perfectZoneWidth = 2; // Aiming at winning double - fixed 2%
-              } else {
-                perfectZoneWidth = 10; // On checkout but not aiming at winning double - fixed 10%
-              }
+              // On checkout - ALWAYS 10%, completely fixed and consistent
+              perfectZoneWidth = 10;
             } else {
               // Normal throw - zone can shrink based on triples hit
               const baseZoneWidth = 10;
@@ -1076,19 +1059,11 @@
               <div style={{ width: `${BOARD_SIZE}px`, marginTop: '20px' }}>
                 <div style={{ background: 'rgba(255, 255, 255, 0.1)', borderRadius: '10px', height: '30px', overflow: 'hidden', position: 'relative' }}>
                   {(() => {
-                    // Calculate perfect zone width - must match throw detection logic
-                    const currentPlayer = players[currentPlayerIndex];
-                    const aimingAt = currentPlayer ? calculateScore(aimPosition.x, aimPosition.y) : { multiplier: 0, score: 0 };
-                    const isAimingAtCheckoutDouble = isCheckoutPosition && aimingAt.multiplier === 2 && aimingAt.score === currentPlayer?.score;
-
+                    // Calculate perfect zone width - ALWAYS fixed on checkout for consistency
                     let perfectZoneWidth;
                     if (isCheckoutPosition) {
-                      // On checkout - fixed zones, no shrinking regardless of triples hit
-                      if (isAimingAtCheckoutDouble) {
-                        perfectZoneWidth = 2; // Aiming at winning double - fixed 2%
-                      } else {
-                        perfectZoneWidth = 10; // On checkout but not aiming at winning double - fixed 10%
-                      }
+                      // On checkout - ALWAYS 10%, completely fixed and consistent
+                      perfectZoneWidth = 10;
                     } else {
                       // Normal throw - zone can shrink based on triples hit
                       const baseZoneWidth = 10;
