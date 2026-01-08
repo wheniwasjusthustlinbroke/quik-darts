@@ -443,16 +443,9 @@
         playSound('throw');
 
         // Calculate if power is in perfect zone
-        // Normal: 10% (shrinks with triples), Checkout: ALWAYS 10% (completely fixed)
-        let perfectZoneWidth;
-        if (isCheckoutPosition) {
-          // On checkout - ALWAYS 10%, completely fixed and consistent
-          perfectZoneWidth = 10;
-        } else {
-          // Normal throw - zone can shrink based on triples hit
-          const baseZoneWidth = 10;
-          perfectZoneWidth = Math.max(baseZoneWidth - (triplesHit * 2), 4);
-        }
+        // Shrinks by 2% for each triple hit, everywhere including checkout
+        const baseZoneWidth = 10;
+        const perfectZoneWidth = Math.max(baseZoneWidth - (triplesHit * 2), 4);
         const perfectZoneLeft = 50 - (perfectZoneWidth / 2);
         const perfectZoneRight = 50 + (perfectZoneWidth / 2);
         const isInPerfectZone = power > perfectZoneLeft && power < perfectZoneRight;
@@ -681,16 +674,9 @@
             playSound('throw');
 
             // Calculate if AI power is in perfect zone
-            // Normal: 10% (shrinks with triples), Checkout: ALWAYS 10% (completely fixed)
-            let perfectZoneWidth;
-            if (isCheckoutPosition) {
-              // On checkout - ALWAYS 10%, completely fixed and consistent
-              perfectZoneWidth = 10;
-            } else {
-              // Normal throw - zone can shrink based on triples hit
-              const baseZoneWidth = 10;
-              perfectZoneWidth = Math.max(baseZoneWidth - (triplesHit * 2), 4);
-            }
+            // Shrinks by 2% for each triple hit, everywhere including checkout
+            const baseZoneWidth = 10;
+            const perfectZoneWidth = Math.max(baseZoneWidth - (triplesHit * 2), 4);
             const perfectZoneLeft = 50 - (perfectZoneWidth / 2);
             const perfectZoneRight = 50 + (perfectZoneWidth / 2);
             const isInPerfectZone = aiPower > perfectZoneLeft && aiPower < perfectZoneRight;
@@ -1059,16 +1045,9 @@
               <div style={{ width: `${BOARD_SIZE}px`, marginTop: '20px' }}>
                 <div style={{ background: 'rgba(255, 255, 255, 0.1)', borderRadius: '10px', height: '30px', overflow: 'hidden', position: 'relative' }}>
                   {(() => {
-                    // Calculate perfect zone width - ALWAYS fixed on checkout for consistency
-                    let perfectZoneWidth;
-                    if (isCheckoutPosition) {
-                      // On checkout - ALWAYS 10%, completely fixed and consistent
-                      perfectZoneWidth = 10;
-                    } else {
-                      // Normal throw - zone can shrink based on triples hit
-                      const baseZoneWidth = 10;
-                      perfectZoneWidth = Math.max(baseZoneWidth - (triplesHit * 2), 4);
-                    }
+                    // Calculate perfect zone width - shrinks everywhere including checkout
+                    const baseZoneWidth = 10;
+                    const perfectZoneWidth = Math.max(baseZoneWidth - (triplesHit * 2), 4);
 
                     const perfectZoneLeft = 50 - (perfectZoneWidth / 2);
                     const perfectZoneRight = 50 + (perfectZoneWidth / 2);
@@ -1085,7 +1064,7 @@
                 <div style={{ display: 'flex', justifyContent: 'space-between', color: '#888', fontSize: '12px', marginTop: '5px' }}>
                   <span>WEAK</span>
                   <span style={{ color: isCheckoutPosition ? '#ffd700' : '#32cd32', fontWeight: isCheckoutPosition ? '700' : 'normal' }}>
-                    {isCheckoutPosition ? 'CHECKOUT!' : `PERFECT ${triplesHit > 0 ? `(-${triplesHit * 2}%)` : ''}`}
+                    {isCheckoutPosition ? `CHECKOUT! ${triplesHit > 0 ? `(-${triplesHit * 2}%)` : ''}` : `PERFECT ${triplesHit > 0 ? `(-${triplesHit * 2}%)` : ''}`}
                   </span>
                   <span>STRONG</span>
                 </div>
