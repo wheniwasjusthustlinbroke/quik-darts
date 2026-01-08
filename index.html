@@ -175,7 +175,16 @@
       const addRandomness = useCallback((targetX, targetY, power) => {
         const skillFactor = (100 - skillLevel) / 100;
         const powerFactor = Math.abs(power - 50) / 50;
-        const randomness = (skillFactor * 60 + powerFactor * 40) * (1 + Math.random() * 0.5);
+
+        // Base randomness that always applies (even at max skill)
+        const baseRandomness = 15;
+
+        // Increased multipliers for more difficulty
+        const skillRandomness = skillFactor * 90;
+        const powerRandomness = powerFactor * 60;
+
+        // Total randomness with higher variance
+        const randomness = baseRandomness + skillRandomness + powerRandomness + (Math.random() * 20);
 
         const angle = Math.random() * Math.PI * 2;
         const offset = Math.random() * randomness;
