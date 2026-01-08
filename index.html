@@ -910,18 +910,8 @@
 
               const newScore = currentPlayer.score - result.score;
 
-              // Check for 180 FIRST (before setting regular popup)
-              const newTurnScore = currentTurnScore + result.score;
-              const is180 = newTurnScore === 180 && dartsThrown + 1 === 3;
-
-              if (is180) {
-                playSound('180');
-                setShowScorePopup({ score: 180, label: '180!!!', position: finalPosition });
-                setTimeout(() => setShowScorePopup(null), 2000);
-              } else {
-                setShowScorePopup({ ...result, position: finalPosition });
-                setTimeout(() => setShowScorePopup(null), 1000);
-              }
+              setShowScorePopup({ ...result, position: finalPosition });
+              setTimeout(() => setShowScorePopup(null), 1000);
 
               if (newScore < 0 || newScore === 1 || (newScore === 0 && result.multiplier !== 2)) {
                 playSound('bust');
