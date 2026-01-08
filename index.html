@@ -870,24 +870,12 @@
             return;
           }
 
-          const newPlayers = [...players];
-          newPlayers[currentPlayerIndex] = { ...currentPlayer, score: newScore };
-          setPlayers(newPlayers);
-
           const newCurrentTurnScore = currentTurnScore + result.score;
           const newDartsThrown = dartsThrown + 1;
+          const nextPlayerIndex = newDartsThrown >= 3 ? (currentPlayerIndex + 1) % players.length : currentPlayerIndex;
 
-          setCurrentTurnScore(newCurrentTurnScore);
-          setThrowHistory(prev => [...prev, { player: currentPlayerIndex, ...result, remaining: newScore }]);
-          setDartsThrown(newDartsThrown);
-          setLegDartsThrown(prev => {
-            const newLegDarts = [...prev];
-            newLegDarts[currentPlayerIndex] = (newLegDarts[currentPlayerIndex] || 0) + 1;
-            return newLegDarts;
-          });
-          updateStats(currentPlayerIndex, result);
-
-          // Sync throw to Firebase in online mode
+          // In online mode, ONLY sync to Firebase - don't update local state
+          // The Firebase listener will update state for both players
           if (onlineMode) {
             syncThrowToFirebase({
               player: currentPlayerIndex,
@@ -898,13 +886,28 @@
               remaining: newScore,
               dartsThrown: newDartsThrown,
               currentTurnScore: newCurrentTurnScore,
-              currentPlayer: newDartsThrown >= 3 ? (currentPlayerIndex + 1) % players.length : currentPlayerIndex,
+              currentPlayer: nextPlayerIndex,
               position: finalPosition
             });
-          }
+          } else {
+            // Offline mode: update local state directly
+            const newPlayers = [...players];
+            newPlayers[currentPlayerIndex] = { ...currentPlayer, score: newScore };
+            setPlayers(newPlayers);
 
-          if (dartsThrown + 1 >= 3) {
-            setTimeout(() => nextPlayer(false), 1000);
+            setCurrentTurnScore(newCurrentTurnScore);
+            setThrowHistory(prev => [...prev, { player: currentPlayerIndex, ...result, remaining: newScore }]);
+            setDartsThrown(newDartsThrown);
+            setLegDartsThrown(prev => {
+              const newLegDarts = [...prev];
+              newLegDarts[currentPlayerIndex] = (newLegDarts[currentPlayerIndex] || 0) + 1;
+              return newLegDarts;
+            });
+            updateStats(currentPlayerIndex, result);
+
+            if (newDartsThrown >= 3) {
+              setTimeout(() => nextPlayer(false), 1000);
+            }
           }
         }, 300);
       }, [aimPosition, aimWobble, power, dartsThrown, players, currentPlayerIndex, winner, calculateScore, addRandomness, playSound, isCheckoutPosition, triplesHit, handleLegWin, updateStats, nextPlayer, onlineMode, playerId, syncThrowToFirebase, currentTurnScore]);
