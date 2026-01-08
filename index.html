@@ -288,9 +288,17 @@
         const aimingAt = calculateScore(aimPosition.x, aimPosition.y);
         const isAimingAtCheckoutDouble = isCheckoutPosition && aimingAt.multiplier === 2 && aimingAt.score === currentPlayer.score;
 
-        // Calculate if power is in perfect zone - only use small zone when aiming at checkout double
-        const baseZoneWidth = isAimingAtCheckoutDouble ? 2 : 10;
-        const perfectZoneWidth = Math.max(baseZoneWidth - (triplesHit * 2), isAimingAtCheckoutDouble ? 1 : 4);
+        // Calculate if power is in perfect zone
+        // Normal: 10%, Checkout position: 5%, Aiming at winning double: 2%
+        let baseZoneWidth;
+        if (isAimingAtCheckoutDouble) {
+          baseZoneWidth = 2; // Aiming at winning double
+        } else if (isCheckoutPosition) {
+          baseZoneWidth = 5; // On checkout but not aiming at winning double
+        } else {
+          baseZoneWidth = 10; // Normal throw
+        }
+        const perfectZoneWidth = Math.max(baseZoneWidth - (triplesHit * 2), isAimingAtCheckoutDouble ? 1 : (isCheckoutPosition ? 3 : 4));
         const perfectZoneLeft = 50 - (perfectZoneWidth / 2);
         const perfectZoneRight = 50 + (perfectZoneWidth / 2);
         const isInPerfectZone = power > perfectZoneLeft && power < perfectZoneRight;
@@ -522,9 +530,17 @@
             const aimingAt = calculateScore(target.x, target.y);
             const isAimingAtCheckoutDouble = isCheckoutPosition && aimingAt.multiplier === 2 && aimingAt.score === currentPlayer.score;
 
-            // Calculate if AI power is in perfect zone - only use small zone when aiming at checkout double
-            const baseZoneWidth = isAimingAtCheckoutDouble ? 2 : 10;
-            const perfectZoneWidth = Math.max(baseZoneWidth - (triplesHit * 2), isAimingAtCheckoutDouble ? 1 : 4);
+            // Calculate if AI power is in perfect zone
+            // Normal: 10%, Checkout position: 5%, Aiming at winning double: 2%
+            let baseZoneWidth;
+            if (isAimingAtCheckoutDouble) {
+              baseZoneWidth = 2; // Aiming at winning double
+            } else if (isCheckoutPosition) {
+              baseZoneWidth = 5; // On checkout but not aiming at winning double
+            } else {
+              baseZoneWidth = 10; // Normal throw
+            }
+            const perfectZoneWidth = Math.max(baseZoneWidth - (triplesHit * 2), isAimingAtCheckoutDouble ? 1 : (isCheckoutPosition ? 3 : 4));
             const perfectZoneLeft = 50 - (perfectZoneWidth / 2);
             const perfectZoneRight = 50 + (perfectZoneWidth / 2);
             const isInPerfectZone = aiPower > perfectZoneLeft && aiPower < perfectZoneRight;
