@@ -925,8 +925,10 @@
                     currentTurnScore: 0
                   });
                 }
-                // Also clear local turn tracking
+                // Reset turn tracking - same as offline mode
                 setCurrentTurnThrows([]);
+                setTriplesHit(0); // Reset power bar shrinking
+                setAimWobble({ x: 0, y: 0 }); // Reset wobble
               }, 1000);
             }
           } else {
