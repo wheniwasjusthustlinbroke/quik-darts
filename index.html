@@ -497,8 +497,8 @@
           setDartsThrown(prev => prev + 1);
           updateStats(currentPlayerIndex, result);
 
-          // Increase difficulty by shrinking perfect zone when triple is hit
-          if (result.multiplier === 3) {
+          // Increase difficulty by shrinking perfect zone when perfect throw is hit
+          if (isInPerfectZone) {
             setTriplesHit(prev => prev + 1);
           }
 
@@ -755,8 +755,8 @@
               setDartsThrown(prev => prev + 1);
               updateStats(currentPlayerIndex, result);
 
-              // Increase difficulty by shrinking perfect zone when triple is hit
-              if (result.multiplier === 3) {
+              // Increase difficulty by shrinking perfect zone when perfect throw is hit
+              if (isInPerfectZone) {
                 setTriplesHit(prev => prev + 1);
               }
 
