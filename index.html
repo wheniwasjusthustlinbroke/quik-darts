@@ -352,10 +352,11 @@
           newPlayers[currentPlayerIndex] = { ...players[currentPlayerIndex], score: players[currentPlayerIndex].score + currentTurnScore };
           setPlayers(newPlayers);
         }
-        
+
         setDartsThrown(0);
         setCurrentTurnScore(0);
         setDartPositions([]);
+        setTriplesHit(0);
         setCurrentPlayerIndex((currentPlayerIndex + 1) % players.length);
       }, [currentPlayerIndex, players, currentTurnScore]);
 
@@ -731,7 +732,7 @@
               <div style={{ width: `${BOARD_SIZE}px`, marginTop: '20px' }}>
                 <div style={{ background: 'rgba(255, 255, 255, 0.1)', borderRadius: '10px', height: '30px', overflow: 'hidden', position: 'relative' }}>
                   {(() => {
-                    const perfectZoneWidth = Math.max(20 - (triplesHit * 2), 4);
+                    const perfectZoneWidth = Math.max(10 - (triplesHit * 2), 4);
                     const perfectZoneLeft = 50 - (perfectZoneWidth / 2);
                     const perfectZoneRight = 50 + (perfectZoneWidth / 2);
                     const isInPerfectZone = power > perfectZoneLeft && power < perfectZoneRight;
