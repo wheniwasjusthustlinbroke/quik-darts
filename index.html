@@ -50,7 +50,7 @@
       const [showScorePopup, setShowScorePopup] = useState(null);
       const [gameStats, setGameStats] = useState({});
       const [winner, setWinner] = useState(null);
-      const [skillLevel, setSkillLevel] = useState(50);
+      const [skillLevel, setSkillLevel] = useState(60); // Default to Intermediate
       const [soundEnabled, setSoundEnabled] = useState(true);
       const [showStats, setShowStats] = useState(false);
       const [playerSetup, setPlayerSetup] = useState({ count: 1, names: ['Player 1', 'Player 2', 'Player 3', 'Player 4'], gameMode: 501, aiPlayers: [false, false, false, false], aiDifficulty: [null, null, null, null], legsPerSet: 3, setsToWin: 1, flags: ['🏴󠁧󠁢󠁥󠁮󠁧󠁿', '🏴󠁧󠁢󠁥󠁮󠁧󠁿', '🏴󠁧󠁢󠁥󠁮󠁧󠁿', '🏴󠁧󠁢󠁥󠁮󠁧󠁿'] });
@@ -1157,9 +1157,66 @@
               ))}
               
               <div style={{ marginBottom: '30px', marginTop: '30px' }}>
-                <label style={{ color: '#ffd700', fontSize: '14px', letterSpacing: '2px', display: 'block', marginBottom: '10px' }}>SKILL LEVEL: {skillLevel}%</label>
-                <input type="range" min="10" max="100" value={skillLevel} onChange={(e) => setSkillLevel(parseInt(e.target.value))} style={{ width: '100%', accentColor: '#ffd700' }} />
-                <div style={{ display: 'flex', justifyContent: 'space-between', color: '#888', fontSize: '12px', marginTop: '5px' }}><span>Novice</span><span>Pro</span></div>
+                <label style={{ color: '#ffd700', fontSize: '14px', letterSpacing: '2px', display: 'block', marginBottom: '15px' }}>SKILL LEVEL</label>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px' }}>
+                  <button
+                    onClick={() => setSkillLevel(30)}
+                    style={{
+                      padding: '15px 10px',
+                      background: skillLevel <= 40 ? 'linear-gradient(135deg, #228b22, #32cd32)' : 'rgba(255, 255, 255, 0.1)',
+                      color: skillLevel <= 40 ? '#fff' : '#888',
+                      border: skillLevel <= 40 ? '2px solid #32cd32' : '2px solid transparent',
+                      borderRadius: '10px',
+                      cursor: 'pointer',
+                      fontFamily: "'Oswald', sans-serif",
+                      fontSize: '14px',
+                      fontWeight: '600',
+                      transition: 'all 0.2s'
+                    }}
+                  >
+                    <div style={{ fontSize: '16px', marginBottom: '5px' }}>🟢</div>
+                    BEGINNER
+                    <div style={{ fontSize: '10px', marginTop: '5px', opacity: 0.8 }}>1-40%</div>
+                  </button>
+                  <button
+                    onClick={() => setSkillLevel(60)}
+                    style={{
+                      padding: '15px 10px',
+                      background: skillLevel >= 41 && skillLevel <= 80 ? 'linear-gradient(135deg, #ffa500, #ffb732)' : 'rgba(255, 255, 255, 0.1)',
+                      color: skillLevel >= 41 && skillLevel <= 80 ? '#fff' : '#888',
+                      border: skillLevel >= 41 && skillLevel <= 80 ? '2px solid #ffb732' : '2px solid transparent',
+                      borderRadius: '10px',
+                      cursor: 'pointer',
+                      fontFamily: "'Oswald', sans-serif",
+                      fontSize: '14px',
+                      fontWeight: '600',
+                      transition: 'all 0.2s'
+                    }}
+                  >
+                    <div style={{ fontSize: '16px', marginBottom: '5px' }}>🟡</div>
+                    INTERMEDIATE
+                    <div style={{ fontSize: '10px', marginTop: '5px', opacity: 0.8 }}>41-80%</div>
+                  </button>
+                  <button
+                    onClick={() => setSkillLevel(90)}
+                    style={{
+                      padding: '15px 10px',
+                      background: skillLevel >= 81 ? 'linear-gradient(135deg, #c41e3a, #e74c3c)' : 'rgba(255, 255, 255, 0.1)',
+                      color: skillLevel >= 81 ? '#fff' : '#888',
+                      border: skillLevel >= 81 ? '2px solid #e74c3c' : '2px solid transparent',
+                      borderRadius: '10px',
+                      cursor: 'pointer',
+                      fontFamily: "'Oswald', sans-serif",
+                      fontSize: '14px',
+                      fontWeight: '600',
+                      transition: 'all 0.2s'
+                    }}
+                  >
+                    <div style={{ fontSize: '16px', marginBottom: '5px' }}>🔴</div>
+                    EXPERT
+                    <div style={{ fontSize: '10px', marginTop: '5px', opacity: 0.8 }}>81-100%</div>
+                  </button>
+                </div>
               </div>
               
               <div style={{ marginBottom: '30px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
