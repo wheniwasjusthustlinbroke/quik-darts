@@ -47,7 +47,7 @@
       const [skillLevel, setSkillLevel] = useState(50);
       const [soundEnabled, setSoundEnabled] = useState(true);
       const [showStats, setShowStats] = useState(false);
-      const [playerSetup, setPlayerSetup] = useState({ count: 1, names: ['Player 1', 'Player 2', 'Player 3', 'Player 4'] });
+      const [playerSetup, setPlayerSetup] = useState({ count: 1, names: ['Player 1', 'Player 2', 'Player 3', 'Player 4'], gameMode: 501 });
       const [animatingDart, setAnimatingDart] = useState(null);
       const [checkout, setCheckout] = useState(null);
 
@@ -340,7 +340,7 @@
       const startGame = () => {
         const newPlayers = Array.from({ length: playerSetup.count }, (_, i) => ({
           name: playerSetup.names[i] || `Player ${i + 1}`,
-          score: 501
+          score: playerSetup.gameMode
         }));
         setPlayers(newPlayers);
         setCurrentPlayerIndex(0);
@@ -427,6 +427,15 @@
             </div>
             
             <div style={{ background: 'rgba(255, 255, 255, 0.05)', borderRadius: '20px', padding: '40px', backdropFilter: 'blur(10px)', border: '1px solid rgba(255, 215, 0, 0.2)', width: '100%', maxWidth: '450px' }}>
+              <div style={{ marginBottom: '30px' }}>
+                <label style={{ color: '#ffd700', fontSize: '14px', letterSpacing: '2px', display: 'block', marginBottom: '10px' }}>GAME MODE</label>
+                <div style={{ display: 'flex', gap: '10px' }}>
+                  {[301, 501].map(mode => (
+                    <button key={mode} onClick={() => setPlayerSetup(prev => ({ ...prev, gameMode: mode }))} style={{ flex: 1, padding: '15px', fontSize: '20px', fontWeight: '600', background: playerSetup.gameMode === mode ? 'linear-gradient(135deg, #ffd700, #ffed4a)' : 'rgba(255, 255, 255, 0.1)', color: playerSetup.gameMode === mode ? '#1a1a2e' : '#e8d5b7', border: 'none', borderRadius: '10px', cursor: 'pointer', fontFamily: "'Oswald', sans-serif" }}>{mode}</button>
+                  ))}
+                </div>
+              </div>
+
               <div style={{ marginBottom: '30px' }}>
                 <label style={{ color: '#ffd700', fontSize: '14px', letterSpacing: '2px', display: 'block', marginBottom: '10px' }}>NUMBER OF PLAYERS</label>
                 <div style={{ display: 'flex', gap: '10px' }}>
