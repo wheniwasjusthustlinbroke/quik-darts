@@ -61,6 +61,8 @@
       const [legScores, setLegScores] = useState([]); // Track legs won per player
       const [setScores, setSetScores] = useState([]); // Track sets won per player
       const [matchWinner, setMatchWinner] = useState(null);
+      const [legDartsThrown, setLegDartsThrown] = useState([]); // Track darts thrown per player in current leg
+      const [showNineDarter, setShowNineDarter] = useState(false);
 
       const boardRef = useRef(null);
       const powerIntervalRef = useRef(null);
@@ -409,6 +411,13 @@
       };
 
       const handleLegWin = useCallback((playerIndex) => {
+        // Check for nine-darter (only possible in 501)
+        const playerDartsInLeg = legDartsThrown[playerIndex] || 0;
+        if (playerSetup.gameMode === 501 && playerDartsInLeg === 9) {
+          setShowNineDarter(true);
+          setTimeout(() => setShowNineDarter(false), 5000);
+        }
+
         playSound('win');
 
         // Update leg scores
@@ -448,8 +457,9 @@
           setTriplesHit(0);
           setThrowHistory([]);
           setWinner(null);
+          setLegDartsThrown(new Array(players.length).fill(0));
         }, 2000);
-      }, [legScores, setScores, players, playerSetup, playSound]);
+      }, [legScores, setScores, players, playerSetup, playSound, legDartsThrown]);
 
       const throwDart = useCallback(() => {
         if (dartsThrown >= 3 || winner) return;
@@ -525,6 +535,11 @@
           setCurrentTurnScore(prev => prev + result.score);
           setThrowHistory(prev => [...prev, { player: currentPlayerIndex, ...result, remaining: newScore }]);
           setDartsThrown(prev => prev + 1);
+          setLegDartsThrown(prev => {
+            const newLegDarts = [...prev];
+            newLegDarts[currentPlayerIndex] = (newLegDarts[currentPlayerIndex] || 0) + 1;
+            return newLegDarts;
+          });
           updateStats(currentPlayerIndex, result);
 
           // Check for 180!
@@ -801,6 +816,11 @@
               setCurrentTurnScore(prev => prev + result.score);
               setThrowHistory(prev => [...prev, { player: currentPlayerIndex, ...result, remaining: newScore }]);
               setDartsThrown(prev => prev + 1);
+              setLegDartsThrown(prev => {
+                const newLegDarts = [...prev];
+                newLegDarts[currentPlayerIndex] = (newLegDarts[currentPlayerIndex] || 0) + 1;
+                return newLegDarts;
+              });
               updateStats(currentPlayerIndex, result);
 
               // Check for 180!
@@ -842,6 +862,7 @@
         setIsCheckoutPosition(false);
         setLegScores(new Array(playerSetup.count).fill(0));
         setSetScores(new Array(playerSetup.count).fill(0));
+        setLegDartsThrown(new Array(playerSetup.count).fill(0));
         setGameState('playing');
       };
 
@@ -1163,7 +1184,48 @@
               {throwHistory.length === 0 && <p style={{ color: '#666', textAlign: 'center', fontSize: '14px' }}>No throws yet</p>}
             </div>
           </div>
-          
+
+          {/* Nine-Darter Lion Celebration */}
+          {showNineDarter && (
+            <div style={{ position: 'fixed', top: '50%', left: 0, right: 0, transform: 'translateY(-50%)', zIndex: 200, pointerEvents: 'none', overflow: 'hidden' }}>
+              <div style={{ animation: 'slideLion 5s linear', position: 'relative' }}>
+                <svg width="150" height="150" viewBox="0 0 150 150" style={{ filter: 'drop-shadow(0 0 10px rgba(255,215,0,0.5))' }}>
+                  {/* Lion face */}
+                  <circle cx="75" cy="75" r="40" fill="#f4a460" />
+                  {/* Mane */}
+                  <circle cx="50" cy="50" r="15" fill="#daa520" />
+                  <circle cx="100" cy="50" r="15" fill="#daa520" />
+                  <circle cx="50" cy="100" r="15" fill="#daa520" />
+                  <circle cx="100" cy="100" r="15" fill="#daa520" />
+                  <circle cx="40" cy="75" r="15" fill="#daa520" />
+                  <circle cx="110" cy="75" r="15" fill="#daa520" />
+                  <circle cx="75" cy="40" r="15" fill="#daa520" />
+                  <circle cx="75" cy="110" r="15" fill="#daa520" />
+                  {/* Face details */}
+                  <ellipse cx="65" cy="70" rx="5" ry="8" fill="#000" />
+                  <ellipse cx="85" cy="70" rx="5" ry="8" fill="#000" />
+                  <circle cx="75" cy="82" r="4" fill="#000" />
+                  <path d="M 75 82 Q 70 88 65 85" stroke="#000" strokeWidth="2" fill="none" />
+                  <path d="M 75 82 Q 80 88 85 85" stroke="#000" strokeWidth="2" fill="none" />
+                  {/* SUIII pose - one arm raised high! */}
+                  <line x1="75" y1="115" x2="50" y2="35" stroke="#f4a460" strokeWidth="8" strokeLinecap="round" />
+                  <circle cx="50" cy="30" r="6" fill="#f4a460" />
+                  {/* Other arm down */}
+                  <line x1="75" y1="115" x2="95" y2="120" stroke="#f4a460" strokeWidth="8" strokeLinecap="round" />
+                  <circle cx="98" cy="122" r="6" fill="#f4a460" />
+                  {/* Body */}
+                  <ellipse cx="75" cy="130" rx="20" ry="25" fill="#f4a460" />
+                  {/* Legs */}
+                  <line x1="65" y1="145" x2="60" y2="165" stroke="#f4a460" strokeWidth="8" strokeLinecap="round" />
+                  <line x1="85" y1="145" x2="90" y2="165" stroke="#f4a460" strokeWidth="8" strokeLinecap="round" />
+                </svg>
+                <div style={{ position: 'absolute', top: '-50px', left: '50%', transform: 'translateX(-50%)', fontSize: '48px', fontWeight: '900', color: '#ffd700', textShadow: '0 0 20px rgba(255,215,0,0.8), 0 0 40px rgba(255,215,0,0.6)', whiteSpace: 'nowrap', fontFamily: "'Oswald', sans-serif" }}>
+                  NINE DARTER!!!
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Stats Modal */}
           {showStats && (
             <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0, 0, 0, 0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }} onClick={() => setShowStats(false)}>
@@ -1210,6 +1272,13 @@
             @keyframes popUp { 0% { transform: translateX(-50%) scale(0.5); opacity: 0; } 50% { transform: translateX(-50%) scale(1.2); } 100% { transform: translateX(-50%) scale(1); opacity: 1; } }
             @keyframes fadeIn { from { opacity: 0; transform: scale(0.9); } to { opacity: 1; transform: scale(1); } }
             @keyframes throwDart { from { opacity: 0; transform: translateY(50px); } to { opacity: 1; transform: translateY(0); } }
+            @keyframes slideLion {
+              0% { transform: translateX(-200px) translateY(-20px); }
+              25% { transform: translateX(25vw) translateY(-30px); }
+              50% { transform: translateX(50vw) translateY(-20px); }
+              75% { transform: translateX(75vw) translateY(-30px); }
+              100% { transform: translateX(calc(100vw + 200px)) translateY(-20px); }
+            }
           `}</style>
         </div>
       );
