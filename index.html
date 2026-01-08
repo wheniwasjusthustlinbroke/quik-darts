@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Quik Darts - Championship Edition</title>
   <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;600;700&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
@@ -10,7 +10,13 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: 'Oswald', sans-serif; }
+    body {
+      font-family: 'Oswald', sans-serif;
+      -webkit-tap-highlight-color: transparent;
+      -webkit-touch-callout: none;
+      -webkit-user-select: none;
+      touch-action: manipulation;
+    }
   </style>
 </head>
 <body>
@@ -423,6 +429,59 @@
         }
       }, [isPowerCharging, throwDart]);
 
+      // Touch event handlers for mobile devices (iPhone, iPad, etc.)
+      const handleTouchMove = useCallback((e) => {
+        if (!boardRef.current || isPowerCharging) return;
+        e.preventDefault();
+        const touch = e.touches[0];
+        const rect = boardRef.current.getBoundingClientRect();
+        const x = ((touch.clientX - rect.left) / rect.width) * BOARD_SIZE;
+        const y = ((touch.clientY - rect.top) / rect.height) * BOARD_SIZE;
+        setAimPosition({ x, y });
+      }, [isPowerCharging]);
+
+      const handleTouchStart = useCallback((e) => {
+        const currentPlayer = players[currentPlayerIndex];
+        if (dartsThrown >= 3 || winner || animatingDart || (currentPlayer && currentPlayer.isAI)) return;
+        e.preventDefault();
+
+        // Update aim position on touch start
+        const touch = e.touches[0];
+        const rect = boardRef.current.getBoundingClientRect();
+        const x = ((touch.clientX - rect.left) / rect.width) * BOARD_SIZE;
+        const y = ((touch.clientY - rect.top) / rect.height) * BOARD_SIZE;
+        setAimPosition({ x, y });
+
+        setIsPowerCharging(true);
+        setPower(0);
+
+        let increasing = true;
+        let currentPower = 0;
+
+        powerIntervalRef.current = setInterval(() => {
+          if (increasing) {
+            currentPower += 2;
+            if (currentPower >= 100) increasing = false;
+          } else {
+            currentPower -= 2;
+            if (currentPower <= 0) increasing = true;
+          }
+          setPower(currentPower);
+        }, 20);
+      }, [dartsThrown, winner, animatingDart, players, currentPlayerIndex]);
+
+      const handleTouchEnd = useCallback((e) => {
+        e.preventDefault();
+        if (powerIntervalRef.current) {
+          clearInterval(powerIntervalRef.current);
+          powerIntervalRef.current = null;
+        }
+        if (isPowerCharging) {
+          setIsPowerCharging(false);
+          throwDart();
+        }
+      }, [isPowerCharging, throwDart]);
+
       useEffect(() => {
         return () => {
           if (powerIntervalRef.current) clearInterval(powerIntervalRef.current);
@@ -759,7 +818,7 @@
             
             {/* Dartboard */}
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-              <div ref={boardRef} onMouseMove={handleMouseMove} onMouseDown={handleMouseDown} onMouseUp={handleMouseUp} onMouseLeave={handleMouseUp} style={{ width: `${BOARD_SIZE}px`, height: `${BOARD_SIZE}px`, borderRadius: '50%', cursor: isPowerCharging ? 'grabbing' : 'crosshair', boxShadow: '0 0 60px rgba(0, 0, 0, 0.8), inset 0 0 30px rgba(0, 0, 0, 0.5)', position: 'relative', userSelect: 'none' }}>
+              <div ref={boardRef} onMouseMove={handleMouseMove} onMouseDown={handleMouseDown} onMouseUp={handleMouseUp} onMouseLeave={handleMouseUp} onTouchMove={handleTouchMove} onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd} style={{ width: `${BOARD_SIZE}px`, height: `${BOARD_SIZE}px`, borderRadius: '50%', cursor: isPowerCharging ? 'grabbing' : 'crosshair', boxShadow: '0 0 60px rgba(0, 0, 0, 0.8), inset 0 0 30px rgba(0, 0, 0, 0.5)', position: 'relative', userSelect: 'none' }}>
                 <svg width={BOARD_SIZE} height={BOARD_SIZE} style={{ filter: 'drop-shadow(0 0 10px rgba(0,0,0,0.5))' }}>
                   <defs><radialGradient id="boardGradient" cx="50%" cy="50%" r="50%"><stop offset="0%" stopColor="#2a2a4e" /><stop offset="100%" stopColor="#1a1a2e" /></radialGradient></defs>
                   <circle cx={CENTER} cy={CENTER} r={CENTER - 5} fill="url(#boardGradient)" stroke="#b8860b" strokeWidth="8" />
