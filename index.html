@@ -47,7 +47,7 @@
       const [skillLevel, setSkillLevel] = useState(50);
       const [soundEnabled, setSoundEnabled] = useState(true);
       const [showStats, setShowStats] = useState(false);
-      const [playerSetup, setPlayerSetup] = useState({ count: 1, names: ['Player 1', 'Player 2', 'Player 3', 'Player 4'], gameMode: 501 });
+      const [playerSetup, setPlayerSetup] = useState({ count: 1, names: ['Player 1', 'Player 2', 'Player 3', 'Player 4'], gameMode: 501, aiPlayers: [false, false, false, false], aiDifficulty: [null, null, null, null] });
       const [animatingDart, setAnimatingDart] = useState(null);
       const [checkout, setCheckout] = useState(null);
 
@@ -176,15 +176,80 @@
         const skillFactor = (100 - skillLevel) / 100;
         const powerFactor = Math.abs(power - 50) / 50;
         const randomness = (skillFactor * 60 + powerFactor * 40) * (1 + Math.random() * 0.5);
-        
+
         const angle = Math.random() * Math.PI * 2;
         const offset = Math.random() * randomness;
-        
+
         return {
           x: targetX + Math.cos(angle) * offset,
           y: targetY + Math.sin(angle) * offset
         };
       }, [skillLevel]);
+
+      const getAITarget = useCallback((difficulty, currentScore) => {
+        // Calculate angle and distance for a specific segment
+        const getSegmentPosition = (segmentValue, multiplier = 1) => {
+          const segmentIndex = SEGMENTS.indexOf(segmentValue);
+          const angle = (segmentIndex * 18 - 90) * (Math.PI / 180);
+          let distance;
+          if (multiplier === 3) distance = (TRIPLE_INNER + TRIPLE_OUTER) / 2;
+          else if (multiplier === 2) distance = (DOUBLE_INNER + DOUBLE_OUTER) / 2;
+          else distance = (TRIPLE_OUTER + DOUBLE_INNER) / 2;
+
+          return {
+            x: CENTER + distance * Math.cos(angle),
+            y: CENTER + distance * Math.sin(angle)
+          };
+        };
+
+        // For checkout situations
+        if (checkoutSuggestions[currentScore] && (difficulty === 'hard' || difficulty === 'impossible')) {
+          const suggestion = checkoutSuggestions[currentScore];
+          if (suggestion.includes('T20')) return getSegmentPosition(20, 3);
+          if (suggestion.includes('D20')) return getSegmentPosition(20, 2);
+          if (suggestion.includes('Bull')) return { x: CENTER, y: CENTER };
+        }
+
+        switch(difficulty) {
+          case 'easy':
+            // Aim at random segments, single rings
+            const randomSegment = SEGMENTS[Math.floor(Math.random() * SEGMENTS.length)];
+            return getSegmentPosition(randomSegment, 1);
+
+          case 'medium':
+            // Aim at high-value segments (19, 20), sometimes triples
+            const targetSegment = Math.random() > 0.5 ? 20 : 19;
+            const useTriple = Math.random() > 0.6;
+            return getSegmentPosition(targetSegment, useTriple ? 3 : 1);
+
+          case 'hard':
+            // Consistently aim for T20, T19, or doubles for checkout
+            if (currentScore <= 40 && currentScore % 2 === 0) {
+              return getSegmentPosition(20, 2);
+            }
+            return getSegmentPosition(20, 3);
+
+          case 'impossible':
+            // Perfect strategy
+            if (currentScore <= 170 && checkoutSuggestions[currentScore]) {
+              return getSegmentPosition(20, 3);
+            }
+            return getSegmentPosition(20, 3);
+
+          default:
+            return { x: CENTER, y: CENTER };
+        }
+      }, []);
+
+      const getAIAccuracy = (difficulty) => {
+        switch(difficulty) {
+          case 'easy': return 35;
+          case 'medium': return 60;
+          case 'hard': return 80;
+          case 'impossible': return 95;
+          default: return 50;
+        }
+      };
 
       const throwDart = useCallback(() => {
         if (dartsThrown >= 3 || winner) return;
@@ -291,7 +356,8 @@
       }, [isPowerCharging]);
 
       const handleMouseDown = useCallback((e) => {
-        if (dartsThrown >= 3 || winner || animatingDart) return;
+        const currentPlayer = players[currentPlayerIndex];
+        if (dartsThrown >= 3 || winner || animatingDart || (currentPlayer && currentPlayer.isAI)) return;
         e.preventDefault();
         setIsPowerCharging(true);
         setPower(0);
@@ -309,7 +375,7 @@
           }
           setPower(currentPower);
         }, 20);
-      }, [dartsThrown, winner, animatingDart]);
+      }, [dartsThrown, winner, animatingDart, players, currentPlayerIndex]);
 
       const handleMouseUp = useCallback(() => {
         if (powerIntervalRef.current) {
@@ -337,10 +403,88 @@
         }
       }, [players, currentPlayerIndex]);
 
+      useEffect(() => {
+        const currentPlayer = players[currentPlayerIndex];
+        if (currentPlayer && currentPlayer.isAI && gameState === 'playing' && !winner && !animatingDart && dartsThrown < 3) {
+          const aiThrowDelay = setTimeout(() => {
+            const target = getAITarget(currentPlayer.aiDifficulty, currentPlayer.score);
+            const aiAccuracy = getAIAccuracy(currentPlayer.aiDifficulty);
+            const aiPower = 45 + Math.random() * 10; // AI aims for ~50 power (perfect zone)
+
+            playSound('throw');
+
+            // Apply AI-specific randomness
+            const accuracyFactor = (100 - aiAccuracy) / 100;
+            const randomness = accuracyFactor * 70;
+            const angle = Math.random() * Math.PI * 2;
+            const offset = Math.random() * randomness;
+
+            const finalPosition = {
+              x: target.x + Math.cos(angle) * offset,
+              y: target.y + Math.sin(angle) * offset
+            };
+
+            const result = calculateScore(finalPosition.x, finalPosition.y);
+
+            setAnimatingDart({ start: { x: CENTER, y: BOARD_SIZE + 50 }, end: finalPosition });
+
+            setTimeout(() => {
+              setAnimatingDart(null);
+              setDartPositions(prev => [...prev, finalPosition]);
+
+              if (result.score === 50) playSound('bullseye');
+              else if (result.score > 0) playSound('hit');
+
+              const newScore = currentPlayer.score - result.score;
+
+              setShowScorePopup({ ...result, position: finalPosition });
+              setTimeout(() => setShowScorePopup(null), 1000);
+
+              if (newScore < 0 || newScore === 1 || (newScore === 0 && result.multiplier !== 2)) {
+                playSound('bust');
+                setShowScorePopup({ score: 'BUST!', label: 'BUST!', position: finalPosition });
+                setTimeout(() => {
+                  setShowScorePopup(null);
+                  nextPlayer(true);
+                }, 1500);
+                return;
+              }
+
+              if (newScore === 0 && result.multiplier === 2) {
+                playSound('win');
+                setWinner(currentPlayer);
+                const newPlayers = [...players];
+                newPlayers[currentPlayerIndex] = { ...currentPlayer, score: 0 };
+                setPlayers(newPlayers);
+                updateStats(currentPlayerIndex, result);
+                return;
+              }
+
+              const newPlayers = [...players];
+              newPlayers[currentPlayerIndex] = { ...currentPlayer, score: newScore };
+              setPlayers(newPlayers);
+
+              setCurrentTurnScore(prev => prev + result.score);
+              setThrowHistory(prev => [...prev, { player: currentPlayerIndex, ...result, remaining: newScore }]);
+              setDartsThrown(prev => prev + 1);
+              updateStats(currentPlayerIndex, result);
+
+              if (dartsThrown + 1 >= 3) {
+                setTimeout(() => nextPlayer(false), 1000);
+              }
+            }, 300);
+          }, 800);
+
+          return () => clearTimeout(aiThrowDelay);
+        }
+      }, [players, currentPlayerIndex, gameState, winner, animatingDart, dartsThrown, getAITarget, calculateScore, playSound, updateStats, nextPlayer]);
+
       const startGame = () => {
         const newPlayers = Array.from({ length: playerSetup.count }, (_, i) => ({
           name: playerSetup.names[i] || `Player ${i + 1}`,
-          score: playerSetup.gameMode
+          score: playerSetup.gameMode,
+          isAI: playerSetup.aiPlayers[i] || false,
+          aiDifficulty: playerSetup.aiDifficulty[i] || null
         }));
         setPlayers(newPlayers);
         setCurrentPlayerIndex(0);
@@ -446,8 +590,38 @@
               </div>
               
               {Array.from({ length: playerSetup.count }).map((_, i) => (
-                <div key={i} style={{ marginBottom: '15px' }}>
-                  <input type="text" value={playerSetup.names[i]} onChange={(e) => { const newNames = [...playerSetup.names]; newNames[i] = e.target.value; setPlayerSetup(prev => ({ ...prev, names: newNames })); }} placeholder={`Player ${i + 1}`} style={{ width: '100%', padding: '15px', fontSize: '16px', background: 'rgba(255, 255, 255, 0.1)', border: '1px solid rgba(255, 215, 0, 0.3)', borderRadius: '10px', color: '#e8d5b7', outline: 'none', fontFamily: "'Roboto Mono', monospace", boxSizing: 'border-box' }} />
+                <div key={i} style={{ marginBottom: '20px', background: 'rgba(255, 255, 255, 0.05)', padding: '15px', borderRadius: '10px', border: '1px solid rgba(255, 215, 0, 0.2)' }}>
+                  <input type="text" value={playerSetup.names[i]} onChange={(e) => { const newNames = [...playerSetup.names]; newNames[i] = e.target.value; setPlayerSetup(prev => ({ ...prev, names: newNames })); }} placeholder={`Player ${i + 1}`} style={{ width: '100%', padding: '12px', fontSize: '16px', background: 'rgba(255, 255, 255, 0.1)', border: '1px solid rgba(255, 215, 0, 0.3)', borderRadius: '8px', color: '#e8d5b7', outline: 'none', fontFamily: "'Roboto Mono', monospace", boxSizing: 'border-box', marginBottom: '10px' }} />
+
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: playerSetup.aiPlayers[i] ? '10px' : '0' }}>
+                    <span style={{ color: '#888', fontSize: '13px', letterSpacing: '1px' }}>AI OPPONENT</span>
+                    <button onClick={() => {
+                      const newAiPlayers = [...playerSetup.aiPlayers];
+                      newAiPlayers[i] = !newAiPlayers[i];
+                      const newAiDifficulty = [...playerSetup.aiDifficulty];
+                      if (newAiPlayers[i] && !newAiDifficulty[i]) newAiDifficulty[i] = 'medium';
+                      setPlayerSetup(prev => ({ ...prev, aiPlayers: newAiPlayers, aiDifficulty: newAiDifficulty }));
+                    }} style={{ padding: '6px 15px', background: playerSetup.aiPlayers[i] ? 'linear-gradient(135deg, #228b22, #32cd32)' : 'rgba(255, 255, 255, 0.1)', color: playerSetup.aiPlayers[i] ? '#fff' : '#888', border: 'none', borderRadius: '15px', cursor: 'pointer', fontFamily: "'Oswald', sans-serif", fontSize: '12px', fontWeight: '600' }}>
+                      {playerSetup.aiPlayers[i] ? 'ON' : 'OFF'}
+                    </button>
+                  </div>
+
+                  {playerSetup.aiPlayers[i] && (
+                    <div>
+                      <label style={{ color: '#888', fontSize: '11px', letterSpacing: '1px', display: 'block', marginBottom: '8px' }}>DIFFICULTY</label>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '6px' }}>
+                        {['easy', 'medium', 'hard', 'impossible'].map(diff => (
+                          <button key={diff} onClick={() => {
+                            const newAiDifficulty = [...playerSetup.aiDifficulty];
+                            newAiDifficulty[i] = diff;
+                            setPlayerSetup(prev => ({ ...prev, aiDifficulty: newAiDifficulty }));
+                          }} style={{ padding: '8px 4px', fontSize: '11px', fontWeight: '600', background: playerSetup.aiDifficulty[i] === diff ? 'linear-gradient(135deg, #ffd700, #ffed4a)' : 'rgba(255, 255, 255, 0.1)', color: playerSetup.aiDifficulty[i] === diff ? '#1a1a2e' : '#888', border: 'none', borderRadius: '6px', cursor: 'pointer', fontFamily: "'Oswald', sans-serif", textTransform: 'uppercase' }}>
+                            {diff}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               ))}
               
@@ -479,10 +653,14 @@
               
               {players.map((player, index) => (
                 <div key={index} style={{ background: currentPlayerIndex === index ? 'linear-gradient(135deg, rgba(255, 215, 0, 0.2), rgba(255, 215, 0, 0.1))' : 'rgba(255, 255, 255, 0.05)', borderRadius: '15px', padding: '20px', marginBottom: '15px', border: currentPlayerIndex === index ? '2px solid #ffd700' : '1px solid rgba(255, 255, 255, 0.1)' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ color: '#e8d5b7', fontSize: '16px' }}>{player.name}</span>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '5px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span style={{ color: '#e8d5b7', fontSize: '16px' }}>{player.name}</span>
+                      {player.isAI && <span style={{ background: 'rgba(100, 149, 237, 0.3)', color: '#6495ed', padding: '2px 8px', borderRadius: '10px', fontSize: '10px', fontWeight: '600', letterSpacing: '1px' }}>AI</span>}
+                    </div>
                     {currentPlayerIndex === index && <span style={{ color: '#ffd700', fontSize: '12px' }}>▶ THROWING</span>}
                   </div>
+                  {player.isAI && <div style={{ fontSize: '10px', color: '#6495ed', marginBottom: '5px', textTransform: 'uppercase' }}>{player.aiDifficulty}</div>}
                   <div style={{ fontSize: '48px', fontWeight: '700', color: player.score <= 170 ? '#32cd32' : '#fff', textAlign: 'center', margin: '10px 0', fontFamily: "'Roboto Mono', monospace" }}>{player.score}</div>
                   {gameStats[index] && <div style={{ fontSize: '12px', color: '#888', textAlign: 'center' }}>Avg: {gameStats[index].averagePerDart} per dart</div>}
                 </div>
