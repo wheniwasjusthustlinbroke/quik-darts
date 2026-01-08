@@ -177,15 +177,12 @@
         const skillFactor = (100 - skillLevel) / 100;
         const powerFactor = Math.abs(power - 50) / 50;
 
-        // Base randomness that always applies (even at max skill)
-        const baseRandomness = 15;
+        // Minimal randomness - mostly skill and power based
+        const skillRandomness = skillFactor * 25;
+        const powerRandomness = powerFactor * 20;
 
-        // Increased multipliers for more difficulty
-        const skillRandomness = skillFactor * 90;
-        const powerRandomness = powerFactor * 60;
-
-        // Total randomness with higher variance
-        const randomness = baseRandomness + skillRandomness + powerRandomness + (Math.random() * 20);
+        // Total randomness - much lower and more predictable
+        const randomness = skillRandomness + powerRandomness;
 
         const angle = Math.random() * Math.PI * 2;
         const offset = Math.random() * randomness;
