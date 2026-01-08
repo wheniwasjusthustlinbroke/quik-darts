@@ -274,8 +274,8 @@
         playSound('throw');
 
         // Calculate if power is in perfect zone
-        const baseZoneWidth = isCheckoutPosition ? 2 : 10;
-        const perfectZoneWidth = Math.max(baseZoneWidth - (triplesHit * 2), isCheckoutPosition ? 1 : 4);
+        const baseZoneWidth = isCheckoutPosition ? 8 : 10;
+        const perfectZoneWidth = Math.max(baseZoneWidth - (triplesHit * 2), isCheckoutPosition ? 4 : 4);
         const perfectZoneLeft = 50 - (perfectZoneWidth / 2);
         const perfectZoneRight = 50 + (perfectZoneWidth / 2);
         const isInPerfectZone = power > perfectZoneLeft && power < perfectZoneRight;
@@ -451,8 +451,8 @@
             playSound('throw');
 
             // Calculate if AI power is in perfect zone
-            const baseZoneWidth = isCheckoutPosition ? 2 : 10;
-            const perfectZoneWidth = Math.max(baseZoneWidth - (triplesHit * 2), isCheckoutPosition ? 1 : 4);
+            const baseZoneWidth = isCheckoutPosition ? 8 : 10;
+            const perfectZoneWidth = Math.max(baseZoneWidth - (triplesHit * 2), isCheckoutPosition ? 4 : 4);
             const perfectZoneLeft = 50 - (perfectZoneWidth / 2);
             const perfectZoneRight = 50 + (perfectZoneWidth / 2);
             const isInPerfectZone = aiPower > perfectZoneLeft && aiPower < perfectZoneRight;
