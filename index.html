@@ -50,6 +50,7 @@
       const [playerSetup, setPlayerSetup] = useState({ count: 1, names: ['Player 1', 'Player 2', 'Player 3', 'Player 4'], gameMode: 501, aiPlayers: [false, false, false, false], aiDifficulty: [null, null, null, null] });
       const [animatingDart, setAnimatingDart] = useState(null);
       const [checkout, setCheckout] = useState(null);
+      const [triplesHit, setTriplesHit] = useState(0);
 
       const boardRef = useRef(null);
       const powerIntervalRef = useRef(null);
@@ -311,7 +312,12 @@
           setThrowHistory(prev => [...prev, { player: currentPlayerIndex, ...result, remaining: newScore }]);
           setDartsThrown(prev => prev + 1);
           updateStats(currentPlayerIndex, result);
-          
+
+          // Increase difficulty by shrinking perfect zone when triple is hit
+          if (result.multiplier === 3) {
+            setTriplesHit(prev => prev + 1);
+          }
+
           if (dartsThrown + 1 >= 3) {
             setTimeout(() => nextPlayer(false), 1000);
           }
@@ -478,6 +484,11 @@
               setDartsThrown(prev => prev + 1);
               updateStats(currentPlayerIndex, result);
 
+              // Increase difficulty by shrinking perfect zone when triple is hit
+              if (result.multiplier === 3) {
+                setTriplesHit(prev => prev + 1);
+              }
+
               if (dartsThrown + 1 >= 3) {
                 setTimeout(() => nextPlayer(false), 1000);
               }
@@ -503,6 +514,7 @@
         setDartPositions([]);
         setGameStats({});
         setWinner(null);
+        setTriplesHit(0);
         setGameState('playing');
       };
 
@@ -721,11 +733,25 @@
               
               <div style={{ width: `${BOARD_SIZE}px`, marginTop: '20px' }}>
                 <div style={{ background: 'rgba(255, 255, 255, 0.1)', borderRadius: '10px', height: '30px', overflow: 'hidden', position: 'relative' }}>
-                  <div style={{ height: '100%', width: `${power}%`, background: power > 40 && power < 60 ? 'linear-gradient(90deg, #228b22, #32cd32)' : 'linear-gradient(90deg, #c41e3a, #e74c3c)', transition: isPowerCharging ? 'none' : 'width 0.2s', borderRadius: '10px' }} />
-                  <div style={{ position: 'absolute', left: '50%', top: 0, bottom: 0, width: '4px', marginLeft: '-2px', background: '#ffd700', opacity: 0.5 }} />
-                  <div style={{ position: 'absolute', left: '40%', top: 0, bottom: 0, width: '20%', background: 'rgba(50, 205, 50, 0.2)', borderRadius: '5px' }} />
+                  {(() => {
+                    const perfectZoneWidth = Math.max(20 - (triplesHit * 2), 4);
+                    const perfectZoneLeft = 50 - (perfectZoneWidth / 2);
+                    const perfectZoneRight = 50 + (perfectZoneWidth / 2);
+                    const isInPerfectZone = power > perfectZoneLeft && power < perfectZoneRight;
+                    return (
+                      <>
+                        <div style={{ height: '100%', width: `${power}%`, background: isInPerfectZone ? 'linear-gradient(90deg, #228b22, #32cd32)' : 'linear-gradient(90deg, #c41e3a, #e74c3c)', transition: isPowerCharging ? 'none' : 'width 0.2s', borderRadius: '10px' }} />
+                        <div style={{ position: 'absolute', left: '50%', top: 0, bottom: 0, width: '4px', marginLeft: '-2px', background: '#ffd700', opacity: 0.5 }} />
+                        <div style={{ position: 'absolute', left: `${perfectZoneLeft}%`, top: 0, bottom: 0, width: `${perfectZoneWidth}%`, background: 'rgba(50, 205, 50, 0.2)', borderRadius: '5px' }} />
+                      </>
+                    );
+                  })()}
                 </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', color: '#888', fontSize: '12px', marginTop: '5px' }}><span>WEAK</span><span style={{ color: '#32cd32' }}>PERFECT</span><span>STRONG</span></div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', color: '#888', fontSize: '12px', marginTop: '5px' }}>
+                  <span>WEAK</span>
+                  <span style={{ color: '#32cd32' }}>PERFECT {triplesHit > 0 ? `(-${triplesHit * 2}%)` : ''}</span>
+                  <span>STRONG</span>
+                </div>
               </div>
               
               <p style={{ color: '#888', marginTop: '15px', fontSize: '14px', textAlign: 'center' }}>{isPowerCharging ? 'Release to throw!' : 'Click and hold to charge, release to throw'}</p>
