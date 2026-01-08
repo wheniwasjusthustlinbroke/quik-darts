@@ -372,6 +372,11 @@
 
       // ========== ONLINE MULTIPLAYER FUNCTIONS ==========
 
+      // Sanitize player name for security
+      const sanitizeName = (name) => {
+        return (name || 'Player').slice(0, 20).replace(/[<>]/g, '').trim() || 'Player';
+      };
+
       // Start matchmaking - find a random opponent
       const startMatchmaking = useCallback(() => {
         if (!database) {
@@ -428,7 +433,7 @@
               },
               player2: {
                 id: myPlayerId,
-                name: playerSetup.names[0] || 'Player 2',
+                name: sanitizeName(playerSetup.names[0]) || 'Player 2',
                 flag: playerSetup.flags[0] || '🌍',
                 score: playerSetup.gameMode,
                 ready: true
@@ -456,7 +461,7 @@
             // No opponent found - add self to queue
             const myQueueEntry = {
               playerId: myPlayerId,
-              name: playerSetup.names[0] || 'Player 1',
+              name: sanitizeName(playerSetup.names[0]) || 'Player 1',
               flag: playerSetup.flags[0] || '🌍',
               timestamp: firebase.database.ServerValue.TIMESTAMP
             };
@@ -503,6 +508,12 @@
         setMatchmakingState('playing');
         setGameState('playing');
         setPlayerId(playerIndex);
+
+        // Cleanup any existing listener first (prevent memory leak)
+        if (gameRoomRef.current) {
+          gameRoomRef.current.off();
+          gameRoomRef.current = null;
+        }
 
         // Initialize game state for online mode
         setWinner(null);
@@ -1496,7 +1507,20 @@
               
               {Array.from({ length: playerSetup.count }).map((_, i) => (
                 <div key={i} style={{ marginBottom: '20px', background: 'rgba(255, 255, 255, 0.05)', padding: '15px', borderRadius: '10px', border: '1px solid rgba(255, 215, 0, 0.2)' }}>
-                  <input type="text" value={playerSetup.names[i]} onChange={(e) => { const newNames = [...playerSetup.names]; newNames[i] = e.target.value; setPlayerSetup(prev => ({ ...prev, names: newNames })); }} placeholder={`Player ${i + 1}`} style={{ width: '100%', padding: '12px', fontSize: '16px', background: 'rgba(255, 255, 255, 0.1)', border: '1px solid rgba(255, 215, 0, 0.3)', borderRadius: '8px', color: '#e8d5b7', outline: 'none', fontFamily: "'Roboto Mono', monospace", boxSizing: 'border-box', marginBottom: '10px' }} />
+                  <input
+                    type="text"
+                    value={playerSetup.names[i]}
+                    onChange={(e) => {
+                      const newNames = [...playerSetup.names];
+                      // Limit to 20 characters and remove dangerous characters
+                      const sanitized = e.target.value.slice(0, 20).replace(/[<>]/g, '');
+                      newNames[i] = sanitized;
+                      setPlayerSetup(prev => ({ ...prev, names: newNames }));
+                    }}
+                    placeholder={`Player ${i + 1}`}
+                    maxLength={20}
+                    style={{ width: '100%', padding: '12px', fontSize: '16px', background: 'rgba(255, 255, 255, 0.1)', border: '1px solid rgba(255, 215, 0, 0.3)', borderRadius: '8px', color: '#e8d5b7', outline: 'none', fontFamily: "'Roboto Mono', monospace", boxSizing: 'border-box', marginBottom: '10px' }}
+                  />
 
                   <div style={{ marginBottom: '10px' }}>
                     <label style={{ color: '#888', fontSize: '11px', letterSpacing: '1px', display: 'block', marginBottom: '8px' }}>NATIONALITY</label>
