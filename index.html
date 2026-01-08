@@ -293,29 +293,6 @@
           }
           
           if (newScore === 0 && result.multiplier === 2) {
-            // Check if power was in perfect zone for checkout
-            const baseZoneWidth = isCheckoutPosition ? 2 : 10;
-            const perfectZoneWidth = Math.max(baseZoneWidth - (triplesHit * 2), isCheckoutPosition ? 1 : 4);
-            const perfectZoneLeft = 50 - (perfectZoneWidth / 2);
-            const perfectZoneRight = 50 + (perfectZoneWidth / 2);
-            const wasInPerfectZone = power > perfectZoneLeft && power < perfectZoneRight;
-
-            // Only allow checkout if power was in the perfect zone
-            if (!wasInPerfectZone && isCheckoutPosition) {
-              playSound('bust');
-              setShowScorePopup({ score: 'MISSED!', label: 'MISSED CHECKOUT!', position: finalPosition });
-              setTimeout(() => setShowScorePopup(null), 1000);
-
-              // If this was the last dart, end the turn
-              if (dartsThrown + 1 >= 3) {
-                setTimeout(() => nextPlayer(true), 1000);
-              } else {
-                // Otherwise, increment darts thrown and continue
-                setDartsThrown(prev => prev + 1);
-              }
-              return;
-            }
-
             playSound('win');
             setWinner(currentPlayer);
             const newPlayers = [...players];
@@ -495,29 +472,6 @@
               }
 
               if (newScore === 0 && result.multiplier === 2) {
-                // Check if AI power was in perfect zone for checkout
-                const baseZoneWidth = isCheckoutPosition ? 2 : 10;
-                const perfectZoneWidth = Math.max(baseZoneWidth - (triplesHit * 2), isCheckoutPosition ? 1 : 4);
-                const perfectZoneLeft = 50 - (perfectZoneWidth / 2);
-                const perfectZoneRight = 50 + (perfectZoneWidth / 2);
-                const wasInPerfectZone = aiPower > perfectZoneLeft && aiPower < perfectZoneRight;
-
-                // Only allow checkout if power was in the perfect zone
-                if (!wasInPerfectZone && isCheckoutPosition) {
-                  playSound('bust');
-                  setShowScorePopup({ score: 'MISSED!', label: 'MISSED CHECKOUT!', position: finalPosition });
-                  setTimeout(() => setShowScorePopup(null), 1000);
-
-                  // If this was the last dart, end the turn
-                  if (dartsThrown + 1 >= 3) {
-                    setTimeout(() => nextPlayer(true), 1000);
-                  } else {
-                    // Otherwise, increment darts thrown and continue
-                    setDartsThrown(prev => prev + 1);
-                  }
-                  return;
-                }
-
                 playSound('win');
                 setWinner(currentPlayer);
                 const newPlayers = [...players];
