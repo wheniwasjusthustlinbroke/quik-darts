@@ -790,17 +790,24 @@
         }
       }, [players, currentPlayerIndex]);
 
-      // Expert mode wobble: Apply aim wobble when 2 T20s hit in a row (81%+ skill)
+      // Wobble mechanics: Apply aim wobble for pressure moments
       useEffect(() => {
         const currentPlayer = players[currentPlayerIndex];
         if (!currentPlayer || currentPlayer.isAI) return; // Only for human players
 
-        // Check if expert mode (81%+) and 2 T20s hit
+        // Condition 1: Expert mode (81%+) and 2 T20s hit in a row (180 attempt)
         const twoT20sHit = currentTurnThrows.length === 2 &&
                           currentTurnThrows[0].score === 20 && currentTurnThrows[0].multiplier === 3 &&
                           currentTurnThrows[1].score === 20 && currentTurnThrows[1].multiplier === 3;
+        const wobbleFor180 = skillLevel >= 81 && twoT20sHit && dartsThrown === 2;
 
-        if (skillLevel >= 81 && twoT20sHit && dartsThrown === 2 && !isPowerCharging) {
+        // Condition 2: Intermediate/Expert (41%+) aiming at winning double (final dart to win leg)
+        const aimingAt = calculateScore(aimPosition.x, aimPosition.y);
+        const isAimingAtWinningDouble = isCheckoutPosition && aimingAt.multiplier === 2 && aimingAt.score === currentPlayer.score;
+        const wobbleForWinningDart = skillLevel >= 41 && isAimingAtWinningDouble && !isPowerCharging;
+
+        // Apply wobble if either condition is met
+        if (wobbleFor180 || wobbleForWinningDart) {
           // Apply continuous wobble
           const wobbleInterval = setInterval(() => {
             const wobbleAmount = 8; // pixels of wobble
@@ -815,7 +822,7 @@
           // No wobble - reset
           setAimWobble({ x: 0, y: 0 });
         }
-      }, [skillLevel, currentTurnThrows, dartsThrown, isPowerCharging, players, currentPlayerIndex]);
+      }, [skillLevel, currentTurnThrows, dartsThrown, isPowerCharging, players, currentPlayerIndex, aimPosition, isCheckoutPosition, calculateScore]);
 
       useEffect(() => {
         const currentPlayer = players[currentPlayerIndex];
