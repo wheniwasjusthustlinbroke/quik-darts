@@ -442,10 +442,21 @@
 
         playSound('throw');
 
+        // Check if player is aiming at the winning double
+        const currentPlayer = players[currentPlayerIndex];
+        const aimingAt = calculateScore(aimPosition.x, aimPosition.y);
+        const isAimingAtWinningDouble = isCheckoutPosition && aimingAt.multiplier === 2 && aimingAt.score === currentPlayer.score;
+
         // Calculate if power is in perfect zone
-        // Shrinks by 2% for each triple hit, everywhere including checkout
-        const baseZoneWidth = 10;
-        const perfectZoneWidth = Math.max(baseZoneWidth - (triplesHit * 2), 4);
+        // Normal/Checkout: shrinks by 2% for each perfect hit
+        // Aiming at winning double: ultra-small 2% zone
+        let perfectZoneWidth;
+        if (isAimingAtWinningDouble) {
+          perfectZoneWidth = 2; // Ultra-small zone for winning double
+        } else {
+          const baseZoneWidth = 10;
+          perfectZoneWidth = Math.max(baseZoneWidth - (triplesHit * 2), 4);
+        }
         const perfectZoneLeft = 50 - (perfectZoneWidth / 2);
         const perfectZoneRight = 50 + (perfectZoneWidth / 2);
         const isInPerfectZone = power > perfectZoneLeft && power < perfectZoneRight;
@@ -673,10 +684,20 @@
 
             playSound('throw');
 
+            // Check if AI is aiming at the winning double
+            const aimingAt = calculateScore(target.x, target.y);
+            const isAimingAtWinningDouble = isCheckoutPosition && aimingAt.multiplier === 2 && aimingAt.score === currentPlayer.score;
+
             // Calculate if AI power is in perfect zone
-            // Shrinks by 2% for each triple hit, everywhere including checkout
-            const baseZoneWidth = 10;
-            const perfectZoneWidth = Math.max(baseZoneWidth - (triplesHit * 2), 4);
+            // Normal/Checkout: shrinks by 2% for each perfect hit
+            // Aiming at winning double: ultra-small 2% zone
+            let perfectZoneWidth;
+            if (isAimingAtWinningDouble) {
+              perfectZoneWidth = 2; // Ultra-small zone for winning double
+            } else {
+              const baseZoneWidth = 10;
+              perfectZoneWidth = Math.max(baseZoneWidth - (triplesHit * 2), 4);
+            }
             const perfectZoneLeft = 50 - (perfectZoneWidth / 2);
             const perfectZoneRight = 50 + (perfectZoneWidth / 2);
             const isInPerfectZone = aiPower > perfectZoneLeft && aiPower < perfectZoneRight;
@@ -1045,9 +1066,21 @@
               <div style={{ width: `${BOARD_SIZE}px`, marginTop: '20px' }}>
                 <div style={{ background: 'rgba(255, 255, 255, 0.1)', borderRadius: '10px', height: '30px', overflow: 'hidden', position: 'relative' }}>
                   {(() => {
-                    // Calculate perfect zone width - shrinks everywhere including checkout
-                    const baseZoneWidth = 10;
-                    const perfectZoneWidth = Math.max(baseZoneWidth - (triplesHit * 2), 4);
+                    // Check if player is aiming at the winning double
+                    const currentPlayer = players[currentPlayerIndex];
+                    const aimingAt = currentPlayer ? calculateScore(aimPosition.x, aimPosition.y) : { multiplier: 0, score: 0 };
+                    const isAimingAtWinningDouble = isCheckoutPosition && aimingAt.multiplier === 2 && aimingAt.score === currentPlayer?.score;
+
+                    // Calculate perfect zone width
+                    // Normal/Checkout: shrinks by 2% for each perfect hit
+                    // Aiming at winning double: ultra-small 2% zone
+                    let perfectZoneWidth;
+                    if (isAimingAtWinningDouble) {
+                      perfectZoneWidth = 2; // Ultra-small zone for winning double
+                    } else {
+                      const baseZoneWidth = 10;
+                      perfectZoneWidth = Math.max(baseZoneWidth - (triplesHit * 2), 4);
+                    }
 
                     const perfectZoneLeft = 50 - (perfectZoneWidth / 2);
                     const perfectZoneRight = 50 + (perfectZoneWidth / 2);
