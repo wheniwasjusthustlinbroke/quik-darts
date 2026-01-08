@@ -63,6 +63,8 @@
       const [matchWinner, setMatchWinner] = useState(null);
       const [legDartsThrown, setLegDartsThrown] = useState([]); // Track darts thrown per player in current leg
       const [showNineDarter, setShowNineDarter] = useState(false);
+      const [currentTurnThrows, setCurrentTurnThrows] = useState([]); // Track throws in current turn for wobble detection
+      const [aimWobble, setAimWobble] = useState({ x: 0, y: 0 }); // Wobble offset for aim position
 
       const boardRef = useRef(null);
       const powerIntervalRef = useRef(null);
@@ -513,9 +515,13 @@
 
         playSound('throw');
 
+        // Apply wobble offset to aim position (expert mode 180 challenge)
+        const effectiveAimX = aimPosition.x + aimWobble.x;
+        const effectiveAimY = aimPosition.y + aimWobble.y;
+
         // Check if player is aiming at the winning double
         const currentPlayer = players[currentPlayerIndex];
-        const aimingAt = calculateScore(aimPosition.x, aimPosition.y);
+        const aimingAt = calculateScore(effectiveAimX, effectiveAimY);
         const isAimingAtWinningDouble = isCheckoutPosition && aimingAt.multiplier === 2 && aimingAt.score === currentPlayer.score;
 
         // Calculate if power is in perfect zone
@@ -541,7 +547,8 @@
         const perfectZoneRight = 50 + (perfectZoneWidth / 2);
         const isInPerfectZone = power > perfectZoneLeft && power < perfectZoneRight;
 
-        const finalPosition = addRandomness(aimPosition.x, aimPosition.y, power, isInPerfectZone);
+        // Use effective aim position (includes wobble for expert mode)
+        const finalPosition = addRandomness(effectiveAimX, effectiveAimY, power, isInPerfectZone);
         const result = calculateScore(finalPosition.x, finalPosition.y);
 
         // Increase difficulty by shrinking perfect zone when perfect throw is hit
@@ -563,7 +570,10 @@
           
           setShowScorePopup({ ...result, position: finalPosition });
           setTimeout(() => setShowScorePopup(null), 1000);
-          
+
+          // Track throw for wobble detection (expert mode 180 challenge)
+          setCurrentTurnThrows(prev => [...prev, { score: result.score, multiplier: result.multiplier }]);
+
           if (newScore < 0 || newScore === 1 || (newScore === 0 && result.multiplier !== 2)) {
             playSound('bust');
             setShowScorePopup({ score: 'BUST!', label: 'BUST!', position: finalPosition });
@@ -621,7 +631,7 @@
             setTimeout(() => nextPlayer(false), 1000);
           }
         }, 300);
-      }, [aimPosition, power, dartsThrown, players, currentPlayerIndex, winner, calculateScore, addRandomness, playSound, isCheckoutPosition, triplesHit, handleLegWin, updateStats, nextPlayer]);
+      }, [aimPosition, aimWobble, power, dartsThrown, players, currentPlayerIndex, winner, calculateScore, addRandomness, playSound, isCheckoutPosition, triplesHit, handleLegWin, updateStats, nextPlayer]);
 
       const updateStats = useCallback((playerIndex, result) => {
         setGameStats(prev => {
@@ -659,6 +669,8 @@
         setCurrentTurnScore(0);
         setDartPositions([]);
         setTriplesHit(0);
+        setCurrentTurnThrows([]); // Reset turn throws for wobble detection
+        setAimWobble({ x: 0, y: 0 }); // Reset wobble
         setCurrentPlayerIndex((currentPlayerIndex + 1) % players.length);
       }, [currentPlayerIndex, players, currentTurnScore]);
 
@@ -777,6 +789,33 @@
           }
         }
       }, [players, currentPlayerIndex]);
+
+      // Expert mode wobble: Apply aim wobble when 2 T20s hit in a row (81%+ skill)
+      useEffect(() => {
+        const currentPlayer = players[currentPlayerIndex];
+        if (!currentPlayer || currentPlayer.isAI) return; // Only for human players
+
+        // Check if expert mode (81%+) and 2 T20s hit
+        const twoT20sHit = currentTurnThrows.length === 2 &&
+                          currentTurnThrows[0].score === 20 && currentTurnThrows[0].multiplier === 3 &&
+                          currentTurnThrows[1].score === 20 && currentTurnThrows[1].multiplier === 3;
+
+        if (skillLevel >= 81 && twoT20sHit && dartsThrown === 2 && !isPowerCharging) {
+          // Apply continuous wobble
+          const wobbleInterval = setInterval(() => {
+            const wobbleAmount = 8; // pixels of wobble
+            setAimWobble({
+              x: (Math.random() - 0.5) * wobbleAmount,
+              y: (Math.random() - 0.5) * wobbleAmount
+            });
+          }, 50); // Update every 50ms for smooth wobble
+
+          return () => clearInterval(wobbleInterval);
+        } else {
+          // No wobble - reset
+          setAimWobble({ x: 0, y: 0 });
+        }
+      }, [skillLevel, currentTurnThrows, dartsThrown, isPowerCharging, players, currentPlayerIndex]);
 
       useEffect(() => {
         const currentPlayer = players[currentPlayerIndex];
@@ -1186,9 +1225,10 @@
                   
                   {!isPowerCharging && !animatingDart && (
                     <g>
-                      <circle cx={aimPosition.x} cy={aimPosition.y} r="15" fill="none" stroke="rgba(255, 215, 0, 0.5)" strokeWidth="2" strokeDasharray="5,5" />
-                      <line x1={aimPosition.x - 20} y1={aimPosition.y} x2={aimPosition.x + 20} y2={aimPosition.y} stroke="rgba(255, 215, 0, 0.5)" strokeWidth="1" />
-                      <line x1={aimPosition.x} y1={aimPosition.y - 20} x2={aimPosition.x} y2={aimPosition.y + 20} stroke="rgba(255, 215, 0, 0.5)" strokeWidth="1" />
+                      {/* Apply wobble offset for expert mode 180 challenge */}
+                      <circle cx={aimPosition.x + aimWobble.x} cy={aimPosition.y + aimWobble.y} r="15" fill="none" stroke="rgba(255, 215, 0, 0.5)" strokeWidth="2" strokeDasharray="5,5" />
+                      <line x1={aimPosition.x + aimWobble.x - 20} y1={aimPosition.y + aimWobble.y} x2={aimPosition.x + aimWobble.x + 20} y2={aimPosition.y + aimWobble.y} stroke="rgba(255, 215, 0, 0.5)" strokeWidth="1" />
+                      <line x1={aimPosition.x + aimWobble.x} y1={aimPosition.y + aimWobble.y - 20} x2={aimPosition.x + aimWobble.x} y2={aimPosition.y + aimWobble.y + 20} stroke="rgba(255, 215, 0, 0.5)" strokeWidth="1" />
                     </g>
                   )}
                   
