@@ -1076,9 +1076,25 @@
               <div style={{ width: `${BOARD_SIZE}px`, marginTop: '20px' }}>
                 <div style={{ background: 'rgba(255, 255, 255, 0.1)', borderRadius: '10px', height: '30px', overflow: 'hidden', position: 'relative' }}>
                   {(() => {
-                    // Ultra small zone for checkout darts, normal for regular throws
-                    const baseZoneWidth = isCheckoutPosition ? 2 : 10;
-                    const perfectZoneWidth = Math.max(baseZoneWidth - (triplesHit * 2), isCheckoutPosition ? 1 : 4);
+                    // Calculate perfect zone width - must match throw detection logic
+                    const currentPlayer = players[currentPlayerIndex];
+                    const aimingAt = currentPlayer ? calculateScore(aimPosition.x, aimPosition.y) : { multiplier: 0, score: 0 };
+                    const isAimingAtCheckoutDouble = isCheckoutPosition && aimingAt.multiplier === 2 && aimingAt.score === currentPlayer?.score;
+
+                    let perfectZoneWidth;
+                    if (isCheckoutPosition) {
+                      // On checkout - fixed zones, no shrinking regardless of triples hit
+                      if (isAimingAtCheckoutDouble) {
+                        perfectZoneWidth = 2; // Aiming at winning double - fixed 2%
+                      } else {
+                        perfectZoneWidth = 10; // On checkout but not aiming at winning double - fixed 10%
+                      }
+                    } else {
+                      // Normal throw - zone can shrink based on triples hit
+                      const baseZoneWidth = 10;
+                      perfectZoneWidth = Math.max(baseZoneWidth - (triplesHit * 2), 4);
+                    }
+
                     const perfectZoneLeft = 50 - (perfectZoneWidth / 2);
                     const perfectZoneRight = 50 + (perfectZoneWidth / 2);
                     const isInPerfectZone = power > perfectZoneLeft && power < perfectZoneRight;
