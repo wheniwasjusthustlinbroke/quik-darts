@@ -174,7 +174,7 @@
         return { score: baseScore, label: `${baseScore}`, multiplier: 1, base: baseScore };
       }, []);
 
-      const addRandomness = useCallback((targetX, targetY, power) => {
+      const addRandomness = useCallback((targetX, targetY, power, isInPerfectZone) => {
         const skillFactor = (100 - skillLevel) / 100;
         const powerFactor = Math.abs(power - 50) / 50;
 
@@ -182,8 +182,17 @@
         const skillRandomness = skillFactor * 25;
         const powerRandomness = powerFactor * 20;
 
-        // Total randomness - much lower and more predictable
-        const randomness = skillRandomness + powerRandomness;
+        // Add massive penalty if not in perfect zone - makes hitting triples/doubles nearly impossible
+        let perfectZonePenalty = 0;
+        if (!isInPerfectZone) {
+          // Calculate how far from perfect zone (50%)
+          const distanceFromPerfect = Math.abs(power - 50);
+          // Huge penalty: 80 base + up to 60 more based on distance from 50%
+          perfectZonePenalty = 80 + (distanceFromPerfect * 1.2);
+        }
+
+        // Total randomness - much lower and more predictable if in perfect zone
+        const randomness = skillRandomness + powerRandomness + perfectZonePenalty;
 
         const angle = Math.random() * Math.PI * 2;
         const offset = Math.random() * randomness;
@@ -261,10 +270,17 @@
 
       const throwDart = useCallback(() => {
         if (dartsThrown >= 3 || winner) return;
-        
+
         playSound('throw');
-        
-        const finalPosition = addRandomness(aimPosition.x, aimPosition.y, power);
+
+        // Calculate if power is in perfect zone
+        const baseZoneWidth = isCheckoutPosition ? 2 : 10;
+        const perfectZoneWidth = Math.max(baseZoneWidth - (triplesHit * 2), isCheckoutPosition ? 1 : 4);
+        const perfectZoneLeft = 50 - (perfectZoneWidth / 2);
+        const perfectZoneRight = 50 + (perfectZoneWidth / 2);
+        const isInPerfectZone = power > perfectZoneLeft && power < perfectZoneRight;
+
+        const finalPosition = addRandomness(aimPosition.x, aimPosition.y, power, isInPerfectZone);
         const result = calculateScore(finalPosition.x, finalPosition.y);
         
         setAnimatingDart({ start: { x: CENTER, y: BOARD_SIZE + 50 }, end: finalPosition });
@@ -434,9 +450,28 @@
 
             playSound('throw');
 
-            // Apply AI-specific randomness
-            const accuracyFactor = (100 - aiAccuracy) / 100;
-            const randomness = accuracyFactor * 70;
+            // Calculate if AI power is in perfect zone
+            const baseZoneWidth = isCheckoutPosition ? 2 : 10;
+            const perfectZoneWidth = Math.max(baseZoneWidth - (triplesHit * 2), isCheckoutPosition ? 1 : 4);
+            const perfectZoneLeft = 50 - (perfectZoneWidth / 2);
+            const perfectZoneRight = 50 + (perfectZoneWidth / 2);
+            const isInPerfectZone = aiPower > perfectZoneLeft && aiPower < perfectZoneRight;
+
+            // Use the same addRandomness function as human players, but also factor in AI accuracy
+            // Lower accuracy AIs get treated as lower skill level
+            const effectiveSkillLevel = aiAccuracy;
+            const skillFactor = (100 - effectiveSkillLevel) / 100;
+            const powerFactor = Math.abs(aiPower - 50) / 50;
+            const skillRandomness = skillFactor * 25;
+            const powerRandomness = powerFactor * 20;
+
+            let perfectZonePenalty = 0;
+            if (!isInPerfectZone) {
+              const distanceFromPerfect = Math.abs(aiPower - 50);
+              perfectZonePenalty = 80 + (distanceFromPerfect * 1.2);
+            }
+
+            const randomness = skillRandomness + powerRandomness + perfectZonePenalty;
             const angle = Math.random() * Math.PI * 2;
             const offset = Math.random() * randomness;
 
