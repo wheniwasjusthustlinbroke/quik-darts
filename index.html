@@ -387,12 +387,27 @@
         const myPlayerId = database.ref().push().key;
         setPlayerId(myPlayerId);
 
-        // Look for available opponent in queue
-        queueRef.orderByChild('timestamp').limitToFirst(1).once('value', (snapshot) => {
+        // Small delay to avoid race condition where both players check queue at exact same time
+        setTimeout(() => {
+          // Look for available opponent in queue
+          queueRef.orderByChild('timestamp').limitToFirst(1).once('value', (snapshot) => {
           if (snapshot.exists()) {
             // Found an opponent - join their game
             const opponentId = Object.keys(snapshot.val())[0];
             const opponentData = snapshot.val()[opponentId];
+
+            // Make sure we're not matching with ourselves
+            if (opponentData.playerId === myPlayerId) {
+              // This shouldn't happen, but if it does, add ourselves to queue instead
+              const myQueueEntry = {
+                playerId: myPlayerId,
+                name: playerSetup.names[0] || 'Player 1',
+                flag: playerSetup.flags[0] || '🌍',
+                timestamp: firebase.database.ServerValue.TIMESTAMP
+              };
+              queueRef.child(myPlayerId).set(myQueueEntry);
+              return;
+            }
 
             // Remove opponent from queue
             queueRef.child(opponentId).remove();
@@ -480,6 +495,7 @@
             }, 60000);
           }
         });
+        }, 500); // 500ms delay to avoid race condition
       }, [database, playerSetup, matchmakingState]);
 
       // Start the online game
