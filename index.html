@@ -1358,6 +1358,52 @@
         </g>
       );
 
+      // Matchmaking screen - check FIRST before menu
+      if (matchmakingState === 'searching' || matchmakingState === 'found') {
+        return (
+          <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f0f23 100%)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '20px', fontFamily: "'Oswald', sans-serif" }}>
+            <div style={{ background: 'rgba(255, 255, 255, 0.05)', borderRadius: '20px', padding: '60px 40px', backdropFilter: 'blur(10px)', border: '1px solid rgba(255, 215, 0, 0.2)', maxWidth: '500px', textAlign: 'center' }}>
+              {matchmakingState === 'searching' && (
+                <>
+                  <div style={{ fontSize: '64px', marginBottom: '30px', animation: 'spin 2s linear infinite' }}>🌍</div>
+                  <h2 style={{ color: '#ffd700', fontSize: '32px', marginBottom: '20px', letterSpacing: '3px' }}>FINDING OPPONENT...</h2>
+                  <p style={{ color: '#e8d5b7', fontSize: '16px', marginBottom: '40px' }}>Searching for players worldwide</p>
+                  <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', marginBottom: '30px' }}>
+                    <div style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#4a90e2', animation: 'pulse 1.5s ease-in-out infinite' }}></div>
+                    <div style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#4a90e2', animation: 'pulse 1.5s ease-in-out infinite 0.2s' }}></div>
+                    <div style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#4a90e2', animation: 'pulse 1.5s ease-in-out infinite 0.4s' }}></div>
+                  </div>
+                  <button onClick={cancelMatchmaking} style={{ padding: '15px 40px', background: 'rgba(255, 255, 255, 0.1)', color: '#e8d5b7', border: '1px solid rgba(255, 215, 0, 0.3)', borderRadius: '10px', fontSize: '16px', fontWeight: '600', cursor: 'pointer', fontFamily: "'Oswald', sans-serif", letterSpacing: '2px' }}>CANCEL</button>
+                </>
+              )}
+
+              {matchmakingState === 'found' && (
+                <>
+                  <div style={{ fontSize: '64px', marginBottom: '30px' }}>✓</div>
+                  <h2 style={{ color: '#32cd32', fontSize: '32px', marginBottom: '20px', letterSpacing: '3px' }}>OPPONENT FOUND!</h2>
+                  <div style={{ background: 'rgba(255, 255, 255, 0.05)', padding: '20px', borderRadius: '10px', marginBottom: '20px' }}>
+                    <div style={{ fontSize: '40px', marginBottom: '10px' }}>{opponentFlag}</div>
+                    <div style={{ color: '#ffd700', fontSize: '24px', fontWeight: '600' }}>{opponentName}</div>
+                  </div>
+                  <p style={{ color: '#e8d5b7', fontSize: '16px' }}>Starting game...</p>
+                </>
+              )}
+            </div>
+
+            <style>{`
+              @keyframes spin {
+                0% { transform: rotate(0deg); }
+                100% { transform: rotate(360deg); }
+              }
+              @keyframes pulse {
+                0%, 100% { opacity: 0.3; transform: scale(0.8); }
+                50% { opacity: 1; transform: scale(1.2); }
+              }
+            `}</style>
+          </div>
+        );
+      }
+
       if (gameState === 'menu') {
         return (
           <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f0f23 100%)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '20px', fontFamily: "'Oswald', sans-serif" }}>
@@ -1524,52 +1570,6 @@
             </div>
             
             <p style={{ color: '#666', marginTop: '30px', fontSize: '14px' }}>Hold mouse to charge power • Release to throw</p>
-          </div>
-        );
-      }
-
-      // Matchmaking screen
-      if (matchmakingState === 'searching' || matchmakingState === 'found') {
-        return (
-          <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f0f23 100%)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '20px', fontFamily: "'Oswald', sans-serif" }}>
-            <div style={{ background: 'rgba(255, 255, 255, 0.05)', borderRadius: '20px', padding: '60px 40px', backdropFilter: 'blur(10px)', border: '1px solid rgba(255, 215, 0, 0.2)', maxWidth: '500px', textAlign: 'center' }}>
-              {matchmakingState === 'searching' && (
-                <>
-                  <div style={{ fontSize: '64px', marginBottom: '30px', animation: 'spin 2s linear infinite' }}>🌍</div>
-                  <h2 style={{ color: '#ffd700', fontSize: '32px', marginBottom: '20px', letterSpacing: '3px' }}>FINDING OPPONENT...</h2>
-                  <p style={{ color: '#e8d5b7', fontSize: '16px', marginBottom: '40px' }}>Searching for players worldwide</p>
-                  <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', marginBottom: '30px' }}>
-                    <div style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#4a90e2', animation: 'pulse 1.5s ease-in-out infinite' }}></div>
-                    <div style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#4a90e2', animation: 'pulse 1.5s ease-in-out infinite 0.2s' }}></div>
-                    <div style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#4a90e2', animation: 'pulse 1.5s ease-in-out infinite 0.4s' }}></div>
-                  </div>
-                  <button onClick={cancelMatchmaking} style={{ padding: '15px 40px', background: 'rgba(255, 255, 255, 0.1)', color: '#e8d5b7', border: '1px solid rgba(255, 215, 0, 0.3)', borderRadius: '10px', fontSize: '16px', fontWeight: '600', cursor: 'pointer', fontFamily: "'Oswald', sans-serif", letterSpacing: '2px' }}>CANCEL</button>
-                </>
-              )}
-
-              {matchmakingState === 'found' && (
-                <>
-                  <div style={{ fontSize: '64px', marginBottom: '30px' }}>✓</div>
-                  <h2 style={{ color: '#32cd32', fontSize: '32px', marginBottom: '20px', letterSpacing: '3px' }}>OPPONENT FOUND!</h2>
-                  <div style={{ background: 'rgba(255, 255, 255, 0.05)', padding: '20px', borderRadius: '10px', marginBottom: '20px' }}>
-                    <div style={{ fontSize: '40px', marginBottom: '10px' }}>{opponentFlag}</div>
-                    <div style={{ color: '#ffd700', fontSize: '24px', fontWeight: '600' }}>{opponentName}</div>
-                  </div>
-                  <p style={{ color: '#e8d5b7', fontSize: '16px' }}>Starting game...</p>
-                </>
-              )}
-            </div>
-
-            <style>{`
-              @keyframes spin {
-                0% { transform: rotate(0deg); }
-                100% { transform: rotate(360deg); }
-              }
-              @keyframes pulse {
-                0%, 100% { opacity: 0.3; transform: scale(0.8); }
-                50% { opacity: 1; transform: scale(1.2); }
-              }
-            `}</style>
           </div>
         );
       }
