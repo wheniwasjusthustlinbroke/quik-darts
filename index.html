@@ -924,6 +924,8 @@
                 setShowScorePopup({ ...result, position: finalPosition });
                 setTimeout(() => setShowScorePopup(null), 1000);
               }
+              setShowScorePopup({ ...result, position: finalPosition });
+              setTimeout(() => setShowScorePopup(null), 1000);
 
               if (newScore < 0 || newScore === 1 || (newScore === 0 && result.multiplier !== 2)) {
                 playSound('bust');
