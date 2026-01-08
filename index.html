@@ -475,7 +475,7 @@
         // Calculate if power is in perfect zone
         // Beginner mode (40% or below): constant 10% zone, no shrinking
         // Intermediate (41-80%): shrinks by 2.5% for each perfect hit
-        // Expert (81%+): shrinks by 2% for each perfect hit
+        // Expert (81%+): shrinks by 3% for each perfect hit
         // Aiming at winning double: ultra-small 2% zone
         let perfectZoneWidth;
         if (skillLevel <= 40) {
@@ -487,7 +487,7 @@
             perfectZoneWidth = 2; // Ultra-small zone for winning double
           } else {
             const baseZoneWidth = 10;
-            const shrinkRate = skillLevel >= 81 ? 2 : 2.5; // 2.5% for 41-80%, 2% for 81%+
+            const shrinkRate = skillLevel >= 81 ? 3 : 2.5; // 2.5% for 41-80%, 3% for 81%+
             perfectZoneWidth = Math.max(baseZoneWidth - (triplesHit * shrinkRate), 4);
           }
         }
@@ -749,7 +749,7 @@
             // Calculate if AI power is in perfect zone
             // Beginner mode (40% or below): constant 10% zone, no shrinking
             // Intermediate (41-80%): shrinks by 2.5% for each perfect hit
-            // Expert (81%+): shrinks by 2% for each perfect hit
+            // Expert (81%+): shrinks by 3% for each perfect hit
             // Aiming at winning double: ultra-small 2% zone
             let perfectZoneWidth;
             if (skillLevel <= 40) {
@@ -761,7 +761,7 @@
                 perfectZoneWidth = 2; // Ultra-small zone for winning double
               } else {
                 const baseZoneWidth = 10;
-                const shrinkRate = skillLevel >= 81 ? 2 : 2.5; // 2.5% for 41-80%, 2% for 81%+
+                const shrinkRate = skillLevel >= 81 ? 3 : 2.5; // 2.5% for 41-80%, 3% for 81%+
                 perfectZoneWidth = Math.max(baseZoneWidth - (triplesHit * shrinkRate), 4);
               }
             }
@@ -1181,7 +1181,7 @@
                     // Calculate perfect zone width
                     // Beginner mode (40% or below): constant 10% zone, no shrinking
                     // Intermediate (41-80%): shrinks by 2.5% for each perfect hit
-                    // Expert (81%+): shrinks by 2% for each perfect hit
+                    // Expert (81%+): shrinks by 3% for each perfect hit
                     // Aiming at winning double: ultra-small 2% zone
                     let perfectZoneWidth;
                     if (skillLevel <= 40) {
@@ -1193,7 +1193,7 @@
                         perfectZoneWidth = 2; // Ultra-small zone for winning double
                       } else {
                         const baseZoneWidth = 10;
-                        const shrinkRate = skillLevel >= 81 ? 2 : 2.5; // 2.5% for 41-80%, 2% for 81%+
+                        const shrinkRate = skillLevel >= 81 ? 3 : 2.5; // 2.5% for 41-80%, 3% for 81%+
                         perfectZoneWidth = Math.max(baseZoneWidth - (triplesHit * shrinkRate), 4);
                       }
                     }
@@ -1217,7 +1217,7 @@
                       if (skillLevel <= 40) {
                         return isCheckoutPosition ? 'CHECKOUT!' : 'PERFECT';
                       }
-                      const shrinkRate = skillLevel >= 81 ? 2 : 2.5;
+                      const shrinkRate = skillLevel >= 81 ? 3 : 2.5;
                       const totalShrink = triplesHit > 0 ? triplesHit * shrinkRate : 0;
                       return isCheckoutPosition
                         ? `CHECKOUT! ${totalShrink > 0 ? `(-${totalShrink}%)` : ''}`
