@@ -410,9 +410,10 @@
         }
       };
 
-      const handleLegWin = useCallback((playerIndex) => {
+      const handleLegWin = useCallback((playerIndex, dartsInLeg = null) => {
         // Check for nine-darter (only possible in 501)
-        const playerDartsInLeg = legDartsThrown[playerIndex] || 0;
+        // Use passed dartsInLeg if provided, otherwise read from state
+        const playerDartsInLeg = dartsInLeg !== null ? dartsInLeg : (legDartsThrown[playerIndex] || 0);
         if (playerSetup.gameMode === 501 && playerDartsInLeg === 9) {
           setShowNineDarter(true);
           setTimeout(() => setShowNineDarter(false), 5000);
@@ -532,8 +533,19 @@
             newPlayers[currentPlayerIndex] = { ...currentPlayer, score: 0 };
             setPlayers(newPlayers);
             updateStats(currentPlayerIndex, result);
+
+            // Calculate final dart count including this winning dart
+            const finalDartCount = (legDartsThrown[currentPlayerIndex] || 0) + 1;
+
+            // Increment leg darts before checking for nine-darter
+            setLegDartsThrown(prev => {
+              const newLegDarts = [...prev];
+              newLegDarts[currentPlayerIndex] = finalDartCount;
+              return newLegDarts;
+            });
+
             setWinner(currentPlayer); // Set temporary leg winner for display
-            handleLegWin(currentPlayerIndex);
+            handleLegWin(currentPlayerIndex, finalDartCount);
             return;
           }
           
@@ -822,8 +834,19 @@
                 newPlayers[currentPlayerIndex] = { ...currentPlayer, score: 0 };
                 setPlayers(newPlayers);
                 updateStats(currentPlayerIndex, result);
+
+                // Calculate final dart count including this winning dart
+                const finalDartCount = (legDartsThrown[currentPlayerIndex] || 0) + 1;
+
+                // Increment leg darts before checking for nine-darter
+                setLegDartsThrown(prev => {
+                  const newLegDarts = [...prev];
+                  newLegDarts[currentPlayerIndex] = finalDartCount;
+                  return newLegDarts;
+                });
+
                 setWinner(currentPlayer); // Set temporary leg winner for display
-                handleLegWin(currentPlayerIndex);
+                handleLegWin(currentPlayerIndex, finalDartCount);
                 return;
               }
 
