@@ -1,0 +1,603 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>501 Darts - Championship Edition</title>
+  <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;600;700&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Oswald', sans-serif; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="text/babel">
+    const { useState, useRef, useEffect, useCallback } = React;
+
+    const BOARD_SIZE = 500;
+    const CENTER = BOARD_SIZE / 2;
+    const SEGMENTS = [20, 1, 18, 4, 13, 6, 10, 15, 2, 17, 3, 19, 7, 16, 8, 11, 14, 9, 12, 5];
+    const SEGMENT_COLORS = ['#1a1a2e', '#e8d5b7'];
+    const TRIPLE_INNER = 95;
+    const TRIPLE_OUTER = 107;
+    const DOUBLE_INNER = 160;
+    const DOUBLE_OUTER = 172;
+    const OUTER_BULL = 16;
+    const INNER_BULL = 8;
+
+    const DartsGame = () => {
+      const [gameState, setGameState] = useState('menu');
+      const [players, setPlayers] = useState([]);
+      const [currentPlayerIndex, setCurrentPlayerIndex] = useState(0);
+      const [dartsThrown, setDartsThrown] = useState(0);
+      const [currentTurnScore, setCurrentTurnScore] = useState(0);
+      const [throwHistory, setThrowHistory] = useState([]);
+      const [aimPosition, setAimPosition] = useState({ x: CENTER, y: CENTER });
+      const [isAiming, setIsAiming] = useState(false);
+      const [power, setPower] = useState(0);
+      const [isPowerCharging, setIsPowerCharging] = useState(false);
+      const [dartPositions, setDartPositions] = useState([]);
+      const [showScorePopup, setShowScorePopup] = useState(null);
+      const [gameStats, setGameStats] = useState({});
+      const [winner, setWinner] = useState(null);
+      const [skillLevel, setSkillLevel] = useState(50);
+      const [soundEnabled, setSoundEnabled] = useState(true);
+      const [showStats, setShowStats] = useState(false);
+      const [playerSetup, setPlayerSetup] = useState({ count: 1, names: ['Player 1', 'Player 2', 'Player 3', 'Player 4'] });
+      const [animatingDart, setAnimatingDart] = useState(null);
+      const [checkout, setCheckout] = useState(null);
+
+      const boardRef = useRef(null);
+      const powerIntervalRef = useRef(null);
+      const audioContext = useRef(null);
+
+      const checkoutSuggestions = {
+        170: 'T20 T20 Bull', 167: 'T20 T19 Bull', 164: 'T20 T18 Bull', 161: 'T20 T17 Bull',
+        160: 'T20 T20 D20', 158: 'T20 T20 D19', 157: 'T20 T19 D20', 156: 'T20 T20 D18',
+        155: 'T20 T19 D19', 154: 'T20 T18 D20', 153: 'T20 T19 D18', 152: 'T20 T20 D16',
+        151: 'T20 T17 D20', 150: 'T20 T18 D18', 149: 'T20 T19 D16', 148: 'T20 T20 D14',
+        147: 'T20 T17 D18', 146: 'T20 T18 D16', 145: 'T20 T19 D14', 144: 'T20 T20 D12',
+        143: 'T20 T17 D16', 142: 'T20 T14 D20', 141: 'T20 T19 D12', 140: 'T20 T20 D10',
+        139: 'T20 T13 D20', 138: 'T20 T18 D12', 137: 'T20 T19 D10', 136: 'T20 T20 D8',
+        135: 'T20 T17 D12', 134: 'T20 T14 D16', 133: 'T20 T19 D8', 132: 'T20 T16 D12',
+        131: 'T20 T13 D16', 130: 'T20 T18 D8', 129: 'T19 T16 D12', 128: 'T18 T14 D16',
+        127: 'T20 T17 D8', 126: 'T19 T19 D6', 125: 'T20 T19 D4', 124: 'T20 T16 D8',
+        123: 'T19 T16 D9', 122: 'T18 T18 D7', 121: 'T20 T11 D14', 120: 'T20 S20 D20',
+        119: 'T19 T12 D13', 118: 'T20 S18 D20', 117: 'T20 S17 D20', 116: 'T20 S16 D20',
+        115: 'T20 S15 D20', 114: 'T20 S14 D20', 113: 'T20 S13 D20', 112: 'T20 S12 D20',
+        111: 'T20 S11 D20', 110: 'T20 S10 D20', 109: 'T20 S9 D20', 108: 'T20 S8 D20',
+        107: 'T19 S10 D20', 106: 'T20 S6 D20', 105: 'T20 S5 D20', 104: 'T20 S4 D20',
+        103: 'T20 S3 D20', 102: 'T20 S2 D20', 101: 'T20 S1 D20', 100: 'T20 D20',
+        99: 'T19 S10 D16', 98: 'T20 D19', 97: 'T19 D20', 96: 'T20 D18', 95: 'T19 D19',
+        94: 'T18 D20', 93: 'T19 D18', 92: 'T20 D16', 91: 'T17 D20', 90: 'T18 D18',
+        89: 'T19 D16', 88: 'T20 D14', 87: 'T17 D18', 86: 'T18 D16', 85: 'T19 D14',
+        84: 'T20 D12', 83: 'T17 D16', 82: 'T14 D20', 81: 'T19 D12', 80: 'T20 D10',
+        79: 'T13 D20', 78: 'T18 D12', 77: 'T19 D10', 76: 'T20 D8', 75: 'T17 D12',
+        74: 'T14 D16', 73: 'T19 D8', 72: 'T16 D12', 71: 'T13 D16', 70: 'T18 D8',
+        69: 'T19 D6', 68: 'T20 D4', 67: 'T17 D8', 66: 'T10 D18', 65: 'T19 D4',
+        64: 'T16 D8', 63: 'T13 D12', 62: 'T10 D16', 61: 'T15 D8', 60: 'S20 D20',
+        59: 'S19 D20', 58: 'S18 D20', 57: 'S17 D20', 56: 'S16 D20', 55: 'S15 D20',
+        54: 'S14 D20', 53: 'S13 D20', 52: 'S12 D20', 51: 'S11 D20', 50: 'S10 D20',
+        49: 'S9 D20', 48: 'S8 D20', 47: 'S7 D20', 46: 'S6 D20', 45: 'S5 D20',
+        44: 'S4 D20', 43: 'S3 D20', 42: 'S2 D20', 41: 'S1 D20', 40: 'D20',
+        38: 'D19', 36: 'D18', 34: 'D17', 32: 'D16', 30: 'D15', 28: 'D14',
+        26: 'D13', 24: 'D12', 22: 'D11', 20: 'D10', 18: 'D9', 16: 'D8',
+        14: 'D7', 12: 'D6', 10: 'D5', 8: 'D4', 6: 'D3', 4: 'D2', 2: 'D1',
+      };
+
+      const playSound = useCallback((type) => {
+        if (!soundEnabled) return;
+        if (!audioContext.current) {
+          audioContext.current = new (window.AudioContext || window.webkitAudioContext)();
+        }
+        const ctx = audioContext.current;
+        const oscillator = ctx.createOscillator();
+        const gainNode = ctx.createGain();
+        oscillator.connect(gainNode);
+        gainNode.connect(ctx.destination);
+        
+        switch(type) {
+          case 'throw':
+            oscillator.frequency.setValueAtTime(200, ctx.currentTime);
+            oscillator.frequency.exponentialRampToValueAtTime(100, ctx.currentTime + 0.1);
+            gainNode.gain.setValueAtTime(0.3, ctx.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.1);
+            oscillator.start(ctx.currentTime);
+            oscillator.stop(ctx.currentTime + 0.1);
+            break;
+          case 'hit':
+            oscillator.frequency.setValueAtTime(800, ctx.currentTime);
+            gainNode.gain.setValueAtTime(0.2, ctx.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.05);
+            oscillator.start(ctx.currentTime);
+            oscillator.stop(ctx.currentTime + 0.05);
+            break;
+          case 'bullseye':
+            oscillator.frequency.setValueAtTime(523, ctx.currentTime);
+            oscillator.frequency.setValueAtTime(659, ctx.currentTime + 0.1);
+            oscillator.frequency.setValueAtTime(784, ctx.currentTime + 0.2);
+            gainNode.gain.setValueAtTime(0.3, ctx.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.3);
+            oscillator.start(ctx.currentTime);
+            oscillator.stop(ctx.currentTime + 0.3);
+            break;
+          case 'bust':
+            oscillator.frequency.setValueAtTime(200, ctx.currentTime);
+            oscillator.frequency.exponentialRampToValueAtTime(50, ctx.currentTime + 0.3);
+            gainNode.gain.setValueAtTime(0.4, ctx.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.3);
+            oscillator.start(ctx.currentTime);
+            oscillator.stop(ctx.currentTime + 0.3);
+            break;
+          case 'win':
+            [523, 659, 784, 1047].forEach((freq, i) => {
+              const osc = ctx.createOscillator();
+              const gain = ctx.createGain();
+              osc.connect(gain);
+              gain.connect(ctx.destination);
+              osc.frequency.setValueAtTime(freq, ctx.currentTime + i * 0.15);
+              gain.gain.setValueAtTime(0.3, ctx.currentTime + i * 0.15);
+              gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + i * 0.15 + 0.2);
+              osc.start(ctx.currentTime + i * 0.15);
+              osc.stop(ctx.currentTime + i * 0.15 + 0.2);
+            });
+            break;
+        }
+      }, [soundEnabled]);
+
+      const calculateScore = useCallback((x, y) => {
+        const dx = x - CENTER;
+        const dy = y - CENTER;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        
+        if (distance > DOUBLE_OUTER) return { score: 0, label: 'MISS', multiplier: 0 };
+        if (distance <= INNER_BULL) return { score: 50, label: 'BULL', multiplier: 1 };
+        if (distance <= OUTER_BULL) return { score: 25, label: '25', multiplier: 1 };
+        
+        let angle = Math.atan2(dy, dx) * (180 / Math.PI) + 90;
+        if (angle < 0) angle += 360;
+        const segmentIndex = Math.floor((angle + 9) / 18) % 20;
+        const baseScore = SEGMENTS[segmentIndex];
+        
+        if (distance >= DOUBLE_INNER && distance <= DOUBLE_OUTER) {
+          return { score: baseScore * 2, label: `D${baseScore}`, multiplier: 2, base: baseScore };
+        }
+        if (distance >= TRIPLE_INNER && distance <= TRIPLE_OUTER) {
+          return { score: baseScore * 3, label: `T${baseScore}`, multiplier: 3, base: baseScore };
+        }
+        return { score: baseScore, label: `${baseScore}`, multiplier: 1, base: baseScore };
+      }, []);
+
+      const addRandomness = useCallback((targetX, targetY, power) => {
+        const skillFactor = (100 - skillLevel) / 100;
+        const powerFactor = Math.abs(power - 50) / 50;
+        const randomness = (skillFactor * 60 + powerFactor * 40) * (1 + Math.random() * 0.5);
+        
+        const angle = Math.random() * Math.PI * 2;
+        const offset = Math.random() * randomness;
+        
+        return {
+          x: targetX + Math.cos(angle) * offset,
+          y: targetY + Math.sin(angle) * offset
+        };
+      }, [skillLevel]);
+
+      const throwDart = useCallback(() => {
+        if (dartsThrown >= 3 || winner) return;
+        
+        playSound('throw');
+        
+        const finalPosition = addRandomness(aimPosition.x, aimPosition.y, power);
+        const result = calculateScore(finalPosition.x, finalPosition.y);
+        
+        setAnimatingDart({ start: { x: CENTER, y: BOARD_SIZE + 50 }, end: finalPosition });
+        
+        setTimeout(() => {
+          setAnimatingDart(null);
+          setDartPositions(prev => [...prev, finalPosition]);
+          
+          if (result.score === 50) playSound('bullseye');
+          else if (result.score > 0) playSound('hit');
+          
+          const currentPlayer = players[currentPlayerIndex];
+          const newScore = currentPlayer.score - result.score;
+          
+          setShowScorePopup({ ...result, position: finalPosition });
+          setTimeout(() => setShowScorePopup(null), 1000);
+          
+          if (newScore < 0 || newScore === 1 || (newScore === 0 && result.multiplier !== 2)) {
+            playSound('bust');
+            setShowScorePopup({ score: 'BUST!', label: 'BUST!', position: finalPosition });
+            setTimeout(() => {
+              setShowScorePopup(null);
+              nextPlayer(true);
+            }, 1500);
+            return;
+          }
+          
+          if (newScore === 0 && result.multiplier === 2) {
+            playSound('win');
+            setWinner(currentPlayer);
+            const newPlayers = [...players];
+            newPlayers[currentPlayerIndex] = { ...currentPlayer, score: 0 };
+            setPlayers(newPlayers);
+            updateStats(currentPlayerIndex, result);
+            return;
+          }
+          
+          const newPlayers = [...players];
+          newPlayers[currentPlayerIndex] = { ...currentPlayer, score: newScore };
+          setPlayers(newPlayers);
+          
+          setCurrentTurnScore(prev => prev + result.score);
+          setThrowHistory(prev => [...prev, { player: currentPlayerIndex, ...result, remaining: newScore }]);
+          setDartsThrown(prev => prev + 1);
+          updateStats(currentPlayerIndex, result);
+          
+          if (dartsThrown + 1 >= 3) {
+            setTimeout(() => nextPlayer(false), 1000);
+          }
+        }, 300);
+      }, [aimPosition, power, dartsThrown, players, currentPlayerIndex, winner, calculateScore, addRandomness, playSound]);
+
+      const updateStats = useCallback((playerIndex, result) => {
+        setGameStats(prev => {
+          const playerStats = prev[playerIndex] || { 
+            throws: 0, totalScore: 0, doubles: 0, triples: 0, bullseyes: 0,
+            misses: 0, highestThrow: 0, averagePerDart: 0
+          };
+          
+          const newThrows = playerStats.throws + 1;
+          const newTotal = playerStats.totalScore + result.score;
+          
+          return {
+            ...prev,
+            [playerIndex]: {
+              throws: newThrows, totalScore: newTotal,
+              doubles: playerStats.doubles + (result.multiplier === 2 ? 1 : 0),
+              triples: playerStats.triples + (result.multiplier === 3 ? 1 : 0),
+              bullseyes: playerStats.bullseyes + (result.score === 50 ? 1 : 0),
+              misses: playerStats.misses + (result.score === 0 ? 1 : 0),
+              highestThrow: Math.max(playerStats.highestThrow, result.score),
+              averagePerDart: (newTotal / newThrows).toFixed(1)
+            }
+          };
+        });
+      }, []);
+
+      const nextPlayer = useCallback((busted) => {
+        if (busted) {
+          const newPlayers = [...players];
+          newPlayers[currentPlayerIndex] = { ...players[currentPlayerIndex], score: players[currentPlayerIndex].score + currentTurnScore };
+          setPlayers(newPlayers);
+        }
+        
+        setDartsThrown(0);
+        setCurrentTurnScore(0);
+        setDartPositions([]);
+        setCurrentPlayerIndex((currentPlayerIndex + 1) % players.length);
+      }, [currentPlayerIndex, players, currentTurnScore]);
+
+      const handleMouseMove = useCallback((e) => {
+        if (!boardRef.current || isPowerCharging) return;
+        const rect = boardRef.current.getBoundingClientRect();
+        const x = ((e.clientX - rect.left) / rect.width) * BOARD_SIZE;
+        const y = ((e.clientY - rect.top) / rect.height) * BOARD_SIZE;
+        setAimPosition({ x, y });
+      }, [isPowerCharging]);
+
+      const handleMouseDown = useCallback((e) => {
+        if (dartsThrown >= 3 || winner || animatingDart) return;
+        e.preventDefault();
+        setIsPowerCharging(true);
+        setPower(0);
+        
+        let increasing = true;
+        let currentPower = 0;
+        
+        powerIntervalRef.current = setInterval(() => {
+          if (increasing) {
+            currentPower += 2;
+            if (currentPower >= 100) increasing = false;
+          } else {
+            currentPower -= 2;
+            if (currentPower <= 0) increasing = true;
+          }
+          setPower(currentPower);
+        }, 20);
+      }, [dartsThrown, winner, animatingDart]);
+
+      const handleMouseUp = useCallback(() => {
+        if (powerIntervalRef.current) {
+          clearInterval(powerIntervalRef.current);
+          powerIntervalRef.current = null;
+        }
+        if (isPowerCharging) {
+          setIsPowerCharging(false);
+          throwDart();
+        }
+      }, [isPowerCharging, throwDart]);
+
+      useEffect(() => {
+        return () => {
+          if (powerIntervalRef.current) clearInterval(powerIntervalRef.current);
+        };
+      }, []);
+
+      useEffect(() => {
+        const currentPlayer = players[currentPlayerIndex];
+        if (currentPlayer && checkoutSuggestions[currentPlayer.score]) {
+          setCheckout(checkoutSuggestions[currentPlayer.score]);
+        } else {
+          setCheckout(null);
+        }
+      }, [players, currentPlayerIndex]);
+
+      const startGame = () => {
+        const newPlayers = Array.from({ length: playerSetup.count }, (_, i) => ({
+          name: playerSetup.names[i] || `Player ${i + 1}`,
+          score: 501
+        }));
+        setPlayers(newPlayers);
+        setCurrentPlayerIndex(0);
+        setDartsThrown(0);
+        setCurrentTurnScore(0);
+        setThrowHistory([]);
+        setDartPositions([]);
+        setGameStats({});
+        setWinner(null);
+        setGameState('playing');
+      };
+
+      const resetGame = () => {
+        setGameState('menu');
+        setWinner(null);
+      };
+
+      const renderDartboard = () => {
+        const segments = [];
+        
+        for (let i = 0; i < 20; i++) {
+          const startAngle = (i * 18 - 99) * (Math.PI / 180);
+          const endAngle = ((i + 1) * 18 - 99) * (Math.PI / 180);
+          
+          const createArc = (innerR, outerR, color) => {
+            const x1 = CENTER + innerR * Math.cos(startAngle);
+            const y1 = CENTER + innerR * Math.sin(startAngle);
+            const x2 = CENTER + outerR * Math.cos(startAngle);
+            const y2 = CENTER + outerR * Math.sin(startAngle);
+            const x3 = CENTER + outerR * Math.cos(endAngle);
+            const y3 = CENTER + outerR * Math.sin(endAngle);
+            const x4 = CENTER + innerR * Math.cos(endAngle);
+            const y4 = CENTER + innerR * Math.sin(endAngle);
+            
+            return `M ${x1} ${y1} L ${x2} ${y2} A ${outerR} ${outerR} 0 0 1 ${x3} ${y3} L ${x4} ${y4} A ${innerR} ${innerR} 0 0 0 ${x1} ${y1}`;
+          };
+          
+          const baseColor = SEGMENT_COLORS[i % 2];
+          const doubleColor = i % 2 === 0 ? '#c41e3a' : '#228b22';
+          const tripleColor = i % 2 === 0 ? '#c41e3a' : '#228b22';
+          
+          segments.push(
+            <path key={`outer-${i}`} d={createArc(TRIPLE_OUTER, DOUBLE_INNER, baseColor)} fill={baseColor} stroke="#b8860b" strokeWidth="0.5" />,
+            <path key={`double-${i}`} d={createArc(DOUBLE_INNER, DOUBLE_OUTER, doubleColor)} fill={doubleColor} stroke="#b8860b" strokeWidth="0.5" />,
+            <path key={`inner-${i}`} d={createArc(OUTER_BULL, TRIPLE_INNER, baseColor)} fill={baseColor} stroke="#b8860b" strokeWidth="0.5" />,
+            <path key={`triple-${i}`} d={createArc(TRIPLE_INNER, TRIPLE_OUTER, tripleColor)} fill={tripleColor} stroke="#b8860b" strokeWidth="0.5" />
+          );
+          
+          const textAngle = (i * 18 - 90) * (Math.PI / 180);
+          const textX = CENTER + 190 * Math.cos(textAngle);
+          const textY = CENTER + 190 * Math.sin(textAngle);
+          
+          segments.push(
+            <text key={`text-${i}`} x={textX} y={textY} fill="#e8d5b7" fontSize="16" fontWeight="bold" textAnchor="middle" dominantBaseline="middle" style={{ fontFamily: "'Oswald', sans-serif" }}>
+              {SEGMENTS[i]}
+            </text>
+          );
+        }
+        
+        segments.push(
+          <circle key="outer-bull" cx={CENTER} cy={CENTER} r={OUTER_BULL} fill="#228b22" stroke="#b8860b" strokeWidth="0.5" />,
+          <circle key="inner-bull" cx={CENTER} cy={CENTER} r={INNER_BULL} fill="#c41e3a" stroke="#b8860b" strokeWidth="0.5" />
+        );
+        
+        return segments;
+      };
+
+      const renderDart = (position, index) => (
+        <g key={index} transform={`translate(${position.x}, ${position.y})`}>
+          <ellipse cx="0" cy="2" rx="4" ry="2" fill="rgba(0,0,0,0.3)" />
+          <line x1="0" y1="-15" x2="0" y2="5" stroke="#c0c0c0" strokeWidth="2" />
+          <polygon points="-4,-15 4,-15 0,-25" fill="#c41e3a" />
+          <circle cx="0" cy="0" r="3" fill="#ffd700" />
+          <polygon points="-6,5 6,5 0,-2" fill="#1a1a2e" />
+        </g>
+      );
+
+      if (gameState === 'menu') {
+        return (
+          <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f0f23 100%)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '20px', fontFamily: "'Oswald', sans-serif" }}>
+            <div style={{ textAlign: 'center', marginBottom: '40px' }}>
+              <h1 style={{ fontSize: '72px', fontWeight: '700', color: '#ffd700', textShadow: '0 0 20px rgba(255, 215, 0, 0.5), 0 4px 8px rgba(0,0,0,0.5)', margin: '0 0 10px 0', letterSpacing: '4px' }}>501 DARTS</h1>
+              <p style={{ fontSize: '18px', color: '#e8d5b7', letterSpacing: '8px', textTransform: 'uppercase' }}>Championship Edition</p>
+            </div>
+            
+            <div style={{ background: 'rgba(255, 255, 255, 0.05)', borderRadius: '20px', padding: '40px', backdropFilter: 'blur(10px)', border: '1px solid rgba(255, 215, 0, 0.2)', width: '100%', maxWidth: '450px' }}>
+              <div style={{ marginBottom: '30px' }}>
+                <label style={{ color: '#ffd700', fontSize: '14px', letterSpacing: '2px', display: 'block', marginBottom: '10px' }}>NUMBER OF PLAYERS</label>
+                <div style={{ display: 'flex', gap: '10px' }}>
+                  {[1, 2, 3, 4].map(num => (
+                    <button key={num} onClick={() => setPlayerSetup(prev => ({ ...prev, count: num }))} style={{ flex: 1, padding: '15px', fontSize: '20px', fontWeight: '600', background: playerSetup.count === num ? 'linear-gradient(135deg, #ffd700, #ffed4a)' : 'rgba(255, 255, 255, 0.1)', color: playerSetup.count === num ? '#1a1a2e' : '#e8d5b7', border: 'none', borderRadius: '10px', cursor: 'pointer', fontFamily: "'Oswald', sans-serif" }}>{num}</button>
+                  ))}
+                </div>
+              </div>
+              
+              {Array.from({ length: playerSetup.count }).map((_, i) => (
+                <div key={i} style={{ marginBottom: '15px' }}>
+                  <input type="text" value={playerSetup.names[i]} onChange={(e) => { const newNames = [...playerSetup.names]; newNames[i] = e.target.value; setPlayerSetup(prev => ({ ...prev, names: newNames })); }} placeholder={`Player ${i + 1}`} style={{ width: '100%', padding: '15px', fontSize: '16px', background: 'rgba(255, 255, 255, 0.1)', border: '1px solid rgba(255, 215, 0, 0.3)', borderRadius: '10px', color: '#e8d5b7', outline: 'none', fontFamily: "'Roboto Mono', monospace", boxSizing: 'border-box' }} />
+                </div>
+              ))}
+              
+              <div style={{ marginBottom: '30px', marginTop: '30px' }}>
+                <label style={{ color: '#ffd700', fontSize: '14px', letterSpacing: '2px', display: 'block', marginBottom: '10px' }}>SKILL LEVEL: {skillLevel}%</label>
+                <input type="range" min="10" max="100" value={skillLevel} onChange={(e) => setSkillLevel(parseInt(e.target.value))} style={{ width: '100%', accentColor: '#ffd700' }} />
+                <div style={{ display: 'flex', justifyContent: 'space-between', color: '#888', fontSize: '12px', marginTop: '5px' }}><span>Novice</span><span>Pro</span></div>
+              </div>
+              
+              <div style={{ marginBottom: '30px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <span style={{ color: '#e8d5b7', fontSize: '14px', letterSpacing: '2px' }}>SOUND EFFECTS</span>
+                <button onClick={() => setSoundEnabled(!soundEnabled)} style={{ padding: '10px 20px', background: soundEnabled ? 'linear-gradient(135deg, #228b22, #32cd32)' : 'rgba(255, 255, 255, 0.1)', color: soundEnabled ? '#fff' : '#888', border: 'none', borderRadius: '20px', cursor: 'pointer', fontFamily: "'Oswald', sans-serif", fontSize: '14px' }}>{soundEnabled ? 'ON' : 'OFF'}</button>
+              </div>
+              
+              <button onClick={startGame} style={{ width: '100%', padding: '20px', fontSize: '24px', fontWeight: '700', background: 'linear-gradient(135deg, #c41e3a, #e74c3c)', color: '#fff', border: 'none', borderRadius: '15px', cursor: 'pointer', fontFamily: "'Oswald', sans-serif", letterSpacing: '4px', textTransform: 'uppercase', boxShadow: '0 4px 15px rgba(196, 30, 58, 0.4)' }}>Start Game</button>
+            </div>
+            
+            <p style={{ color: '#666', marginTop: '30px', fontSize: '14px' }}>Hold mouse to charge power • Release to throw</p>
+          </div>
+        );
+      }
+
+      return (
+        <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f0f23 100%)', padding: '20px', fontFamily: "'Oswald', sans-serif" }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '30px', maxWidth: '1400px', margin: '0 auto', justifyContent: 'center' }}>
+            {/* Scoreboard */}
+            <div style={{ background: 'rgba(255, 255, 255, 0.05)', borderRadius: '20px', padding: '25px', minWidth: '280px', backdropFilter: 'blur(10px)', border: '1px solid rgba(255, 215, 0, 0.2)' }}>
+              <h2 style={{ color: '#ffd700', margin: '0 0 20px 0', letterSpacing: '3px', fontSize: '18px' }}>SCOREBOARD</h2>
+              
+              {players.map((player, index) => (
+                <div key={index} style={{ background: currentPlayerIndex === index ? 'linear-gradient(135deg, rgba(255, 215, 0, 0.2), rgba(255, 215, 0, 0.1))' : 'rgba(255, 255, 255, 0.05)', borderRadius: '15px', padding: '20px', marginBottom: '15px', border: currentPlayerIndex === index ? '2px solid #ffd700' : '1px solid rgba(255, 255, 255, 0.1)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ color: '#e8d5b7', fontSize: '16px' }}>{player.name}</span>
+                    {currentPlayerIndex === index && <span style={{ color: '#ffd700', fontSize: '12px' }}>▶ THROWING</span>}
+                  </div>
+                  <div style={{ fontSize: '48px', fontWeight: '700', color: player.score <= 170 ? '#32cd32' : '#fff', textAlign: 'center', margin: '10px 0', fontFamily: "'Roboto Mono', monospace" }}>{player.score}</div>
+                  {gameStats[index] && <div style={{ fontSize: '12px', color: '#888', textAlign: 'center' }}>Avg: {gameStats[index].averagePerDart} per dart</div>}
+                </div>
+              ))}
+              
+              {checkout && (
+                <div style={{ background: 'linear-gradient(135deg, rgba(50, 205, 50, 0.2), rgba(34, 139, 34, 0.1))', borderRadius: '10px', padding: '15px', marginTop: '20px', border: '1px solid rgba(50, 205, 50, 0.3)' }}>
+                  <div style={{ color: '#32cd32', fontSize: '12px', letterSpacing: '2px', marginBottom: '5px' }}>CHECKOUT</div>
+                  <div style={{ color: '#fff', fontSize: '18px', fontWeight: '600' }}>{checkout}</div>
+                </div>
+              )}
+              
+              <div style={{ marginTop: '20px', padding: '15px', background: 'rgba(255, 255, 255, 0.05)', borderRadius: '10px' }}>
+                <div style={{ color: '#888', fontSize: '12px', marginBottom: '5px' }}>TURN SCORE</div>
+                <div style={{ color: '#ffd700', fontSize: '32px', fontWeight: '700', fontFamily: "'Roboto Mono', monospace" }}>{currentTurnScore}</div>
+                <div style={{ color: '#888', fontSize: '14px', marginTop: '5px' }}>Darts: {'🎯'.repeat(dartsThrown)}{'○'.repeat(3 - dartsThrown)}</div>
+              </div>
+              
+              <div style={{ marginTop: '20px', display: 'flex', gap: '10px' }}>
+                <button onClick={() => setShowStats(true)} style={{ flex: 1, padding: '12px', background: 'rgba(255, 255, 255, 0.1)', color: '#e8d5b7', border: 'none', borderRadius: '10px', cursor: 'pointer', fontFamily: "'Oswald', sans-serif", fontSize: '14px' }}>STATS</button>
+                <button onClick={resetGame} style={{ flex: 1, padding: '12px', background: 'rgba(196, 30, 58, 0.3)', color: '#e8d5b7', border: 'none', borderRadius: '10px', cursor: 'pointer', fontFamily: "'Oswald', sans-serif", fontSize: '14px' }}>MENU</button>
+              </div>
+            </div>
+            
+            {/* Dartboard */}
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+              <div ref={boardRef} onMouseMove={handleMouseMove} onMouseDown={handleMouseDown} onMouseUp={handleMouseUp} onMouseLeave={handleMouseUp} style={{ width: `${BOARD_SIZE}px`, height: `${BOARD_SIZE}px`, borderRadius: '50%', cursor: isPowerCharging ? 'grabbing' : 'crosshair', boxShadow: '0 0 60px rgba(0, 0, 0, 0.8), inset 0 0 30px rgba(0, 0, 0, 0.5)', position: 'relative', userSelect: 'none' }}>
+                <svg width={BOARD_SIZE} height={BOARD_SIZE} style={{ filter: 'drop-shadow(0 0 10px rgba(0,0,0,0.5))' }}>
+                  <defs><radialGradient id="boardGradient" cx="50%" cy="50%" r="50%"><stop offset="0%" stopColor="#2a2a4e" /><stop offset="100%" stopColor="#1a1a2e" /></radialGradient></defs>
+                  <circle cx={CENTER} cy={CENTER} r={CENTER - 5} fill="url(#boardGradient)" stroke="#b8860b" strokeWidth="8" />
+                  {renderDartboard()}
+                  
+                  {!isPowerCharging && !animatingDart && (
+                    <g>
+                      <circle cx={aimPosition.x} cy={aimPosition.y} r="15" fill="none" stroke="rgba(255, 215, 0, 0.5)" strokeWidth="2" strokeDasharray="5,5" />
+                      <line x1={aimPosition.x - 20} y1={aimPosition.y} x2={aimPosition.x + 20} y2={aimPosition.y} stroke="rgba(255, 215, 0, 0.5)" strokeWidth="1" />
+                      <line x1={aimPosition.x} y1={aimPosition.y - 20} x2={aimPosition.x} y2={aimPosition.y + 20} stroke="rgba(255, 215, 0, 0.5)" strokeWidth="1" />
+                    </g>
+                  )}
+                  
+                  {dartPositions.map((pos, i) => renderDart(pos, i))}
+                  {animatingDart && <g style={{ animation: 'throwDart 0.3s ease-out forwards' }}>{renderDart(animatingDart.end, 'animating')}</g>}
+                </svg>
+                
+                {showScorePopup && (
+                  <div style={{ position: 'absolute', left: showScorePopup.position.x, top: showScorePopup.position.y - 40, transform: 'translateX(-50%)', background: showScorePopup.label === 'BUST!' ? '#c41e3a' : showScorePopup.score === 50 ? '#ffd700' : '#228b22', color: showScorePopup.score === 50 ? '#1a1a2e' : '#fff', padding: '8px 16px', borderRadius: '20px', fontSize: '20px', fontWeight: '700', animation: 'popUp 0.5s ease-out', pointerEvents: 'none', zIndex: 10 }}>{showScorePopup.label}</div>
+                )}
+              </div>
+              
+              <div style={{ width: `${BOARD_SIZE}px`, marginTop: '20px' }}>
+                <div style={{ background: 'rgba(255, 255, 255, 0.1)', borderRadius: '10px', height: '30px', overflow: 'hidden', position: 'relative' }}>
+                  <div style={{ height: '100%', width: `${power}%`, background: power > 40 && power < 60 ? 'linear-gradient(90deg, #228b22, #32cd32)' : 'linear-gradient(90deg, #c41e3a, #e74c3c)', transition: isPowerCharging ? 'none' : 'width 0.2s', borderRadius: '10px' }} />
+                  <div style={{ position: 'absolute', left: '50%', top: 0, bottom: 0, width: '4px', marginLeft: '-2px', background: '#ffd700', opacity: 0.5 }} />
+                  <div style={{ position: 'absolute', left: '40%', top: 0, bottom: 0, width: '20%', background: 'rgba(50, 205, 50, 0.2)', borderRadius: '5px' }} />
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', color: '#888', fontSize: '12px', marginTop: '5px' }}><span>WEAK</span><span style={{ color: '#32cd32' }}>PERFECT</span><span>STRONG</span></div>
+              </div>
+              
+              <p style={{ color: '#888', marginTop: '15px', fontSize: '14px', textAlign: 'center' }}>{isPowerCharging ? 'Release to throw!' : 'Click and hold to charge, release to throw'}</p>
+            </div>
+            
+            {/* History */}
+            <div style={{ background: 'rgba(255, 255, 255, 0.05)', borderRadius: '20px', padding: '25px', minWidth: '200px', maxHeight: '500px', overflowY: 'auto', backdropFilter: 'blur(10px)', border: '1px solid rgba(255, 215, 0, 0.2)' }}>
+              <h2 style={{ color: '#ffd700', margin: '0 0 20px 0', letterSpacing: '3px', fontSize: '18px' }}>HISTORY</h2>
+              {throwHistory.slice(-15).reverse().map((throw_, index) => (
+                <div key={index} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px', background: 'rgba(255, 255, 255, 0.05)', borderRadius: '8px', marginBottom: '8px', fontSize: '14px' }}>
+                  <span style={{ color: '#888' }}>{players[throw_.player]?.name}</span>
+                  <span style={{ color: throw_.multiplier === 3 ? '#ffd700' : throw_.multiplier === 2 ? '#32cd32' : '#e8d5b7', fontWeight: '600' }}>{throw_.label}</span>
+                </div>
+              ))}
+              {throwHistory.length === 0 && <p style={{ color: '#666', textAlign: 'center', fontSize: '14px' }}>No throws yet</p>}
+            </div>
+          </div>
+          
+          {/* Stats Modal */}
+          {showStats && (
+            <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0, 0, 0, 0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }} onClick={() => setShowStats(false)}>
+              <div style={{ background: 'linear-gradient(135deg, #1a1a2e, #16213e)', borderRadius: '20px', padding: '30px', maxWidth: '600px', width: '90%', border: '1px solid rgba(255, 215, 0, 0.3)' }} onClick={e => e.stopPropagation()}>
+                <h2 style={{ color: '#ffd700', margin: '0 0 25px 0', letterSpacing: '3px' }}>GAME STATISTICS</h2>
+                {players.map((player, index) => (
+                  <div key={index} style={{ background: 'rgba(255, 255, 255, 0.05)', borderRadius: '15px', padding: '20px', marginBottom: '15px' }}>
+                    <h3 style={{ color: '#e8d5b7', margin: '0 0 15px 0' }}>{player.name}</h3>
+                    {gameStats[index] ? (
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '15px' }}>
+                        <div style={{ textAlign: 'center' }}><div style={{ color: '#ffd700', fontSize: '24px', fontWeight: '700' }}>{gameStats[index].throws}</div><div style={{ color: '#888', fontSize: '12px' }}>Throws</div></div>
+                        <div style={{ textAlign: 'center' }}><div style={{ color: '#ffd700', fontSize: '24px', fontWeight: '700' }}>{gameStats[index].averagePerDart}</div><div style={{ color: '#888', fontSize: '12px' }}>Avg/Dart</div></div>
+                        <div style={{ textAlign: 'center' }}><div style={{ color: '#ffd700', fontSize: '24px', fontWeight: '700' }}>{gameStats[index].highestThrow}</div><div style={{ color: '#888', fontSize: '12px' }}>Best</div></div>
+                        <div style={{ textAlign: 'center' }}><div style={{ color: '#32cd32', fontSize: '24px', fontWeight: '700' }}>{gameStats[index].triples}</div><div style={{ color: '#888', fontSize: '12px' }}>Triples</div></div>
+                        <div style={{ textAlign: 'center' }}><div style={{ color: '#228b22', fontSize: '24px', fontWeight: '700' }}>{gameStats[index].doubles}</div><div style={{ color: '#888', fontSize: '12px' }}>Doubles</div></div>
+                        <div style={{ textAlign: 'center' }}><div style={{ color: '#c41e3a', fontSize: '24px', fontWeight: '700' }}>{gameStats[index].bullseyes}</div><div style={{ color: '#888', fontSize: '12px' }}>Bullseyes</div></div>
+                      </div>
+                    ) : <p style={{ color: '#666', margin: 0 }}>No stats yet</p>}
+                  </div>
+                ))}
+                <button onClick={() => setShowStats(false)} style={{ width: '100%', padding: '15px', background: 'linear-gradient(135deg, #ffd700, #ffed4a)', color: '#1a1a2e', border: 'none', borderRadius: '10px', fontSize: '16px', fontWeight: '600', cursor: 'pointer', fontFamily: "'Oswald', sans-serif" }}>CLOSE</button>
+              </div>
+            </div>
+          )}
+          
+          {/* Winner Modal */}
+          {winner && (
+            <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0, 0, 0, 0.9)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }}>
+              <div style={{ textAlign: 'center', animation: 'fadeIn 0.5s ease-out' }}>
+                <div style={{ fontSize: '100px', marginBottom: '20px' }}>🏆</div>
+                <h1 style={{ fontSize: '48px', color: '#ffd700', margin: '0 0 10px 0', textShadow: '0 0 30px rgba(255, 215, 0, 0.5)' }}>{winner.name} WINS!</h1>
+                <p style={{ color: '#e8d5b7', fontSize: '20px', marginBottom: '30px' }}>Game Over - Double Out Victory!</p>
+                <div style={{ display: 'flex', gap: '15px', justifyContent: 'center' }}>
+                  <button onClick={startGame} style={{ padding: '15px 40px', background: 'linear-gradient(135deg, #228b22, #32cd32)', color: '#fff', border: 'none', borderRadius: '10px', fontSize: '18px', fontWeight: '600', cursor: 'pointer', fontFamily: "'Oswald', sans-serif" }}>PLAY AGAIN</button>
+                  <button onClick={resetGame} style={{ padding: '15px 40px', background: 'rgba(255, 255, 255, 0.1)', color: '#e8d5b7', border: 'none', borderRadius: '10px', fontSize: '18px', fontWeight: '600', cursor: 'pointer', fontFamily: "'Oswald', sans-serif" }}>MAIN MENU</button>
+                </div>
+              </div>
+            </div>
+          )}
+          
+          <style>{`
+            @keyframes popUp { 0% { transform: translateX(-50%) scale(0.5); opacity: 0; } 50% { transform: translateX(-50%) scale(1.2); } 100% { transform: translateX(-50%) scale(1); opacity: 1; } }
+            @keyframes fadeIn { from { opacity: 0; transform: scale(0.9); } to { opacity: 1; transform: scale(1); } }
+            @keyframes throwDart { from { opacity: 0; transform: translateY(50px); } to { opacity: 1; transform: translateY(0); } }
+          `}</style>
+        </div>
+      );
+    };
+
+    ReactDOM.render(<DartsGame />, document.getElementById('root'));
+  </script>
+</body>
+</html>
