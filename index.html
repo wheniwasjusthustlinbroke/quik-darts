@@ -181,23 +181,27 @@
       }, []);
 
       const addRandomness = useCallback((targetX, targetY, power, isInPerfectZone) => {
+        // If in perfect zone, guarantee 100% accuracy - no randomness at all
+        if (isInPerfectZone) {
+          return {
+            x: targetX,
+            y: targetY
+          };
+        }
+
+        // Not in perfect zone - apply massive penalty to make hitting targets nearly impossible
         const skillFactor = (100 - skillLevel) / 100;
         const powerFactor = Math.abs(power - 50) / 50;
 
-        // Minimal randomness - mostly skill and power based
         const skillRandomness = skillFactor * 25;
         const powerRandomness = powerFactor * 20;
 
-        // Add massive penalty if not in perfect zone - makes hitting triples/doubles nearly impossible
-        let perfectZonePenalty = 0;
-        if (!isInPerfectZone) {
-          // Calculate how far from perfect zone (50%)
-          const distanceFromPerfect = Math.abs(power - 50);
-          // Huge penalty: 80 base + up to 60 more based on distance from 50%
-          perfectZonePenalty = 80 + (distanceFromPerfect * 1.2);
-        }
+        // Calculate how far from perfect zone (50%)
+        const distanceFromPerfect = Math.abs(power - 50);
+        // Huge penalty: 80 base + up to 60 more based on distance from 50%
+        const perfectZonePenalty = 80 + (distanceFromPerfect * 1.2);
 
-        // Total randomness - much lower and more predictable if in perfect zone
+        // Total randomness - very high when outside perfect zone
         const randomness = skillRandomness + powerRandomness + perfectZonePenalty;
 
         const angle = Math.random() * Math.PI * 2;
@@ -525,28 +529,34 @@
             const perfectZoneRight = 50 + (perfectZoneWidth / 2);
             const isInPerfectZone = aiPower > perfectZoneLeft && aiPower < perfectZoneRight;
 
-            // Use the same addRandomness function as human players, but also factor in AI accuracy
-            // Lower accuracy AIs get treated as lower skill level
-            const effectiveSkillLevel = aiAccuracy;
-            const skillFactor = (100 - effectiveSkillLevel) / 100;
-            const powerFactor = Math.abs(aiPower - 50) / 50;
-            const skillRandomness = skillFactor * 25;
-            const powerRandomness = powerFactor * 20;
+            // Calculate final position with same logic as human players
+            let finalPosition;
+            if (isInPerfectZone) {
+              // Perfect zone hit - 100% accuracy, no randomness
+              finalPosition = {
+                x: target.x,
+                y: target.y
+              };
+            } else {
+              // Not in perfect zone - apply randomness based on AI accuracy and power
+              const effectiveSkillLevel = aiAccuracy;
+              const skillFactor = (100 - effectiveSkillLevel) / 100;
+              const powerFactor = Math.abs(aiPower - 50) / 50;
+              const skillRandomness = skillFactor * 25;
+              const powerRandomness = powerFactor * 20;
 
-            let perfectZonePenalty = 0;
-            if (!isInPerfectZone) {
               const distanceFromPerfect = Math.abs(aiPower - 50);
-              perfectZonePenalty = 80 + (distanceFromPerfect * 1.2);
+              const perfectZonePenalty = 80 + (distanceFromPerfect * 1.2);
+
+              const randomness = skillRandomness + powerRandomness + perfectZonePenalty;
+              const angle = Math.random() * Math.PI * 2;
+              const offset = Math.random() * randomness;
+
+              finalPosition = {
+                x: target.x + Math.cos(angle) * offset,
+                y: target.y + Math.sin(angle) * offset
+              };
             }
-
-            const randomness = skillRandomness + powerRandomness + perfectZonePenalty;
-            const angle = Math.random() * Math.PI * 2;
-            const offset = Math.random() * randomness;
-
-            const finalPosition = {
-              x: target.x + Math.cos(angle) * offset,
-              y: target.y + Math.sin(angle) * offset
-            };
 
             const result = calculateScore(finalPosition.x, finalPosition.y);
 
