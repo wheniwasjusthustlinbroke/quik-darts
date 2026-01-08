@@ -273,9 +273,14 @@
 
         playSound('throw');
 
-        // Calculate if power is in perfect zone
-        const baseZoneWidth = isCheckoutPosition ? 2 : 10;
-        const perfectZoneWidth = Math.max(baseZoneWidth - (triplesHit * 2), isCheckoutPosition ? 1 : 4);
+        // Check if player is aiming at a checkout double
+        const currentPlayer = players[currentPlayerIndex];
+        const aimingAt = calculateScore(aimPosition.x, aimPosition.y);
+        const isAimingAtCheckoutDouble = isCheckoutPosition && aimingAt.multiplier === 2 && aimingAt.score === currentPlayer.score;
+
+        // Calculate if power is in perfect zone - only use small zone when aiming at checkout double
+        const baseZoneWidth = isAimingAtCheckoutDouble ? 2 : 10;
+        const perfectZoneWidth = Math.max(baseZoneWidth - (triplesHit * 2), isAimingAtCheckoutDouble ? 1 : 4);
         const perfectZoneLeft = 50 - (perfectZoneWidth / 2);
         const perfectZoneRight = 50 + (perfectZoneWidth / 2);
         const isInPerfectZone = power > perfectZoneLeft && power < perfectZoneRight;
@@ -336,7 +341,7 @@
             setTimeout(() => nextPlayer(false), 1000);
           }
         }, 300);
-      }, [aimPosition, power, dartsThrown, players, currentPlayerIndex, winner, calculateScore, addRandomness, playSound]);
+      }, [aimPosition, power, dartsThrown, players, currentPlayerIndex, winner, calculateScore, addRandomness, playSound, isCheckoutPosition, triplesHit]);
 
       const updateStats = useCallback((playerIndex, result) => {
         setGameStats(prev => {
@@ -450,9 +455,13 @@
 
             playSound('throw');
 
-            // Calculate if AI power is in perfect zone
-            const baseZoneWidth = isCheckoutPosition ? 2 : 10;
-            const perfectZoneWidth = Math.max(baseZoneWidth - (triplesHit * 2), isCheckoutPosition ? 1 : 4);
+            // Check if AI is aiming at a checkout double
+            const aimingAt = calculateScore(target.x, target.y);
+            const isAimingAtCheckoutDouble = isCheckoutPosition && aimingAt.multiplier === 2 && aimingAt.score === currentPlayer.score;
+
+            // Calculate if AI power is in perfect zone - only use small zone when aiming at checkout double
+            const baseZoneWidth = isAimingAtCheckoutDouble ? 2 : 10;
+            const perfectZoneWidth = Math.max(baseZoneWidth - (triplesHit * 2), isAimingAtCheckoutDouble ? 1 : 4);
             const perfectZoneLeft = 50 - (perfectZoneWidth / 2);
             const perfectZoneRight = 50 + (perfectZoneWidth / 2);
             const isInPerfectZone = aiPower > perfectZoneLeft && aiPower < perfectZoneRight;
