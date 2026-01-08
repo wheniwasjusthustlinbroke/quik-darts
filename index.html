@@ -286,6 +286,49 @@
               osc.stop(ctx.currentTime + i * 0.08 + 0.15);
             });
             break;
+          case 'ninedarter':
+            // Epic crowd roar effect
+            // Create white noise for crowd roar
+            const bufferSize = ctx.sampleRate * 3; // 3 seconds
+            const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+            const data = buffer.getChannelData(0);
+            for (let i = 0; i < bufferSize; i++) {
+              data[i] = Math.random() * 2 - 1;
+            }
+            const crowdNoise = ctx.createBufferSource();
+            crowdNoise.buffer = buffer;
+
+            const crowdFilter = ctx.createBiquadFilter();
+            crowdFilter.type = 'bandpass';
+            crowdFilter.frequency.setValueAtTime(800, ctx.currentTime);
+            crowdFilter.Q.setValueAtTime(1, ctx.currentTime);
+
+            const crowdGain = ctx.createGain();
+            crowdGain.gain.setValueAtTime(0, ctx.currentTime);
+            crowdGain.gain.linearRampToValueAtTime(0.3, ctx.currentTime + 0.5);
+            crowdGain.gain.setValueAtTime(0.3, ctx.currentTime + 2);
+            crowdGain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 3);
+
+            crowdNoise.connect(crowdFilter);
+            crowdFilter.connect(crowdGain);
+            crowdGain.connect(ctx.destination);
+            crowdNoise.start(ctx.currentTime);
+            crowdNoise.stop(ctx.currentTime + 3);
+
+            // Add epic fanfare over the crowd roar
+            [523, 659, 784, 1047, 1319, 1568].forEach((freq, i) => {
+              const osc = ctx.createOscillator();
+              const gain = ctx.createGain();
+              osc.type = 'triangle';
+              osc.connect(gain);
+              gain.connect(ctx.destination);
+              osc.frequency.setValueAtTime(freq, ctx.currentTime + i * 0.15);
+              gain.gain.setValueAtTime(0.25, ctx.currentTime + i * 0.15);
+              gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + i * 0.15 + 0.4);
+              osc.start(ctx.currentTime + i * 0.15);
+              osc.stop(ctx.currentTime + i * 0.15 + 0.4);
+            });
+            break;
         }
       }, [soundEnabled]);
 
@@ -416,10 +459,13 @@
         const playerDartsInLeg = dartsInLeg !== null ? dartsInLeg : (legDartsThrown[playerIndex] || 0);
         if (playerSetup.gameMode === 501 && playerDartsInLeg === 9) {
           setShowNineDarter(true);
-          setTimeout(() => setShowNineDarter(false), 5000);
+          playSound('ninedarter'); // Epic crowd roar and fanfare
+          setTimeout(() => setShowNineDarter(false), 6000);
         }
 
-        playSound('win');
+        if (playerSetup.gameMode !== 501 || playerDartsInLeg !== 9) {
+          playSound('win'); // Only play regular win sound if not a nine-darter
+        }
 
         // Update leg scores
         const newLegScores = [...legScores];
@@ -1246,40 +1292,129 @@
 
           {/* Nine-Darter Lion Celebration */}
           {showNineDarter && (
-            <div style={{ position: 'fixed', top: '50%', left: 0, right: 0, transform: 'translateY(-50%)', zIndex: 200, pointerEvents: 'none', overflow: 'hidden' }}>
-              <div style={{ animation: 'slideLion 5s linear', position: 'relative' }}>
-                <svg width="150" height="150" viewBox="0 0 150 150" style={{ filter: 'drop-shadow(0 0 10px rgba(255,215,0,0.5))' }}>
+            <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 200, pointerEvents: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              {/* Background glow effect */}
+              <div style={{
+                position: 'absolute',
+                top: '50%',
+                left: '50%',
+                transform: 'translate(-50%, -50%)',
+                width: '400px',
+                height: '400px',
+                background: 'radial-gradient(circle, rgba(255,215,0,0.3) 0%, rgba(255,215,0,0) 70%)',
+                animation: 'pulseGlow 2s ease-in-out infinite',
+                borderRadius: '50%'
+              }} />
+
+              {/* Sparkle particles */}
+              {[...Array(20)].map((_, i) => (
+                <div key={i} style={{
+                  position: 'absolute',
+                  top: '50%',
+                  left: '50%',
+                  width: '6px',
+                  height: '6px',
+                  background: '#ffd700',
+                  borderRadius: '50%',
+                  boxShadow: '0 0 10px #ffd700',
+                  animation: `sparkle${i % 4} 2s ease-out infinite`,
+                  animationDelay: `${i * 0.1}s`,
+                  opacity: 0
+                }} />
+              ))}
+
+              {/* Lion container with epic animation */}
+              <div style={{
+                position: 'relative',
+                animation: 'epicLionEntry 6s cubic-bezier(0.34, 1.56, 0.64, 1)',
+                transformOrigin: 'center center'
+              }}>
+                <svg width="200" height="220" viewBox="0 0 150 170" style={{
+                  filter: 'drop-shadow(0 0 20px rgba(255,215,0,0.8)) drop-shadow(0 0 40px rgba(255,215,0,0.4))',
+                  animation: 'lionPoseSequence 6s cubic-bezier(0.34, 1.56, 0.64, 1)'
+                }}>
                   {/* Lion face */}
                   <circle cx="75" cy="75" r="40" fill="#f4a460" />
-                  {/* Mane */}
-                  <circle cx="50" cy="50" r="15" fill="#daa520" />
-                  <circle cx="100" cy="50" r="15" fill="#daa520" />
-                  <circle cx="50" cy="100" r="15" fill="#daa520" />
-                  <circle cx="100" cy="100" r="15" fill="#daa520" />
-                  <circle cx="40" cy="75" r="15" fill="#daa520" />
-                  <circle cx="110" cy="75" r="15" fill="#daa520" />
-                  <circle cx="75" cy="40" r="15" fill="#daa520" />
-                  <circle cx="75" cy="110" r="15" fill="#daa520" />
+
+                  {/* Animated mane with gradient */}
+                  <defs>
+                    <radialGradient id="maneGradient">
+                      <stop offset="0%" stopColor="#ffd700" />
+                      <stop offset="100%" stopColor="#daa520" />
+                    </radialGradient>
+                  </defs>
+                  <circle cx="50" cy="50" r="15" fill="url(#maneGradient)" style={{ animation: 'maneGlow 2s ease-in-out infinite' }} />
+                  <circle cx="100" cy="50" r="15" fill="url(#maneGradient)" style={{ animation: 'maneGlow 2s ease-in-out infinite 0.1s' }} />
+                  <circle cx="50" cy="100" r="15" fill="url(#maneGradient)" style={{ animation: 'maneGlow 2s ease-in-out infinite 0.2s' }} />
+                  <circle cx="100" cy="100" r="15" fill="url(#maneGradient)" style={{ animation: 'maneGlow 2s ease-in-out infinite 0.3s' }} />
+                  <circle cx="40" cy="75" r="15" fill="url(#maneGradient)" style={{ animation: 'maneGlow 2s ease-in-out infinite 0.4s' }} />
+                  <circle cx="110" cy="75" r="15" fill="url(#maneGradient)" style={{ animation: 'maneGlow 2s ease-in-out infinite 0.5s' }} />
+                  <circle cx="75" cy="40" r="15" fill="url(#maneGradient)" style={{ animation: 'maneGlow 2s ease-in-out infinite 0.6s' }} />
+                  <circle cx="75" cy="110" r="15" fill="url(#maneGradient)" style={{ animation: 'maneGlow 2s ease-in-out infinite 0.7s' }} />
+
                   {/* Face details */}
                   <ellipse cx="65" cy="70" rx="5" ry="8" fill="#000" />
                   <ellipse cx="85" cy="70" rx="5" ry="8" fill="#000" />
                   <circle cx="75" cy="82" r="4" fill="#000" />
                   <path d="M 75 82 Q 70 88 65 85" stroke="#000" strokeWidth="2" fill="none" />
                   <path d="M 75 82 Q 80 88 85 85" stroke="#000" strokeWidth="2" fill="none" />
-                  {/* SUIII pose - one arm raised high! */}
-                  <line x1="75" y1="115" x2="50" y2="35" stroke="#f4a460" strokeWidth="8" strokeLinecap="round" />
-                  <circle cx="50" cy="30" r="6" fill="#f4a460" />
-                  {/* Other arm down */}
-                  <line x1="75" y1="115" x2="95" y2="120" stroke="#f4a460" strokeWidth="8" strokeLinecap="round" />
-                  <circle cx="98" cy="122" r="6" fill="#f4a460" />
+
                   {/* Body */}
-                  <ellipse cx="75" cy="130" rx="20" ry="25" fill="#f4a460" />
+                  <ellipse cx="75" cy="130" rx="22" ry="28" fill="#f4a460" />
+
+                  {/* Animated arms - SUIII pose */}
+                  <g style={{ animation: 'armSequence 6s cubic-bezier(0.34, 1.56, 0.64, 1)' }}>
+                    {/* Left arm spread wide */}
+                    <line x1="75" y1="120" x2="30" y2="100" stroke="#f4a460" strokeWidth="10" strokeLinecap="round" />
+                    <circle cx="27" cy="97" r="7" fill="#f4a460" />
+                    {/* Right arm spread wide */}
+                    <line x1="75" y1="120" x2="120" y2="100" stroke="#f4a460" strokeWidth="10" strokeLinecap="round" />
+                    <circle cx="123" cy="97" r="7" fill="#f4a460" />
+                  </g>
+
                   {/* Legs */}
-                  <line x1="65" y1="145" x2="60" y2="165" stroke="#f4a460" strokeWidth="8" strokeLinecap="round" />
-                  <line x1="85" y1="145" x2="90" y2="165" stroke="#f4a460" strokeWidth="8" strokeLinecap="round" />
+                  <line x1="65" y1="150" x2="60" y2="170" stroke="#f4a460" strokeWidth="10" strokeLinecap="round" />
+                  <line x1="85" y1="150" x2="90" y2="170" stroke="#f4a460" strokeWidth="10" strokeLinecap="round" />
                 </svg>
-                <div style={{ position: 'absolute', top: '-50px', left: '50%', transform: 'translateX(-50%)', fontSize: '48px', fontWeight: '900', color: '#ffd700', textShadow: '0 0 20px rgba(255,215,0,0.8), 0 0 40px rgba(255,215,0,0.6)', whiteSpace: 'nowrap', fontFamily: "'Oswald', sans-serif" }}>
+
+                {/* Epic text */}
+                <div style={{
+                  position: 'absolute',
+                  top: '-80px',
+                  left: '50%',
+                  transform: 'translateX(-50%)',
+                  fontSize: '64px',
+                  fontWeight: '900',
+                  color: '#ffd700',
+                  textShadow: '0 0 30px rgba(255,215,0,1), 0 0 60px rgba(255,215,0,0.8), 0 4px 10px rgba(0,0,0,0.5)',
+                  whiteSpace: 'nowrap',
+                  fontFamily: "'Oswald', sans-serif",
+                  letterSpacing: '4px',
+                  animation: 'textPulse 2s ease-in-out infinite 3s',
+                  opacity: 0,
+                  animationFillMode: 'forwards'
+                }}>
                   NINE DARTER!!!
+                </div>
+
+                {/* Subtitle */}
+                <div style={{
+                  position: 'absolute',
+                  bottom: '-60px',
+                  left: '50%',
+                  transform: 'translateX(-50%)',
+                  fontSize: '24px',
+                  fontWeight: '600',
+                  color: '#ffed4a',
+                  textShadow: '0 0 20px rgba(255,215,0,0.8)',
+                  whiteSpace: 'nowrap',
+                  fontFamily: "'Oswald', sans-serif",
+                  letterSpacing: '2px',
+                  animation: 'textPulse 2s ease-in-out infinite 3.5s',
+                  opacity: 0,
+                  animationFillMode: 'forwards'
+                }}>
+                  LEGENDARY!
                 </div>
               </div>
             </div>
@@ -1331,12 +1466,73 @@
             @keyframes popUp { 0% { transform: translateX(-50%) scale(0.5); opacity: 0; } 50% { transform: translateX(-50%) scale(1.2); } 100% { transform: translateX(-50%) scale(1); opacity: 1; } }
             @keyframes fadeIn { from { opacity: 0; transform: scale(0.9); } to { opacity: 1; transform: scale(1); } }
             @keyframes throwDart { from { opacity: 0; transform: translateY(50px); } to { opacity: 1; transform: translateY(0); } }
-            @keyframes slideLion {
-              0% { transform: translateX(-200px) translateY(-20px); }
-              25% { transform: translateX(25vw) translateY(-30px); }
-              50% { transform: translateX(50vw) translateY(-20px); }
-              75% { transform: translateX(75vw) translateY(-30px); }
-              100% { transform: translateX(calc(100vw + 200px)) translateY(-20px); }
+
+            /* Epic Nine-Darter Animations */
+            @keyframes epicLionEntry {
+              0% { transform: scale(0.3) translateY(100px); opacity: 0; }
+              15% { transform: scale(1.2) translateY(-80px) rotate(0deg); opacity: 1; }
+              30% { transform: scale(1.1) translateY(-60px) rotate(360deg); }
+              45% { transform: scale(1.15) translateY(-40px) rotate(360deg); }
+              60% { transform: scale(1) translateY(0px) rotate(720deg); }
+              75% { transform: scale(1.05) translateY(-10px) rotate(720deg); }
+              85% { transform: scale(0.98) translateY(5px) rotate(720deg); }
+              100% { transform: scale(1) translateY(0px) rotate(720deg); }
+            }
+
+            @keyframes lionPoseSequence {
+              0% { filter: drop-shadow(0 0 10px rgba(255,215,0,0.3)); }
+              50% { filter: drop-shadow(0 0 40px rgba(255,215,0,1)) drop-shadow(0 0 80px rgba(255,215,0,0.6)); }
+              100% { filter: drop-shadow(0 0 30px rgba(255,215,0,0.9)) drop-shadow(0 0 60px rgba(255,215,0,0.5)); }
+            }
+
+            @keyframes armSequence {
+              0% { transform: translateY(10px) rotate(0deg); opacity: 0.5; }
+              20% { transform: translateY(-5px) rotate(-5deg); opacity: 1; }
+              40% { transform: translateY(0px) rotate(5deg); opacity: 1; }
+              60% { transform: translateY(0px) rotate(-3deg); opacity: 1; }
+              80% { transform: translateY(0px) rotate(2deg); opacity: 1; }
+              100% { transform: translateY(0px) rotate(0deg); opacity: 1; }
+            }
+
+            @keyframes pulseGlow {
+              0%, 100% { transform: translate(-50%, -50%) scale(1); opacity: 0.4; }
+              50% { transform: translate(-50%, -50%) scale(1.3); opacity: 0.7; }
+            }
+
+            @keyframes maneGlow {
+              0%, 100% { opacity: 1; }
+              50% { opacity: 0.7; }
+            }
+
+            @keyframes textPulse {
+              0% { opacity: 0; transform: translateX(-50%) scale(0.5); }
+              10% { opacity: 1; transform: translateX(-50%) scale(1.2); }
+              20% { opacity: 1; transform: translateX(-50%) scale(1); }
+              30%, 100% { opacity: 1; transform: translateX(-50%) scale(1); }
+            }
+
+            @keyframes sparkle0 {
+              0% { transform: translate(0, 0) scale(0); opacity: 0; }
+              10% { opacity: 1; }
+              100% { transform: translate(120px, -150px) scale(1); opacity: 0; }
+            }
+
+            @keyframes sparkle1 {
+              0% { transform: translate(0, 0) scale(0); opacity: 0; }
+              10% { opacity: 1; }
+              100% { transform: translate(-130px, -140px) scale(1); opacity: 0; }
+            }
+
+            @keyframes sparkle2 {
+              0% { transform: translate(0, 0) scale(0); opacity: 0; }
+              10% { opacity: 1; }
+              100% { transform: translate(140px, 120px) scale(1); opacity: 0; }
+            }
+
+            @keyframes sparkle3 {
+              0% { transform: translate(0, 0) scale(0); opacity: 0; }
+              10% { opacity: 1; }
+              100% { transform: translate(-110px, 130px) scale(1); opacity: 0; }
             }
           `}</style>
         </div>
