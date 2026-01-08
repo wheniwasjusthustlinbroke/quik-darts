@@ -53,11 +53,14 @@
       const [skillLevel, setSkillLevel] = useState(50);
       const [soundEnabled, setSoundEnabled] = useState(true);
       const [showStats, setShowStats] = useState(false);
-      const [playerSetup, setPlayerSetup] = useState({ count: 1, names: ['Player 1', 'Player 2', 'Player 3', 'Player 4'], gameMode: 501, aiPlayers: [false, false, false, false], aiDifficulty: [null, null, null, null] });
+      const [playerSetup, setPlayerSetup] = useState({ count: 1, names: ['Player 1', 'Player 2', 'Player 3', 'Player 4'], gameMode: 501, aiPlayers: [false, false, false, false], aiDifficulty: [null, null, null, null], legsPerSet: 3, setsToWin: 1 });
       const [animatingDart, setAnimatingDart] = useState(null);
       const [checkout, setCheckout] = useState(null);
       const [triplesHit, setTriplesHit] = useState(0);
       const [isCheckoutPosition, setIsCheckoutPosition] = useState(false);
+      const [legScores, setLegScores] = useState([]); // Track legs won per player
+      const [setScores, setSetScores] = useState([]); // Track sets won per player
+      const [matchWinner, setMatchWinner] = useState(null);
 
       const boardRef = useRef(null);
       const powerIntervalRef = useRef(null);
@@ -278,6 +281,49 @@
         }
       };
 
+      const handleLegWin = useCallback((playerIndex) => {
+        playSound('win');
+
+        // Update leg scores
+        const newLegScores = [...legScores];
+        newLegScores[playerIndex] = (newLegScores[playerIndex] || 0) + 1;
+        setLegScores(newLegScores);
+
+        // Check if player won the set (first to legsPerSet wins)
+        if (newLegScores[playerIndex] >= playerSetup.legsPerSet) {
+          // Player won the set!
+          const newSetScores = [...setScores];
+          newSetScores[playerIndex] = (newSetScores[playerIndex] || 0) + 1;
+          setSetScores(newSetScores);
+
+          // Check if player won the match (first to setsToWin wins)
+          if (newSetScores[playerIndex] >= playerSetup.setsToWin) {
+            // Player won the match!
+            setMatchWinner(players[playerIndex]);
+            setWinner(players[playerIndex]);
+            return;
+          }
+
+          // Reset legs for new set
+          setLegScores(new Array(players.length).fill(0));
+        }
+
+        // Start new leg
+        setTimeout(() => {
+          const newPlayers = players.map(p => ({
+            ...p,
+            score: playerSetup.gameMode
+          }));
+          setPlayers(newPlayers);
+          setDartsThrown(0);
+          setCurrentTurnScore(0);
+          setDartPositions([]);
+          setTriplesHit(0);
+          setThrowHistory([]);
+          setWinner(null);
+        }, 2000);
+      }, [legScores, setScores, players, playerSetup, playSound]);
+
       const throwDart = useCallback(() => {
         if (dartsThrown >= 3 || winner) return;
 
@@ -332,12 +378,12 @@
           }
           
           if (newScore === 0 && result.multiplier === 2) {
-            playSound('win');
-            setWinner(currentPlayer);
             const newPlayers = [...players];
             newPlayers[currentPlayerIndex] = { ...currentPlayer, score: 0 };
             setPlayers(newPlayers);
             updateStats(currentPlayerIndex, result);
+            setWinner(currentPlayer); // Set temporary leg winner for display
+            handleLegWin(currentPlayerIndex);
             return;
           }
           
@@ -359,7 +405,7 @@
             setTimeout(() => nextPlayer(false), 1000);
           }
         }, 300);
-      }, [aimPosition, power, dartsThrown, players, currentPlayerIndex, winner, calculateScore, addRandomness, playSound, isCheckoutPosition, triplesHit]);
+      }, [aimPosition, power, dartsThrown, players, currentPlayerIndex, winner, calculateScore, addRandomness, playSound, isCheckoutPosition, triplesHit, handleLegWin, updateStats, nextPlayer]);
 
       const updateStats = useCallback((playerIndex, result) => {
         setGameStats(prev => {
@@ -601,12 +647,12 @@
               }
 
               if (newScore === 0 && result.multiplier === 2) {
-                playSound('win');
-                setWinner(currentPlayer);
                 const newPlayers = [...players];
                 newPlayers[currentPlayerIndex] = { ...currentPlayer, score: 0 };
                 setPlayers(newPlayers);
                 updateStats(currentPlayerIndex, result);
+                setWinner(currentPlayer); // Set temporary leg winner for display
+                handleLegWin(currentPlayerIndex);
                 return;
               }
 
@@ -649,8 +695,11 @@
         setDartPositions([]);
         setGameStats({});
         setWinner(null);
+        setMatchWinner(null);
         setTriplesHit(0);
         setIsCheckoutPosition(false);
+        setLegScores(new Array(playerSetup.count).fill(0));
+        setSetScores(new Array(playerSetup.count).fill(0));
         setGameState('playing');
       };
 
@@ -738,6 +787,24 @@
               </div>
 
               <div style={{ marginBottom: '30px' }}>
+                <label style={{ color: '#ffd700', fontSize: '14px', letterSpacing: '2px', display: 'block', marginBottom: '10px' }}>LEGS PER SET</label>
+                <div style={{ display: 'flex', gap: '10px' }}>
+                  {[1, 3, 5, 7].map(legs => (
+                    <button key={legs} onClick={() => setPlayerSetup(prev => ({ ...prev, legsPerSet: legs }))} style={{ flex: 1, padding: '15px', fontSize: '20px', fontWeight: '600', background: playerSetup.legsPerSet === legs ? 'linear-gradient(135deg, #ffd700, #ffed4a)' : 'rgba(255, 255, 255, 0.1)', color: playerSetup.legsPerSet === legs ? '#1a1a2e' : '#e8d5b7', border: 'none', borderRadius: '10px', cursor: 'pointer', fontFamily: "'Oswald', sans-serif" }}>{legs}</button>
+                  ))}
+                </div>
+              </div>
+
+              <div style={{ marginBottom: '30px' }}>
+                <label style={{ color: '#ffd700', fontSize: '14px', letterSpacing: '2px', display: 'block', marginBottom: '10px' }}>SETS TO WIN</label>
+                <div style={{ display: 'flex', gap: '10px' }}>
+                  {[1, 3, 5, 7].map(sets => (
+                    <button key={sets} onClick={() => setPlayerSetup(prev => ({ ...prev, setsToWin: sets }))} style={{ flex: 1, padding: '15px', fontSize: '20px', fontWeight: '600', background: playerSetup.setsToWin === sets ? 'linear-gradient(135deg, #ffd700, #ffed4a)' : 'rgba(255, 255, 255, 0.1)', color: playerSetup.setsToWin === sets ? '#1a1a2e' : '#e8d5b7', border: 'none', borderRadius: '10px', cursor: 'pointer', fontFamily: "'Oswald', sans-serif" }}>{sets}</button>
+                  ))}
+                </div>
+              </div>
+
+              <div style={{ marginBottom: '30px' }}>
                 <label style={{ color: '#ffd700', fontSize: '14px', letterSpacing: '2px', display: 'block', marginBottom: '10px' }}>NUMBER OF PLAYERS</label>
                 <div style={{ display: 'flex', gap: '10px' }}>
                   {[1, 2, 3, 4].map(num => (
@@ -820,6 +887,11 @@
                   {player.isAI && <div style={{ fontSize: '10px', color: '#6495ed', marginBottom: '5px', textTransform: 'uppercase' }}>{player.aiDifficulty}</div>}
                   <div style={{ fontSize: '48px', fontWeight: '700', color: player.score <= 170 ? '#32cd32' : '#fff', textAlign: 'center', margin: '10px 0', fontFamily: "'Roboto Mono', monospace" }}>{player.score}</div>
                   {gameStats[index] && <div style={{ fontSize: '12px', color: '#888', textAlign: 'center' }}>Avg: {gameStats[index].averagePerDart} per dart</div>}
+                  {(playerSetup.legsPerSet > 1 || playerSetup.setsToWin > 1) && (
+                    <div style={{ fontSize: '11px', color: '#ffd700', textAlign: 'center', marginTop: '8px', letterSpacing: '1px' }}>
+                      Sets: {setScores[index] || 0} | Legs: {legScores[index] || 0}
+                    </div>
+                  )}
                 </div>
               ))}
               
@@ -939,13 +1011,15 @@
           {winner && (
             <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0, 0, 0, 0.9)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }}>
               <div style={{ textAlign: 'center', animation: 'fadeIn 0.5s ease-out' }}>
-                <div style={{ fontSize: '100px', marginBottom: '20px' }}>🏆</div>
-                <h1 style={{ fontSize: '48px', color: '#ffd700', margin: '0 0 10px 0', textShadow: '0 0 30px rgba(255, 215, 0, 0.5)' }}>{winner.name} WINS!</h1>
-                <p style={{ color: '#e8d5b7', fontSize: '20px', marginBottom: '30px' }}>Game Over - Double Out Victory!</p>
-                <div style={{ display: 'flex', gap: '15px', justifyContent: 'center' }}>
-                  <button onClick={startGame} style={{ padding: '15px 40px', background: 'linear-gradient(135deg, #228b22, #32cd32)', color: '#fff', border: 'none', borderRadius: '10px', fontSize: '18px', fontWeight: '600', cursor: 'pointer', fontFamily: "'Oswald', sans-serif" }}>PLAY AGAIN</button>
-                  <button onClick={resetGame} style={{ padding: '15px 40px', background: 'rgba(255, 255, 255, 0.1)', color: '#e8d5b7', border: 'none', borderRadius: '10px', fontSize: '18px', fontWeight: '600', cursor: 'pointer', fontFamily: "'Oswald', sans-serif" }}>MAIN MENU</button>
-                </div>
+                <div style={{ fontSize: '100px', marginBottom: '20px' }}>{matchWinner ? '🏆' : '✓'}</div>
+                <h1 style={{ fontSize: '48px', color: '#ffd700', margin: '0 0 10px 0', textShadow: '0 0 30px rgba(255, 215, 0, 0.5)' }}>{winner.name} {matchWinner ? 'WINS THE MATCH!' : 'WINS THE LEG!'}</h1>
+                <p style={{ color: '#e8d5b7', fontSize: '20px', marginBottom: '30px' }}>{matchWinner ? 'Match Complete - Champion Crowned!' : 'Next leg starting soon...'}</p>
+                {matchWinner && (
+                  <div style={{ display: 'flex', gap: '15px', justifyContent: 'center' }}>
+                    <button onClick={startGame} style={{ padding: '15px 40px', background: 'linear-gradient(135deg, #228b22, #32cd32)', color: '#fff', border: 'none', borderRadius: '10px', fontSize: '18px', fontWeight: '600', cursor: 'pointer', fontFamily: "'Oswald', sans-serif" }}>PLAY AGAIN</button>
+                    <button onClick={resetGame} style={{ padding: '15px 40px', background: 'rgba(255, 255, 255, 0.1)', color: '#e8d5b7', border: 'none', borderRadius: '10px', fontSize: '18px', fontWeight: '600', cursor: 'pointer', fontFamily: "'Oswald', sans-serif" }}>MAIN MENU</button>
+                  </div>
+                )}
               </div>
             </div>
           )}
