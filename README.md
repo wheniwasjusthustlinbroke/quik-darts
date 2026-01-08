@@ -1,4 +1,4 @@
-# 🎯 501 Darts - Championship Edition
+# 🎯 Quik Darts - Championship Edition
 
 A fully-featured web-based darts game with realistic gameplay mechanics.
 
