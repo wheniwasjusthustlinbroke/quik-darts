@@ -591,8 +591,8 @@ struct PlayerConfigView: View {
                 .cornerRadius(10)
             }
 
-            // AI Opponent Toggle (only shown when numberOfPlayers > 1)
-            if numberOfPlayers > 1 {
+            // AI Opponent Toggle (only shown for Player 2+ when numberOfPlayers > 1)
+            if playerNumber > 1 && numberOfPlayers > 1 {
                 HStack {
                     Text("AI OPPONENT")
                         .font(.system(size: 13, weight: .medium))
