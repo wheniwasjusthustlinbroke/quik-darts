@@ -14,7 +14,7 @@ struct DartboardView: View {
     private static let greenColor = Color(red: 0.051, green: 0.420, blue: 0.180) // #0d6b2e - web deep green
     private static let goldColor = Color(red: 0.722, green: 0.533, blue: 0.043) // #b8860b - gold frame
     private static let navyDarkColor = Color(red: 0.102, green: 0.102, blue: 0.180) // #1a1a2e - dark navy
-    private static let navyLightColor = Color(red: 0.165, green: 0.165, blue: 0.306) // #2a2a4e - light navy
+    private static let chromeColor = Color(red: 0.75, green: 0.75, blue: 0.75) // Silver/chrome
 
     var body: some View {
         Canvas { context, size in
@@ -31,6 +31,7 @@ struct DartboardView: View {
             let doubleInner = 160.0 * scale
             let doubleOuter = 172.0 * scale
             let chromeOuter = 180.0 * scale  // Chrome ring outer edge
+            let chromeInner = 174.0 * scale  // Chrome ring inner edge
             let numberRadius = 190.0 * scale  // Where numbers are drawn
 
             // Draw outer board background with gold frame (matching web version)
@@ -40,7 +41,7 @@ struct DartboardView: View {
                 with: .color(Self.goldColor)
             )
 
-            // Navy background inside gold frame
+            // Navy background inside gold frame (number ring area)
             let navyRadius = radius - 4.0 * scale
             context.fill(
                 Path(ellipseIn: CGRect(x: center.x - navyRadius, y: center.y - navyRadius, width: navyRadius * 2, height: navyRadius * 2)),
@@ -48,14 +49,12 @@ struct DartboardView: View {
             )
 
             // Chrome/metallic ring around dartboard (matching web version)
-            let chromeColor = Color(red: 0.75, green: 0.75, blue: 0.75) // Silver/chrome
             context.fill(
                 Path(ellipseIn: CGRect(x: center.x - chromeOuter, y: center.y - chromeOuter, width: chromeOuter * 2, height: chromeOuter * 2)),
-                with: .color(chromeColor)
+                with: .color(Self.chromeColor)
             )
 
             // Dark inner edge of chrome ring
-            let chromeInner = 174.0 * scale
             context.fill(
                 Path(ellipseIn: CGRect(x: center.x - chromeInner, y: center.y - chromeInner, width: chromeInner * 2, height: chromeInner * 2)),
                 with: .color(Color(red: 0.1, green: 0.1, blue: 0.1)) // #1a1a1a
