@@ -5,13 +5,20 @@ struct MenuView: View {
     @ObservedObject var gameState: GameStateManager
 
     @State private var gameMode: Int = 501
+    @State private var legsPerSet: Int = 3 // 1, 3, 5, or 7
     @State private var player1Name: String = "Player 1"
     @State private var player2Name: String = "Player 2"
     @State private var player1Flag: String = "🏴"
     @State private var player2Flag: String = "🌍"
 
-    let gameModes = [301, 501, 701]
+    let gameModes = [301, 501]
+    let legsOptions = [1, 3, 5, 7]
     let flagOptions = ["🏴", "🇬🇧", "🇺🇸", "🇮🇪", "🇳🇱", "🇩🇪", "🇧🇪", "🇦🇺", "🇯🇵", "🌍"]
+
+    // Convert legs per set to legs to win (e.g., best of 3 = first to 2)
+    var legsToWin: Int {
+        return (legsPerSet + 1) / 2
+    }
 
     var body: some View {
         ZStack {
@@ -27,9 +34,10 @@ struct MenuView: View {
             )
             .ignoresSafeArea()
 
-            VStack(spacing: 30) {
-                // Title
-                VStack(spacing: 10) {
+            ScrollView {
+                VStack(spacing: 30) {
+                    // Title
+                    VStack(spacing: 10) {
                     Text("🎯")
                         .font(.system(size: 80))
                     Text("QUIK DARTS")
@@ -56,6 +64,7 @@ struct MenuView: View {
                     ) {
                         gameState.setupGame(
                             mode: gameMode,
+                            legsToWin: legsToWin,
                             player1Name: player1Name,
                             player2Name: player2Name,
                             player1Flag: player1Flag,
@@ -130,6 +139,35 @@ struct MenuView: View {
                             }
                         }
 
+                        // Legs Per Set Picker
+                        VStack(alignment: .leading, spacing: 10) {
+                            Text("LEGS PER SET")
+                                .font(.system(size: 14, weight: .medium))
+                                .foregroundColor(Color(red: 1.0, green: 0.84, blue: 0.0))
+                                .tracking(2)
+
+                            HStack(spacing: 10) {
+                                ForEach(legsOptions, id: \.self) { legs in
+                                    Button(action: {
+                                        legsPerSet = legs
+                                    }) {
+                                        Text("\(legs)")
+                                            .font(.system(size: 18, weight: .medium))
+                                            .fontWeight(.bold)
+                                            .foregroundColor(legsPerSet == legs ? Color(red: 0.1, green: 0.1, blue: 0.18) : Color(red: 0.91, green: 0.84, blue: 0.72).opacity(0.6))
+                                            .frame(maxWidth: .infinity)
+                                            .padding(.vertical, 12)
+                                            .background(
+                                                legsPerSet == legs ?
+                                                Color(red: 1.0, green: 0.84, blue: 0.0) :
+                                                Color.white.opacity(0.1)
+                                            )
+                                            .cornerRadius(10)
+                                    }
+                                }
+                            }
+                        }
+
                         // Player 1 Configuration
                         PlayerConfigView(
                             playerNumber: 1,
@@ -159,8 +197,8 @@ struct MenuView: View {
                     .cornerRadius(20)
                 }
                 .padding(.horizontal, 30)
-
-                Spacer()
+                .padding(.bottom, 30)
+                }
             }
         }
     }
