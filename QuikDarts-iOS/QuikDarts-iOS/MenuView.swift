@@ -33,11 +33,12 @@ struct MenuView: View {
     @State private var player3AIDifficulty: String = "medium"
     @State private var player4AIDifficulty: String = "medium"
 
-    let gameModes = [301, 501]
-    let legsOptions = [1, 3, 5, 7]
-    let setsOptions = [1, 3, 5, 7]
-    let playerOptions = [1, 2, 3, 4]
-    let skillLevels = [
+    // Static configuration arrays to avoid recreating on every view update
+    private static let gameModes = [301, 501]
+    private static let legsOptions = [1, 3, 5, 7]
+    private static let setsOptions = [1, 3, 5, 7]
+    private static let playerOptions = [1, 2, 3, 4]
+    private static let skillLevels = [
         ("beginner", "🟢"),
         ("intermediate", "🟡"),
         ("expert", "🔴")
@@ -156,7 +157,7 @@ struct MenuView: View {
         Country(name: "Yemen", flag: "🇾🇪"),
         Country(name: "Zimbabwe", flag: "🇿🇼")
     ]
-    let aiDifficulties = ["easy", "medium", "hard", "impossible"]
+    private static let aiDifficulties = ["easy", "medium", "hard", "impossible"]
 
     // Convert legs per set to legs to win (e.g., best of 3 = first to 2)
     var legsToWin: Int {
@@ -273,7 +274,7 @@ struct MenuView: View {
                                 .tracking(2)
 
                             HStack(spacing: 10) {
-                                ForEach(gameModes, id: \.self) { mode in
+                                ForEach(Self.gameModes, id: \.self) { mode in
                                     Button(action: {
                                         gameMode = mode
                                     }) {
@@ -309,7 +310,7 @@ struct MenuView: View {
                                 .tracking(2)
 
                             HStack(spacing: 10) {
-                                ForEach(legsOptions, id: \.self) { legs in
+                                ForEach(Self.legsOptions, id: \.self) { legs in
                                     Button(action: {
                                         legsPerSet = legs
                                     }) {
@@ -337,7 +338,7 @@ struct MenuView: View {
                                 .tracking(2)
 
                             HStack(spacing: 10) {
-                                ForEach(setsOptions, id: \.self) { sets in
+                                ForEach(Self.setsOptions, id: \.self) { sets in
                                     Button(action: {
                                         setsToWin = sets
                                     }) {
@@ -365,7 +366,7 @@ struct MenuView: View {
                                 .tracking(2)
 
                             HStack(spacing: 10) {
-                                ForEach(playerOptions, id: \.self) { players in
+                                ForEach(Self.playerOptions, id: \.self) { players in
                                     Button(action: {
                                         numberOfPlayers = players
                                     }) {
@@ -393,7 +394,7 @@ struct MenuView: View {
                                 .tracking(2)
 
                             HStack(spacing: 10) {
-                                ForEach(skillLevels, id: \.0) { level in
+                                ForEach(Self.skillLevels, id: \.0) { level in
                                     Button(action: {
                                         skillLevel = level.0
                                     }) {
@@ -443,7 +444,7 @@ struct MenuView: View {
                                 countries: Self.countriesData,
                                 isAI: .constant(false), // Player 1 is always human
                                 aiDifficulty: .constant("medium"), // Unused
-                                aiDifficulties: aiDifficulties,
+                                aiDifficulties: Self.aiDifficulties,
                                 numberOfPlayers: numberOfPlayers
                             )
                         }
@@ -457,7 +458,7 @@ struct MenuView: View {
                                 countries: Self.countriesData,
                                 isAI: $player2IsAI,
                                 aiDifficulty: $player2AIDifficulty,
-                                aiDifficulties: aiDifficulties,
+                                aiDifficulties: Self.aiDifficulties,
                                 numberOfPlayers: numberOfPlayers
                             )
                         }
@@ -471,7 +472,7 @@ struct MenuView: View {
                                 countries: Self.countriesData,
                                 isAI: $player3IsAI,
                                 aiDifficulty: $player3AIDifficulty,
-                                aiDifficulties: aiDifficulties,
+                                aiDifficulties: Self.aiDifficulties,
                                 numberOfPlayers: numberOfPlayers
                             )
                         }
@@ -485,7 +486,7 @@ struct MenuView: View {
                                 countries: Self.countriesData,
                                 isAI: $player4IsAI,
                                 aiDifficulty: $player4AIDifficulty,
-                                aiDifficulties: aiDifficulties,
+                                aiDifficulties: Self.aiDifficulties,
                                 numberOfPlayers: numberOfPlayers
                             )
                         }
@@ -582,10 +583,8 @@ struct PlayerConfigView: View {
 
                 Picker("", selection: $flag) {
                     ForEach(countries) { country in
-                        HStack {
-                            Text("\(country.flag) \(country.name)")
-                                .tag(country.flag)
-                        }
+                        Text("\(country.flag) \(country.name)")
+                            .tag(country.flag)
                     }
                 }
                 .pickerStyle(.menu)
