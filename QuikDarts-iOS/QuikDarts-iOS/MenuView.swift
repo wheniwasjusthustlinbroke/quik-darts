@@ -25,11 +25,10 @@ struct MenuView: View {
     @State private var player2Flag: String = "🇺🇸"
     @State private var player3Flag: String = "🇬🇧"
     @State private var player4Flag: String = "🇦🇺"
-    @State private var player1IsAI: Bool = false
+    // Player 1 can never be AI, so no player1IsAI state needed
     @State private var player2IsAI: Bool = false
     @State private var player3IsAI: Bool = false
     @State private var player4IsAI: Bool = false
-    @State private var player1AIDifficulty: String = "medium"
     @State private var player2AIDifficulty: String = "medium"
     @State private var player3AIDifficulty: String = "medium"
     @State private var player4AIDifficulty: String = "medium"
@@ -227,9 +226,9 @@ struct MenuView: View {
                             player2Name: player2Name,
                             player1Flag: player1Flag,
                             player2Flag: player2Flag,
-                            player1IsAI: player1IsAI,
+                            player1IsAI: false, // Player 1 is always human
                             player2IsAI: player2IsAI,
-                            player1AIDifficulty: player1AIDifficulty,
+                            player1AIDifficulty: "medium", // Unused since Player 1 is never AI
                             player2AIDifficulty: player2AIDifficulty
                         )
                         currentScreen = .playing
@@ -440,8 +439,8 @@ struct MenuView: View {
                                 name: $player1Name,
                                 flag: $player1Flag,
                                 countries: countries,
-                                isAI: $player1IsAI,
-                                aiDifficulty: $player1AIDifficulty,
+                                isAI: .constant(false), // Player 1 is always human
+                                aiDifficulty: .constant("medium"), // Unused
                                 aiDifficulties: aiDifficulties,
                                 numberOfPlayers: numberOfPlayers
                             )
