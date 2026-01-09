@@ -7,12 +7,11 @@ struct DartboardView: View {
     // Dartboard segments in clockwise order starting from top
     private static let segments = [20, 1, 18, 4, 13, 6, 10, 15, 2, 17, 3, 19, 7, 16, 8, 11, 14, 9, 12, 5]
 
-    // Colors - matched to web version
+    // Colors - matched exactly to web version
     private static let blackColor = Color(red: 0.039, green: 0.039, blue: 0.039) // #0a0a0a
-    private static let whiteColor = Color(red: 0.95, green: 0.95, blue: 0.95)
+    private static let creamColor = Color(red: 0.96, green: 0.94, blue: 0.91) // #f5f0e8
     private static let redColor = Color(red: 0.85, green: 0.1, blue: 0.1)
     private static let greenColor = Color(red: 0.15, green: 0.6, blue: 0.2)
-    private static let creamColor = Color(red: 0.96, green: 0.94, blue: 0.91) // #f5f0e8
     private static let chromeLight = Color(red: 0.94, green: 0.94, blue: 0.94)
     private static let chromeDark = Color(red: 0.69, green: 0.69, blue: 0.69)
 
@@ -22,7 +21,7 @@ struct DartboardView: View {
             let radius = min(size.width, size.height) / 2
             let scale = radius / 180.0 // Include outer chrome ring in scaling
 
-            // Ring radii (in mm, scaled) - matched to web version
+            // Ring radii (in mm, scaled) - matched exactly to web version
             let innerBullRadius = 8.0 * scale
             let outerBullRadius = 16.0 * scale
             let tripleInner = 95.0 * scale
@@ -84,7 +83,7 @@ struct DartboardView: View {
                     outerRadius: chromeInner,
                     startAngle: angle,
                     endAngle: nextAngle,
-                    color: index % 2 == 0 ? Self.blackColor : Self.whiteColor
+                    color: index % 2 == 0 ? Self.blackColor : Self.creamColor
                 )
 
                 // Double ring
@@ -170,7 +169,7 @@ struct DartboardView: View {
             // Draw spider (wire dividers) - thin white lines
             for index in 0..<20 {
                 let angle = Double(index) * 18.0
-                let radians = (angle - 90.0) * .pi / 180.0
+                let radians = (90.0 - angle) * .pi / 180.0
                 let startPoint = CGPoint(
                     x: center.x + cos(radians) * outerBullRadius,
                     y: center.y + sin(radians) * outerBullRadius
@@ -217,8 +216,8 @@ struct DartboardView: View {
         endAngle: Double,
         color: Color
     ) {
-        let startRadians = (startAngle - 90.0) * .pi / 180.0
-        let endRadians = (endAngle - 90.0) * .pi / 180.0
+        let startRadians = (90.0 - startAngle) * .pi / 180.0
+        let endRadians = (90.0 - endAngle) * .pi / 180.0
 
         var path = Path()
 
@@ -238,9 +237,9 @@ struct DartboardView: View {
         path.addArc(
             center: center,
             radius: outerRadius,
-            startAngle: Angle(degrees: startAngle),
-            endAngle: Angle(degrees: endAngle),
-            clockwise: false
+            startAngle: Angle(degrees: 90.0 - startAngle),
+            endAngle: Angle(degrees: 90.0 - endAngle),
+            clockwise: true
         )
 
         // Line back to inner radius
@@ -253,9 +252,9 @@ struct DartboardView: View {
         path.addArc(
             center: center,
             radius: innerRadius,
-            startAngle: Angle(degrees: endAngle),
-            endAngle: Angle(degrees: startAngle),
-            clockwise: true
+            startAngle: Angle(degrees: 90.0 - endAngle),
+            endAngle: Angle(degrees: 90.0 - startAngle),
+            clockwise: false
         )
 
         path.closeSubpath()
