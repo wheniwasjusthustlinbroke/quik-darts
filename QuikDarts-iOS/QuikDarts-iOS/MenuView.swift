@@ -10,10 +10,15 @@ struct MenuView: View {
     @State private var player2Name: String = "Player 2"
     @State private var player1Flag: String = "🏴"
     @State private var player2Flag: String = "🌍"
+    @State private var player1IsAI: Bool = false
+    @State private var player2IsAI: Bool = false
+    @State private var player1AIDifficulty: String = "medium"
+    @State private var player2AIDifficulty: String = "medium"
 
     let gameModes = [301, 501]
     let legsOptions = [1, 3, 5, 7]
     let flagOptions = ["🏴", "🇬🇧", "🇺🇸", "🇮🇪", "🇳🇱", "🇩🇪", "🇧🇪", "🇦🇺", "🇯🇵", "🌍"]
+    let aiDifficulties = ["easy", "medium", "hard", "impossible"]
 
     // Convert legs per set to legs to win (e.g., best of 3 = first to 2)
     var legsToWin: Int {
@@ -105,7 +110,7 @@ struct MenuView: View {
                         // Game Mode Picker
                         VStack(alignment: .leading, spacing: 10) {
                             Text("GAME MODE")
-                                .font(.custom("Oswald", size: 14))
+                                .font(.system(size: 14, weight: .medium))
                                 .foregroundColor(Color(red: 1.0, green: 0.84, blue: 0.0))
                                 .tracking(2)
 
@@ -115,7 +120,7 @@ struct MenuView: View {
                                         gameMode = mode
                                     }) {
                                         Text("\(mode)")
-                                            .font(.custom("Oswald", size: 18))
+                                            .font(.system(size: 18, weight: .bold))
                                             .fontWeight(.bold)
                                             .foregroundColor(gameMode == mode ? .white : Color(red: 0.91, green: 0.84, blue: 0.72).opacity(0.6))
                                             .frame(maxWidth: .infinity)
@@ -173,7 +178,10 @@ struct MenuView: View {
                             playerNumber: 1,
                             name: $player1Name,
                             flag: $player1Flag,
-                            flagOptions: flagOptions
+                            flagOptions: flagOptions,
+                            isAI: $player1IsAI,
+                            aiDifficulty: $player1AIDifficulty,
+                            aiDifficulties: aiDifficulties
                         )
 
                         // Player 2 Configuration
@@ -181,7 +189,10 @@ struct MenuView: View {
                             playerNumber: 2,
                             name: $player2Name,
                             flag: $player2Flag,
-                            flagOptions: flagOptions
+                            flagOptions: flagOptions,
+                            isAI: $player2IsAI,
+                            aiDifficulty: $player2AIDifficulty,
+                            aiDifficulties: aiDifficulties
                         )
                     }
                     .padding(25)
@@ -214,7 +225,7 @@ struct MenuButton: View {
     var body: some View {
         Button(action: action) {
             Text(title)
-                .font(.custom("Oswald", size: 24))
+                .font(.system(size: 24, weight: .bold))
                 .fontWeight(.bold)
                 .foregroundColor(.white)
                 .tracking(4)
@@ -239,13 +250,16 @@ struct PlayerConfigView: View {
     @Binding var name: String
     @Binding var flag: String
     let flagOptions: [String]
+    @Binding var isAI: Bool
+    @Binding var aiDifficulty: String
+    let aiDifficulties: [String]
 
     @State private var showFlagPicker = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("PLAYER \(playerNumber)")
-                .font(.custom("Oswald", size: 14))
+                .font(.system(size: 14, weight: .medium))
                 .foregroundColor(Color(red: 1.0, green: 0.84, blue: 0.0))
                 .tracking(2)
 
@@ -273,13 +287,70 @@ struct PlayerConfigView: View {
 
                 // Name input
                 TextField("Player \(playerNumber)", text: $name)
-                    .font(.custom("Oswald", size: 18))
+                    .font(.system(size: 18, weight: .medium))
                     .foregroundColor(Color(red: 0.91, green: 0.84, blue: 0.72))
                     .padding()
                     .background(Color.white.opacity(0.1))
                     .cornerRadius(10)
                     .autocapitalization(.words)
                     .disableAutocorrection(true)
+            }
+
+            // AI Opponent Toggle
+            HStack {
+                Text("AI OPPONENT")
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundColor(Color(red: 0.53, green: 0.53, blue: 0.53))
+                    .tracking(1)
+
+                Spacer()
+
+                Button(action: {
+                    isAI.toggle()
+                    if isAI && aiDifficulty.isEmpty {
+                        aiDifficulty = "medium"
+                    }
+                }) {
+                    Text(isAI ? "ON" : "OFF")
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 20)
+                        .padding(.vertical, 8)
+                        .background(isAI ? Color(red: 0.15, green: 0.6, blue: 0.2) : Color.white.opacity(0.1))
+                        .cornerRadius(8)
+                }
+            }
+            .padding(.top, 5)
+
+            // AI Difficulty Selector (only shown when AI is ON)
+            if isAI {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("DIFFICULTY")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundColor(Color(red: 0.53, green: 0.53, blue: 0.53))
+                        .tracking(1)
+
+                    HStack(spacing: 6) {
+                        ForEach(aiDifficulties, id: \.self) { difficulty in
+                            Button(action: {
+                                aiDifficulty = difficulty
+                            }) {
+                                Text(difficulty.uppercased())
+                                    .font(.system(size: 12, weight: .bold))
+                                    .foregroundColor(aiDifficulty == difficulty ? Color(red: 0.1, green: 0.1, blue: 0.18) : Color(red: 0.91, green: 0.84, blue: 0.72).opacity(0.6))
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 10)
+                                    .background(
+                                        aiDifficulty == difficulty ?
+                                        Color(red: 1.0, green: 0.84, blue: 0.0) :
+                                        Color.white.opacity(0.1)
+                                    )
+                                    .cornerRadius(8)
+                            }
+                        }
+                    }
+                }
+                .padding(.top, 5)
             }
         }
     }
