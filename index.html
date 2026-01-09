@@ -54,13 +54,53 @@
     const BOARD_SIZE = 500;
     const CENTER = BOARD_SIZE / 2;
     const SEGMENTS = [20, 1, 18, 4, 13, 6, 10, 15, 2, 17, 3, 19, 7, 16, 8, 11, 14, 9, 12, 5];
-    const SEGMENT_COLORS = ['#1a1a2e', '#e8d5b7'];
+    const SEGMENT_COLORS = ['#0a0a0a', '#f5f0e8']; // Deep black and cream (more realistic)
     const TRIPLE_INNER = 95;
     const TRIPLE_OUTER = 107;
     const DOUBLE_INNER = 160;
     const DOUBLE_OUTER = 172;
     const OUTER_BULL = 16;
     const INNER_BULL = 8;
+
+    // Achievements data - moved outside component to prevent recreation on every render
+    const ACHIEVEMENTS_DATA = [
+      // First Steps
+      { id: 'first_game', name: 'First Game', description: 'Complete your first game', icon: '🎯', rarity: 'common', mode: 'offline' },
+      { id: 'first_win', name: 'First Victory', description: 'Win your first game', icon: '🏆', rarity: 'common', mode: 'offline' },
+
+      // 180 Achievements
+      { id: 'first_180', name: 'Maximum!', description: 'Hit your first 180', icon: '💯', rarity: 'uncommon', mode: 'offline' },
+      { id: 'ten_180s', name: '180 Master', description: 'Hit 10 total 180s', icon: '⭐', rarity: 'rare', mode: 'offline' },
+      { id: 'fifty_180s', name: 'Ton Machine', description: 'Hit 50 total 180s', icon: '🌟', rarity: 'epic', mode: 'offline' },
+
+      // Nine Darter Achievements
+      { id: 'nine_darter_offline', name: 'Perfect Game', description: 'Achieve a nine-dart finish in offline mode', icon: '👑', rarity: 'legendary', mode: 'offline' },
+      { id: 'nine_darter_online', name: 'Online Legend', description: 'Achieve a nine-dart finish in online mode', icon: '💎', rarity: 'mythic', mode: 'online' },
+
+      // Bulls Achievements
+      { id: 'first_bull', name: 'Bullseye!', description: 'Hit your first bullseye', icon: '🎯', rarity: 'common', mode: 'offline' },
+      { id: 'fifty_bulls', name: 'Bull Master', description: 'Hit 50 bullseyes', icon: '🐂', rarity: 'rare', mode: 'offline' },
+      { id: 'hundred_bulls', name: 'Bull Legend', description: 'Hit 100 bullseyes', icon: '🐃', rarity: 'epic', mode: 'offline' },
+
+      // Winning Streaks
+      { id: 'five_wins', name: 'Hot Streak', description: 'Win 5 games', icon: '🔥', rarity: 'uncommon', mode: 'offline' },
+      { id: 'twenty_wins', name: 'Dominator', description: 'Win 20 games', icon: '💪', rarity: 'rare', mode: 'offline' },
+      { id: 'fifty_wins', name: 'Champion', description: 'Win 50 games', icon: '🥇', rarity: 'epic', mode: 'offline' },
+
+      // Online Achievements
+      { id: 'first_online', name: 'Going Online', description: 'Play your first online match', icon: '🌍', rarity: 'common', mode: 'online' },
+      { id: 'first_online_win', name: 'Online Victor', description: 'Win your first online match', icon: '🏅', rarity: 'uncommon', mode: 'online' },
+      { id: 'ten_online_wins', name: 'Online Warrior', description: 'Win 10 online matches', icon: '⚔️', rarity: 'rare', mode: 'online' },
+      { id: 'fifty_online_wins', name: 'Online Champion', description: 'Win 50 online matches', icon: '👑', rarity: 'epic', mode: 'online' },
+
+      // Checkout Achievements
+      { id: 'big_checkout', name: 'Big Fish', description: 'Hit a checkout of 100 or more', icon: '🐋', rarity: 'uncommon', mode: 'offline' },
+      { id: 'huge_checkout', name: 'Monster Checkout', description: 'Hit a checkout of 150 or more', icon: '🦈', rarity: 'rare', mode: 'offline' },
+
+      // Skill Achievements
+      { id: 'fifty_triples', name: 'Triple Threat', description: 'Hit 50 triples', icon: '3️⃣', rarity: 'uncommon', mode: 'offline' },
+      { id: 'two_hundred_triples', name: 'Triple Master', description: 'Hit 200 triples', icon: '💫', rarity: 'rare', mode: 'offline' }
+    ];
 
     const DartsGame = () => {
       const [gameState, setGameState] = useState('menu');
@@ -159,47 +199,9 @@
         }
       });
 
-      const achievementsData = [
-        // First Steps
-        { id: 'first_game', name: 'First Game', description: 'Complete your first game', icon: '🎯', rarity: 'common', mode: 'offline' },
-        { id: 'first_win', name: 'First Victory', description: 'Win your first game', icon: '🏆', rarity: 'common', mode: 'offline' },
-
-        // 180 Achievements
-        { id: 'first_180', name: 'Maximum!', description: 'Hit your first 180', icon: '💯', rarity: 'uncommon', mode: 'offline' },
-        { id: 'ten_180s', name: '180 Master', description: 'Hit 10 total 180s', icon: '⭐', rarity: 'rare', mode: 'offline' },
-        { id: 'fifty_180s', name: 'Ton Machine', description: 'Hit 50 total 180s', icon: '🌟', rarity: 'epic', mode: 'offline' },
-
-        // Nine Darter Achievements
-        { id: 'nine_darter_offline', name: 'Perfect Game', description: 'Achieve a nine-dart finish in offline mode', icon: '👑', rarity: 'legendary', mode: 'offline' },
-        { id: 'nine_darter_online', name: 'Online Legend', description: 'Achieve a nine-dart finish in online mode', icon: '💎', rarity: 'mythic', mode: 'online' },
-
-        // Bulls Achievements
-        { id: 'first_bull', name: 'Bullseye!', description: 'Hit your first bullseye', icon: '🎯', rarity: 'common', mode: 'offline' },
-        { id: 'fifty_bulls', name: 'Bull Master', description: 'Hit 50 bullseyes', icon: '🐂', rarity: 'rare', mode: 'offline' },
-        { id: 'hundred_bulls', name: 'Bull Legend', description: 'Hit 100 bullseyes', icon: '🐃', rarity: 'epic', mode: 'offline' },
-
-        // Winning Streaks
-        { id: 'five_wins', name: 'Hot Streak', description: 'Win 5 games', icon: '🔥', rarity: 'uncommon', mode: 'offline' },
-        { id: 'twenty_wins', name: 'Dominator', description: 'Win 20 games', icon: '💪', rarity: 'rare', mode: 'offline' },
-        { id: 'fifty_wins', name: 'Champion', description: 'Win 50 games', icon: '🥇', rarity: 'epic', mode: 'offline' },
-
-        // Online Achievements
-        { id: 'first_online', name: 'Going Online', description: 'Play your first online match', icon: '🌍', rarity: 'common', mode: 'online' },
-        { id: 'first_online_win', name: 'Online Victor', description: 'Win your first online match', icon: '🏅', rarity: 'uncommon', mode: 'online' },
-        { id: 'ten_online_wins', name: 'Online Warrior', description: 'Win 10 online matches', icon: '⚔️', rarity: 'rare', mode: 'online' },
-        { id: 'fifty_online_wins', name: 'Online Champion', description: 'Win 50 online matches', icon: '👑', rarity: 'epic', mode: 'online' },
-
-        // Checkout Achievements
-        { id: 'big_checkout', name: 'Big Fish', description: 'Hit a checkout of 100 or more', icon: '🐋', rarity: 'uncommon', mode: 'offline' },
-        { id: 'huge_checkout', name: 'Monster Checkout', description: 'Hit a checkout of 150 or more', icon: '🦈', rarity: 'rare', mode: 'offline' },
-
-        // Skill Achievements
-        { id: 'fifty_triples', name: 'Triple Threat', description: 'Hit 50 triples', icon: '3️⃣', rarity: 'uncommon', mode: 'offline' },
-        { id: 'two_hundred_triples', name: 'Triple Master', description: 'Hit 200 triples', icon: '💫', rarity: 'rare', mode: 'offline' }
-      ];
-
       const boardRef = useRef(null);
       const powerIntervalRef = useRef(null);
+      const matchmakingIntervalRef = useRef(null);
       const audioContext = useRef(null);
 
       const countries = [
@@ -488,6 +490,21 @@
         const myPlayerId = database.ref().push().key;
         setPlayerId(myPlayerId);
 
+        // Clean up stale queue entries (older than 90 seconds)
+        const now = Date.now();
+        queueRef.once('value', (snapshot) => {
+          if (snapshot.exists()) {
+            const queue = snapshot.val();
+            Object.keys(queue).forEach(playerId => {
+              const player = queue[playerId];
+              // Remove if older than 90 seconds
+              if (player.timestamp && (now - player.timestamp > 90000)) {
+                queueRef.child(playerId).remove();
+              }
+            });
+          }
+        });
+
         // Small delay to avoid race condition where both players check queue at exact same time
         setTimeout(() => {
           // Look for available opponent in queue
@@ -526,6 +543,7 @@
                 flag: opponentData.flag,
                 score: playerSetup.gameMode,
                 ready: true
+                // connected will be set when player1 joins
               },
               player2: {
                 id: myPlayerId,
@@ -533,6 +551,7 @@
                 flag: playerSetup.flags[0] || '🌍',
                 score: playerSetup.gameMode,
                 ready: true
+                // connected will be set below
               },
               currentPlayer: 0,
               gameMode: playerSetup.gameMode,
@@ -564,11 +583,18 @@
 
             queueRef.child(myPlayerId).set(myQueueEntry);
 
-            // Listen for when someone joins
-            const checkInterval = setInterval(() => {
+            // Auto-remove from queue if user disconnects (closes browser, loses connection, etc.)
+            queueRef.child(myPlayerId).onDisconnect().remove();
+
+            // Listen for when someone joins OR check if others joined queue while waiting
+            matchmakingIntervalRef.current = setInterval(() => {
+              // First check if someone created a game with us as player1
               database.ref(`games`).orderByChild('player1/id').equalTo(myPlayerId).once('value', (gameSnapshot) => {
                 if (gameSnapshot.exists()) {
-                  clearInterval(checkInterval);
+                  if (matchmakingIntervalRef.current) {
+                    clearInterval(matchmakingIntervalRef.current);
+                    matchmakingIntervalRef.current = null;
+                  }
                   queueRef.child(myPlayerId).remove();
 
                   const roomId = Object.keys(gameSnapshot.val())[0];
@@ -581,6 +607,73 @@
                   setMatchmakingState('found');
 
                   setTimeout(() => startOnlineGame(roomId, 0), 1500);
+                } else {
+                  // Also check if there are OTHER players waiting in queue we can join
+                  queueRef.orderByChild('timestamp').limitToFirst(2).once('value', (queueSnapshot) => {
+                    if (queueSnapshot.exists()) {
+                      const queuePlayers = queueSnapshot.val();
+                      // Find first player that isn't us
+                      const otherPlayerId = Object.keys(queuePlayers).find(id => id !== myPlayerId);
+
+                      if (otherPlayerId) {
+                        const otherPlayer = queuePlayers[otherPlayerId];
+
+                        // Join this player's game
+                        if (matchmakingIntervalRef.current) {
+                          clearInterval(matchmakingIntervalRef.current);
+                          matchmakingIntervalRef.current = null;
+                        }
+
+                        // Remove both players from queue
+                        queueRef.child(myPlayerId).remove();
+                        queueRef.child(otherPlayerId).remove();
+
+                        // Create game room
+                        const roomId = database.ref().push().key;
+                        setGameRoomId(roomId);
+                        gameRoomRef.current = database.ref(`games/${roomId}`);
+
+                        // Set up game data with other player as player1
+                        gameRoomRef.current.set({
+                          player1: {
+                            id: otherPlayer.playerId,
+                            name: otherPlayer.name,
+                            flag: otherPlayer.flag,
+                            score: playerSetup.gameMode,
+                            ready: true
+                            // connected will be set when player1 joins
+                          },
+                          player2: {
+                            id: myPlayerId,
+                            name: sanitizeName(playerSetup.names[0]) || 'Player 2',
+                            flag: playerSetup.flags[0] || '🌍',
+                            score: playerSetup.gameMode,
+                            ready: true
+                            // connected will be set below
+                          },
+                          currentPlayer: 0,
+                          gameMode: playerSetup.gameMode,
+                          dartsThrown: 0,
+                          currentTurnScore: 0,
+                          throwHistory: {},
+                          dartPositions: {},
+                          legScores: [0, 0],
+                          setScores: [0, 0],
+                          status: 'playing',
+                          createdAt: firebase.database.ServerValue.TIMESTAMP
+                        });
+
+                        // Auto-cleanup: Remove game if this player disconnects
+                        gameRoomRef.current.onDisconnect().remove();
+
+                        setOpponentName(otherPlayer.name);
+                        setOpponentFlag(otherPlayer.flag);
+                        setMatchmakingState('found');
+
+                        setTimeout(() => startOnlineGame(roomId, 1), 1500);
+                      }
+                    }
+                  });
                 }
               });
             }, 2000);
@@ -588,7 +681,10 @@
             // Timeout after 60 seconds
             setTimeout(() => {
               if (matchmakingState === 'searching') {
-                clearInterval(checkInterval);
+                if (matchmakingIntervalRef.current) {
+                  clearInterval(matchmakingIntervalRef.current);
+                  matchmakingIntervalRef.current = null;
+                }
                 queueRef.child(myPlayerId).remove();
                 cancelMatchmaking();
                 alert('No opponent found. Please try again.');
@@ -624,6 +720,13 @@
         const roomRef = database.ref(`games/${roomId}`);
         gameRoomRef.current = roomRef;
 
+        // Set my presence as connected
+        const myPlayerKey = playerIndex === 0 ? 'player1' : 'player2';
+        roomRef.child(`${myPlayerKey}/connected`).set(true);
+
+        // Auto-disconnect presence when I leave
+        roomRef.child(`${myPlayerKey}/connected`).onDisconnect().set(false);
+
         roomRef.on('value', (snapshot) => {
           const gameData = snapshot.val();
           if (!gameData) return;
@@ -631,6 +734,13 @@
           // Update local game state from Firebase
           const myPlayer = playerIndex === 0 ? gameData.player1 : gameData.player2;
           const opponent = playerIndex === 0 ? gameData.player2 : gameData.player1;
+
+          // Check if opponent disconnected
+          if (opponent.connected === false && !gameData.winner) {
+            alert(`${opponent.name} has disconnected. Returning to menu.`);
+            cancelMatchmaking();
+            return;
+          }
 
           setPlayers([
             {
@@ -694,9 +804,29 @@
 
       // Cancel matchmaking
       const cancelMatchmaking = useCallback(() => {
+        // If in an active game, set my connected status to false to notify opponent
+        if (gameRoomRef.current && playerId !== null) {
+          const myPlayerKey = playerId === 0 ? 'player1' : 'player2';
+          gameRoomRef.current.child(`${myPlayerKey}/connected`).set(false);
+        }
+
+        // Clear matchmaking interval if it's running
+        if (matchmakingIntervalRef.current) {
+          clearInterval(matchmakingIntervalRef.current);
+          matchmakingIntervalRef.current = null;
+        }
+
+        // Remove from queue if still in matchmaking
         if (playerId && database) {
           database.ref('matchmaking_queue').child(playerId).remove();
         }
+
+        // Clean up game room listener
+        if (gameRoomRef.current) {
+          gameRoomRef.current.off();
+          gameRoomRef.current = null;
+        }
+
         setMatchmakingState(null);
         setOnlineMode(false);
         setGameRoomId(null);
@@ -706,10 +836,7 @@
 
       // Leave online game
       const leaveOnlineGame = useCallback(() => {
-        if (gameRoomRef.current) {
-          gameRoomRef.current.off();
-          gameRoomRef.current = null;
-        }
+        // cancelMatchmaking now handles all cleanup including setting connected=false
         cancelMatchmaking();
       }, [cancelMatchmaking]);
 
@@ -1336,9 +1463,24 @@
         }
       }, [isPowerCharging, throwDart]);
 
+      const handleTouchCancel = useCallback((e) => {
+        e.preventDefault();
+        // Clean up interval when touch is interrupted (scroll, notification, etc.)
+        if (powerIntervalRef.current) {
+          clearInterval(powerIntervalRef.current);
+          powerIntervalRef.current = null;
+        }
+        // Reset charging state without throwing dart
+        if (isPowerCharging) {
+          setIsPowerCharging(false);
+          setPower(0);
+        }
+      }, [isPowerCharging]);
+
       useEffect(() => {
         return () => {
           if (powerIntervalRef.current) clearInterval(powerIntervalRef.current);
+          if (matchmakingIntervalRef.current) clearInterval(matchmakingIntervalRef.current);
         };
       }, []);
 
@@ -1632,7 +1774,7 @@
         // Check if already unlocked
         if (unlockedAchievements.includes(achievementId)) return;
 
-        const achievement = achievementsData.find(a => a.id === achievementId);
+        const achievement = ACHIEVEMENTS_DATA.find(a => a.id === achievementId);
         if (!achievement) return;
 
         // Add to unlocked list
@@ -1645,71 +1787,71 @@
           console.error('Failed to save achievements to localStorage:', error);
         }
 
-        // Show popup
+        // Show popup (timeout cleanup handled by useEffect)
         setAchievementPopup(achievement);
         setTimeout(() => setAchievementPopup(null), 4000);
-      }, [unlockedAchievements, achievementsData]);
+      }, [unlockedAchievements]);
 
       const checkAchievements = useCallback((stats) => {
         // First game
-        if (stats.totalGamesPlayed === 1) {
+        if (stats.totalGamesPlayed >= 1) {
           unlockAchievement('first_game');
         }
 
         // First win
-        if (stats.totalGamesWon === 1) {
+        if (stats.totalGamesWon >= 1) {
           unlockAchievement('first_win');
         }
 
         // 180 achievements
-        if (stats.total180s === 1) {
+        if (stats.total180s >= 1) {
           unlockAchievement('first_180');
         }
-        if (stats.total180s === 10) {
+        if (stats.total180s >= 10) {
           unlockAchievement('ten_180s');
         }
-        if (stats.total180s === 50) {
+        if (stats.total180s >= 50) {
           unlockAchievement('fifty_180s');
         }
 
         // Bulls achievements
-        if (stats.totalBulls === 1) {
+        if (stats.totalBulls >= 1) {
           unlockAchievement('first_bull');
         }
-        if (stats.totalBulls === 50) {
+        if (stats.totalBulls >= 50) {
           unlockAchievement('fifty_bulls');
         }
-        if (stats.totalBulls === 100) {
+        if (stats.totalBulls >= 100) {
           unlockAchievement('hundred_bulls');
         }
 
         // Winning streaks
-        if (stats.totalGamesWon === 5) {
+        if (stats.totalGamesWon >= 5) {
           unlockAchievement('five_wins');
         }
-        if (stats.totalGamesWon === 20) {
+        if (stats.totalGamesWon >= 20) {
           unlockAchievement('twenty_wins');
         }
-        if (stats.totalGamesWon === 50) {
+        if (stats.totalGamesWon >= 50) {
           unlockAchievement('fifty_wins');
         }
 
         // Online achievements
-        if (stats.totalOnlineGames === 1) {
+        if (stats.totalOnlineGames >= 1) {
           unlockAchievement('first_online');
         }
-        if (stats.totalOnlineWins === 1) {
+        if (stats.totalOnlineWins >= 1) {
           unlockAchievement('first_online_win');
         }
-        if (stats.totalOnlineWins === 10) {
+        if (stats.totalOnlineWins >= 10) {
           unlockAchievement('ten_online_wins');
         }
-        if (stats.totalOnlineWins === 50) {
+        if (stats.totalOnlineWins >= 50) {
           unlockAchievement('fifty_online_wins');
         }
 
         // Checkout achievements
-        if (stats.highestCheckout >= 100 && stats.highestCheckout < 150) {
+        if (stats.highestCheckout >= 100) {
           unlockAchievement('big_checkout');
         }
         if (stats.highestCheckout >= 150) {
@@ -1717,10 +1859,10 @@
         }
 
         // Triples achievements
-        if (stats.totalTriples === 50) {
+        if (stats.totalTriples >= 50) {
           unlockAchievement('fifty_triples');
         }
-        if (stats.totalTriples === 200) {
+        if (stats.totalTriples >= 200) {
           unlockAchievement('two_hundred_triples');
         }
       }, [unlockAchievement]);
@@ -1740,6 +1882,18 @@
         });
       }, [checkAchievements]);
 
+      // Auto-hide achievement popup after 4 seconds with proper cleanup
+      useEffect(() => {
+        if (achievementPopup) {
+          const timeoutId = setTimeout(() => {
+            setAchievementPopup(null);
+          }, 4000);
+
+          // Cleanup function to clear timeout if component unmounts or popup changes
+          return () => clearTimeout(timeoutId);
+        }
+      }, [achievementPopup]);
+
       const getRarityColor = (rarity) => {
         switch (rarity) {
           case 'common': return '#95a5a6';
@@ -1754,11 +1908,66 @@
 
       const renderDartboard = () => {
         const segments = [];
-        
+
+        // Add SVG gradients and textures for 3D effects
+        segments.push(
+          <defs key="gradients">
+            {/* Radial gradient for board lighting (brighter in center) */}
+            <radialGradient id="boardLighting" cx="50%" cy="45%">
+              <stop offset="0%" stopColor="rgba(255,255,255,0.15)" />
+              <stop offset="60%" stopColor="rgba(255,255,255,0.05)" />
+              <stop offset="100%" stopColor="rgba(0,0,0,0.1)" />
+            </radialGradient>
+            {/* Gradient for raised bullseye */}
+            <radialGradient id="bullGradient" cx="40%" cy="40%">
+              <stop offset="0%" stopColor="rgba(255,255,255,0.3)" />
+              <stop offset="70%" stopColor="rgba(0,0,0,0)" />
+              <stop offset="100%" stopColor="rgba(0,0,0,0.3)" />
+            </radialGradient>
+            {/* Chrome effect for outer ring */}
+            <linearGradient id="chromeGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+              <stop offset="0%" stopColor="#f0f0f0" />
+              <stop offset="15%" stopColor="#ffffff" />
+              <stop offset="30%" stopColor="#c0c0c0" />
+              <stop offset="50%" stopColor="#e8e8e8" />
+              <stop offset="70%" stopColor="#a0a0a0" />
+              <stop offset="85%" stopColor="#d0d0d0" />
+              <stop offset="100%" stopColor="#b0b0b0" />
+            </linearGradient>
+
+            {/* Sisal/Cork texture pattern for board segments */}
+            <pattern id="sisalTexture" x="0" y="0" width="4" height="4" patternUnits="userSpaceOnUse">
+              <rect width="4" height="4" fill="rgba(0,0,0,0)" />
+              <circle cx="1" cy="1" r="0.3" fill="rgba(0,0,0,0.08)" />
+              <circle cx="3" cy="2" r="0.3" fill="rgba(0,0,0,0.06)" />
+              <circle cx="2" cy="3" r="0.3" fill="rgba(0,0,0,0.07)" />
+              <circle cx="0.5" cy="3.5" r="0.2" fill="rgba(255,255,255,0.03)" />
+              <circle cx="3.5" cy="0.5" r="0.2" fill="rgba(255,255,255,0.03)" />
+            </pattern>
+
+            {/* Wood grain pattern for outer ring */}
+            <pattern id="woodGrain" x="0" y="0" width="20" height="100" patternUnits="userSpaceOnUse" patternTransform="rotate(90)">
+              <rect width="20" height="100" fill="rgba(80,60,40,0.1)" />
+              <path d="M 0 10 Q 5 15, 10 10 T 20 10" stroke="rgba(60,40,20,0.15)" strokeWidth="0.5" fill="none" />
+              <path d="M 0 30 Q 5 28, 10 30 T 20 30" stroke="rgba(60,40,20,0.1)" strokeWidth="0.3" fill="none" />
+              <path d="M 0 50 Q 5 55, 10 50 T 20 50" stroke="rgba(60,40,20,0.12)" strokeWidth="0.4" fill="none" />
+              <path d="M 0 70 Q 5 68, 10 70 T 20 70" stroke="rgba(60,40,20,0.1)" strokeWidth="0.3" fill="none" />
+              <path d="M 0 90 Q 5 92, 10 90 T 20 90" stroke="rgba(60,40,20,0.08)" strokeWidth="0.3" fill="none" />
+            </pattern>
+          </defs>
+        );
+
+        // Chrome outer ring with wood grain
+        segments.push(
+          <circle key="chrome-ring" cx={CENTER} cy={CENTER} r={DOUBLE_OUTER + 8} fill="url(#chromeGradient)" />,
+          <circle key="chrome-wood" cx={CENTER} cy={CENTER} r={DOUBLE_OUTER + 8} fill="url(#woodGrain)" opacity="0.3" />,
+          <circle key="chrome-ring-inner" cx={CENTER} cy={CENTER} r={DOUBLE_OUTER + 2} fill="#1a1a1a" />
+        );
+
         for (let i = 0; i < 20; i++) {
           const startAngle = (i * 18 - 99) * (Math.PI / 180);
           const endAngle = ((i + 1) * 18 - 99) * (Math.PI / 180);
-          
+
           const createArc = (innerR, outerR, color) => {
             const x1 = CENTER + innerR * Math.cos(startAngle);
             const y1 = CENTER + innerR * Math.sin(startAngle);
@@ -1768,37 +1977,85 @@
             const y3 = CENTER + outerR * Math.sin(endAngle);
             const x4 = CENTER + innerR * Math.cos(endAngle);
             const y4 = CENTER + innerR * Math.sin(endAngle);
-            
+
             return `M ${x1} ${y1} L ${x2} ${y2} A ${outerR} ${outerR} 0 0 1 ${x3} ${y3} L ${x4} ${y4} A ${innerR} ${innerR} 0 0 0 ${x1} ${y1}`;
           };
-          
+
           const baseColor = SEGMENT_COLORS[i % 2];
-          const doubleColor = i % 2 === 0 ? '#c41e3a' : '#228b22';
-          const tripleColor = i % 2 === 0 ? '#c41e3a' : '#228b22';
-          
+          // Realistic Winmau colors
+          const doubleColor = i % 2 === 0 ? '#b8232a' : '#0d6b2e'; // Deep red and green
+          const tripleColor = i % 2 === 0 ? '#b8232a' : '#0d6b2e';
+
+          // Add subtle shadow to each segment for depth
+          const shadowOffset = 0.5;
           segments.push(
-            <path key={`outer-${i}`} d={createArc(TRIPLE_OUTER, DOUBLE_INNER, baseColor)} fill={baseColor} stroke="#b8860b" strokeWidth="0.5" />,
-            <path key={`double-${i}`} d={createArc(DOUBLE_INNER, DOUBLE_OUTER, doubleColor)} fill={doubleColor} stroke="#b8860b" strokeWidth="0.5" />,
-            <path key={`inner-${i}`} d={createArc(OUTER_BULL, TRIPLE_INNER, baseColor)} fill={baseColor} stroke="#b8860b" strokeWidth="0.5" />,
-            <path key={`triple-${i}`} d={createArc(TRIPLE_INNER, TRIPLE_OUTER, tripleColor)} fill={tripleColor} stroke="#b8860b" strokeWidth="0.5" />
+            <path key={`shadow-outer-${i}`} d={createArc(TRIPLE_OUTER, DOUBLE_INNER, baseColor)} fill="rgba(0,0,0,0.2)" transform={`translate(${shadowOffset}, ${shadowOffset})`} />,
+            <path key={`outer-${i}`} d={createArc(TRIPLE_OUTER, DOUBLE_INNER, baseColor)} fill={baseColor} stroke="#2a2a2a" strokeWidth="1.5" />,
+            <path key={`texture-outer-${i}`} d={createArc(TRIPLE_OUTER, DOUBLE_INNER, baseColor)} fill="url(#sisalTexture)" stroke="none" />,
+
+            <path key={`shadow-double-${i}`} d={createArc(DOUBLE_INNER, DOUBLE_OUTER, doubleColor)} fill="rgba(0,0,0,0.3)" transform={`translate(${shadowOffset}, ${shadowOffset})`} />,
+            <path key={`double-${i}`} d={createArc(DOUBLE_INNER, DOUBLE_OUTER, doubleColor)} fill={doubleColor} stroke="#2a2a2a" strokeWidth="1.5" />,
+            <path key={`texture-double-${i}`} d={createArc(DOUBLE_INNER, DOUBLE_OUTER, doubleColor)} fill="url(#sisalTexture)" stroke="none" />,
+
+            <path key={`shadow-inner-${i}`} d={createArc(OUTER_BULL, TRIPLE_INNER, baseColor)} fill="rgba(0,0,0,0.2)" transform={`translate(${shadowOffset}, ${shadowOffset})`} />,
+            <path key={`inner-${i}`} d={createArc(OUTER_BULL, TRIPLE_INNER, baseColor)} fill={baseColor} stroke="#2a2a2a" strokeWidth="1.5" />,
+            <path key={`texture-inner-${i}`} d={createArc(OUTER_BULL, TRIPLE_INNER, baseColor)} fill="url(#sisalTexture)" stroke="none" />,
+
+            <path key={`shadow-triple-${i}`} d={createArc(TRIPLE_INNER, TRIPLE_OUTER, tripleColor)} fill="rgba(0,0,0,0.3)" transform={`translate(${shadowOffset}, ${shadowOffset})`} />,
+            <path key={`triple-${i}`} d={createArc(TRIPLE_INNER, TRIPLE_OUTER, tripleColor)} fill={tripleColor} stroke="#2a2a2a" strokeWidth="1.5" />,
+            <path key={`texture-triple-${i}`} d={createArc(TRIPLE_INNER, TRIPLE_OUTER, tripleColor)} fill="url(#sisalTexture)" stroke="none" />
           );
-          
+
+          // Wire dividers with highlight (catches light on top edge)
+          const wireHighlightOffset = -0.3;
+          segments.push(
+            <path key={`wire-highlight-${i}`} d={createArc(TRIPLE_OUTER, DOUBLE_INNER, 'none')} fill="none" stroke="rgba(255,255,255,0.6)" strokeWidth="0.5" transform={`translate(0, ${wireHighlightOffset})`} />,
+            <path key={`wire-highlight-double-${i}`} d={createArc(DOUBLE_INNER, DOUBLE_OUTER, 'none')} fill="none" stroke="rgba(255,255,255,0.6)" strokeWidth="0.5" transform={`translate(0, ${wireHighlightOffset})`} />,
+            <path key={`wire-highlight-inner-${i}`} d={createArc(OUTER_BULL, TRIPLE_INNER, 'none')} fill="none" stroke="rgba(255,255,255,0.6)" strokeWidth="0.5" transform={`translate(0, ${wireHighlightOffset})`} />,
+            <path key={`wire-highlight-triple-${i}`} d={createArc(TRIPLE_INNER, TRIPLE_OUTER, 'none')} fill="none" stroke="rgba(255,255,255,0.6)" strokeWidth="0.5" transform={`translate(0, ${wireHighlightOffset})`} />
+          );
+
+          // Numbers with embossed effect
           const textAngle = (i * 18 - 90) * (Math.PI / 180);
           const textX = CENTER + 190 * Math.cos(textAngle);
           const textY = CENTER + 190 * Math.sin(textAngle);
-          
+
           segments.push(
-            <text key={`text-${i}`} x={textX} y={textY} fill="#e8d5b7" fontSize="16" fontWeight="bold" textAnchor="middle" dominantBaseline="middle" style={{ fontFamily: "'Oswald', sans-serif" }}>
+            <text key={`text-shadow-${i}`} x={textX + 0.5} y={textY + 0.5} fill="rgba(0,0,0,0.5)" fontSize="16" fontWeight="bold" textAnchor="middle" dominantBaseline="middle" style={{ fontFamily: "'Oswald', sans-serif" }}>
+              {SEGMENTS[i]}
+            </text>,
+            <text key={`text-${i}`} x={textX} y={textY} fill="#f5f0e8" fontSize="16" fontWeight="bold" textAnchor="middle" dominantBaseline="middle" style={{ fontFamily: "'Oswald', sans-serif" }}>
               {SEGMENTS[i]}
             </text>
           );
         }
-        
+
+        // Bulls with raised 3D effect and texture
         segments.push(
-          <circle key="outer-bull" cx={CENTER} cy={CENTER} r={OUTER_BULL} fill="#228b22" stroke="#b8860b" strokeWidth="0.5" />,
-          <circle key="inner-bull" cx={CENTER} cy={CENTER} r={INNER_BULL} fill="#c41e3a" stroke="#b8860b" strokeWidth="0.5" />
+          // Outer bull shadow
+          <circle key="outer-bull-shadow" cx={CENTER + 1} cy={CENTER + 1} r={OUTER_BULL} fill="rgba(0,0,0,0.3)" />,
+          // Outer bull (green)
+          <circle key="outer-bull" cx={CENTER} cy={CENTER} r={OUTER_BULL} fill="#0d6b2e" stroke="#2a2a2a" strokeWidth="1.5" />,
+          // Outer bull texture
+          <circle key="outer-bull-texture" cx={CENTER} cy={CENTER} r={OUTER_BULL} fill="url(#sisalTexture)" stroke="none" />,
+          // Outer bull highlight for raised effect
+          <circle key="outer-bull-highlight" cx={CENTER} cy={CENTER} r={OUTER_BULL} fill="url(#bullGradient)" />,
+
+          // Inner bull shadow
+          <circle key="inner-bull-shadow" cx={CENTER + 1} cy={CENTER + 1} r={INNER_BULL} fill="rgba(0,0,0,0.4)" />,
+          // Inner bull (red)
+          <circle key="inner-bull" cx={CENTER} cy={CENTER} r={INNER_BULL} fill="#b8232a" stroke="#2a2a2a" strokeWidth="1.5" />,
+          // Inner bull texture
+          <circle key="inner-bull-texture" cx={CENTER} cy={CENTER} r={INNER_BULL} fill="url(#sisalTexture)" stroke="none" />,
+          // Inner bull highlight for shine
+          <ellipse key="inner-bull-shine" cx={CENTER - 2} cy={CENTER - 2} rx={INNER_BULL * 0.4} ry={INNER_BULL * 0.3} fill="rgba(255,255,255,0.4)" />
         );
-        
+
+        // Overall radial lighting effect
+        segments.push(
+          <circle key="board-lighting" cx={CENTER} cy={CENTER} r={DOUBLE_OUTER + 2} fill="url(#boardLighting)" pointerEvents="none" />
+        );
+
         return segments;
       };
 
@@ -1975,15 +2232,15 @@
 
               <div style={{ background: 'rgba(255, 255, 255, 0.05)', borderRadius: '20px', padding: '25px', marginBottom: '30px', backdropFilter: 'blur(10px)' }}>
                 <div style={{ color: '#e8d5b7', fontSize: '18px', marginBottom: '5px' }}>
-                  Unlocked: <span style={{ color: '#ffd700', fontWeight: '700' }}>{unlockedAchievements.length}</span> / {achievementsData.length}
+                  Unlocked: <span style={{ color: '#ffd700', fontWeight: '700' }}>{unlockedAchievements.length}</span> / {ACHIEVEMENTS_DATA.length}
                 </div>
                 <div style={{ background: 'rgba(255, 215, 0, 0.2)', borderRadius: '10px', height: '10px', overflow: 'hidden', marginTop: '10px' }}>
-                  <div style={{ background: 'linear-gradient(90deg, #ffd700, #ffed4a)', height: '100%', width: `${(unlockedAchievements.length / achievementsData.length) * 100}%`, transition: 'width 0.5s' }}></div>
+                  <div style={{ background: 'linear-gradient(90deg, #ffd700, #ffed4a)', height: '100%', width: `${(unlockedAchievements.length / ACHIEVEMENTS_DATA.length) * 100}%`, transition: 'width 0.5s' }}></div>
                 </div>
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '20px' }}>
-                {achievementsData.map(achievement => {
+                {ACHIEVEMENTS_DATA.map(achievement => {
                   const isUnlocked = unlockedAchievements.includes(achievement.id);
                   return (
                     <div key={achievement.id} style={{
@@ -2383,7 +2640,7 @@
             
             {/* Dartboard */}
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-              <div ref={boardRef} onMouseMove={handleMouseMove} onMouseDown={handleMouseDown} onMouseUp={handleMouseUp} onMouseLeave={handleMouseUp} onTouchMove={handleTouchMove} onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd} style={{ width: `${BOARD_SIZE}px`, height: `${BOARD_SIZE}px`, borderRadius: '50%', cursor: isPowerCharging ? 'grabbing' : 'crosshair', boxShadow: '0 0 60px rgba(0, 0, 0, 0.8), inset 0 0 30px rgba(0, 0, 0, 0.5)', position: 'relative', userSelect: 'none' }}>
+              <div ref={boardRef} onMouseMove={handleMouseMove} onMouseDown={handleMouseDown} onMouseUp={handleMouseUp} onMouseLeave={handleMouseUp} onTouchMove={handleTouchMove} onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd} onTouchCancel={handleTouchCancel} style={{ width: `${BOARD_SIZE}px`, height: `${BOARD_SIZE}px`, borderRadius: '50%', cursor: isPowerCharging ? 'grabbing' : 'crosshair', boxShadow: '0 0 60px rgba(0, 0, 0, 0.8), inset 0 0 30px rgba(0, 0, 0, 0.5)', position: 'relative', userSelect: 'none' }}>
                 <svg width={BOARD_SIZE} height={BOARD_SIZE} style={{ filter: 'drop-shadow(0 0 10px rgba(0,0,0,0.5))' }}>
                   <defs><radialGradient id="boardGradient" cx="50%" cy="50%" r="50%"><stop offset="0%" stopColor="#2a2a4e" /><stop offset="100%" stopColor="#1a1a2e" /></radialGradient></defs>
                   <circle cx={CENTER} cy={CENTER} r={CENTER - 5} fill="url(#boardGradient)" stroke="#b8860b" strokeWidth="8" />
