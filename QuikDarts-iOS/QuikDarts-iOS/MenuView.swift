@@ -6,6 +6,10 @@ struct MenuView: View {
 
     @State private var gameMode: Int = 501
     @State private var legsPerSet: Int = 3 // 1, 3, 5, or 7
+    @State private var setsToWin: Int = 1 // 1, 3, 5, or 7
+    @State private var numberOfPlayers: Int = 2 // 1, 2, 3, or 4
+    @State private var skillLevel: String = "intermediate" // easy, intermediate, hard
+    @State private var soundEnabled: Bool = false
     @State private var player1Name: String = "Player 1"
     @State private var player2Name: String = "Player 2"
     @State private var player1Flag: String = "🏴"
@@ -17,12 +21,31 @@ struct MenuView: View {
 
     let gameModes = [301, 501]
     let legsOptions = [1, 3, 5, 7]
+    let setsOptions = [1, 3, 5, 7]
+    let playerOptions = [1, 2, 3, 4]
+    let skillLevels = [
+        ("easy", "🟢"),
+        ("intermediate", "🟡"),
+        ("hard", "🔴")
+    ]
     let flagOptions = ["🏴", "🇬🇧", "🇺🇸", "🇮🇪", "🇳🇱", "🇩🇪", "🇧🇪", "🇦🇺", "🇯🇵", "🌍"]
     let aiDifficulties = ["easy", "medium", "hard", "impossible"]
 
     // Convert legs per set to legs to win (e.g., best of 3 = first to 2)
     var legsToWin: Int {
         return (legsPerSet + 1) / 2
+    }
+
+    // Get color for skill level
+    func getSkillColor(for level: String) -> Color {
+        switch level {
+        case "easy":
+            return Color(red: 0.4, green: 0.8, blue: 0.4)
+        case "hard":
+            return Color(red: 0.85, green: 0.1, blue: 0.1)
+        default: // intermediate
+            return Color(red: 0.95, green: 0.61, blue: 0.07)
+        }
     }
 
     var body: some View {
@@ -172,6 +195,112 @@ struct MenuView: View {
                                 }
                             }
                         }
+
+                        // Sets To Win Picker
+                        VStack(alignment: .leading, spacing: 10) {
+                            Text("SETS TO WIN")
+                                .font(.system(size: 14, weight: .medium))
+                                .foregroundColor(Color(red: 1.0, green: 0.84, blue: 0.0))
+                                .tracking(2)
+
+                            HStack(spacing: 10) {
+                                ForEach(setsOptions, id: \.self) { sets in
+                                    Button(action: {
+                                        setsToWin = sets
+                                    }) {
+                                        Text("\(sets)")
+                                            .font(.system(size: 18, weight: .medium))
+                                            .fontWeight(.bold)
+                                            .foregroundColor(setsToWin == sets ? Color(red: 0.1, green: 0.1, blue: 0.18) : Color(red: 0.91, green: 0.84, blue: 0.72).opacity(0.6))
+                                            .frame(maxWidth: .infinity)
+                                            .padding(.vertical, 12)
+                                            .background(
+                                                setsToWin == sets ?
+                                                Color(red: 1.0, green: 0.84, blue: 0.0) :
+                                                Color.white.opacity(0.1)
+                                            )
+                                            .cornerRadius(10)
+                                    }
+                                }
+                            }
+                        }
+
+                        // Number of Players Picker
+                        VStack(alignment: .leading, spacing: 10) {
+                            Text("NUMBER OF PLAYERS")
+                                .font(.system(size: 14, weight: .medium))
+                                .foregroundColor(Color(red: 1.0, green: 0.84, blue: 0.0))
+                                .tracking(2)
+
+                            HStack(spacing: 10) {
+                                ForEach(playerOptions, id: \.self) { players in
+                                    Button(action: {
+                                        numberOfPlayers = players
+                                    }) {
+                                        Text("\(players)")
+                                            .font(.system(size: 18, weight: .medium))
+                                            .fontWeight(.bold)
+                                            .foregroundColor(numberOfPlayers == players ? Color(red: 0.1, green: 0.1, blue: 0.18) : Color(red: 0.91, green: 0.84, blue: 0.72).opacity(0.6))
+                                            .frame(maxWidth: .infinity)
+                                            .padding(.vertical, 12)
+                                            .background(
+                                                numberOfPlayers == players ?
+                                                Color(red: 1.0, green: 0.84, blue: 0.0) :
+                                                Color.white.opacity(0.1)
+                                            )
+                                            .cornerRadius(10)
+                                    }
+                                }
+                            }
+                        }
+
+                        // Skill Level Picker
+                        VStack(alignment: .leading, spacing: 10) {
+                            Text("SKILL LEVEL")
+                                .font(.system(size: 14, weight: .medium))
+                                .foregroundColor(Color(red: 1.0, green: 0.84, blue: 0.0))
+                                .tracking(2)
+
+                            HStack(spacing: 10) {
+                                ForEach(skillLevels, id: \.0) { level in
+                                    Button(action: {
+                                        skillLevel = level.0
+                                    }) {
+                                        HStack(spacing: 8) {
+                                            Text(level.1)
+                                                .font(.system(size: 20))
+                                            Text(level.0.uppercased())
+                                                .font(.system(size: 14, weight: .medium))
+                                                .fontWeight(.bold)
+                                        }
+                                        .foregroundColor(skillLevel == level.0 ? .white : Color(red: 0.91, green: 0.84, blue: 0.72).opacity(0.6))
+                                        .frame(maxWidth: .infinity)
+                                        .padding(.vertical, 12)
+                                        .background(
+                                            skillLevel == level.0 ?
+                                            getSkillColor(for: level.0) :
+                                            Color.white.opacity(0.1)
+                                        )
+                                        .cornerRadius(10)
+                                    }
+                                }
+                            }
+                        }
+
+                        // Sound Effects Toggle
+                        HStack {
+                            Text("SOUND EFFECTS")
+                                .font(.system(size: 14, weight: .medium))
+                                .foregroundColor(Color(red: 1.0, green: 0.84, blue: 0.0))
+                                .tracking(2)
+
+                            Spacer()
+
+                            Toggle("", isOn: $soundEnabled)
+                                .labelsHidden()
+                                .tint(Color(red: 1.0, green: 0.84, blue: 0.0))
+                        }
+                        .padding(.vertical, 8)
 
                         // Player 1 Configuration
                         PlayerConfigView(
