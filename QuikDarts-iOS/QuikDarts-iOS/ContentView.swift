@@ -20,59 +20,91 @@ struct ContentView: View {
     @State private var currentScreen: GameScreen = .menu
 
     var body: some View {
+        Group {
+            switch currentScreen {
+            case .menu:
+                MenuView(
+                    currentScreen: $currentScreen,
+                    gameState: gameState
+                )
+
+            case .playing:
+                GameView(
+                    currentScreen: $currentScreen,
+                    gameState: gameState
+                )
+
+            case .matchmaking:
+                PlaceholderView(
+                    title: "🌍 MATCHMAKING",
+                    message: "Coming Soon",
+                    onBack: { currentScreen = .menu }
+                )
+
+            case .practiceSelection:
+                PlaceholderView(
+                    title: "🎯 PRACTICE MODE",
+                    message: "Coming Soon",
+                    onBack: { currentScreen = .menu }
+                )
+
+            case .achievements:
+                PlaceholderView(
+                    title: "🏆 ACHIEVEMENTS",
+                    message: "Coming Soon",
+                    onBack: { currentScreen = .menu }
+                )
+            }
+        }
+    }
+}
+
+// Placeholder view for screens not yet implemented
+struct PlaceholderView: View {
+    let title: String
+    let message: String
+    let onBack: () -> Void
+
+    var body: some View {
         ZStack {
-            // Background gradient
             LinearGradient(
-                colors: [
+                gradient: Gradient(colors: [
                     Color(red: 0.1, green: 0.1, blue: 0.18),
                     Color(red: 0.09, green: 0.13, blue: 0.24),
                     Color(red: 0.06, green: 0.06, blue: 0.14)
-                ],
+                ]),
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             )
             .ignoresSafeArea()
 
-            // Screen routing
-            Group {
-                switch currentScreen {
-                case .menu:
-                    MenuView(
-                        onStartGame: { startLocalGame() },
-                        onPlayOnline: { currentScreen = .matchmaking },
-                        onPracticeMode: { currentScreen = .practiceSelection },
-                        onAchievements: { currentScreen = .achievements }
-                    )
+            VStack(spacing: 30) {
+                Text(title)
+                    .font(.custom("Oswald-Bold", size: 42))
+                    .foregroundColor(Color(red: 1.0, green: 0.84, blue: 0.0))
 
-                case .playing:
-                    GameView(gameState: gameState, onExit: { currentScreen = .menu })
+                Text(message)
+                    .font(.custom("Oswald", size: 24))
+                    .foregroundColor(Color(red: 0.91, green: 0.84, blue: 0.72))
 
-                case .matchmaking:
-                    MatchmakingView(
-                        gameState: gameState,
-                        onMatchFound: { currentScreen = .playing },
-                        onCancel: { currentScreen = .menu }
-                    )
-
-                case .practiceSelection:
-                    PracticeSelectionView(
-                        onSelectSkill: { skill in
-                            gameState.startPracticeMode(skillLevel: skill)
-                            currentScreen = .playing
-                        },
-                        onCancel: { currentScreen = .menu }
-                    )
-
-                case .achievements:
-                    AchievementsView(onBack: { currentScreen = .menu })
+                Button(action: onBack) {
+                    Text("BACK TO MENU")
+                        .font(.custom("Oswald", size: 20))
+                        .fontWeight(.bold)
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 40)
+                        .padding(.vertical, 15)
+                        .background(
+                            LinearGradient(
+                                colors: [Color(red: 0.77, green: 0.12, blue: 0.23), Color(red: 0.91, green: 0.30, blue: 0.24)],
+                                startPoint: .leading,
+                                endPoint: .trailing
+                            )
+                        )
+                        .cornerRadius(15)
                 }
             }
         }
-    }
-
-    private func startLocalGame() {
-        gameState.startLocalGame()
-        currentScreen = .playing
     }
 }
 
