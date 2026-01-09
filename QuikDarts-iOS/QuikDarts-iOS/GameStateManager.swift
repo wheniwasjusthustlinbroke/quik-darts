@@ -4,6 +4,7 @@ import Combine
 class GameStateManager: ObservableObject {
     // Game configuration
     @Published var gameMode: Int = 501
+    @Published var legsToWin: Int = 2 // Default: best of 3 (first to 2)
     @Published var player1Name: String = "Player 1"
     @Published var player2Name: String = "Player 2"
     @Published var player1Flag: String = "🏴"
@@ -44,8 +45,9 @@ class GameStateManager: ObservableObject {
     let outerBull: Double = 16
     let innerBull: Double = 8
 
-    func setupGame(mode: Int, player1Name: String, player2Name: String, player1Flag: String, player2Flag: String) {
+    func setupGame(mode: Int, legsToWin: Int = 2, player1Name: String, player2Name: String, player1Flag: String, player2Flag: String) {
         self.gameMode = mode
+        self.legsToWin = legsToWin
         self.player1Name = player1Name
         self.player2Name = player2Name
         self.player1Flag = player1Flag
@@ -199,8 +201,8 @@ class GameStateManager: ObservableObject {
     private func finishLeg(winner: Int) {
         legScores[winner] += 1
 
-        // Check if match is won (best of 5 legs = first to 3)
-        if legScores[winner] >= 3 {
+        // Check if match is won
+        if legScores[winner] >= legsToWin {
             self.winner = winner
         } else {
             // Reset for next leg

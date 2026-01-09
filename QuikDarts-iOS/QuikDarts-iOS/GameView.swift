@@ -45,11 +45,12 @@ struct GameView: View {
                             flag: gameState.player1Flag,
                             score: gameState.player1Score,
                             legs: gameState.legScores[0],
+                            legsToWin: gameState.legsToWin,
                             isActive: gameState.currentPlayer == 0
                         )
 
                         Text("VS")
-                            .font(.custom("Oswald", size: 18))
+                            .font(.system(size: 18, weight: .medium))
                             .foregroundColor(Color(red: 1.0, green: 0.84, blue: 0.0))
                             .fontWeight(.bold)
 
@@ -58,6 +59,7 @@ struct GameView: View {
                             flag: gameState.player2Flag,
                             score: gameState.player2Score,
                             legs: gameState.legScores[1],
+                            legsToWin: gameState.legsToWin,
                             isActive: gameState.currentPlayer == 1
                         )
                     }
@@ -252,6 +254,7 @@ struct PlayerScoreView: View {
     let flag: String
     let score: Int
     let legs: Int
+    let legsToWin: Int
     let isActive: Bool
 
     var body: some View {
@@ -260,17 +263,17 @@ struct PlayerScoreView: View {
                 .font(.system(size: 28))
 
             Text(name)
-                .font(.custom("Oswald", size: 14))
+                .font(.system(size: 14, weight: .medium))
                 .foregroundColor(Color(red: 0.91, green: 0.84, blue: 0.72))
                 .lineLimit(1)
 
             Text("\(score)")
-                .font(.custom("Oswald", size: 32))
+                .font(.system(size: 32, weight: .medium))
                 .fontWeight(.bold)
                 .foregroundColor(isActive ? Color(red: 1.0, green: 0.84, blue: 0.0) : .white)
 
             HStack(spacing: 3) {
-                ForEach(0..<3) { index in
+                ForEach(0..<legsToWin) { index in
                     Circle()
                         .fill(index < legs ? Color(red: 1.0, green: 0.84, blue: 0.0) : Color.gray.opacity(0.3))
                         .frame(width: 8, height: 8)
