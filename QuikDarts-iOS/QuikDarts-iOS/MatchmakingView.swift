@@ -8,6 +8,8 @@ struct MatchmakingView: View {
     @State private var opponentName: String = ""
     @State private var opponentFlag: String = "🌍"
     @State private var rotationAngle: Double = 0
+    @State private var searchTask: DispatchWorkItem?
+    @State private var foundTask: DispatchWorkItem?
 
     var body: some View {
         ZStack {
@@ -140,15 +142,22 @@ struct MatchmakingView: View {
             // Simulate matchmaking process
             simulateMatchmaking()
         }
+        .onDisappear {
+            // Cancel any pending tasks to prevent memory leaks
+            searchTask?.cancel()
+            foundTask?.cancel()
+        }
     }
 
     // Simulate matchmaking for demo purposes
     // In production, this would connect to Firebase/backend
     func simulateMatchmaking() {
-        // After 3 seconds, "find" an opponent
-        DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) {
-            findOpponent()
+        // Create cancellable work item for finding opponent
+        let task = DispatchWorkItem { [self] in
+            self.findOpponent()
         }
+        searchTask = task
+        DispatchQueue.main.asyncAfter(deadline: .now() + 3.0, execute: task)
     }
 
     func findOpponent() {
@@ -160,10 +169,12 @@ struct MatchmakingView: View {
         opponentFlag = sampleFlags.randomElement() ?? "🌍"
         opponentFound = true
 
-        // Start game after 1.5 seconds
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
-            startOnlineGame()
+        // Create cancellable work item for starting game
+        let task = DispatchWorkItem { [self] in
+            self.startOnlineGame()
         }
+        foundTask = task
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5, execute: task)
     }
 
     func startOnlineGame() {
@@ -173,6 +184,9 @@ struct MatchmakingView: View {
     }
 
     func cancelMatchmaking() {
+        // Cancel any pending tasks
+        searchTask?.cancel()
+        foundTask?.cancel()
         currentScreen = .menu
     }
 }
