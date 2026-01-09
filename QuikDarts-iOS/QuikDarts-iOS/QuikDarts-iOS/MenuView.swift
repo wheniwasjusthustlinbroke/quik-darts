@@ -33,7 +33,7 @@ struct MenuView: View {
                     Text("🎯")
                         .font(.system(size: 80))
                     Text("QUIK DARTS")
-                        .font(.custom("Oswald-Bold", size: 52))
+                        .font(.system(size: 52, weight: .bold))
                         .fontWeight(.heavy)
                         .foregroundStyle(
                             LinearGradient(
@@ -96,7 +96,7 @@ struct MenuView: View {
                         // Game Mode Picker
                         VStack(alignment: .leading, spacing: 10) {
                             Text("GAME MODE")
-                                .font(.custom("Oswald", size: 14))
+                                .font(.system(size: 14, weight: .medium))
                                 .foregroundColor(Color(red: 1.0, green: 0.84, blue: 0.0))
                                 .tracking(2)
 
@@ -106,7 +106,7 @@ struct MenuView: View {
                                         gameMode = mode
                                     }) {
                                         Text("\(mode)")
-                                            .font(.custom("Oswald", size: 18))
+                                            .font(.system(size: 18, weight: .medium))
                                             .fontWeight(.bold)
                                             .foregroundColor(gameMode == mode ? .white : Color(red: 0.91, green: 0.84, blue: 0.72).opacity(0.6))
                                             .frame(maxWidth: .infinity)
@@ -176,7 +176,7 @@ struct MenuButton: View {
     var body: some View {
         Button(action: action) {
             Text(title)
-                .font(.custom("Oswald", size: 24))
+                .font(.system(size: 24, weight: .medium))
                 .fontWeight(.bold)
                 .foregroundColor(.white)
                 .tracking(4)
@@ -207,7 +207,7 @@ struct PlayerConfigView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("PLAYER \(playerNumber)")
-                .font(.custom("Oswald", size: 14))
+                .font(.system(size: 14, weight: .medium))
                 .foregroundColor(Color(red: 1.0, green: 0.84, blue: 0.0))
                 .tracking(2)
 
@@ -235,7 +235,7 @@ struct PlayerConfigView: View {
 
                 // Name input
                 TextField("Player \(playerNumber)", text: $name)
-                    .font(.custom("Oswald", size: 18))
+                    .font(.system(size: 18, weight: .medium))
                     .foregroundColor(Color(red: 0.91, green: 0.84, blue: 0.72))
                     .padding()
                     .background(Color.white.opacity(0.1))
