@@ -12,12 +12,20 @@ struct MenuView: View {
     @State private var soundEnabled: Bool = false
     @State private var player1Name: String = "Player 1"
     @State private var player2Name: String = "Player 2"
+    @State private var player3Name: String = "Player 3"
+    @State private var player4Name: String = "Player 4"
     @State private var player1Flag: String = "🏴"
     @State private var player2Flag: String = "🌍"
+    @State private var player3Flag: String = "🇬🇧"
+    @State private var player4Flag: String = "🇺🇸"
     @State private var player1IsAI: Bool = false
     @State private var player2IsAI: Bool = false
+    @State private var player3IsAI: Bool = false
+    @State private var player4IsAI: Bool = false
     @State private var player1AIDifficulty: String = "medium"
     @State private var player2AIDifficulty: String = "medium"
+    @State private var player3AIDifficulty: String = "medium"
+    @State private var player4AIDifficulty: String = "medium"
 
     let gameModes = [301, 501]
     let legsOptions = [1, 3, 5, 7]
@@ -308,26 +316,56 @@ struct MenuView: View {
                         .padding(.vertical, 8)
 
                         // Player 1 Configuration
-                        PlayerConfigView(
-                            playerNumber: 1,
-                            name: $player1Name,
-                            flag: $player1Flag,
-                            flagOptions: flagOptions,
-                            isAI: $player1IsAI,
-                            aiDifficulty: $player1AIDifficulty,
-                            aiDifficulties: aiDifficulties
-                        )
+                        if numberOfPlayers >= 1 {
+                            PlayerConfigView(
+                                playerNumber: 1,
+                                name: $player1Name,
+                                flag: $player1Flag,
+                                flagOptions: flagOptions,
+                                isAI: $player1IsAI,
+                                aiDifficulty: $player1AIDifficulty,
+                                aiDifficulties: aiDifficulties
+                            )
+                        }
 
                         // Player 2 Configuration
-                        PlayerConfigView(
-                            playerNumber: 2,
-                            name: $player2Name,
-                            flag: $player2Flag,
-                            flagOptions: flagOptions,
-                            isAI: $player2IsAI,
-                            aiDifficulty: $player2AIDifficulty,
-                            aiDifficulties: aiDifficulties
-                        )
+                        if numberOfPlayers >= 2 {
+                            PlayerConfigView(
+                                playerNumber: 2,
+                                name: $player2Name,
+                                flag: $player2Flag,
+                                flagOptions: flagOptions,
+                                isAI: $player2IsAI,
+                                aiDifficulty: $player2AIDifficulty,
+                                aiDifficulties: aiDifficulties
+                            )
+                        }
+
+                        // Player 3 Configuration
+                        if numberOfPlayers >= 3 {
+                            PlayerConfigView(
+                                playerNumber: 3,
+                                name: $player3Name,
+                                flag: $player3Flag,
+                                flagOptions: flagOptions,
+                                isAI: $player3IsAI,
+                                aiDifficulty: $player3AIDifficulty,
+                                aiDifficulties: aiDifficulties
+                            )
+                        }
+
+                        // Player 4 Configuration
+                        if numberOfPlayers >= 4 {
+                            PlayerConfigView(
+                                playerNumber: 4,
+                                name: $player4Name,
+                                flag: $player4Flag,
+                                flagOptions: flagOptions,
+                                isAI: $player4IsAI,
+                                aiDifficulty: $player4AIDifficulty,
+                                aiDifficulties: aiDifficulties
+                            )
+                        }
                     }
                     .padding(25)
                     .background(
