@@ -1645,9 +1645,8 @@
           console.error('Failed to save achievements to localStorage:', error);
         }
 
-        // Show popup
+        // Show popup (timeout cleanup handled by useEffect)
         setAchievementPopup(achievement);
-        setTimeout(() => setAchievementPopup(null), 4000);
       }, [unlockedAchievements, achievementsData]);
 
       const checkAchievements = useCallback((stats) => {
@@ -1739,6 +1738,18 @@
           return newStats;
         });
       }, [checkAchievements]);
+
+      // Auto-hide achievement popup after 4 seconds with proper cleanup
+      useEffect(() => {
+        if (achievementPopup) {
+          const timeoutId = setTimeout(() => {
+            setAchievementPopup(null);
+          }, 4000);
+
+          // Cleanup function to clear timeout if component unmounts or popup changes
+          return () => clearTimeout(timeoutId);
+        }
+      }, [achievementPopup]);
 
       const getRarityColor = (rarity) => {
         switch (rarity) {
