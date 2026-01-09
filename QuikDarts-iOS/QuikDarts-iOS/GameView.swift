@@ -50,9 +50,8 @@ struct GameView: View {
                         )
 
                         Text("VS")
-                            .font(.system(size: 18, weight: .medium))
+                            .font(.system(size: 18, weight: .bold))
                             .foregroundColor(Color(red: 1.0, green: 0.84, blue: 0.0))
-                            .fontWeight(.bold)
 
                         PlayerScoreView(
                             name: gameState.player2Name,
@@ -82,8 +81,8 @@ struct GameView: View {
                     if gameState.currentTurnScore > 0 {
                         Text("Turn: \(gameState.currentTurnScore)")
                             .font(.custom("Oswald", size: 20))
-                            .foregroundColor(Color(red: 1.0, green: 0.84, blue: 0.0))
                             .fontWeight(.bold)
+                            .foregroundColor(Color(red: 1.0, green: 0.84, blue: 0.0))
                     }
 
                     // Checkout suggestion
@@ -268,15 +267,16 @@ struct PlayerScoreView: View {
                 .lineLimit(1)
 
             Text("\(score)")
-                .font(.system(size: 32, weight: .medium))
-                .fontWeight(.bold)
+                .font(.system(size: 32, weight: .bold))
                 .foregroundColor(isActive ? Color(red: 1.0, green: 0.84, blue: 0.0) : .white)
 
             HStack(spacing: 3) {
-                ForEach(0..<legsToWin) { index in
-                    Circle()
-                        .fill(index < legs ? Color(red: 1.0, green: 0.84, blue: 0.0) : Color.gray.opacity(0.3))
-                        .frame(width: 8, height: 8)
+                ForEach(0..<7) { index in
+                    if index < legsToWin {
+                        Circle()
+                            .fill(index < legs ? Color(red: 1.0, green: 0.84, blue: 0.0) : Color.gray.opacity(0.3))
+                            .frame(width: 8, height: 8)
+                    }
                 }
             }
         }
@@ -300,8 +300,8 @@ struct PowerBarView: View {
         VStack(spacing: 5) {
             Text("POWER: \(Int(power * 100))%")
                 .font(.custom("Oswald", size: 14))
-                .foregroundColor(.white)
                 .fontWeight(.bold)
+                .foregroundColor(.white)
 
             GeometryReader { geometry in
                 ZStack(alignment: .leading) {
@@ -348,7 +348,7 @@ struct WinnerOverlay: View {
                     .font(.system(size: 80))
 
                 Text("\(winnerName) WINS!")
-                    .font(.custom("Oswald", size: 48))
+                    .font(.custom("Oswald", size: 48, relativeTo: .largeTitle))
                     .fontWeight(.bold)
                     .foregroundStyle(
                         LinearGradient(
@@ -362,7 +362,7 @@ struct WinnerOverlay: View {
                 HStack(spacing: 20) {
                     Button(action: onRematch) {
                         Text("REMATCH")
-                            .font(.custom("Oswald", size: 20))
+                            .font(.custom("Oswald", size: 20, relativeTo: .title3))
                             .fontWeight(.bold)
                             .foregroundColor(.white)
                             .padding(.horizontal, 40)
@@ -379,7 +379,7 @@ struct WinnerOverlay: View {
 
                     Button(action: onMenu) {
                         Text("MENU")
-                            .font(.custom("Oswald", size: 20))
+                            .font(.custom("Oswald", size: 20, relativeTo: .title3))
                             .fontWeight(.bold)
                             .foregroundColor(.white)
                             .padding(.horizontal, 40)
