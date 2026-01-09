@@ -1336,6 +1336,20 @@
         }
       }, [isPowerCharging, throwDart]);
 
+      const handleTouchCancel = useCallback((e) => {
+        e.preventDefault();
+        // Clean up interval when touch is interrupted (scroll, notification, etc.)
+        if (powerIntervalRef.current) {
+          clearInterval(powerIntervalRef.current);
+          powerIntervalRef.current = null;
+        }
+        // Reset charging state without throwing dart
+        if (isPowerCharging) {
+          setIsPowerCharging(false);
+          setPower(0);
+        }
+      }, [isPowerCharging]);
+
       useEffect(() => {
         return () => {
           if (powerIntervalRef.current) clearInterval(powerIntervalRef.current);
@@ -2486,7 +2500,7 @@
             
             {/* Dartboard */}
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-              <div ref={boardRef} onMouseMove={handleMouseMove} onMouseDown={handleMouseDown} onMouseUp={handleMouseUp} onMouseLeave={handleMouseUp} onTouchMove={handleTouchMove} onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd} style={{ width: `${BOARD_SIZE}px`, height: `${BOARD_SIZE}px`, borderRadius: '50%', cursor: isPowerCharging ? 'grabbing' : 'crosshair', boxShadow: '0 0 60px rgba(0, 0, 0, 0.8), inset 0 0 30px rgba(0, 0, 0, 0.5)', position: 'relative', userSelect: 'none' }}>
+              <div ref={boardRef} onMouseMove={handleMouseMove} onMouseDown={handleMouseDown} onMouseUp={handleMouseUp} onMouseLeave={handleMouseUp} onTouchMove={handleTouchMove} onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd} onTouchCancel={handleTouchCancel} style={{ width: `${BOARD_SIZE}px`, height: `${BOARD_SIZE}px`, borderRadius: '50%', cursor: isPowerCharging ? 'grabbing' : 'crosshair', boxShadow: '0 0 60px rgba(0, 0, 0, 0.8), inset 0 0 30px rgba(0, 0, 0, 0.5)', position: 'relative', userSelect: 'none' }}>
                 <svg width={BOARD_SIZE} height={BOARD_SIZE} style={{ filter: 'drop-shadow(0 0 10px rgba(0,0,0,0.5))' }}>
                   <defs><radialGradient id="boardGradient" cx="50%" cy="50%" r="50%"><stop offset="0%" stopColor="#2a2a4e" /><stop offset="100%" stopColor="#1a1a2e" /></radialGradient></defs>
                   <circle cx={CENTER} cy={CENTER} r={CENTER - 5} fill="url(#boardGradient)" stroke="#b8860b" strokeWidth="8" />
