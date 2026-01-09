@@ -1653,64 +1653,64 @@
 
       const checkAchievements = useCallback((stats) => {
         // First game
-        if (stats.totalGamesPlayed === 1) {
+        if (stats.totalGamesPlayed >= 1) {
           unlockAchievement('first_game');
         }
 
         // First win
-        if (stats.totalGamesWon === 1) {
+        if (stats.totalGamesWon >= 1) {
           unlockAchievement('first_win');
         }
 
         // 180 achievements
-        if (stats.total180s === 1) {
+        if (stats.total180s >= 1) {
           unlockAchievement('first_180');
         }
-        if (stats.total180s === 10) {
+        if (stats.total180s >= 10) {
           unlockAchievement('ten_180s');
         }
-        if (stats.total180s === 50) {
+        if (stats.total180s >= 50) {
           unlockAchievement('fifty_180s');
         }
 
         // Bulls achievements
-        if (stats.totalBulls === 1) {
+        if (stats.totalBulls >= 1) {
           unlockAchievement('first_bull');
         }
-        if (stats.totalBulls === 50) {
+        if (stats.totalBulls >= 50) {
           unlockAchievement('fifty_bulls');
         }
-        if (stats.totalBulls === 100) {
+        if (stats.totalBulls >= 100) {
           unlockAchievement('hundred_bulls');
         }
 
         // Winning streaks
-        if (stats.totalGamesWon === 5) {
+        if (stats.totalGamesWon >= 5) {
           unlockAchievement('five_wins');
         }
-        if (stats.totalGamesWon === 20) {
+        if (stats.totalGamesWon >= 20) {
           unlockAchievement('twenty_wins');
         }
-        if (stats.totalGamesWon === 50) {
+        if (stats.totalGamesWon >= 50) {
           unlockAchievement('fifty_wins');
         }
 
         // Online achievements
-        if (stats.totalOnlineGames === 1) {
+        if (stats.totalOnlineGames >= 1) {
           unlockAchievement('first_online');
         }
-        if (stats.totalOnlineWins === 1) {
+        if (stats.totalOnlineWins >= 1) {
           unlockAchievement('first_online_win');
         }
-        if (stats.totalOnlineWins === 10) {
+        if (stats.totalOnlineWins >= 10) {
           unlockAchievement('ten_online_wins');
         }
-        if (stats.totalOnlineWins === 50) {
+        if (stats.totalOnlineWins >= 50) {
           unlockAchievement('fifty_online_wins');
         }
 
         // Checkout achievements
-        if (stats.highestCheckout >= 100 && stats.highestCheckout < 150) {
+        if (stats.highestCheckout >= 100) {
           unlockAchievement('big_checkout');
         }
         if (stats.highestCheckout >= 150) {
@@ -1718,10 +1718,10 @@
         }
 
         // Triples achievements
-        if (stats.totalTriples === 50) {
+        if (stats.totalTriples >= 50) {
           unlockAchievement('fifty_triples');
         }
-        if (stats.totalTriples === 200) {
+        if (stats.totalTriples >= 200) {
           unlockAchievement('two_hundred_triples');
         }
       }, [unlockAchievement]);
