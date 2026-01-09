@@ -542,16 +542,16 @@
                 name: opponentData.name,
                 flag: opponentData.flag,
                 score: playerSetup.gameMode,
-                ready: true,
-                connected: true
+                ready: true
+                // connected will be set when player1 joins
               },
               player2: {
                 id: myPlayerId,
                 name: sanitizeName(playerSetup.names[0]) || 'Player 2',
                 flag: playerSetup.flags[0] || '🌍',
                 score: playerSetup.gameMode,
-                ready: true,
-                connected: true
+                ready: true
+                // connected will be set below
               },
               currentPlayer: 0,
               gameMode: playerSetup.gameMode,
@@ -564,9 +564,6 @@
               status: 'playing',
               createdAt: firebase.database.ServerValue.TIMESTAMP
             });
-
-            // Set player2 (me) as disconnected if I leave (opponent will be notified)
-            gameRoomRef.current.child('player2/connected').onDisconnect().set(false);
 
             setOpponentName(opponentData.name);
             setOpponentFlag(opponentData.flag);
@@ -644,6 +641,7 @@
                             flag: otherPlayer.flag,
                             score: playerSetup.gameMode,
                             ready: true
+                            // connected will be set when player1 joins
                           },
                           player2: {
                             id: myPlayerId,
@@ -651,6 +649,7 @@
                             flag: playerSetup.flags[0] || '🌍',
                             score: playerSetup.gameMode,
                             ready: true
+                            // connected will be set below
                           },
                           currentPlayer: 0,
                           gameMode: playerSetup.gameMode,
