@@ -93,10 +93,18 @@ struct MenuView: View {
                         gameState.setupGame(
                             mode: gameMode,
                             legsToWin: legsToWin,
+                            setsToWin: setsToWin,
+                            numberOfPlayers: numberOfPlayers,
+                            skillLevel: skillLevel,
+                            soundEnabled: soundEnabled,
                             player1Name: player1Name,
                             player2Name: player2Name,
                             player1Flag: player1Flag,
-                            player2Flag: player2Flag
+                            player2Flag: player2Flag,
+                            player1IsAI: player1IsAI,
+                            player2IsAI: player2IsAI,
+                            player1AIDifficulty: player1AIDifficulty,
+                            player2AIDifficulty: player2AIDifficulty
                         )
                         currentScreen = .playing
                     }
@@ -144,7 +152,6 @@ struct MenuView: View {
                                     }) {
                                         Text("\(mode)")
                                             .font(.system(size: 18, weight: .bold))
-                                            .fontWeight(.bold)
                                             .foregroundColor(gameMode == mode ? .white : Color(red: 0.91, green: 0.84, blue: 0.72).opacity(0.6))
                                             .frame(maxWidth: .infinity)
                                             .padding(.vertical, 12)
@@ -180,8 +187,7 @@ struct MenuView: View {
                                         legsPerSet = legs
                                     }) {
                                         Text("\(legs)")
-                                            .font(.system(size: 18, weight: .medium))
-                                            .fontWeight(.bold)
+                                            .font(.system(size: 18, weight: .bold))
                                             .foregroundColor(legsPerSet == legs ? Color(red: 0.1, green: 0.1, blue: 0.18) : Color(red: 0.91, green: 0.84, blue: 0.72).opacity(0.6))
                                             .frame(maxWidth: .infinity)
                                             .padding(.vertical, 12)
@@ -209,8 +215,7 @@ struct MenuView: View {
                                         setsToWin = sets
                                     }) {
                                         Text("\(sets)")
-                                            .font(.system(size: 18, weight: .medium))
-                                            .fontWeight(.bold)
+                                            .font(.system(size: 18, weight: .bold))
                                             .foregroundColor(setsToWin == sets ? Color(red: 0.1, green: 0.1, blue: 0.18) : Color(red: 0.91, green: 0.84, blue: 0.72).opacity(0.6))
                                             .frame(maxWidth: .infinity)
                                             .padding(.vertical, 12)
@@ -238,8 +243,7 @@ struct MenuView: View {
                                         numberOfPlayers = players
                                     }) {
                                         Text("\(players)")
-                                            .font(.system(size: 18, weight: .medium))
-                                            .fontWeight(.bold)
+                                            .font(.system(size: 18, weight: .bold))
                                             .foregroundColor(numberOfPlayers == players ? Color(red: 0.1, green: 0.1, blue: 0.18) : Color(red: 0.91, green: 0.84, blue: 0.72).opacity(0.6))
                                             .frame(maxWidth: .infinity)
                                             .padding(.vertical, 12)
@@ -271,7 +275,6 @@ struct MenuView: View {
                                                 .font(.system(size: 24))
                                             Text(level.0.uppercased())
                                                 .font(.system(size: 12, weight: .bold))
-                                                .fontWeight(.bold)
                                         }
                                         .foregroundColor(skillLevel == level.0 ? .white : Color(red: 0.91, green: 0.84, blue: 0.72).opacity(0.6))
                                         .frame(maxWidth: .infinity)
@@ -355,7 +358,6 @@ struct MenuButton: View {
         Button(action: action) {
             Text(title)
                 .font(.system(size: 24, weight: .bold))
-                .fontWeight(.bold)
                 .foregroundColor(.white)
                 .tracking(4)
                 .frame(maxWidth: .infinity)
@@ -415,7 +417,10 @@ struct PlayerConfigView: View {
                 }
 
                 // Name input
-                TextField("Player \(playerNumber)", text: $name)
+                TextField("Player \(playerNumber)", text: Binding(
+                    get: { name },
+                    set: { name = String($0.prefix(20)) } // Limit to 20 characters
+                ))
                     .font(.system(size: 18, weight: .medium))
                     .foregroundColor(Color(red: 0.91, green: 0.84, blue: 0.72))
                     .padding()

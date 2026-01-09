@@ -5,10 +5,18 @@ class GameStateManager: ObservableObject {
     // Game configuration
     @Published var gameMode: Int = 501
     @Published var legsToWin: Int = 2 // Default: best of 3 (first to 2)
+    @Published var setsToWin: Int = 1 // Default: first to 1 set
+    @Published var numberOfPlayers: Int = 2 // 1-4 players
+    @Published var skillLevel: String = "intermediate" // beginner, intermediate, expert
+    @Published var soundEnabled: Bool = false
     @Published var player1Name: String = "Player 1"
     @Published var player2Name: String = "Player 2"
     @Published var player1Flag: String = "🏴"
     @Published var player2Flag: String = "🌍"
+    @Published var player1IsAI: Bool = false
+    @Published var player2IsAI: Bool = false
+    @Published var player1AIDifficulty: String = "medium" // easy, medium, hard, impossible
+    @Published var player2AIDifficulty: String = "medium"
 
     // Game state
     @Published var player1Score: Int = 501
@@ -45,13 +53,36 @@ class GameStateManager: ObservableObject {
     let outerBull: Double = 16
     let innerBull: Double = 8
 
-    func setupGame(mode: Int, legsToWin: Int = 2, player1Name: String, player2Name: String, player1Flag: String, player2Flag: String) {
+    func setupGame(
+        mode: Int,
+        legsToWin: Int = 2,
+        setsToWin: Int = 1,
+        numberOfPlayers: Int = 2,
+        skillLevel: String = "intermediate",
+        soundEnabled: Bool = false,
+        player1Name: String,
+        player2Name: String,
+        player1Flag: String,
+        player2Flag: String,
+        player1IsAI: Bool = false,
+        player2IsAI: Bool = false,
+        player1AIDifficulty: String = "medium",
+        player2AIDifficulty: String = "medium"
+    ) {
         self.gameMode = mode
         self.legsToWin = legsToWin
+        self.setsToWin = setsToWin
+        self.numberOfPlayers = numberOfPlayers
+        self.skillLevel = skillLevel
+        self.soundEnabled = soundEnabled
         self.player1Name = player1Name
         self.player2Name = player2Name
         self.player1Flag = player1Flag
         self.player2Flag = player2Flag
+        self.player1IsAI = player1IsAI
+        self.player2IsAI = player2IsAI
+        self.player1AIDifficulty = player1AIDifficulty
+        self.player2AIDifficulty = player2AIDifficulty
 
         // Reset game state
         player1Score = mode
