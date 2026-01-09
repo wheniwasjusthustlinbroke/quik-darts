@@ -13,7 +13,7 @@
 		A1000004 /* MenuView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000014 /* MenuView.swift */; };
 		A1000005 /* GameView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000015 /* GameView.swift */; };
 		A1000006 /* DartboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000016 /* DartboardView.swift */; };
-		A1000007 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A1000018 /* Assets.xcassets */; };
+		A1000019 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A1000018 /* Assets.xcassets */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -128,7 +128,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				A1000007 /* Assets.xcassets in Resources */,
+				A1000019 /* Assets.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

@@ -33,7 +33,7 @@ struct MenuView: View {
                     Text("🎯")
                         .font(.system(size: 80))
                     Text("QUIK DARTS")
-                        .font(.custom("Oswald-Bold", size: 52))
+                        .font(.system(size: 52, weight: .bold))
                         .fontWeight(.heavy)
                         .foregroundStyle(
                             LinearGradient(

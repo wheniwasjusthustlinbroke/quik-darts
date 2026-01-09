@@ -80,16 +80,16 @@ struct PlaceholderView: View {
 
             VStack(spacing: 30) {
                 Text(title)
-                    .font(.custom("Oswald-Bold", size: 42))
+                    .font(.system(size: 42, weight: .bold))
                     .foregroundColor(Color(red: 1.0, green: 0.84, blue: 0.0))
 
                 Text(message)
-                    .font(.custom("Oswald", size: 24))
+                    .font(.system(size: 24, weight: .medium))
                     .foregroundColor(Color(red: 0.91, green: 0.84, blue: 0.72))
 
                 Button(action: onBack) {
                     Text("BACK TO MENU")
-                        .font(.custom("Oswald", size: 20))
+                        .font(.system(size: 20, weight: .medium))
                         .fontWeight(.bold)
                         .foregroundColor(.white)
                         .padding(.horizontal, 40)
