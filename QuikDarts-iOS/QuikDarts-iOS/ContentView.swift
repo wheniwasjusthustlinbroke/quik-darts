@@ -35,10 +35,9 @@ struct ContentView: View {
                 )
 
             case .matchmaking:
-                PlaceholderView(
-                    title: "🌍 MATCHMAKING",
-                    message: "Coming Soon",
-                    onBack: { currentScreen = .menu }
+                MatchmakingView(
+                    currentScreen: $currentScreen,
+                    gameState: gameState
                 )
 
             case .practiceSelection:
