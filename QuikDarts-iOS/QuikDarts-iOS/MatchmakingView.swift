@@ -11,6 +11,10 @@ struct MatchmakingView: View {
     @State private var searchTask: DispatchWorkItem?
     @State private var foundTask: DispatchWorkItem?
 
+    // Static sample data to avoid recreating arrays on every findOpponent() call
+    private static let sampleNames = ["DragonSlayer", "DartMaster", "BullseyeKing", "TripleT20", "Checkout170"]
+    private static let sampleFlags = ["🇬🇧", "🇺🇸", "🇳🇱", "🇩🇪", "🇦🇺", "🇯🇵", "🇨🇦", "🇫🇷"]
+
     var body: some View {
         ZStack {
             // Background gradient
@@ -162,11 +166,8 @@ struct MatchmakingView: View {
 
     func findOpponent() {
         // Simulate finding a random opponent
-        let sampleNames = ["DragonSlayer", "DartMaster", "BullseyeKing", "TripleT20", "Checkout170"]
-        let sampleFlags = ["🇬🇧", "🇺🇸", "🇳🇱", "🇩🇪", "🇦🇺", "🇯🇵", "🇨🇦", "🇫🇷"]
-
-        opponentName = sampleNames.randomElement() ?? "Opponent"
-        opponentFlag = sampleFlags.randomElement() ?? "🌍"
+        opponentName = Self.sampleNames.randomElement() ?? "Opponent"
+        opponentFlag = Self.sampleFlags.randomElement() ?? "🌍"
         opponentFound = true
 
         // Create cancellable work item for starting game
