@@ -35,25 +35,19 @@ struct ContentView: View {
                 )
 
             case .matchmaking:
-                PlaceholderView(
-                    title: "🌍 MATCHMAKING",
-                    message: "Coming Soon",
-                    onBack: { currentScreen = .menu }
+                MatchmakingView(
+                    currentScreen: $currentScreen,
+                    gameState: gameState
                 )
 
             case .practiceSelection:
-                PlaceholderView(
-                    title: "🎯 PRACTICE MODE",
-                    message: "Coming Soon",
-                    onBack: { currentScreen = .menu }
+                PracticeSelectionView(
+                    currentScreen: $currentScreen,
+                    gameState: gameState
                 )
 
             case .achievements:
-                PlaceholderView(
-                    title: "🏆 ACHIEVEMENTS",
-                    message: "Coming Soon",
-                    onBack: { currentScreen = .menu }
-                )
+                AchievementsView(currentScreen: $currentScreen)
             }
         }
     }
