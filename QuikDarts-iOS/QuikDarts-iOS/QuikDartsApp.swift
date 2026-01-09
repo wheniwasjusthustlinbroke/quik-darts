@@ -7,14 +7,15 @@
 //
 
 import SwiftUI
-import FirebaseCore
+// TODO: Add Firebase when implementing online multiplayer
+// import FirebaseCore
 
 @main
 struct QuikDartsApp: App {
 
     init() {
-        // Configure Firebase
-        FirebaseApp.configure()
+        // TODO: Configure Firebase when implementing online multiplayer
+        // FirebaseApp.configure()
     }
 
     var body: some Scene {
