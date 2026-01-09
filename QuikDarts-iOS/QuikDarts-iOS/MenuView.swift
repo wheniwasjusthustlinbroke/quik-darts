@@ -8,7 +8,7 @@ struct MenuView: View {
     @State private var legsPerSet: Int = 3 // 1, 3, 5, or 7
     @State private var setsToWin: Int = 1 // 1, 3, 5, or 7
     @State private var numberOfPlayers: Int = 2 // 1, 2, 3, or 4
-    @State private var skillLevel: String = "intermediate" // easy, intermediate, hard
+    @State private var skillLevel: String = "intermediate" // beginner, intermediate, expert
     @State private var soundEnabled: Bool = false
     @State private var player1Name: String = "Player 1"
     @State private var player2Name: String = "Player 2"
@@ -24,9 +24,9 @@ struct MenuView: View {
     let setsOptions = [1, 3, 5, 7]
     let playerOptions = [1, 2, 3, 4]
     let skillLevels = [
-        ("easy", "🟢"),
+        ("beginner", "🟢"),
         ("intermediate", "🟡"),
-        ("hard", "🔴")
+        ("expert", "🔴")
     ]
     let flagOptions = ["🏴", "🇬🇧", "🇺🇸", "🇮🇪", "🇳🇱", "🇩🇪", "🇧🇪", "🇦🇺", "🇯🇵", "🌍"]
     let aiDifficulties = ["easy", "medium", "hard", "impossible"]
@@ -39,12 +39,12 @@ struct MenuView: View {
     // Get color for skill level
     func getSkillColor(for level: String) -> Color {
         switch level {
-        case "easy":
-            return Color(red: 0.4, green: 0.8, blue: 0.4)
-        case "hard":
-            return Color(red: 0.85, green: 0.1, blue: 0.1)
+        case "beginner":
+            return Color(red: 0.13, green: 0.54, blue: 0.13) // Green
+        case "expert":
+            return Color(red: 0.77, green: 0.12, blue: 0.23) // Red
         default: // intermediate
-            return Color(red: 0.95, green: 0.61, blue: 0.07)
+            return Color(red: 1.0, green: 0.65, blue: 0.0) // Orange
         }
     }
 
@@ -266,11 +266,11 @@ struct MenuView: View {
                                     Button(action: {
                                         skillLevel = level.0
                                     }) {
-                                        HStack(spacing: 8) {
+                                        VStack(spacing: 6) {
                                             Text(level.1)
-                                                .font(.system(size: 20))
+                                                .font(.system(size: 24))
                                             Text(level.0.uppercased())
-                                                .font(.system(size: 14, weight: .medium))
+                                                .font(.system(size: 12, weight: .bold))
                                                 .fontWeight(.bold)
                                         }
                                         .foregroundColor(skillLevel == level.0 ? .white : Color(red: 0.91, green: 0.84, blue: 0.72).opacity(0.6))
