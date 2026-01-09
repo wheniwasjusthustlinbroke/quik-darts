@@ -117,6 +117,67 @@
         totalScore: 0
       }); // track what player hits in practice
 
+      // Achievements system
+      const [unlockedAchievements, setUnlockedAchievements] = useState(() => {
+        const saved = localStorage.getItem('quikdarts_achievements');
+        return saved ? JSON.parse(saved) : [];
+      });
+      const [achievementPopup, setAchievementPopup] = useState(null); // Currently showing achievement
+      const [showAchievements, setShowAchievements] = useState(false); // Show achievements gallery
+      const [achievementStats, setAchievementStats] = useState(() => {
+        const saved = localStorage.getItem('quikdarts_stats');
+        return saved ? JSON.parse(saved) : {
+          totalGamesPlayed: 0,
+          totalGamesWon: 0,
+          total180s: 0,
+          totalNineDarters: 0,
+          totalOnlineGames: 0,
+          totalOnlineWins: 0,
+          totalBulls: 0,
+          totalTriples: 0,
+          highestCheckout: 0
+        };
+      });
+
+      const achievementsData = [
+        // First Steps
+        { id: 'first_game', name: 'First Game', description: 'Complete your first game', icon: '🎯', rarity: 'common', mode: 'offline' },
+        { id: 'first_win', name: 'First Victory', description: 'Win your first game', icon: '🏆', rarity: 'common', mode: 'offline' },
+
+        // 180 Achievements
+        { id: 'first_180', name: 'Maximum!', description: 'Hit your first 180', icon: '💯', rarity: 'uncommon', mode: 'offline' },
+        { id: 'ten_180s', name: '180 Master', description: 'Hit 10 total 180s', icon: '⭐', rarity: 'rare', mode: 'offline' },
+        { id: 'fifty_180s', name: 'Ton Machine', description: 'Hit 50 total 180s', icon: '🌟', rarity: 'epic', mode: 'offline' },
+
+        // Nine Darter Achievements
+        { id: 'nine_darter_offline', name: 'Perfect Game', description: 'Achieve a nine-dart finish in offline mode', icon: '👑', rarity: 'legendary', mode: 'offline' },
+        { id: 'nine_darter_online', name: 'Online Legend', description: 'Achieve a nine-dart finish in online mode', icon: '💎', rarity: 'mythic', mode: 'online' },
+
+        // Bulls Achievements
+        { id: 'first_bull', name: 'Bullseye!', description: 'Hit your first bullseye', icon: '🎯', rarity: 'common', mode: 'offline' },
+        { id: 'fifty_bulls', name: 'Bull Master', description: 'Hit 50 bullseyes', icon: '🐂', rarity: 'rare', mode: 'offline' },
+        { id: 'hundred_bulls', name: 'Bull Legend', description: 'Hit 100 bullseyes', icon: '🐃', rarity: 'epic', mode: 'offline' },
+
+        // Winning Streaks
+        { id: 'five_wins', name: 'Hot Streak', description: 'Win 5 games', icon: '🔥', rarity: 'uncommon', mode: 'offline' },
+        { id: 'twenty_wins', name: 'Dominator', description: 'Win 20 games', icon: '💪', rarity: 'rare', mode: 'offline' },
+        { id: 'fifty_wins', name: 'Champion', description: 'Win 50 games', icon: '🥇', rarity: 'epic', mode: 'offline' },
+
+        // Online Achievements
+        { id: 'first_online', name: 'Going Online', description: 'Play your first online match', icon: '🌍', rarity: 'common', mode: 'online' },
+        { id: 'first_online_win', name: 'Online Victor', description: 'Win your first online match', icon: '🏅', rarity: 'uncommon', mode: 'online' },
+        { id: 'ten_online_wins', name: 'Online Warrior', description: 'Win 10 online matches', icon: '⚔️', rarity: 'rare', mode: 'online' },
+        { id: 'fifty_online_wins', name: 'Online Champion', description: 'Win 50 online matches', icon: '👑', rarity: 'epic', mode: 'online' },
+
+        // Checkout Achievements
+        { id: 'big_checkout', name: 'Big Fish', description: 'Hit a checkout of 100 or more', icon: '🐋', rarity: 'uncommon', mode: 'offline' },
+        { id: 'huge_checkout', name: 'Monster Checkout', description: 'Hit a checkout of 150 or more', icon: '🦈', rarity: 'rare', mode: 'offline' },
+
+        // Skill Achievements
+        { id: 'fifty_triples', name: 'Triple Threat', description: 'Hit 50 triples', icon: '3️⃣', rarity: 'uncommon', mode: 'offline' },
+        { id: 'two_hundred_triples', name: 'Triple Master', description: 'Hit 200 triples', icon: '💫', rarity: 'rare', mode: 'offline' }
+      ];
+
       const boardRef = useRef(null);
       const powerIntervalRef = useRef(null);
       const audioContext = useRef(null);
@@ -763,6 +824,16 @@
           setShowNineDarter(true);
           playSound('ninedarter'); // Epic crowd roar and fanfare
           setTimeout(() => setShowNineDarter(false), 6000);
+
+          // Track nine-darter achievement
+          if (!players[playerIndex].isAI) {
+            if (onlineMode) {
+              unlockAchievement('nine_darter_online');
+            } else if (!practiceMode) {
+              unlockAchievement('nine_darter_offline');
+              updateAchievementStats({ totalNineDarters: achievementStats.totalNineDarters + 1 });
+            }
+          }
         }
 
         if (playerSetup.gameMode !== 501 || playerDartsInLeg !== 9) {
@@ -786,6 +857,28 @@
             // Player won the match!
             setMatchWinner(players[playerIndex]);
             setWinner(players[playerIndex]);
+
+            // Track game completion and win
+            if (!players[playerIndex].isAI && !practiceMode) {
+              if (onlineMode) {
+                updateAchievementStats({
+                  totalOnlineGames: achievementStats.totalOnlineGames + 1,
+                  totalOnlineWins: achievementStats.totalOnlineWins + 1
+                });
+              } else {
+                updateAchievementStats({
+                  totalGamesPlayed: achievementStats.totalGamesPlayed + 1,
+                  totalGamesWon: achievementStats.totalGamesWon + 1
+                });
+              }
+            } else if (!practiceMode) {
+              // Track game played but not won (lost to AI or other player)
+              if (onlineMode) {
+                updateAchievementStats({ totalOnlineGames: achievementStats.totalOnlineGames + 1 });
+              } else {
+                updateAchievementStats({ totalGamesPlayed: achievementStats.totalGamesPlayed + 1 });
+              }
+            }
             return;
           }
 
@@ -808,7 +901,7 @@
           setWinner(null);
           setLegDartsThrown(new Array(players.length).fill(0));
         }, 2000);
-      }, [legScores, setScores, players, playerSetup, playSound, legDartsThrown]);
+      }, [legScores, setScores, players, playerSetup, playSound, legDartsThrown, unlockAchievement, updateAchievementStats, achievementStats, onlineMode, practiceMode]);
 
       const throwDart = useCallback(() => {
         // Practice mode: unlimited throws with stat tracking
@@ -964,10 +1057,27 @@
             playSound('180');
             setShowScorePopup({ score: 180, label: '180!!!', position: finalPosition });
             setTimeout(() => setShowScorePopup(null), 2000);
+
+            // Track 180 for achievements (only in offline mode, not practice)
+            if (!onlineMode && !practiceMode) {
+              updateAchievementStats({ total180s: achievementStats.total180s + 1 });
+            }
           } else {
             // Play regular hit sounds only if NOT a 180
-            if (result.score === 50) playSound('bullseye');
-            else if (result.score > 0) playSound('hit');
+            if (result.score === 50) {
+              playSound('bullseye');
+              // Track bull for achievements (only in offline mode, not practice)
+              if (!onlineMode && !practiceMode) {
+                updateAchievementStats({ totalBulls: achievementStats.totalBulls + 1 });
+              }
+            } else if (result.score > 0) {
+              playSound('hit');
+            }
+
+            // Track triples for achievements (only in offline mode, not practice)
+            if (result.multiplier === 3 && !onlineMode && !practiceMode) {
+              updateAchievementStats({ totalTriples: achievementStats.totalTriples + 1 });
+            }
 
             setShowScorePopup({ ...result, position: finalPosition });
             setTimeout(() => setShowScorePopup(null), 1000);
@@ -988,6 +1098,14 @@
             newPlayers[currentPlayerIndex] = { ...currentPlayer, score: 0 };
             setPlayers(newPlayers);
             updateStats(currentPlayerIndex, result);
+
+            // Track checkout for achievements
+            const checkoutValue = currentPlayer.score;
+            if (!players[currentPlayerIndex].isAI && !onlineMode && !practiceMode) {
+              if (checkoutValue > (achievementStats.highestCheckout || 0)) {
+                updateAchievementStats({ highestCheckout: checkoutValue });
+              }
+            }
 
             // Calculate final dart count including this winning dart
             const finalDartCount = (legDartsThrown[currentPlayerIndex] || 0) + 1;
@@ -1061,7 +1179,7 @@
             }
           }
         }, 300);
-      }, [aimPosition, aimWobble, power, dartsThrown, players, currentPlayerIndex, winner, calculateScore, addRandomness, playSound, isCheckoutPosition, triplesHit, handleLegWin, updateStats, nextPlayer, onlineMode, playerId, syncThrowToFirebase, currentTurnScore, practiceMode, practiceSkillLevel, dartPositions]);
+      }, [aimPosition, aimWobble, power, dartsThrown, players, currentPlayerIndex, winner, calculateScore, addRandomness, playSound, isCheckoutPosition, triplesHit, handleLegWin, updateStats, nextPlayer, onlineMode, playerId, syncThrowToFirebase, currentTurnScore, practiceMode, practiceSkillLevel, dartPositions, updateAchievementStats, achievementStats]);
 
       const updateStats = useCallback((playerIndex, result) => {
         setGameStats(prev => {
@@ -1489,6 +1607,120 @@
         setDartPositions([]);
       };
 
+      // Achievements Functions
+      const unlockAchievement = useCallback((achievementId) => {
+        // Check if already unlocked
+        if (unlockedAchievements.includes(achievementId)) return;
+
+        const achievement = achievementsData.find(a => a.id === achievementId);
+        if (!achievement) return;
+
+        // Add to unlocked list
+        const newUnlocked = [...unlockedAchievements, achievementId];
+        setUnlockedAchievements(newUnlocked);
+        localStorage.setItem('quikdarts_achievements', JSON.stringify(newUnlocked));
+
+        // Show popup
+        setAchievementPopup(achievement);
+        setTimeout(() => setAchievementPopup(null), 4000);
+      }, [unlockedAchievements, achievementsData]);
+
+      const checkAchievements = useCallback((stats) => {
+        // First game
+        if (stats.totalGamesPlayed === 1) {
+          unlockAchievement('first_game');
+        }
+
+        // First win
+        if (stats.totalGamesWon === 1) {
+          unlockAchievement('first_win');
+        }
+
+        // 180 achievements
+        if (stats.total180s === 1) {
+          unlockAchievement('first_180');
+        }
+        if (stats.total180s === 10) {
+          unlockAchievement('ten_180s');
+        }
+        if (stats.total180s === 50) {
+          unlockAchievement('fifty_180s');
+        }
+
+        // Bulls achievements
+        if (stats.totalBulls === 1) {
+          unlockAchievement('first_bull');
+        }
+        if (stats.totalBulls === 50) {
+          unlockAchievement('fifty_bulls');
+        }
+        if (stats.totalBulls === 100) {
+          unlockAchievement('hundred_bulls');
+        }
+
+        // Winning streaks
+        if (stats.totalGamesWon === 5) {
+          unlockAchievement('five_wins');
+        }
+        if (stats.totalGamesWon === 20) {
+          unlockAchievement('twenty_wins');
+        }
+        if (stats.totalGamesWon === 50) {
+          unlockAchievement('fifty_wins');
+        }
+
+        // Online achievements
+        if (stats.totalOnlineGames === 1) {
+          unlockAchievement('first_online');
+        }
+        if (stats.totalOnlineWins === 1) {
+          unlockAchievement('first_online_win');
+        }
+        if (stats.totalOnlineWins === 10) {
+          unlockAchievement('ten_online_wins');
+        }
+        if (stats.totalOnlineWins === 50) {
+          unlockAchievement('fifty_online_wins');
+        }
+
+        // Checkout achievements
+        if (stats.highestCheckout >= 100 && stats.highestCheckout < 150) {
+          unlockAchievement('big_checkout');
+        }
+        if (stats.highestCheckout >= 150) {
+          unlockAchievement('huge_checkout');
+        }
+
+        // Triples achievements
+        if (stats.totalTriples === 50) {
+          unlockAchievement('fifty_triples');
+        }
+        if (stats.totalTriples === 200) {
+          unlockAchievement('two_hundred_triples');
+        }
+      }, [unlockAchievement]);
+
+      const updateAchievementStats = useCallback((update) => {
+        setAchievementStats(prev => {
+          const newStats = { ...prev, ...update };
+          localStorage.setItem('quikdarts_stats', JSON.stringify(newStats));
+          checkAchievements(newStats);
+          return newStats;
+        });
+      }, [checkAchievements]);
+
+      const getRarityColor = (rarity) => {
+        switch (rarity) {
+          case 'common': return '#95a5a6';
+          case 'uncommon': return '#27ae60';
+          case 'rare': return '#3498db';
+          case 'epic': return '#9b59b6';
+          case 'legendary': return '#f39c12';
+          case 'mythic': return '#e74c3c';
+          default: return '#95a5a6';
+        }
+      };
+
       const renderDartboard = () => {
         const segments = [];
         
@@ -1874,10 +2106,105 @@
 
               <button onClick={enterPracticeMode} style={{ width: '100%', padding: '20px', fontSize: '24px', fontWeight: '700', background: 'linear-gradient(135deg, #9b59b6, #8e44ad)', color: '#fff', border: 'none', borderRadius: '15px', cursor: 'pointer', fontFamily: "'Oswald', sans-serif", letterSpacing: '4px', textTransform: 'uppercase', boxShadow: '0 4px 15px rgba(155, 89, 182, 0.4)', marginBottom: '15px' }}>🎯 Practice Mode</button>
 
+              <button onClick={() => setShowAchievements(true)} style={{ width: '100%', padding: '20px', fontSize: '24px', fontWeight: '700', background: 'linear-gradient(135deg, #f39c12, #e67e22)', color: '#fff', border: 'none', borderRadius: '15px', cursor: 'pointer', fontFamily: "'Oswald', sans-serif", letterSpacing: '4px', textTransform: 'uppercase', boxShadow: '0 4px 15px rgba(243, 156, 18, 0.4)', marginBottom: '15px' }}>🏆 Achievements</button>
+
               <button onClick={startGame} style={{ width: '100%', padding: '20px', fontSize: '24px', fontWeight: '700', background: 'linear-gradient(135deg, #c41e3a, #e74c3c)', color: '#fff', border: 'none', borderRadius: '15px', cursor: 'pointer', fontFamily: "'Oswald', sans-serif", letterSpacing: '4px', textTransform: 'uppercase', boxShadow: '0 4px 15px rgba(196, 30, 58, 0.4)' }}>Start Game</button>
             </div>
             
             <p style={{ color: '#666', marginTop: '30px', fontSize: '14px' }}>Hold mouse to charge power • Release to throw</p>
+          </div>
+        );
+      }
+
+      // Achievements Gallery
+      if (showAchievements) {
+        return (
+          <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f0f23 100%)', display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '20px', fontFamily: "'Oswald', sans-serif" }}>
+            <div style={{ maxWidth: '1000px', width: '100%' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px' }}>
+                <h1 style={{ fontSize: '48px', fontWeight: '700', color: '#ffd700', textShadow: '0 0 20px rgba(255, 215, 0, 0.5)', margin: 0 }}>🏆 ACHIEVEMENTS</h1>
+                <button onClick={() => setShowAchievements(false)} style={{ padding: '12px 30px', background: 'rgba(196, 30, 58, 0.3)', color: '#e8d5b7', border: 'none', borderRadius: '10px', cursor: 'pointer', fontFamily: "'Oswald', sans-serif", fontSize: '16px', fontWeight: '600', letterSpacing: '1px' }}>BACK</button>
+              </div>
+
+              <div style={{ background: 'rgba(255, 255, 255, 0.05)', borderRadius: '20px', padding: '25px', marginBottom: '30px', backdropFilter: 'blur(10px)' }}>
+                <div style={{ color: '#e8d5b7', fontSize: '18px', marginBottom: '5px' }}>
+                  Unlocked: <span style={{ color: '#ffd700', fontWeight: '700' }}>{unlockedAchievements.length}</span> / {achievementsData.length}
+                </div>
+                <div style={{ background: 'rgba(255, 215, 0, 0.2)', borderRadius: '10px', height: '10px', overflow: 'hidden', marginTop: '10px' }}>
+                  <div style={{ background: 'linear-gradient(90deg, #ffd700, #ffed4a)', height: '100%', width: `${(unlockedAchievements.length / achievementsData.length) * 100}%`, transition: 'width 0.5s' }}></div>
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '20px' }}>
+                {achievementsData.map(achievement => {
+                  const isUnlocked = unlockedAchievements.includes(achievement.id);
+                  return (
+                    <div key={achievement.id} style={{
+                      background: isUnlocked ? 'rgba(255, 255, 255, 0.1)' : 'rgba(255, 255, 255, 0.03)',
+                      border: `2px solid ${isUnlocked ? getRarityColor(achievement.rarity) : 'rgba(255, 255, 255, 0.1)'}`,
+                      borderRadius: '15px',
+                      padding: '20px',
+                      opacity: isUnlocked ? 1 : 0.5,
+                      transition: 'all 0.3s',
+                      cursor: isUnlocked ? 'pointer' : 'default',
+                      backdropFilter: 'blur(10px)'
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'flex-start', gap: '15px', marginBottom: '10px' }}>
+                        <div style={{ fontSize: '40px', filter: isUnlocked ? 'none' : 'grayscale(100%)' }}>
+                          {achievement.icon}
+                        </div>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ color: isUnlocked ? '#fff' : '#666', fontSize: '18px', fontWeight: '700', marginBottom: '5px' }}>
+                            {achievement.name}
+                          </div>
+                          <div style={{ color: isUnlocked ? '#ccc' : '#555', fontSize: '13px', marginBottom: '8px' }}>
+                            {achievement.description}
+                          </div>
+                          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                            <div style={{
+                              display: 'inline-block',
+                              color: isUnlocked ? getRarityColor(achievement.rarity) : '#555',
+                              fontSize: '10px',
+                              fontWeight: '600',
+                              letterSpacing: '1px',
+                              textTransform: 'uppercase',
+                              border: `1px solid ${isUnlocked ? getRarityColor(achievement.rarity) : '#555'}`,
+                              borderRadius: '8px',
+                              padding: '3px 8px'
+                            }}>
+                              {achievement.rarity}
+                            </div>
+                            <div style={{
+                              display: 'inline-block',
+                              color: achievement.mode === 'online' ? '#4a90e2' : '#ffd700',
+                              fontSize: '10px',
+                              fontWeight: '600',
+                              letterSpacing: '1px',
+                              textTransform: 'uppercase',
+                              border: `1px solid ${achievement.mode === 'online' ? '#4a90e2' : '#ffd700'}`,
+                              borderRadius: '8px',
+                              padding: '3px 8px'
+                            }}>
+                              {achievement.mode === 'online' ? '🌍 ONLINE' : '🎯 OFFLINE'}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      {isUnlocked && (
+                        <div style={{ color: '#32cd32', fontSize: '12px', fontWeight: '600', letterSpacing: '1px', marginTop: '10px' }}>
+                          ✓ UNLOCKED
+                        </div>
+                      )}
+                      {!isUnlocked && (
+                        <div style={{ color: '#555', fontSize: '12px', fontWeight: '600', letterSpacing: '1px', marginTop: '10px' }}>
+                          🔒 LOCKED
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
           </div>
         );
       }
@@ -2063,6 +2390,53 @@
                   }}>{showScorePopup.label}</div>
                 )}
               </div>
+
+              {/* Achievement Unlock Popup */}
+              {achievementPopup && (
+                <div style={{
+                  position: 'fixed',
+                  top: '20px',
+                  right: '20px',
+                  background: 'linear-gradient(135deg, rgba(0, 0, 0, 0.95), rgba(20, 20, 40, 0.95))',
+                  border: `3px solid ${getRarityColor(achievementPopup.rarity)}`,
+                  borderRadius: '15px',
+                  padding: '20px',
+                  minWidth: '300px',
+                  maxWidth: '400px',
+                  boxShadow: `0 10px 40px ${getRarityColor(achievementPopup.rarity)}80, 0 0 20px ${getRarityColor(achievementPopup.rarity)}40`,
+                  animation: 'slideInRight 0.5s ease-out',
+                  zIndex: 1000,
+                  fontFamily: "'Oswald', sans-serif"
+                }}>
+                  <div style={{ color: getRarityColor(achievementPopup.rarity), fontSize: '12px', fontWeight: '600', letterSpacing: '2px', marginBottom: '10px' }}>
+                    🏆 ACHIEVEMENT UNLOCKED
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+                    <div style={{ fontSize: '48px' }}>{achievementPopup.icon}</div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ color: '#fff', fontSize: '20px', fontWeight: '700', marginBottom: '5px' }}>
+                        {achievementPopup.name}
+                      </div>
+                      <div style={{ color: '#ccc', fontSize: '14px', marginBottom: '5px' }}>
+                        {achievementPopup.description}
+                      </div>
+                      <div style={{
+                        display: 'inline-block',
+                        color: getRarityColor(achievementPopup.rarity),
+                        fontSize: '11px',
+                        fontWeight: '600',
+                        letterSpacing: '1px',
+                        textTransform: 'uppercase',
+                        border: `1px solid ${getRarityColor(achievementPopup.rarity)}`,
+                        borderRadius: '10px',
+                        padding: '3px 10px'
+                      }}>
+                        {achievementPopup.rarity}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
               
               <div style={{ width: `${BOARD_SIZE}px`, marginTop: '20px' }}>
                 <div style={{ background: 'rgba(255, 255, 255, 0.1)', borderRadius: '10px', height: '30px', overflow: 'hidden', position: 'relative' }}>
@@ -2312,6 +2686,7 @@
             @keyframes popUp { 0% { transform: translateX(-50%) scale(0.5); opacity: 0; } 50% { transform: translateX(-50%) scale(1.2); } 100% { transform: translateX(-50%) scale(1); opacity: 1; } }
             @keyframes fadeIn { from { opacity: 0; transform: scale(0.9); } to { opacity: 1; transform: scale(1); } }
             @keyframes throwDart { from { opacity: 0; transform: translateY(50px); } to { opacity: 1; transform: translateY(0); } }
+            @keyframes slideInRight { 0% { transform: translateX(400px); opacity: 0; } 100% { transform: translateX(0); opacity: 1; } }
 
             /* Epic Nine-Darter Star Animations */
             @keyframes epicStarEntry {
