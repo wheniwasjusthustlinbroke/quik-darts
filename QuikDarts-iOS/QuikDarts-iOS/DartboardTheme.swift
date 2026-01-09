@@ -150,7 +150,7 @@ extension DartboardTheme {
             glowEffect: false,
             pulseAnimation: false,
             wireWidth: 1.0,                  // Thin wire
-            shadowIntensity: 0               // Disabled for clean look
+            shadowIntensity: 0.0             // Disabled for clean look
         )
     )
 
