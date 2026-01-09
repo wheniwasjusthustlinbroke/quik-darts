@@ -42,7 +42,9 @@ struct MenuView: View {
         ("intermediate", "🟡"),
         ("expert", "🔴")
     ]
-    let countries = [
+
+    // Static countries array to avoid recreating 103 countries on every view update
+    private static let countriesData = [
         Country(name: "Afghanistan", flag: "🇦🇫"),
         Country(name: "Albania", flag: "🇦🇱"),
         Country(name: "Algeria", flag: "🇩🇿"),
@@ -438,7 +440,7 @@ struct MenuView: View {
                                 playerNumber: 1,
                                 name: $player1Name,
                                 flag: $player1Flag,
-                                countries: countries,
+                                countries: Self.countriesData,
                                 isAI: .constant(false), // Player 1 is always human
                                 aiDifficulty: .constant("medium"), // Unused
                                 aiDifficulties: aiDifficulties,
@@ -452,7 +454,7 @@ struct MenuView: View {
                                 playerNumber: 2,
                                 name: $player2Name,
                                 flag: $player2Flag,
-                                countries: countries,
+                                countries: Self.countriesData,
                                 isAI: $player2IsAI,
                                 aiDifficulty: $player2AIDifficulty,
                                 aiDifficulties: aiDifficulties,
@@ -466,7 +468,7 @@ struct MenuView: View {
                                 playerNumber: 3,
                                 name: $player3Name,
                                 flag: $player3Flag,
-                                countries: countries,
+                                countries: Self.countriesData,
                                 isAI: $player3IsAI,
                                 aiDifficulty: $player3AIDifficulty,
                                 aiDifficulties: aiDifficulties,
@@ -480,7 +482,7 @@ struct MenuView: View {
                                 playerNumber: 4,
                                 name: $player4Name,
                                 flag: $player4Flag,
-                                countries: countries,
+                                countries: Self.countriesData,
                                 isAI: $player4IsAI,
                                 aiDifficulty: $player4AIDifficulty,
                                 aiDifficulties: aiDifficulties,
