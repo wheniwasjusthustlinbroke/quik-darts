@@ -101,7 +101,7 @@ struct DartboardView: View {
                 let numberY = center.y + sin(radians) * numberRadius
 
                 let text = Text("\(segmentValue)")
-                    .font(.custom("Oswald-Bold", size: radius * 0.12))
+                    .font(.system(size: radius * 0.12, weight: .bold))
                     .foregroundColor(.white)
 
                 context.draw(text, at: CGPoint(x: numberX, y: numberY))
