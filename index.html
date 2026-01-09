@@ -1932,6 +1932,99 @@
         );
       }
 
+      // Achievements Gallery - check BEFORE menu
+      if (showAchievements) {
+        return (
+          <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f0f23 100%)', display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '20px', fontFamily: "'Oswald', sans-serif" }}>
+            <div style={{ maxWidth: '1000px', width: '100%' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px' }}>
+                <h1 style={{ fontSize: '48px', fontWeight: '700', color: '#ffd700', textShadow: '0 0 20px rgba(255, 215, 0, 0.5)', margin: 0 }}>🏆 ACHIEVEMENTS</h1>
+                <button onClick={() => setShowAchievements(false)} style={{ padding: '12px 30px', background: 'rgba(196, 30, 58, 0.3)', color: '#e8d5b7', border: 'none', borderRadius: '10px', cursor: 'pointer', fontFamily: "'Oswald', sans-serif", fontSize: '16px', fontWeight: '600', letterSpacing: '1px' }}>BACK</button>
+              </div>
+
+              <div style={{ background: 'rgba(255, 255, 255, 0.05)', borderRadius: '20px', padding: '25px', marginBottom: '30px', backdropFilter: 'blur(10px)' }}>
+                <div style={{ color: '#e8d5b7', fontSize: '18px', marginBottom: '5px' }}>
+                  Unlocked: <span style={{ color: '#ffd700', fontWeight: '700' }}>{unlockedAchievements.length}</span> / {achievementsData.length}
+                </div>
+                <div style={{ background: 'rgba(255, 215, 0, 0.2)', borderRadius: '10px', height: '10px', overflow: 'hidden', marginTop: '10px' }}>
+                  <div style={{ background: 'linear-gradient(90deg, #ffd700, #ffed4a)', height: '100%', width: `${(unlockedAchievements.length / achievementsData.length) * 100}%`, transition: 'width 0.5s' }}></div>
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '20px' }}>
+                {achievementsData.map(achievement => {
+                  const isUnlocked = unlockedAchievements.includes(achievement.id);
+                  return (
+                    <div key={achievement.id} style={{
+                      background: isUnlocked ? 'rgba(255, 255, 255, 0.1)' : 'rgba(255, 255, 255, 0.03)',
+                      border: `2px solid ${isUnlocked ? getRarityColor(achievement.rarity) : 'rgba(255, 255, 255, 0.1)'}`,
+                      borderRadius: '15px',
+                      padding: '20px',
+                      opacity: isUnlocked ? 1 : 0.5,
+                      transition: 'all 0.3s',
+                      cursor: isUnlocked ? 'pointer' : 'default',
+                      backdropFilter: 'blur(10px)'
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'flex-start', gap: '15px', marginBottom: '10px' }}>
+                        <div style={{ fontSize: '40px', filter: isUnlocked ? 'none' : 'grayscale(100%)' }}>
+                          {achievement.icon}
+                        </div>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ color: isUnlocked ? '#fff' : '#666', fontSize: '18px', fontWeight: '700', marginBottom: '5px' }}>
+                            {achievement.name}
+                          </div>
+                          <div style={{ color: isUnlocked ? '#ccc' : '#555', fontSize: '13px', marginBottom: '8px' }}>
+                            {achievement.description}
+                          </div>
+                          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                            <div style={{
+                              display: 'inline-block',
+                              color: isUnlocked ? getRarityColor(achievement.rarity) : '#555',
+                              fontSize: '10px',
+                              fontWeight: '600',
+                              letterSpacing: '1px',
+                              textTransform: 'uppercase',
+                              border: `1px solid ${isUnlocked ? getRarityColor(achievement.rarity) : '#555'}`,
+                              borderRadius: '8px',
+                              padding: '3px 8px'
+                            }}>
+                              {achievement.rarity}
+                            </div>
+                            <div style={{
+                              display: 'inline-block',
+                              color: achievement.mode === 'online' ? '#4a90e2' : '#ffd700',
+                              fontSize: '10px',
+                              fontWeight: '600',
+                              letterSpacing: '1px',
+                              textTransform: 'uppercase',
+                              border: `1px solid ${achievement.mode === 'online' ? '#4a90e2' : '#ffd700'}`,
+                              borderRadius: '8px',
+                              padding: '3px 8px'
+                            }}>
+                              {achievement.mode === 'online' ? '🌍 ONLINE' : '🎯 OFFLINE'}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      {isUnlocked && (
+                        <div style={{ color: '#32cd32', fontSize: '12px', fontWeight: '600', letterSpacing: '1px', marginTop: '10px' }}>
+                          ✓ UNLOCKED
+                        </div>
+                      )}
+                      {!isUnlocked && (
+                        <div style={{ color: '#555', fontSize: '12px', fontWeight: '600', letterSpacing: '1px', marginTop: '10px' }}>
+                          🔒 LOCKED
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        );
+      }
+
       if (gameState === 'menu') {
         return (
           <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f0f23 100%)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '20px', fontFamily: "'Oswald', sans-serif" }}>
@@ -2112,99 +2205,6 @@
             </div>
             
             <p style={{ color: '#666', marginTop: '30px', fontSize: '14px' }}>Hold mouse to charge power • Release to throw</p>
-          </div>
-        );
-      }
-
-      // Achievements Gallery
-      if (showAchievements) {
-        return (
-          <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f0f23 100%)', display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '20px', fontFamily: "'Oswald', sans-serif" }}>
-            <div style={{ maxWidth: '1000px', width: '100%' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px' }}>
-                <h1 style={{ fontSize: '48px', fontWeight: '700', color: '#ffd700', textShadow: '0 0 20px rgba(255, 215, 0, 0.5)', margin: 0 }}>🏆 ACHIEVEMENTS</h1>
-                <button onClick={() => setShowAchievements(false)} style={{ padding: '12px 30px', background: 'rgba(196, 30, 58, 0.3)', color: '#e8d5b7', border: 'none', borderRadius: '10px', cursor: 'pointer', fontFamily: "'Oswald', sans-serif", fontSize: '16px', fontWeight: '600', letterSpacing: '1px' }}>BACK</button>
-              </div>
-
-              <div style={{ background: 'rgba(255, 255, 255, 0.05)', borderRadius: '20px', padding: '25px', marginBottom: '30px', backdropFilter: 'blur(10px)' }}>
-                <div style={{ color: '#e8d5b7', fontSize: '18px', marginBottom: '5px' }}>
-                  Unlocked: <span style={{ color: '#ffd700', fontWeight: '700' }}>{unlockedAchievements.length}</span> / {achievementsData.length}
-                </div>
-                <div style={{ background: 'rgba(255, 215, 0, 0.2)', borderRadius: '10px', height: '10px', overflow: 'hidden', marginTop: '10px' }}>
-                  <div style={{ background: 'linear-gradient(90deg, #ffd700, #ffed4a)', height: '100%', width: `${(unlockedAchievements.length / achievementsData.length) * 100}%`, transition: 'width 0.5s' }}></div>
-                </div>
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '20px' }}>
-                {achievementsData.map(achievement => {
-                  const isUnlocked = unlockedAchievements.includes(achievement.id);
-                  return (
-                    <div key={achievement.id} style={{
-                      background: isUnlocked ? 'rgba(255, 255, 255, 0.1)' : 'rgba(255, 255, 255, 0.03)',
-                      border: `2px solid ${isUnlocked ? getRarityColor(achievement.rarity) : 'rgba(255, 255, 255, 0.1)'}`,
-                      borderRadius: '15px',
-                      padding: '20px',
-                      opacity: isUnlocked ? 1 : 0.5,
-                      transition: 'all 0.3s',
-                      cursor: isUnlocked ? 'pointer' : 'default',
-                      backdropFilter: 'blur(10px)'
-                    }}>
-                      <div style={{ display: 'flex', alignItems: 'flex-start', gap: '15px', marginBottom: '10px' }}>
-                        <div style={{ fontSize: '40px', filter: isUnlocked ? 'none' : 'grayscale(100%)' }}>
-                          {achievement.icon}
-                        </div>
-                        <div style={{ flex: 1 }}>
-                          <div style={{ color: isUnlocked ? '#fff' : '#666', fontSize: '18px', fontWeight: '700', marginBottom: '5px' }}>
-                            {achievement.name}
-                          </div>
-                          <div style={{ color: isUnlocked ? '#ccc' : '#555', fontSize: '13px', marginBottom: '8px' }}>
-                            {achievement.description}
-                          </div>
-                          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                            <div style={{
-                              display: 'inline-block',
-                              color: isUnlocked ? getRarityColor(achievement.rarity) : '#555',
-                              fontSize: '10px',
-                              fontWeight: '600',
-                              letterSpacing: '1px',
-                              textTransform: 'uppercase',
-                              border: `1px solid ${isUnlocked ? getRarityColor(achievement.rarity) : '#555'}`,
-                              borderRadius: '8px',
-                              padding: '3px 8px'
-                            }}>
-                              {achievement.rarity}
-                            </div>
-                            <div style={{
-                              display: 'inline-block',
-                              color: achievement.mode === 'online' ? '#4a90e2' : '#ffd700',
-                              fontSize: '10px',
-                              fontWeight: '600',
-                              letterSpacing: '1px',
-                              textTransform: 'uppercase',
-                              border: `1px solid ${achievement.mode === 'online' ? '#4a90e2' : '#ffd700'}`,
-                              borderRadius: '8px',
-                              padding: '3px 8px'
-                            }}>
-                              {achievement.mode === 'online' ? '🌍 ONLINE' : '🎯 OFFLINE'}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                      {isUnlocked && (
-                        <div style={{ color: '#32cd32', fontSize: '12px', fontWeight: '600', letterSpacing: '1px', marginTop: '10px' }}>
-                          ✓ UNLOCKED
-                        </div>
-                      )}
-                      {!isUnlocked && (
-                        <div style={{ color: '#555', fontSize: '12px', fontWeight: '600', letterSpacing: '1px', marginTop: '10px' }}>
-                          🔒 LOCKED
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
           </div>
         );
       }
