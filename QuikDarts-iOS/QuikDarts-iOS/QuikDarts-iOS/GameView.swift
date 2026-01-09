@@ -49,7 +49,7 @@ struct GameView: View {
                         )
 
                         Text("VS")
-                            .font(.custom("Oswald", size: 18))
+                            .font(.system(size: 18, weight: .medium))
                             .foregroundColor(Color(red: 1.0, green: 0.84, blue: 0.0))
                             .fontWeight(.bold)
 
@@ -74,12 +74,12 @@ struct GameView: View {
                 // Current turn info
                 VStack(spacing: 5) {
                     Text("Darts: \(gameState.dartsThrown)/3")
-                        .font(.custom("Oswald", size: 16))
+                        .font(.system(size: 16, weight: .medium))
                         .foregroundColor(Color(red: 0.91, green: 0.84, blue: 0.72))
 
                     if gameState.currentTurnScore > 0 {
                         Text("Turn: \(gameState.currentTurnScore)")
-                            .font(.custom("Oswald", size: 20))
+                            .font(.system(size: 20, weight: .medium))
                             .foregroundColor(Color(red: 1.0, green: 0.84, blue: 0.0))
                             .fontWeight(.bold)
                     }
@@ -88,7 +88,7 @@ struct GameView: View {
                     let currentScore = gameState.currentPlayer == 0 ? gameState.player1Score : gameState.player2Score
                     if let checkout = gameState.getCheckoutSuggestion(for: currentScore) {
                         Text("Checkout: \(checkout)")
-                            .font(.custom("Oswald", size: 14))
+                            .font(.system(size: 14, weight: .medium))
                             .foregroundColor(Color(red: 0.4, green: 0.8, blue: 0.4))
                     }
                 }
@@ -161,7 +161,7 @@ struct GameView: View {
                         HStack(spacing: 10) {
                             ForEach(Array(gameState.throwHistory[gameState.currentPlayer].enumerated()), id: \.offset) { index, throwDesc in
                                 Text(throwDesc)
-                                    .font(.custom("Oswald", size: 14))
+                                    .font(.system(size: 14, weight: .medium))
                                     .foregroundColor(Color(red: 0.91, green: 0.84, blue: 0.72))
                                     .padding(.horizontal, 12)
                                     .padding(.vertical, 6)
@@ -260,12 +260,12 @@ struct PlayerScoreView: View {
                 .font(.system(size: 28))
 
             Text(name)
-                .font(.custom("Oswald", size: 14))
+                .font(.system(size: 14, weight: .medium))
                 .foregroundColor(Color(red: 0.91, green: 0.84, blue: 0.72))
                 .lineLimit(1)
 
             Text("\(score)")
-                .font(.custom("Oswald", size: 32))
+                .font(.system(size: 32, weight: .medium))
                 .fontWeight(.bold)
                 .foregroundColor(isActive ? Color(red: 1.0, green: 0.84, blue: 0.0) : .white)
 
@@ -296,7 +296,7 @@ struct PowerBarView: View {
     var body: some View {
         VStack(spacing: 5) {
             Text("POWER: \(Int(power * 100))%")
-                .font(.custom("Oswald", size: 14))
+                .font(.system(size: 14, weight: .medium))
                 .foregroundColor(.white)
                 .fontWeight(.bold)
 
@@ -345,7 +345,7 @@ struct WinnerOverlay: View {
                     .font(.system(size: 80))
 
                 Text("\(winnerName) WINS!")
-                    .font(.custom("Oswald", size: 48))
+                    .font(.system(size: 48, weight: .medium))
                     .fontWeight(.bold)
                     .foregroundStyle(
                         LinearGradient(
@@ -359,7 +359,7 @@ struct WinnerOverlay: View {
                 HStack(spacing: 20) {
                     Button(action: onRematch) {
                         Text("REMATCH")
-                            .font(.custom("Oswald", size: 20))
+                            .font(.system(size: 20, weight: .medium))
                             .fontWeight(.bold)
                             .foregroundColor(.white)
                             .padding(.horizontal, 40)
@@ -376,7 +376,7 @@ struct WinnerOverlay: View {
 
                     Button(action: onMenu) {
                         Text("MENU")
-                            .font(.custom("Oswald", size: 20))
+                            .font(.system(size: 20, weight: .medium))
                             .fontWeight(.bold)
                             .foregroundColor(.white)
                             .padding(.horizontal, 40)
