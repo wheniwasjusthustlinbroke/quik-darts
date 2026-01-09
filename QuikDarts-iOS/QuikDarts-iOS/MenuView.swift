@@ -2,7 +2,7 @@ import SwiftUI
 
 // Country model for nationality selection
 struct Country: Identifiable {
-    let id = UUID()
+    var id: String { name }
     let name: String
     let flag: String
 }
