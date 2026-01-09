@@ -49,11 +49,7 @@ struct ContentView: View {
                 )
 
             case .achievements:
-                PlaceholderView(
-                    title: "🏆 ACHIEVEMENTS",
-                    message: "Coming Soon",
-                    onBack: { currentScreen = .menu }
-                )
+                AchievementsView(currentScreen: $currentScreen)
             }
         }
     }
