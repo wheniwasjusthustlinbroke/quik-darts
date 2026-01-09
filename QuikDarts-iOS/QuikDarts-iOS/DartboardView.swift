@@ -7,26 +7,25 @@ struct DartboardView: View {
     // Dartboard segments in clockwise order starting from top
     private static let segments = [20, 1, 18, 4, 13, 6, 10, 15, 2, 17, 3, 19, 7, 16, 8, 11, 14, 9, 12, 5]
 
-    // Colors
-    private static let blackColor = Color(red: 0.1, green: 0.1, blue: 0.1)
-    private static let whiteColor = Color(red: 0.95, green: 0.95, blue: 0.95)
+    // Colors - matched exactly to web version
+    private static let blackColor = Color(red: 0.039, green: 0.039, blue: 0.039) // #0a0a0a
+    private static let creamColor = Color(red: 0.96, green: 0.94, blue: 0.91) // #f5f0e8
     private static let redColor = Color(red: 0.85, green: 0.1, blue: 0.1)
     private static let greenColor = Color(red: 0.15, green: 0.6, blue: 0.2)
-    private static let creamColor = Color(red: 0.95, green: 0.93, blue: 0.85)
 
     var body: some View {
         Canvas { context, size in
             let center = CGPoint(x: size.width / 2, y: size.height / 2)
             let radius = min(size.width, size.height) / 2
-            let scale = radius / 170.0
+            let scale = radius / 172.0
 
-            // Ring radii (in mm, scaled)
+            // Ring radii (in mm, scaled) - matched exactly to web version
             let innerBullRadius = 8.0 * scale
             let outerBullRadius = 16.0 * scale
-            let tripleInner = 99.0 * scale
+            let tripleInner = 95.0 * scale
             let tripleOuter = 107.0 * scale
-            let doubleInner = 162.0 * scale
-            let doubleOuter = 170.0 * scale
+            let doubleInner = 160.0 * scale
+            let doubleOuter = 172.0 * scale
 
             // Draw outer board background
             context.fill(
@@ -47,7 +46,7 @@ struct DartboardView: View {
                     outerRadius: radius,
                     startAngle: angle,
                     endAngle: nextAngle,
-                    color: index % 2 == 0 ? Self.blackColor : Self.whiteColor
+                    color: index % 2 == 0 ? Self.blackColor : Self.creamColor
                 )
 
                 // Double ring
