@@ -96,7 +96,7 @@ struct DartboardView: View {
                 // Draw number
                 let numberAngle = angle + 9.0 // Center of segment
                 let numberRadius = (doubleOuter + radius) / 2
-                let radians = (90.0 - numberAngle) * .pi / 180.0
+                let radians = (numberAngle - 90.0) * .pi / 180.0
                 let numberX = center.x + cos(radians) * numberRadius
                 let numberY = center.y + sin(radians) * numberRadius
 
