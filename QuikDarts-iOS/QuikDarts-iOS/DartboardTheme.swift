@@ -143,14 +143,14 @@ extension DartboardTheme {
             boardBackground: Color(red: 0.102, green: 0.102, blue: 0.102)
         ),
         effects: DartboardThemeEffects(
-            useSisalTexture: true,
-            useWoodGrain: true,
-            useChromeGradient: true,
-            useBoardLighting: true,
+            useSisalTexture: false,          // Disabled for clean look
+            useWoodGrain: false,             // Disabled for clean look
+            useChromeGradient: false,        // Disabled for clean look
+            useBoardLighting: false,         // Disabled for clean look
             glowEffect: false,
             pulseAnimation: false,
-            wireWidth: 1.0,                                                    // Thinner wire
-            shadowIntensity: 0.3
+            wireWidth: 1.0,                  // Thin wire
+            shadowIntensity: 0               // Disabled for clean look
         )
     )
 

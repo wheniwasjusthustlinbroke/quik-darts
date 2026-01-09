@@ -104,14 +104,14 @@
         boardBackground: '#1a1a1a'
       },
       effects: {
-        useSisalTexture: true,
-        useWoodGrain: true,
-        useChromeGradient: true,
-        useBoardLighting: true,
+        useSisalTexture: false,           // Disabled to match iOS clean look
+        useWoodGrain: false,              // Disabled to match iOS clean look
+        useChromeGradient: false,         // Disabled to match iOS clean look
+        useBoardLighting: false,          // Disabled to match iOS clean look
         glowEffect: false,
         pulseAnimation: false,
-        wireWidth: 1.0,                  // Thinner wire (matches iOS)
-        shadowIntensity: 0.3
+        wireWidth: 1.0,                   // Matches iOS
+        shadowIntensity: 0                // Disabled to match iOS clean look
       }
     });
 
@@ -2424,10 +2424,8 @@
 
           const textStyle = effects.glowEffect ? { fontFamily: "'Oswald', sans-serif", filter: 'url(#neonGlow)' } : { fontFamily: "'Oswald', sans-serif" };
 
+          // Number text (no shadow to match iOS clean look)
           segments.push(
-            <text key={`text-shadow-${i}`} x={textX + 0.5} y={textY + 0.5} fill="rgba(0,0,0,0.5)" fontSize="16" fontWeight="bold" textAnchor="middle" dominantBaseline="middle" style={{ fontFamily: "'Oswald', sans-serif" }}>
-              {SEGMENTS[i]}
-            </text>,
             <text key={`text-${i}`} x={textX} y={textY} fill={colors.numberText} fontSize="16" fontWeight="bold" textAnchor="middle" dominantBaseline="middle" style={textStyle}>
               {SEGMENTS[i]}
             </text>
