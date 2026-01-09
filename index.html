@@ -119,24 +119,44 @@
 
       // Achievements system
       const [unlockedAchievements, setUnlockedAchievements] = useState(() => {
-        const saved = localStorage.getItem('quikdarts_achievements');
-        return saved ? JSON.parse(saved) : [];
+        try {
+          const saved = localStorage.getItem('quikdarts_achievements');
+          return saved ? JSON.parse(saved) : [];
+        } catch (error) {
+          console.error('Failed to load achievements from localStorage:', error);
+          return [];
+        }
       });
       const [achievementPopup, setAchievementPopup] = useState(null); // Currently showing achievement
       const [showAchievements, setShowAchievements] = useState(false); // Show achievements gallery
       const [achievementStats, setAchievementStats] = useState(() => {
-        const saved = localStorage.getItem('quikdarts_stats');
-        return saved ? JSON.parse(saved) : {
-          totalGamesPlayed: 0,
-          totalGamesWon: 0,
-          total180s: 0,
-          totalNineDarters: 0,
-          totalOnlineGames: 0,
-          totalOnlineWins: 0,
-          totalBulls: 0,
-          totalTriples: 0,
-          highestCheckout: 0
-        };
+        try {
+          const saved = localStorage.getItem('quikdarts_stats');
+          return saved ? JSON.parse(saved) : {
+            totalGamesPlayed: 0,
+            totalGamesWon: 0,
+            total180s: 0,
+            totalNineDarters: 0,
+            totalOnlineGames: 0,
+            totalOnlineWins: 0,
+            totalBulls: 0,
+            totalTriples: 0,
+            highestCheckout: 0
+          };
+        } catch (error) {
+          console.error('Failed to load achievement stats from localStorage:', error);
+          return {
+            totalGamesPlayed: 0,
+            totalGamesWon: 0,
+            total180s: 0,
+            totalNineDarters: 0,
+            totalOnlineGames: 0,
+            totalOnlineWins: 0,
+            totalBulls: 0,
+            totalTriples: 0,
+            highestCheckout: 0
+          };
+        }
       });
 
       const achievementsData = [
@@ -1618,7 +1638,12 @@
         // Add to unlocked list
         const newUnlocked = [...unlockedAchievements, achievementId];
         setUnlockedAchievements(newUnlocked);
-        localStorage.setItem('quikdarts_achievements', JSON.stringify(newUnlocked));
+
+        try {
+          localStorage.setItem('quikdarts_achievements', JSON.stringify(newUnlocked));
+        } catch (error) {
+          console.error('Failed to save achievements to localStorage:', error);
+        }
 
         // Show popup
         setAchievementPopup(achievement);
@@ -1703,7 +1728,13 @@
       const updateAchievementStats = useCallback((update) => {
         setAchievementStats(prev => {
           const newStats = { ...prev, ...update };
-          localStorage.setItem('quikdarts_stats', JSON.stringify(newStats));
+
+          try {
+            localStorage.setItem('quikdarts_stats', JSON.stringify(newStats));
+          } catch (error) {
+            console.error('Failed to save achievement stats to localStorage:', error);
+          }
+
           checkAchievements(newStats);
           return newStats;
         });
