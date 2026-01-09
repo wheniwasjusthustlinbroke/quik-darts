@@ -201,6 +201,7 @@
 
       const boardRef = useRef(null);
       const powerIntervalRef = useRef(null);
+      const matchmakingIntervalRef = useRef(null);
       const audioContext = useRef(null);
 
       const countries = [
@@ -566,10 +567,13 @@
             queueRef.child(myPlayerId).set(myQueueEntry);
 
             // Listen for when someone joins
-            const checkInterval = setInterval(() => {
+            matchmakingIntervalRef.current = setInterval(() => {
               database.ref(`games`).orderByChild('player1/id').equalTo(myPlayerId).once('value', (gameSnapshot) => {
                 if (gameSnapshot.exists()) {
-                  clearInterval(checkInterval);
+                  if (matchmakingIntervalRef.current) {
+                    clearInterval(matchmakingIntervalRef.current);
+                    matchmakingIntervalRef.current = null;
+                  }
                   queueRef.child(myPlayerId).remove();
 
                   const roomId = Object.keys(gameSnapshot.val())[0];
@@ -589,7 +593,10 @@
             // Timeout after 60 seconds
             setTimeout(() => {
               if (matchmakingState === 'searching') {
-                clearInterval(checkInterval);
+                if (matchmakingIntervalRef.current) {
+                  clearInterval(matchmakingIntervalRef.current);
+                  matchmakingIntervalRef.current = null;
+                }
                 queueRef.child(myPlayerId).remove();
                 cancelMatchmaking();
                 alert('No opponent found. Please try again.');
@@ -695,6 +702,12 @@
 
       // Cancel matchmaking
       const cancelMatchmaking = useCallback(() => {
+        // Clear matchmaking interval if it's running
+        if (matchmakingIntervalRef.current) {
+          clearInterval(matchmakingIntervalRef.current);
+          matchmakingIntervalRef.current = null;
+        }
+
         if (playerId && database) {
           database.ref('matchmaking_queue').child(playerId).remove();
         }
@@ -1354,6 +1367,7 @@
       useEffect(() => {
         return () => {
           if (powerIntervalRef.current) clearInterval(powerIntervalRef.current);
+          if (matchmakingIntervalRef.current) clearInterval(matchmakingIntervalRef.current);
         };
       }, []);
 
