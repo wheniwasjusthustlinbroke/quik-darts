@@ -53,6 +53,27 @@ class GameStateManager: ObservableObject {
     let outerBull: Double = 16
     let innerBull: Double = 8
 
+    // Static checkouts dictionary to avoid recreating on every function call
+    private static let checkoutsData: [Int: String] = [
+        170: "T20 → T20 → Bull",
+        167: "T20 → T19 → Bull",
+        164: "T20 → T18 → Bull",
+        161: "T20 → T17 → Bull",
+        160: "T20 → T20 → D20",
+        158: "T20 → T20 → D19",
+        157: "T20 → T19 → D20",
+        156: "T20 → T20 → D18",
+        155: "T20 → T19 → D19",
+        154: "T20 → T18 → D20",
+        153: "T20 → T19 → D18",
+        152: "T20 → T20 → D16",
+        151: "T20 → T17 → D20",
+        150: "T20 → T18 → D18",
+        50: "D25 (Bull)",
+        40: "D20",
+        32: "D16"
+    ]
+
     func setupGame(
         mode: Int,
         legsToWin: Int = 2,
@@ -289,29 +310,7 @@ class GameStateManager: ObservableObject {
     // Calculate suggested checkouts
     func getCheckoutSuggestion(for score: Int) -> String? {
         if score > 170 { return nil }
-
-        let checkouts: [Int: String] = [
-            170: "T20 → T20 → Bull",
-            167: "T20 → T19 → Bull",
-            164: "T20 → T18 → Bull",
-            161: "T20 → T17 → Bull",
-            160: "T20 → T20 → D20",
-            158: "T20 → T20 → D19",
-            157: "T20 → T19 → D20",
-            156: "T20 → T20 → D18",
-            155: "T20 → T19 → D19",
-            154: "T20 → T18 → D20",
-            153: "T20 → T19 → D18",
-            152: "T20 → T20 → D16",
-            151: "T20 → T17 → D20",
-            150: "T20 → T18 → D18",
-            // Add more checkouts as needed
-            50: "D25 (Bull)",
-            40: "D20",
-            32: "D16"
-        ]
-
-        return checkouts[score]
+        return Self.checkoutsData[score]
     }
 }
 
