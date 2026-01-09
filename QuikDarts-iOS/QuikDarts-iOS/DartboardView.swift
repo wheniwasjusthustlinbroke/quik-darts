@@ -12,12 +12,14 @@ struct DartboardView: View {
     private static let creamColor = Color(red: 0.96, green: 0.94, blue: 0.91) // #f5f0e8
     private static let redColor = Color(red: 0.85, green: 0.1, blue: 0.1)
     private static let greenColor = Color(red: 0.15, green: 0.6, blue: 0.2)
+    private static let chromeLight = Color(red: 0.94, green: 0.94, blue: 0.94)
+    private static let chromeDark = Color(red: 0.69, green: 0.69, blue: 0.69)
 
     var body: some View {
         Canvas { context, size in
             let center = CGPoint(x: size.width / 2, y: size.height / 2)
             let radius = min(size.width, size.height) / 2
-            let scale = radius / 172.0
+            let scale = radius / 180.0 // Include outer chrome ring in scaling
 
             // Ring radii (in mm, scaled) - matched exactly to web version
             let innerBullRadius = 8.0 * scale
@@ -26,10 +28,45 @@ struct DartboardView: View {
             let tripleOuter = 107.0 * scale
             let doubleInner = 160.0 * scale
             let doubleOuter = 172.0 * scale
+            let chromeInner = doubleOuter + 2.0 * scale
+            let chromeOuter = doubleOuter + 8.0 * scale
 
             // Draw outer board background
             context.fill(
                 Path(ellipseIn: CGRect(x: center.x - radius, y: center.y - radius, width: radius * 2, height: radius * 2)),
+                with: .color(Self.blackColor)
+            )
+
+            // Draw chrome outer ring (brass/gold ring around dartboard)
+            context.fill(
+                Path(ellipseIn: CGRect(
+                    x: center.x - chromeOuter,
+                    y: center.y - chromeOuter,
+                    width: chromeOuter * 2,
+                    height: chromeOuter * 2
+                )),
+                with: .color(Self.chromeDark)
+            )
+
+            // Chrome highlight for depth/shine effect
+            context.fill(
+                Path(ellipseIn: CGRect(
+                    x: center.x - chromeOuter,
+                    y: center.y - chromeOuter - 2,
+                    width: chromeOuter * 2,
+                    height: chromeOuter * 2
+                )),
+                with: .color(Self.chromeLight.opacity(0.4))
+            )
+
+            // Inner edge of chrome ring
+            context.fill(
+                Path(ellipseIn: CGRect(
+                    x: center.x - chromeInner,
+                    y: center.y - chromeInner,
+                    width: chromeInner * 2,
+                    height: chromeInner * 2
+                )),
                 with: .color(Self.blackColor)
             )
 
@@ -43,7 +80,7 @@ struct DartboardView: View {
                     context: context,
                     center: center,
                     innerRadius: doubleOuter,
-                    outerRadius: radius,
+                    outerRadius: chromeInner,
                     startAngle: angle,
                     endAngle: nextAngle,
                     color: index % 2 == 0 ? Self.blackColor : Self.creamColor
@@ -93,15 +130,15 @@ struct DartboardView: View {
                     color: index % 2 == 0 ? Self.blackColor : Self.creamColor
                 )
 
-                // Draw number
+                // Draw number - positioned in chrome ring area
                 let numberAngle = angle + 9.0 // Center of segment
-                let numberRadius = (doubleOuter + radius) / 2
+                let numberRadius = chromeInner + (chromeOuter - chromeInner) / 2
                 let radians = (numberAngle - 90.0) * .pi / 180.0
                 let numberX = center.x + cos(radians) * numberRadius
                 let numberY = center.y + sin(radians) * numberRadius
 
                 let text = Text("\(segmentValue)")
-                    .font(.system(size: radius * 0.12, weight: .bold))
+                    .font(.system(size: chromeOuter * 0.14, weight: .bold))
                     .foregroundColor(.white)
 
                 context.draw(text, at: CGPoint(x: numberX, y: numberY))
