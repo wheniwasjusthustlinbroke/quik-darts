@@ -42,10 +42,9 @@ struct ContentView: View {
                 )
 
             case .practiceSelection:
-                PlaceholderView(
-                    title: "🎯 PRACTICE MODE",
-                    message: "Coming Soon",
-                    onBack: { currentScreen = .menu }
+                PracticeSelectionView(
+                    currentScreen: $currentScreen,
+                    gameState: gameState
                 )
 
             case .achievements:
