@@ -274,7 +274,9 @@ struct MenuView: View {
                                             Text(level.1)
                                                 .font(.system(size: 24))
                                             Text(level.0.uppercased())
-                                                .font(.system(size: 12, weight: .bold))
+                                                .font(.system(size: 10, weight: .bold))
+                                                .lineLimit(1)
+                                                .minimumScaleFactor(0.6)
                                         }
                                         .foregroundColor(skillLevel == level.0 ? .white : Color(red: 0.91, green: 0.84, blue: 0.72).opacity(0.6))
                                         .frame(maxWidth: .infinity)
