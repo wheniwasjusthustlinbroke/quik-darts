@@ -90,7 +90,6 @@ struct PlaceholderView: View {
                 Button(action: onBack) {
                     Text("BACK TO MENU")
                         .font(.system(size: 20, weight: .bold))
-                        .fontWeight(.bold)
                         .foregroundColor(.white)
                         .padding(.horizontal, 40)
                         .padding(.vertical, 15)
