@@ -2457,6 +2457,28 @@
           !effects.glowEffect && effects.shadowIntensity > 0.1 && <ellipse key="inner-bull-shine" cx={CENTER - 2} cy={CENTER - 2} rx={INNER_BULL * 0.4} ry={INNER_BULL * 0.3} fill="rgba(255,255,255,0.4)" />
         );
 
+        // Spider wire overlay - 20 radial spokes + 5 concentric ring circles
+        // This matches iOS DartboardView exactly for pixel-perfect cross-platform consistency
+        // Draw radial spoke wires from outer bull to double outer (on segment boundaries)
+        for (let i = 0; i < 20; i++) {
+          const angle = (i * 18 - 99) * (Math.PI / 180);
+          const x1 = CENTER + OUTER_BULL * Math.cos(angle);
+          const y1 = CENTER + OUTER_BULL * Math.sin(angle);
+          const x2 = CENTER + DOUBLE_OUTER * Math.cos(angle);
+          const y2 = CENTER + DOUBLE_OUTER * Math.sin(angle);
+
+          segments.push(
+            <line key={`spider-wire-${i}`} x1={x1} y1={y1} x2={x2} y2={y2} stroke={colors.wireColor} strokeWidth={effects.wireWidth} />
+          );
+        }
+
+        // Draw concentric ring wires at all scoring boundaries
+        [OUTER_BULL, TRIPLE_INNER, TRIPLE_OUTER, DOUBLE_INNER, DOUBLE_OUTER].forEach((radius, idx) => {
+          segments.push(
+            <circle key={`ring-wire-${idx}`} cx={CENTER} cy={CENTER} r={radius} fill="none" stroke={colors.wireColor} strokeWidth={effects.wireWidth} />
+          );
+        });
+
         // Neon glow overlay for wire segments
         if (effects.glowEffect && colors.neonPrimary) {
           // Draw glowing wire overlay
