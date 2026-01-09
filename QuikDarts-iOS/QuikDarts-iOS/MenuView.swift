@@ -558,7 +558,11 @@ struct PlayerConfigView: View {
             // Name input
             TextField("Player \(playerNumber)", text: Binding(
                 get: { name },
-                set: { name = String($0.prefix(20)) } // Limit to 20 characters
+                set: {
+                    // Limit to 20 characters and remove dangerous characters
+                    let sanitized = String($0.prefix(20)).replacingOccurrences(of: "<", with: "").replacingOccurrences(of: ">", with: "")
+                    name = sanitized
+                }
             ))
                 .font(.system(size: 18, weight: .medium))
                 .foregroundColor(Color(red: 0.91, green: 0.84, blue: 0.72))
