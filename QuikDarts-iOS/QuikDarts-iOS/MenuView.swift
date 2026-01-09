@@ -442,7 +442,8 @@ struct MenuView: View {
                                 countries: countries,
                                 isAI: $player1IsAI,
                                 aiDifficulty: $player1AIDifficulty,
-                                aiDifficulties: aiDifficulties
+                                aiDifficulties: aiDifficulties,
+                                numberOfPlayers: numberOfPlayers
                             )
                         }
 
@@ -455,7 +456,8 @@ struct MenuView: View {
                                 countries: countries,
                                 isAI: $player2IsAI,
                                 aiDifficulty: $player2AIDifficulty,
-                                aiDifficulties: aiDifficulties
+                                aiDifficulties: aiDifficulties,
+                                numberOfPlayers: numberOfPlayers
                             )
                         }
 
@@ -468,7 +470,8 @@ struct MenuView: View {
                                 countries: countries,
                                 isAI: $player3IsAI,
                                 aiDifficulty: $player3AIDifficulty,
-                                aiDifficulties: aiDifficulties
+                                aiDifficulties: aiDifficulties,
+                                numberOfPlayers: numberOfPlayers
                             )
                         }
 
@@ -481,7 +484,8 @@ struct MenuView: View {
                                 countries: countries,
                                 isAI: $player4IsAI,
                                 aiDifficulty: $player4AIDifficulty,
-                                aiDifficulties: aiDifficulties
+                                aiDifficulties: aiDifficulties,
+                                numberOfPlayers: numberOfPlayers
                             )
                         }
                     }
@@ -542,6 +546,7 @@ struct PlayerConfigView: View {
     @Binding var isAI: Bool
     @Binding var aiDifficulty: String
     let aiDifficulties: [String]
+    let numberOfPlayers: Int
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -586,61 +591,63 @@ struct PlayerConfigView: View {
                 .cornerRadius(10)
             }
 
-            // AI Opponent Toggle
-            HStack {
-                Text("AI OPPONENT")
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundColor(Color(red: 0.53, green: 0.53, blue: 0.53))
-                    .tracking(1)
-
-                Spacer()
-
-                Button(action: {
-                    isAI.toggle()
-                    if isAI && aiDifficulty.isEmpty {
-                        aiDifficulty = "medium"
-                    }
-                }) {
-                    Text(isAI ? "ON" : "OFF")
-                        .font(.system(size: 14, weight: .bold))
-                        .foregroundColor(.white)
-                        .padding(.horizontal, 20)
-                        .padding(.vertical, 8)
-                        .background(isAI ? Color(red: 0.15, green: 0.6, blue: 0.2) : Color.white.opacity(0.1))
-                        .cornerRadius(8)
-                }
-            }
-            .padding(.top, 5)
-
-            // AI Difficulty Selector (only shown when AI is ON)
-            if isAI {
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("DIFFICULTY")
-                        .font(.system(size: 12, weight: .medium))
+            // AI Opponent Toggle (only shown when numberOfPlayers > 1)
+            if numberOfPlayers > 1 {
+                HStack {
+                    Text("AI OPPONENT")
+                        .font(.system(size: 13, weight: .medium))
                         .foregroundColor(Color(red: 0.53, green: 0.53, blue: 0.53))
                         .tracking(1)
 
-                    HStack(spacing: 6) {
-                        ForEach(aiDifficulties, id: \.self) { difficulty in
-                            Button(action: {
-                                aiDifficulty = difficulty
-                            }) {
-                                Text(difficulty.uppercased())
-                                    .font(.system(size: 12, weight: .bold))
-                                    .foregroundColor(aiDifficulty == difficulty ? Color(red: 0.1, green: 0.1, blue: 0.18) : Color(red: 0.91, green: 0.84, blue: 0.72).opacity(0.6))
-                                    .frame(maxWidth: .infinity)
-                                    .padding(.vertical, 10)
-                                    .background(
-                                        aiDifficulty == difficulty ?
-                                        Color(red: 1.0, green: 0.84, blue: 0.0) :
-                                        Color.white.opacity(0.1)
-                                    )
-                                    .cornerRadius(8)
-                            }
+                    Spacer()
+
+                    Button(action: {
+                        isAI.toggle()
+                        if isAI && aiDifficulty.isEmpty {
+                            aiDifficulty = "medium"
                         }
+                    }) {
+                        Text(isAI ? "ON" : "OFF")
+                            .font(.system(size: 14, weight: .bold))
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 20)
+                            .padding(.vertical, 8)
+                            .background(isAI ? Color(red: 0.15, green: 0.6, blue: 0.2) : Color.white.opacity(0.1))
+                            .cornerRadius(8)
                     }
                 }
                 .padding(.top, 5)
+
+                // AI Difficulty Selector (only shown when AI is ON)
+                if isAI {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("DIFFICULTY")
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundColor(Color(red: 0.53, green: 0.53, blue: 0.53))
+                            .tracking(1)
+
+                        HStack(spacing: 6) {
+                            ForEach(aiDifficulties, id: \.self) { difficulty in
+                                Button(action: {
+                                    aiDifficulty = difficulty
+                                }) {
+                                    Text(difficulty.uppercased())
+                                        .font(.system(size: 12, weight: .bold))
+                                        .foregroundColor(aiDifficulty == difficulty ? Color(red: 0.1, green: 0.1, blue: 0.18) : Color(red: 0.91, green: 0.84, blue: 0.72).opacity(0.6))
+                                        .frame(maxWidth: .infinity)
+                                        .padding(.vertical, 10)
+                                        .background(
+                                            aiDifficulty == difficulty ?
+                                            Color(red: 1.0, green: 0.84, blue: 0.0) :
+                                            Color.white.opacity(0.1)
+                                        )
+                                        .cornerRadius(8)
+                                }
+                            }
+                        }
+                    }
+                    .padding(.top, 5)
+                }
             }
         }
     }
