@@ -542,14 +542,16 @@
                 name: opponentData.name,
                 flag: opponentData.flag,
                 score: playerSetup.gameMode,
-                ready: true
+                ready: true,
+                connected: true
               },
               player2: {
                 id: myPlayerId,
                 name: sanitizeName(playerSetup.names[0]) || 'Player 2',
                 flag: playerSetup.flags[0] || '🌍',
                 score: playerSetup.gameMode,
-                ready: true
+                ready: true,
+                connected: true
               },
               currentPlayer: 0,
               gameMode: playerSetup.gameMode,
@@ -563,8 +565,8 @@
               createdAt: firebase.database.ServerValue.TIMESTAMP
             });
 
-            // Auto-cleanup: Remove game if this player disconnects
-            gameRoomRef.current.onDisconnect().remove();
+            // Set player2 (me) as disconnected if I leave (opponent will be notified)
+            gameRoomRef.current.child('player2/connected').onDisconnect().set(false);
 
             setOpponentName(opponentData.name);
             setOpponentFlag(opponentData.flag);
@@ -719,6 +721,13 @@
         const roomRef = database.ref(`games/${roomId}`);
         gameRoomRef.current = roomRef;
 
+        // Set my presence as connected
+        const myPlayerKey = playerIndex === 0 ? 'player1' : 'player2';
+        roomRef.child(`${myPlayerKey}/connected`).set(true);
+
+        // Auto-disconnect presence when I leave
+        roomRef.child(`${myPlayerKey}/connected`).onDisconnect().set(false);
+
         roomRef.on('value', (snapshot) => {
           const gameData = snapshot.val();
           if (!gameData) return;
@@ -726,6 +735,13 @@
           // Update local game state from Firebase
           const myPlayer = playerIndex === 0 ? gameData.player1 : gameData.player2;
           const opponent = playerIndex === 0 ? gameData.player2 : gameData.player1;
+
+          // Check if opponent disconnected
+          if (opponent.connected === false && !gameData.winner) {
+            alert(`${opponent.name} has disconnected. Returning to menu.`);
+            cancelMatchmaking();
+            return;
+          }
 
           setPlayers([
             {
