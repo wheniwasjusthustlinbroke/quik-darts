@@ -2034,6 +2034,14 @@
             </div>
             
             <div style={{ background: 'rgba(255, 255, 255, 0.05)', borderRadius: '20px', padding: '40px', backdropFilter: 'blur(10px)', border: '1px solid rgba(255, 215, 0, 0.2)', width: '100%', maxWidth: '450px' }}>
+              <button onClick={startGame} style={{ width: '100%', padding: '20px', fontSize: '24px', fontWeight: '700', background: 'linear-gradient(135deg, #c41e3a, #e74c3c)', color: '#fff', border: 'none', borderRadius: '15px', cursor: 'pointer', fontFamily: "'Oswald', sans-serif", letterSpacing: '4px', textTransform: 'uppercase', boxShadow: '0 4px 15px rgba(196, 30, 58, 0.4)', marginBottom: '15px' }}>🎯 Start Game</button>
+
+              <button onClick={startMatchmaking} style={{ width: '100%', padding: '20px', fontSize: '24px', fontWeight: '700', background: 'linear-gradient(135deg, #4a90e2, #357abd)', color: '#fff', border: 'none', borderRadius: '15px', cursor: 'pointer', fontFamily: "'Oswald', sans-serif", letterSpacing: '4px', textTransform: 'uppercase', boxShadow: '0 4px 15px rgba(74, 144, 226, 0.4)', marginBottom: '15px' }}>🌍 Play Online</button>
+
+              <button onClick={enterPracticeMode} style={{ width: '100%', padding: '20px', fontSize: '24px', fontWeight: '700', background: 'linear-gradient(135deg, #9b59b6, #8e44ad)', color: '#fff', border: 'none', borderRadius: '15px', cursor: 'pointer', fontFamily: "'Oswald', sans-serif", letterSpacing: '4px', textTransform: 'uppercase', boxShadow: '0 4px 15px rgba(155, 89, 182, 0.4)', marginBottom: '15px' }}>🎯 Practice Mode</button>
+
+              <button onClick={() => setShowAchievements(true)} style={{ width: '100%', padding: '20px', fontSize: '24px', fontWeight: '700', background: 'linear-gradient(135deg, #f39c12, #e67e22)', color: '#fff', border: 'none', borderRadius: '15px', cursor: 'pointer', fontFamily: "'Oswald', sans-serif", letterSpacing: '4px', textTransform: 'uppercase', boxShadow: '0 4px 15px rgba(243, 156, 18, 0.4)', marginBottom: '30px' }}>🏆 Achievements</button>
+
               <div style={{ marginBottom: '30px' }}>
                 <label style={{ color: '#ffd700', fontSize: '14px', letterSpacing: '2px', display: 'block', marginBottom: '10px' }}>GAME MODE</label>
                 <div style={{ display: 'flex', gap: '10px' }}>
@@ -2190,18 +2198,10 @@
                 </div>
               </div>
               
-              <div style={{ marginBottom: '30px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <span style={{ color: '#e8d5b7', fontSize: '14px', letterSpacing: '2px' }}>SOUND EFFECTS</span>
                 <button onClick={() => setSoundEnabled(!soundEnabled)} style={{ padding: '10px 20px', background: soundEnabled ? 'linear-gradient(135deg, #228b22, #32cd32)' : 'rgba(255, 255, 255, 0.1)', color: soundEnabled ? '#fff' : '#888', border: 'none', borderRadius: '20px', cursor: 'pointer', fontFamily: "'Oswald', sans-serif", fontSize: '14px' }}>{soundEnabled ? 'ON' : 'OFF'}</button>
               </div>
-
-              <button onClick={startGame} style={{ width: '100%', padding: '20px', fontSize: '24px', fontWeight: '700', background: 'linear-gradient(135deg, #c41e3a, #e74c3c)', color: '#fff', border: 'none', borderRadius: '15px', cursor: 'pointer', fontFamily: "'Oswald', sans-serif", letterSpacing: '4px', textTransform: 'uppercase', boxShadow: '0 4px 15px rgba(196, 30, 58, 0.4)', marginBottom: '15px' }}>🎯 Start Game</button>
-
-              <button onClick={startMatchmaking} style={{ width: '100%', padding: '20px', fontSize: '24px', fontWeight: '700', background: 'linear-gradient(135deg, #4a90e2, #357abd)', color: '#fff', border: 'none', borderRadius: '15px', cursor: 'pointer', fontFamily: "'Oswald', sans-serif", letterSpacing: '4px', textTransform: 'uppercase', boxShadow: '0 4px 15px rgba(74, 144, 226, 0.4)', marginBottom: '15px' }}>🌍 Play Online</button>
-
-              <button onClick={enterPracticeMode} style={{ width: '100%', padding: '20px', fontSize: '24px', fontWeight: '700', background: 'linear-gradient(135deg, #9b59b6, #8e44ad)', color: '#fff', border: 'none', borderRadius: '15px', cursor: 'pointer', fontFamily: "'Oswald', sans-serif", letterSpacing: '4px', textTransform: 'uppercase', boxShadow: '0 4px 15px rgba(155, 89, 182, 0.4)', marginBottom: '15px' }}>🎯 Practice Mode</button>
-
-              <button onClick={() => setShowAchievements(true)} style={{ width: '100%', padding: '20px', fontSize: '24px', fontWeight: '700', background: 'linear-gradient(135deg, #f39c12, #e67e22)', color: '#fff', border: 'none', borderRadius: '15px', cursor: 'pointer', fontFamily: "'Oswald', sans-serif", letterSpacing: '4px', textTransform: 'uppercase', boxShadow: '0 4px 15px rgba(243, 156, 18, 0.4)' }}>🏆 Achievements</button>
             </div>
             
             <p style={{ color: '#666', marginTop: '30px', fontSize: '14px' }}>Hold mouse to charge power • Release to throw</p>
