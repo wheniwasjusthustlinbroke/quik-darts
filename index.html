@@ -1724,7 +1724,7 @@
       const renderDartboard = () => {
         const segments = [];
 
-        // Add SVG gradients for 3D effects
+        // Add SVG gradients and textures for 3D effects
         segments.push(
           <defs key="gradients">
             {/* Radial gradient for board lighting (brighter in center) */}
@@ -1749,12 +1749,33 @@
               <stop offset="85%" stopColor="#d0d0d0" />
               <stop offset="100%" stopColor="#b0b0b0" />
             </linearGradient>
+
+            {/* Sisal/Cork texture pattern for board segments */}
+            <pattern id="sisalTexture" x="0" y="0" width="4" height="4" patternUnits="userSpaceOnUse">
+              <rect width="4" height="4" fill="rgba(0,0,0,0)" />
+              <circle cx="1" cy="1" r="0.3" fill="rgba(0,0,0,0.08)" />
+              <circle cx="3" cy="2" r="0.3" fill="rgba(0,0,0,0.06)" />
+              <circle cx="2" cy="3" r="0.3" fill="rgba(0,0,0,0.07)" />
+              <circle cx="0.5" cy="3.5" r="0.2" fill="rgba(255,255,255,0.03)" />
+              <circle cx="3.5" cy="0.5" r="0.2" fill="rgba(255,255,255,0.03)" />
+            </pattern>
+
+            {/* Wood grain pattern for outer ring */}
+            <pattern id="woodGrain" x="0" y="0" width="20" height="100" patternUnits="userSpaceOnUse" patternTransform="rotate(90)">
+              <rect width="20" height="100" fill="rgba(80,60,40,0.1)" />
+              <path d="M 0 10 Q 5 15, 10 10 T 20 10" stroke="rgba(60,40,20,0.15)" strokeWidth="0.5" fill="none" />
+              <path d="M 0 30 Q 5 28, 10 30 T 20 30" stroke="rgba(60,40,20,0.1)" strokeWidth="0.3" fill="none" />
+              <path d="M 0 50 Q 5 55, 10 50 T 20 50" stroke="rgba(60,40,20,0.12)" strokeWidth="0.4" fill="none" />
+              <path d="M 0 70 Q 5 68, 10 70 T 20 70" stroke="rgba(60,40,20,0.1)" strokeWidth="0.3" fill="none" />
+              <path d="M 0 90 Q 5 92, 10 90 T 20 90" stroke="rgba(60,40,20,0.08)" strokeWidth="0.3" fill="none" />
+            </pattern>
           </defs>
         );
 
-        // Chrome outer ring
+        // Chrome outer ring with wood grain
         segments.push(
           <circle key="chrome-ring" cx={CENTER} cy={CENTER} r={DOUBLE_OUTER + 8} fill="url(#chromeGradient)" />,
+          <circle key="chrome-wood" cx={CENTER} cy={CENTER} r={DOUBLE_OUTER + 8} fill="url(#woodGrain)" opacity="0.3" />,
           <circle key="chrome-ring-inner" cx={CENTER} cy={CENTER} r={DOUBLE_OUTER + 2} fill="#1a1a1a" />
         );
 
@@ -1785,15 +1806,19 @@
           segments.push(
             <path key={`shadow-outer-${i}`} d={createArc(TRIPLE_OUTER, DOUBLE_INNER, baseColor)} fill="rgba(0,0,0,0.2)" transform={`translate(${shadowOffset}, ${shadowOffset})`} />,
             <path key={`outer-${i}`} d={createArc(TRIPLE_OUTER, DOUBLE_INNER, baseColor)} fill={baseColor} stroke="#2a2a2a" strokeWidth="1.5" />,
+            <path key={`texture-outer-${i}`} d={createArc(TRIPLE_OUTER, DOUBLE_INNER, baseColor)} fill="url(#sisalTexture)" stroke="none" />,
 
             <path key={`shadow-double-${i}`} d={createArc(DOUBLE_INNER, DOUBLE_OUTER, doubleColor)} fill="rgba(0,0,0,0.3)" transform={`translate(${shadowOffset}, ${shadowOffset})`} />,
             <path key={`double-${i}`} d={createArc(DOUBLE_INNER, DOUBLE_OUTER, doubleColor)} fill={doubleColor} stroke="#2a2a2a" strokeWidth="1.5" />,
+            <path key={`texture-double-${i}`} d={createArc(DOUBLE_INNER, DOUBLE_OUTER, doubleColor)} fill="url(#sisalTexture)" stroke="none" />,
 
             <path key={`shadow-inner-${i}`} d={createArc(OUTER_BULL, TRIPLE_INNER, baseColor)} fill="rgba(0,0,0,0.2)" transform={`translate(${shadowOffset}, ${shadowOffset})`} />,
             <path key={`inner-${i}`} d={createArc(OUTER_BULL, TRIPLE_INNER, baseColor)} fill={baseColor} stroke="#2a2a2a" strokeWidth="1.5" />,
+            <path key={`texture-inner-${i}`} d={createArc(OUTER_BULL, TRIPLE_INNER, baseColor)} fill="url(#sisalTexture)" stroke="none" />,
 
             <path key={`shadow-triple-${i}`} d={createArc(TRIPLE_INNER, TRIPLE_OUTER, tripleColor)} fill="rgba(0,0,0,0.3)" transform={`translate(${shadowOffset}, ${shadowOffset})`} />,
-            <path key={`triple-${i}`} d={createArc(TRIPLE_INNER, TRIPLE_OUTER, tripleColor)} fill={tripleColor} stroke="#2a2a2a" strokeWidth="1.5" />
+            <path key={`triple-${i}`} d={createArc(TRIPLE_INNER, TRIPLE_OUTER, tripleColor)} fill={tripleColor} stroke="#2a2a2a" strokeWidth="1.5" />,
+            <path key={`texture-triple-${i}`} d={createArc(TRIPLE_INNER, TRIPLE_OUTER, tripleColor)} fill="url(#sisalTexture)" stroke="none" />
           );
 
           // Wire dividers with highlight (catches light on top edge)
@@ -1820,12 +1845,14 @@
           );
         }
 
-        // Bulls with raised 3D effect
+        // Bulls with raised 3D effect and texture
         segments.push(
           // Outer bull shadow
           <circle key="outer-bull-shadow" cx={CENTER + 1} cy={CENTER + 1} r={OUTER_BULL} fill="rgba(0,0,0,0.3)" />,
           // Outer bull (green)
           <circle key="outer-bull" cx={CENTER} cy={CENTER} r={OUTER_BULL} fill="#0d6b2e" stroke="#2a2a2a" strokeWidth="1.5" />,
+          // Outer bull texture
+          <circle key="outer-bull-texture" cx={CENTER} cy={CENTER} r={OUTER_BULL} fill="url(#sisalTexture)" stroke="none" />,
           // Outer bull highlight for raised effect
           <circle key="outer-bull-highlight" cx={CENTER} cy={CENTER} r={OUTER_BULL} fill="url(#bullGradient)" />,
 
@@ -1833,6 +1860,8 @@
           <circle key="inner-bull-shadow" cx={CENTER + 1} cy={CENTER + 1} r={INNER_BULL} fill="rgba(0,0,0,0.4)" />,
           // Inner bull (red)
           <circle key="inner-bull" cx={CENTER} cy={CENTER} r={INNER_BULL} fill="#b8232a" stroke="#2a2a2a" strokeWidth="1.5" />,
+          // Inner bull texture
+          <circle key="inner-bull-texture" cx={CENTER} cy={CENTER} r={INNER_BULL} fill="url(#sisalTexture)" stroke="none" />,
           // Inner bull highlight for shine
           <ellipse key="inner-bull-shine" cx={CENTER - 2} cy={CENTER - 2} rx={INNER_BULL * 0.4} ry={INNER_BULL * 0.3} fill="rgba(255,255,255,0.4)" />
         );
