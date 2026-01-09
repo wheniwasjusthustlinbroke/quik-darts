@@ -54,7 +54,7 @@
     const BOARD_SIZE = 500;
     const CENTER = BOARD_SIZE / 2;
     const SEGMENTS = [20, 1, 18, 4, 13, 6, 10, 15, 2, 17, 3, 19, 7, 16, 8, 11, 14, 9, 12, 5];
-    const SEGMENT_COLORS = ['#1a1a2e', '#e8d5b7'];
+    const SEGMENT_COLORS = ['#0a0a0a', '#f5f0e8']; // Deep black and cream (more realistic)
     const TRIPLE_INNER = 95;
     const TRIPLE_OUTER = 107;
     const DOUBLE_INNER = 160;
@@ -1723,11 +1723,45 @@
 
       const renderDartboard = () => {
         const segments = [];
-        
+
+        // Add SVG gradients for 3D effects
+        segments.push(
+          <defs key="gradients">
+            {/* Radial gradient for board lighting (brighter in center) */}
+            <radialGradient id="boardLighting" cx="50%" cy="45%">
+              <stop offset="0%" stopColor="rgba(255,255,255,0.15)" />
+              <stop offset="60%" stopColor="rgba(255,255,255,0.05)" />
+              <stop offset="100%" stopColor="rgba(0,0,0,0.1)" />
+            </radialGradient>
+            {/* Gradient for raised bullseye */}
+            <radialGradient id="bullGradient" cx="40%" cy="40%">
+              <stop offset="0%" stopColor="rgba(255,255,255,0.3)" />
+              <stop offset="70%" stopColor="rgba(0,0,0,0)" />
+              <stop offset="100%" stopColor="rgba(0,0,0,0.3)" />
+            </radialGradient>
+            {/* Chrome effect for outer ring */}
+            <linearGradient id="chromeGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+              <stop offset="0%" stopColor="#f0f0f0" />
+              <stop offset="15%" stopColor="#ffffff" />
+              <stop offset="30%" stopColor="#c0c0c0" />
+              <stop offset="50%" stopColor="#e8e8e8" />
+              <stop offset="70%" stopColor="#a0a0a0" />
+              <stop offset="85%" stopColor="#d0d0d0" />
+              <stop offset="100%" stopColor="#b0b0b0" />
+            </linearGradient>
+          </defs>
+        );
+
+        // Chrome outer ring
+        segments.push(
+          <circle key="chrome-ring" cx={CENTER} cy={CENTER} r={DOUBLE_OUTER + 8} fill="url(#chromeGradient)" />,
+          <circle key="chrome-ring-inner" cx={CENTER} cy={CENTER} r={DOUBLE_OUTER + 2} fill="#1a1a1a" />
+        );
+
         for (let i = 0; i < 20; i++) {
           const startAngle = (i * 18 - 99) * (Math.PI / 180);
           const endAngle = ((i + 1) * 18 - 99) * (Math.PI / 180);
-          
+
           const createArc = (innerR, outerR, color) => {
             const x1 = CENTER + innerR * Math.cos(startAngle);
             const y1 = CENTER + innerR * Math.sin(startAngle);
@@ -1737,37 +1771,77 @@
             const y3 = CENTER + outerR * Math.sin(endAngle);
             const x4 = CENTER + innerR * Math.cos(endAngle);
             const y4 = CENTER + innerR * Math.sin(endAngle);
-            
+
             return `M ${x1} ${y1} L ${x2} ${y2} A ${outerR} ${outerR} 0 0 1 ${x3} ${y3} L ${x4} ${y4} A ${innerR} ${innerR} 0 0 0 ${x1} ${y1}`;
           };
-          
+
           const baseColor = SEGMENT_COLORS[i % 2];
-          const doubleColor = i % 2 === 0 ? '#c41e3a' : '#228b22';
-          const tripleColor = i % 2 === 0 ? '#c41e3a' : '#228b22';
-          
+          // Realistic Winmau colors
+          const doubleColor = i % 2 === 0 ? '#b8232a' : '#0d6b2e'; // Deep red and green
+          const tripleColor = i % 2 === 0 ? '#b8232a' : '#0d6b2e';
+
+          // Add subtle shadow to each segment for depth
+          const shadowOffset = 0.5;
           segments.push(
-            <path key={`outer-${i}`} d={createArc(TRIPLE_OUTER, DOUBLE_INNER, baseColor)} fill={baseColor} stroke="#b8860b" strokeWidth="0.5" />,
-            <path key={`double-${i}`} d={createArc(DOUBLE_INNER, DOUBLE_OUTER, doubleColor)} fill={doubleColor} stroke="#b8860b" strokeWidth="0.5" />,
-            <path key={`inner-${i}`} d={createArc(OUTER_BULL, TRIPLE_INNER, baseColor)} fill={baseColor} stroke="#b8860b" strokeWidth="0.5" />,
-            <path key={`triple-${i}`} d={createArc(TRIPLE_INNER, TRIPLE_OUTER, tripleColor)} fill={tripleColor} stroke="#b8860b" strokeWidth="0.5" />
+            <path key={`shadow-outer-${i}`} d={createArc(TRIPLE_OUTER, DOUBLE_INNER, baseColor)} fill="rgba(0,0,0,0.2)" transform={`translate(${shadowOffset}, ${shadowOffset})`} />,
+            <path key={`outer-${i}`} d={createArc(TRIPLE_OUTER, DOUBLE_INNER, baseColor)} fill={baseColor} stroke="#2a2a2a" strokeWidth="1.5" />,
+
+            <path key={`shadow-double-${i}`} d={createArc(DOUBLE_INNER, DOUBLE_OUTER, doubleColor)} fill="rgba(0,0,0,0.3)" transform={`translate(${shadowOffset}, ${shadowOffset})`} />,
+            <path key={`double-${i}`} d={createArc(DOUBLE_INNER, DOUBLE_OUTER, doubleColor)} fill={doubleColor} stroke="#2a2a2a" strokeWidth="1.5" />,
+
+            <path key={`shadow-inner-${i}`} d={createArc(OUTER_BULL, TRIPLE_INNER, baseColor)} fill="rgba(0,0,0,0.2)" transform={`translate(${shadowOffset}, ${shadowOffset})`} />,
+            <path key={`inner-${i}`} d={createArc(OUTER_BULL, TRIPLE_INNER, baseColor)} fill={baseColor} stroke="#2a2a2a" strokeWidth="1.5" />,
+
+            <path key={`shadow-triple-${i}`} d={createArc(TRIPLE_INNER, TRIPLE_OUTER, tripleColor)} fill="rgba(0,0,0,0.3)" transform={`translate(${shadowOffset}, ${shadowOffset})`} />,
+            <path key={`triple-${i}`} d={createArc(TRIPLE_INNER, TRIPLE_OUTER, tripleColor)} fill={tripleColor} stroke="#2a2a2a" strokeWidth="1.5" />
           );
-          
+
+          // Wire dividers with highlight (catches light on top edge)
+          const wireHighlightOffset = -0.3;
+          segments.push(
+            <path key={`wire-highlight-${i}`} d={createArc(TRIPLE_OUTER, DOUBLE_INNER, 'none')} fill="none" stroke="rgba(255,255,255,0.6)" strokeWidth="0.5" transform={`translate(0, ${wireHighlightOffset})`} />,
+            <path key={`wire-highlight-double-${i}`} d={createArc(DOUBLE_INNER, DOUBLE_OUTER, 'none')} fill="none" stroke="rgba(255,255,255,0.6)" strokeWidth="0.5" transform={`translate(0, ${wireHighlightOffset})`} />,
+            <path key={`wire-highlight-inner-${i}`} d={createArc(OUTER_BULL, TRIPLE_INNER, 'none')} fill="none" stroke="rgba(255,255,255,0.6)" strokeWidth="0.5" transform={`translate(0, ${wireHighlightOffset})`} />,
+            <path key={`wire-highlight-triple-${i}`} d={createArc(TRIPLE_INNER, TRIPLE_OUTER, 'none')} fill="none" stroke="rgba(255,255,255,0.6)" strokeWidth="0.5" transform={`translate(0, ${wireHighlightOffset})`} />
+          );
+
+          // Numbers with embossed effect
           const textAngle = (i * 18 - 90) * (Math.PI / 180);
           const textX = CENTER + 190 * Math.cos(textAngle);
           const textY = CENTER + 190 * Math.sin(textAngle);
-          
+
           segments.push(
-            <text key={`text-${i}`} x={textX} y={textY} fill="#e8d5b7" fontSize="16" fontWeight="bold" textAnchor="middle" dominantBaseline="middle" style={{ fontFamily: "'Oswald', sans-serif" }}>
+            <text key={`text-shadow-${i}`} x={textX + 0.5} y={textY + 0.5} fill="rgba(0,0,0,0.5)" fontSize="16" fontWeight="bold" textAnchor="middle" dominantBaseline="middle" style={{ fontFamily: "'Oswald', sans-serif" }}>
+              {SEGMENTS[i]}
+            </text>,
+            <text key={`text-${i}`} x={textX} y={textY} fill="#f5f0e8" fontSize="16" fontWeight="bold" textAnchor="middle" dominantBaseline="middle" style={{ fontFamily: "'Oswald', sans-serif" }}>
               {SEGMENTS[i]}
             </text>
           );
         }
-        
+
+        // Bulls with raised 3D effect
         segments.push(
-          <circle key="outer-bull" cx={CENTER} cy={CENTER} r={OUTER_BULL} fill="#228b22" stroke="#b8860b" strokeWidth="0.5" />,
-          <circle key="inner-bull" cx={CENTER} cy={CENTER} r={INNER_BULL} fill="#c41e3a" stroke="#b8860b" strokeWidth="0.5" />
+          // Outer bull shadow
+          <circle key="outer-bull-shadow" cx={CENTER + 1} cy={CENTER + 1} r={OUTER_BULL} fill="rgba(0,0,0,0.3)" />,
+          // Outer bull (green)
+          <circle key="outer-bull" cx={CENTER} cy={CENTER} r={OUTER_BULL} fill="#0d6b2e" stroke="#2a2a2a" strokeWidth="1.5" />,
+          // Outer bull highlight for raised effect
+          <circle key="outer-bull-highlight" cx={CENTER} cy={CENTER} r={OUTER_BULL} fill="url(#bullGradient)" />,
+
+          // Inner bull shadow
+          <circle key="inner-bull-shadow" cx={CENTER + 1} cy={CENTER + 1} r={INNER_BULL} fill="rgba(0,0,0,0.4)" />,
+          // Inner bull (red)
+          <circle key="inner-bull" cx={CENTER} cy={CENTER} r={INNER_BULL} fill="#b8232a" stroke="#2a2a2a" strokeWidth="1.5" />,
+          // Inner bull highlight for shine
+          <ellipse key="inner-bull-shine" cx={CENTER - 2} cy={CENTER - 2} rx={INNER_BULL * 0.4} ry={INNER_BULL * 0.3} fill="rgba(255,255,255,0.4)" />
         );
-        
+
+        // Overall radial lighting effect
+        segments.push(
+          <circle key="board-lighting" cx={CENTER} cy={CENTER} r={DOUBLE_OUTER + 2} fill="url(#boardLighting)" pointerEvents="none" />
+        );
+
         return segments;
       };
 
