@@ -102,6 +102,21 @@
       const [opponentFlag, setOpponentFlag] = useState('🌍');
       const gameRoomRef = useRef(null); // Firebase room reference
 
+      // Practice mode states
+      const [practiceMode, setPracticeMode] = useState(false); // true when in practice mode
+      const [practiceSkillLevel, setPracticeSkillLevel] = useState(null); // skill level for practice
+      const [practiceStats, setPracticeStats] = useState({
+        dartsThrown: 0,
+        t20: 0,
+        t19: 0,
+        t18: 0,
+        bulls: 0,
+        singleBull: 0,
+        triples: 0,
+        doubles: 0,
+        totalScore: 0
+      }); // track what player hits in practice
+
       const boardRef = useRef(null);
       const powerIntervalRef = useRef(null);
       const audioContext = useRef(null);
@@ -796,6 +811,89 @@
       }, [legScores, setScores, players, playerSetup, playSound, legDartsThrown]);
 
       const throwDart = useCallback(() => {
+        // Practice mode: unlimited throws with stat tracking
+        if (practiceMode === 'active') {
+          playSound('throw');
+
+          // Apply wobble offset to aim position
+          const effectiveAimX = aimPosition.x + aimWobble.x;
+          const effectiveAimY = aimPosition.y + aimWobble.y;
+
+          // Use practice skill level for difficulty
+          const currentSkill = practiceSkillLevel;
+          let perfectZoneWidth;
+          if (currentSkill <= 40) {
+            perfectZoneWidth = 10; // Beginner
+          } else {
+            const baseZoneWidth = 10;
+            const shrinkRate = currentSkill >= 81 ? 3 : 2.5;
+            perfectZoneWidth = Math.max(baseZoneWidth - (triplesHit * shrinkRate), 4);
+          }
+          const perfectZoneLeft = 50 - (perfectZoneWidth / 2);
+          const perfectZoneRight = 50 + (perfectZoneWidth / 2);
+          const isInPerfectZone = power > perfectZoneLeft && power < perfectZoneRight;
+
+          const finalPosition = addRandomness(effectiveAimX, effectiveAimY, power, isInPerfectZone);
+          const result = calculateScore(finalPosition.x, finalPosition.y);
+
+          if (isInPerfectZone) {
+            setTriplesHit(prev => prev + 1);
+          }
+
+          setAnimatingDart({ start: { x: CENTER, y: BOARD_SIZE + 50 }, end: finalPosition });
+
+          setTimeout(() => {
+            setAnimatingDart(null);
+            setDartPositions(prev => [...prev, finalPosition]);
+
+            // Update practice stats
+            setPracticeStats(prev => {
+              const newStats = { ...prev };
+              newStats.dartsThrown += 1;
+              newStats.totalScore += result.score;
+
+              // Track specific hits
+              if (result.score === 50) {
+                newStats.bulls += 1;
+                playSound('bullseye');
+              } else if (result.score === 25) {
+                newStats.singleBull += 1;
+                playSound('hit');
+              } else if (result.multiplier === 3) {
+                newStats.triples += 1;
+                if (result.label === 'T20') newStats.t20 += 1;
+                if (result.label === 'T19') newStats.t19 += 1;
+                if (result.label === 'T18') newStats.t18 += 1;
+                playSound('hit');
+              } else if (result.multiplier === 2) {
+                newStats.doubles += 1;
+                playSound('hit');
+              } else if (result.score > 0) {
+                playSound('hit');
+              }
+
+              return newStats;
+            });
+
+            // Show score popup
+            setShowScorePopup({ ...result, position: finalPosition });
+            setTimeout(() => setShowScorePopup(null), 1000);
+
+            // Clear board after 3 darts
+            if (dartPositions.length + 1 >= 3) {
+              setTimeout(() => {
+                setDartPositions([]);
+                setTriplesHit(0);
+                setCurrentTurnThrows([]);
+                setAimWobble({ x: 0, y: 0 });
+              }, 1000);
+            }
+          }, 300);
+
+          return; // Exit early for practice mode
+        }
+
+        // Regular game mode checks
         if (dartsThrown >= 3 || winner) return;
 
         // Online mode: only allow throws on your turn
@@ -963,7 +1061,7 @@
             }
           }
         }, 300);
-      }, [aimPosition, aimWobble, power, dartsThrown, players, currentPlayerIndex, winner, calculateScore, addRandomness, playSound, isCheckoutPosition, triplesHit, handleLegWin, updateStats, nextPlayer, onlineMode, playerId, syncThrowToFirebase, currentTurnScore]);
+      }, [aimPosition, aimWobble, power, dartsThrown, players, currentPlayerIndex, winner, calculateScore, addRandomness, playSound, isCheckoutPosition, triplesHit, handleLegWin, updateStats, nextPlayer, onlineMode, playerId, syncThrowToFirebase, currentTurnScore, practiceMode, practiceSkillLevel, dartPositions]);
 
       const updateStats = useCallback((playerIndex, result) => {
         setGameStats(prev => {
@@ -1354,6 +1452,43 @@
         setWinner(null);
       };
 
+      // Practice Mode Functions
+      const enterPracticeMode = () => {
+        setPracticeMode('selecting'); // Show skill selection screen
+      };
+
+      const startPracticeSession = (skill) => {
+        setPracticeSkillLevel(skill);
+        setPracticeMode('active');
+        setGameState('playing');
+
+        // Reset practice stats
+        setPracticeStats({
+          dartsThrown: 0,
+          t20: 0,
+          t19: 0,
+          t18: 0,
+          bulls: 0,
+          singleBull: 0,
+          triples: 0,
+          doubles: 0,
+          totalScore: 0
+        });
+
+        // Reset game-related states
+        setDartPositions([]);
+        setTriplesHit(0);
+        setCurrentTurnThrows([]);
+        setAimWobble({ x: 0, y: 0 });
+      };
+
+      const exitPracticeMode = () => {
+        setPracticeMode(false);
+        setPracticeSkillLevel(null);
+        setGameState('menu');
+        setDartPositions([]);
+      };
+
       const renderDartboard = () => {
         const segments = [];
         
@@ -1413,6 +1548,111 @@
           <polygon points="-6,5 6,5 0,-2" fill="#1a1a2e" />
         </g>
       );
+
+      // Practice mode skill selection screen
+      if (practiceMode === 'selecting') {
+        return (
+          <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f0f23 100%)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '20px', fontFamily: "'Oswald', sans-serif" }}>
+            <div style={{ background: 'rgba(255, 255, 255, 0.05)', borderRadius: '20px', padding: '60px 40px', backdropFilter: 'blur(10px)', border: '1px solid rgba(155, 89, 182, 0.3)', maxWidth: '500px', textAlign: 'center', width: '100%' }}>
+              <div style={{ fontSize: '64px', marginBottom: '20px' }}>🎯</div>
+              <h2 style={{ color: '#9b59b6', fontSize: '32px', marginBottom: '10px', letterSpacing: '3px' }}>PRACTICE MODE</h2>
+              <p style={{ color: '#e8d5b7', fontSize: '16px', marginBottom: '40px' }}>Select your skill level</p>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '15px', marginBottom: '30px' }}>
+                <button
+                  onClick={() => startPracticeSession(30)}
+                  style={{
+                    padding: '20px',
+                    background: 'linear-gradient(135deg, #228b22, #32cd32)',
+                    color: '#fff',
+                    border: 'none',
+                    borderRadius: '10px',
+                    cursor: 'pointer',
+                    fontFamily: "'Oswald', sans-serif",
+                    fontSize: '20px',
+                    fontWeight: '600',
+                    letterSpacing: '2px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '10px',
+                    boxShadow: '0 4px 15px rgba(34, 139, 34, 0.4)'
+                  }}
+                >
+                  <span style={{ fontSize: '24px' }}>🟢</span>
+                  BEGINNER
+                </button>
+
+                <button
+                  onClick={() => startPracticeSession(60)}
+                  style={{
+                    padding: '20px',
+                    background: 'linear-gradient(135deg, #ffa500, #ffb732)',
+                    color: '#fff',
+                    border: 'none',
+                    borderRadius: '10px',
+                    cursor: 'pointer',
+                    fontFamily: "'Oswald', sans-serif",
+                    fontSize: '20px',
+                    fontWeight: '600',
+                    letterSpacing: '2px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '10px',
+                    boxShadow: '0 4px 15px rgba(255, 165, 0, 0.4)'
+                  }}
+                >
+                  <span style={{ fontSize: '24px' }}>🟡</span>
+                  INTERMEDIATE
+                </button>
+
+                <button
+                  onClick={() => startPracticeSession(90)}
+                  style={{
+                    padding: '20px',
+                    background: 'linear-gradient(135deg, #c41e3a, #e74c3c)',
+                    color: '#fff',
+                    border: 'none',
+                    borderRadius: '10px',
+                    cursor: 'pointer',
+                    fontFamily: "'Oswald', sans-serif",
+                    fontSize: '20px',
+                    fontWeight: '600',
+                    letterSpacing: '2px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '10px',
+                    boxShadow: '0 4px 15px rgba(196, 30, 58, 0.4)'
+                  }}
+                >
+                  <span style={{ fontSize: '24px' }}>🔴</span>
+                  EXPERT
+                </button>
+              </div>
+
+              <button
+                onClick={exitPracticeMode}
+                style={{
+                  padding: '15px 40px',
+                  background: 'rgba(255, 255, 255, 0.1)',
+                  color: '#e8d5b7',
+                  border: '1px solid rgba(155, 89, 182, 0.3)',
+                  borderRadius: '10px',
+                  fontSize: '16px',
+                  fontWeight: '600',
+                  cursor: 'pointer',
+                  fontFamily: "'Oswald', sans-serif",
+                  letterSpacing: '2px'
+                }}
+              >
+                BACK TO MENU
+              </button>
+            </div>
+          </div>
+        );
+      }
 
       // Matchmaking screen - check FIRST before menu
       if (matchmakingState === 'searching' || matchmakingState === 'found') {
@@ -1632,6 +1872,8 @@
 
               <button onClick={startMatchmaking} style={{ width: '100%', padding: '20px', fontSize: '24px', fontWeight: '700', background: 'linear-gradient(135deg, #4a90e2, #357abd)', color: '#fff', border: 'none', borderRadius: '15px', cursor: 'pointer', fontFamily: "'Oswald', sans-serif", letterSpacing: '4px', textTransform: 'uppercase', boxShadow: '0 4px 15px rgba(74, 144, 226, 0.4)', marginBottom: '15px' }}>🌍 Play Online</button>
 
+              <button onClick={enterPracticeMode} style={{ width: '100%', padding: '20px', fontSize: '24px', fontWeight: '700', background: 'linear-gradient(135deg, #9b59b6, #8e44ad)', color: '#fff', border: 'none', borderRadius: '15px', cursor: 'pointer', fontFamily: "'Oswald', sans-serif", letterSpacing: '4px', textTransform: 'uppercase', boxShadow: '0 4px 15px rgba(155, 89, 182, 0.4)', marginBottom: '15px' }}>🎯 Practice Mode</button>
+
               <button onClick={startGame} style={{ width: '100%', padding: '20px', fontSize: '24px', fontWeight: '700', background: 'linear-gradient(135deg, #c41e3a, #e74c3c)', color: '#fff', border: 'none', borderRadius: '15px', cursor: 'pointer', fontFamily: "'Oswald', sans-serif", letterSpacing: '4px', textTransform: 'uppercase', boxShadow: '0 4px 15px rgba(196, 30, 58, 0.4)' }}>Start Game</button>
             </div>
             
@@ -1643,11 +1885,94 @@
       return (
         <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f0f23 100%)', padding: '20px', fontFamily: "'Oswald', sans-serif" }}>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '30px', maxWidth: '1400px', margin: '0 auto', justifyContent: 'center' }}>
-            {/* Scoreboard */}
-            <div style={{ background: 'rgba(255, 255, 255, 0.05)', borderRadius: '20px', padding: '25px', minWidth: '280px', backdropFilter: 'blur(10px)', border: '1px solid rgba(255, 215, 0, 0.2)' }}>
-              <h2 style={{ color: '#ffd700', margin: '0 0 20px 0', letterSpacing: '3px', fontSize: '18px' }}>SCOREBOARD</h2>
-              
-              {players.map((player, index) => (
+            {/* Scoreboard or Practice Stats */}
+            <div style={{ background: 'rgba(255, 255, 255, 0.05)', borderRadius: '20px', padding: '25px', minWidth: '280px', backdropFilter: 'blur(10px)', border: practiceMode === 'active' ? '1px solid rgba(155, 89, 182, 0.3)' : '1px solid rgba(255, 215, 0, 0.2)' }}>
+              {practiceMode === 'active' ? (
+                <>
+                  <h2 style={{ color: '#9b59b6', margin: '0 0 20px 0', letterSpacing: '3px', fontSize: '18px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <span>🎯</span> PRACTICE MODE
+                  </h2>
+
+                  <div style={{ background: 'rgba(155, 89, 182, 0.1)', borderRadius: '10px', padding: '15px', marginBottom: '20px' }}>
+                    <div style={{ color: '#9b59b6', fontSize: '12px', letterSpacing: '1px', marginBottom: '5px' }}>SKILL LEVEL</div>
+                    <div style={{ color: '#e8d5b7', fontSize: '16px', fontWeight: '600' }}>
+                      {practiceSkillLevel <= 40 && '🟢 BEGINNER'}
+                      {practiceSkillLevel > 40 && practiceSkillLevel <= 80 && '🟡 INTERMEDIATE'}
+                      {practiceSkillLevel > 80 && '🔴 EXPERT'}
+                    </div>
+                  </div>
+
+                  <div style={{ background: 'rgba(255, 255, 255, 0.05)', borderRadius: '10px', padding: '15px', marginBottom: '15px' }}>
+                    <div style={{ color: '#ffd700', fontSize: '12px', letterSpacing: '2px', marginBottom: '10px' }}>SESSION STATS</div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', fontSize: '14px', color: '#e8d5b7' }}>
+                      <div>
+                        <div style={{ color: '#888', fontSize: '11px' }}>Darts Thrown</div>
+                        <div style={{ fontSize: '20px', fontWeight: '600', color: '#fff' }}>{practiceStats.dartsThrown}</div>
+                      </div>
+                      <div>
+                        <div style={{ color: '#888', fontSize: '11px' }}>Total Score</div>
+                        <div style={{ fontSize: '20px', fontWeight: '600', color: '#fff' }}>{practiceStats.totalScore}</div>
+                      </div>
+                      <div>
+                        <div style={{ color: '#888', fontSize: '11px' }}>Average</div>
+                        <div style={{ fontSize: '20px', fontWeight: '600', color: '#32cd32' }}>
+                          {practiceStats.dartsThrown > 0 ? (practiceStats.totalScore / practiceStats.dartsThrown).toFixed(1) : '0.0'}
+                        </div>
+                      </div>
+                      <div>
+                        <div style={{ color: '#888', fontSize: '11px' }}>Bulls</div>
+                        <div style={{ fontSize: '20px', fontWeight: '600', color: '#c41e3a' }}>{practiceStats.bulls}</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div style={{ background: 'rgba(255, 255, 255, 0.05)', borderRadius: '10px', padding: '15px', marginBottom: '20px' }}>
+                    <div style={{ color: '#ffd700', fontSize: '12px', letterSpacing: '2px', marginBottom: '10px' }}>ACCURACY</div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', fontSize: '14px', color: '#e8d5b7' }}>
+                      <div>
+                        <div style={{ color: '#888', fontSize: '11px' }}>Triples</div>
+                        <div style={{ fontSize: '18px', fontWeight: '600' }}>{practiceStats.triples}</div>
+                      </div>
+                      <div>
+                        <div style={{ color: '#888', fontSize: '11px' }}>Doubles</div>
+                        <div style={{ fontSize: '18px', fontWeight: '600' }}>{practiceStats.doubles}</div>
+                      </div>
+                      <div>
+                        <div style={{ color: '#888', fontSize: '11px' }}>T20</div>
+                        <div style={{ fontSize: '18px', fontWeight: '600', color: '#32cd32' }}>{practiceStats.t20}</div>
+                      </div>
+                      <div>
+                        <div style={{ color: '#888', fontSize: '11px' }}>T19</div>
+                        <div style={{ fontSize: '18px', fontWeight: '600' }}>{practiceStats.t19}</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={exitPracticeMode}
+                    style={{
+                      width: '100%',
+                      padding: '15px',
+                      background: 'linear-gradient(135deg, #c41e3a, #e74c3c)',
+                      color: '#fff',
+                      border: 'none',
+                      borderRadius: '10px',
+                      fontSize: '16px',
+                      fontWeight: '600',
+                      cursor: 'pointer',
+                      fontFamily: "'Oswald', sans-serif",
+                      letterSpacing: '2px',
+                      textTransform: 'uppercase'
+                    }}
+                  >
+                    Exit Practice
+                  </button>
+                </>
+              ) : (
+                <>
+                  <h2 style={{ color: '#ffd700', margin: '0 0 20px 0', letterSpacing: '3px', fontSize: '18px' }}>SCOREBOARD</h2>
+
+                  {players.map((player, index) => (
                 <div key={index} style={{ background: currentPlayerIndex === index ? 'linear-gradient(135deg, rgba(255, 215, 0, 0.2), rgba(255, 215, 0, 0.1))' : 'rgba(255, 255, 255, 0.05)', borderRadius: '15px', padding: '20px', marginBottom: '15px', border: currentPlayerIndex === index ? '2px solid #ffd700' : '1px solid rgba(255, 255, 255, 0.1)' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '5px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -1694,6 +2019,8 @@
                 <button onClick={() => setShowStats(true)} style={{ flex: 1, padding: '12px', background: 'rgba(255, 255, 255, 0.1)', color: '#e8d5b7', border: 'none', borderRadius: '10px', cursor: 'pointer', fontFamily: "'Oswald', sans-serif", fontSize: '14px' }}>STATS</button>
                 <button onClick={onlineMode ? leaveOnlineGame : resetGame} style={{ flex: 1, padding: '12px', background: 'rgba(196, 30, 58, 0.3)', color: '#e8d5b7', border: 'none', borderRadius: '10px', cursor: 'pointer', fontFamily: "'Oswald', sans-serif", fontSize: '14px' }}>{onlineMode ? 'LEAVE' : 'MENU'}</button>
               </div>
+                </>
+              )}
             </div>
             
             {/* Dartboard */}
