@@ -2334,9 +2334,9 @@
           <circle key="frame-ring" cx={CENTER} cy={CENTER} r={DOUBLE_OUTER + 28} fill={colors.frameColor} />
         );
 
-        // Number ring background
+        // Number ring background (radius matches iOS: radius - 4*scale for parity)
         segments.push(
-          <circle key="number-ring-bg" cx={CENTER} cy={CENTER} r={DOUBLE_OUTER + 20} fill={colors.numberRing} />
+          <circle key="number-ring-bg" cx={CENTER} cy={CENTER} r={DOUBLE_OUTER + 24} fill={colors.numberRing} />
         );
 
         // Chrome/themed outer ring
