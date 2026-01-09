@@ -15,7 +15,8 @@ struct AchievementsView: View {
     @Binding var currentScreen: GameScreen
 
     // All 21 achievements matching the web version
-    let achievements = [
+    // Static to avoid recreating array on every view update
+    private static let achievementsData = [
         // First Steps
         Achievement(id: "first_game", name: "First Game", description: "Complete your first game", icon: "🎯", rarity: "common", mode: "offline"),
         Achievement(id: "first_win", name: "First Victory", description: "Win your first game", icon: "🏆", rarity: "common", mode: "offline"),
@@ -55,11 +56,11 @@ struct AchievementsView: View {
     ]
 
     var unlockedCount: Int {
-        achievements.filter { $0.isUnlocked }.count
+        Self.achievementsData.filter { $0.isUnlocked }.count
     }
 
     var totalCount: Int {
-        achievements.count
+        Self.achievementsData.count
     }
 
     var body: some View {
@@ -135,7 +136,7 @@ struct AchievementsView: View {
                         GridItem(.flexible(), spacing: 15),
                         GridItem(.flexible(), spacing: 15)
                     ], spacing: 15) {
-                        ForEach(achievements) { achievement in
+                        ForEach(Self.achievementsData) { achievement in
                             AchievementCard(achievement: achievement)
                         }
                     }
