@@ -134,7 +134,7 @@ extension DartboardTheme {
             doubleTripleOdd: Color(red: 0.051, green: 0.420, blue: 0.180),     // #0d6b2e
             outerBull: Color(red: 0.051, green: 0.420, blue: 0.180),
             innerBull: Color(red: 0.722, green: 0.137, blue: 0.165),
-            wireColor: Color(red: 0.165, green: 0.165, blue: 0.165),           // #2a2a2a
+            wireColor: Color(red: 0.533, green: 0.533, blue: 0.533),           // #888888 light silver
             wireHighlight: Color.white.opacity(0.6),
             chromeRing: Color(red: 0.75, green: 0.75, blue: 0.75),             // #c0c0c0
             numberRing: Color(red: 0.102, green: 0.102, blue: 0.180),          // #1a1a2e
@@ -149,7 +149,7 @@ extension DartboardTheme {
             useBoardLighting: true,
             glowEffect: false,
             pulseAnimation: false,
-            wireWidth: 1.5,
+            wireWidth: 1.0,                                                    // Thinner wire
             shadowIntensity: 0.3
         )
     )

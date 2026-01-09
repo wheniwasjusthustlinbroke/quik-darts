@@ -95,7 +95,7 @@
         doubleTripleOdd: '#0d6b2e',      // Deep green
         outerBull: '#0d6b2e',            // Green
         innerBull: '#b8232a',            // Red
-        wireColor: '#2a2a2a',            // Dark wire
+        wireColor: '#888888',            // Light silver wire (matches iOS)
         wireHighlight: 'rgba(255,255,255,0.6)',
         chromeRing: '#c0c0c0',           // Silver chrome
         numberRing: '#1a1a2e',           // Navy background
@@ -110,7 +110,7 @@
         useBoardLighting: true,
         glowEffect: false,
         pulseAnimation: false,
-        wireWidth: 1.5,
+        wireWidth: 1.0,                  // Thinner wire (matches iOS)
         shadowIntensity: 0.3
       }
     });
@@ -2388,12 +2388,12 @@
             );
           }
 
-          // Main segments
+          // Main segments (fill only - wires drawn separately via spider overlay for iOS parity)
           segments.push(
-            <path key={`outer-${i}`} d={createArc(TRIPLE_OUTER, DOUBLE_INNER)} fill={baseColor} stroke={colors.wireColor} strokeWidth={effects.wireWidth} />,
-            <path key={`double-${i}`} d={createArc(DOUBLE_INNER, DOUBLE_OUTER)} fill={doubleColor} stroke={colors.wireColor} strokeWidth={effects.wireWidth} />,
-            <path key={`inner-${i}`} d={createArc(OUTER_BULL, TRIPLE_INNER)} fill={baseColor} stroke={colors.wireColor} strokeWidth={effects.wireWidth} />,
-            <path key={`triple-${i}`} d={createArc(TRIPLE_INNER, TRIPLE_OUTER)} fill={tripleColor} stroke={colors.wireColor} strokeWidth={effects.wireWidth} />
+            <path key={`outer-${i}`} d={createArc(TRIPLE_OUTER, DOUBLE_INNER)} fill={baseColor} />,
+            <path key={`double-${i}`} d={createArc(DOUBLE_INNER, DOUBLE_OUTER)} fill={doubleColor} />,
+            <path key={`inner-${i}`} d={createArc(OUTER_BULL, TRIPLE_INNER)} fill={baseColor} />,
+            <path key={`triple-${i}`} d={createArc(TRIPLE_INNER, TRIPLE_OUTER)} fill={tripleColor} />
           );
 
           // Add texture overlay if enabled
@@ -2440,8 +2440,8 @@
         segments.push(
           // Outer bull shadow
           bullShadowOpacity > 0 && <circle key="outer-bull-shadow" cx={CENTER + 1} cy={CENTER + 1} r={OUTER_BULL} fill={`rgba(0,0,0,${bullShadowOpacity})`} />,
-          // Outer bull
-          <circle key="outer-bull" cx={CENTER} cy={CENTER} r={OUTER_BULL} fill={colors.outerBull} stroke={colors.wireColor} strokeWidth={effects.wireWidth} style={effects.glowEffect ? { filter: 'url(#neonGlow)' } : {}} />,
+          // Outer bull (wire drawn via ring overlay at OUTER_BULL radius)
+          <circle key="outer-bull" cx={CENTER} cy={CENTER} r={OUTER_BULL} fill={colors.outerBull} style={effects.glowEffect ? { filter: 'url(#neonGlow)' } : {}} />,
           // Outer bull texture
           effects.useSisalTexture && <circle key="outer-bull-texture" cx={CENTER} cy={CENTER} r={OUTER_BULL} fill="url(#sisalTexture)" stroke="none" />,
           // Outer bull highlight for raised effect
@@ -2449,8 +2449,8 @@
 
           // Inner bull shadow
           bullShadowOpacity > 0 && <circle key="inner-bull-shadow" cx={CENTER + 1} cy={CENTER + 1} r={INNER_BULL} fill={`rgba(0,0,0,${bullShadowOpacity + 0.1})`} />,
-          // Inner bull
-          <circle key="inner-bull" cx={CENTER} cy={CENTER} r={INNER_BULL} fill={colors.innerBull} stroke={colors.wireColor} strokeWidth={effects.wireWidth} style={effects.glowEffect ? { filter: 'url(#neonGlow)' } : {}} />,
+          // Inner bull (wire drawn via ring overlay at INNER_BULL radius)
+          <circle key="inner-bull" cx={CENTER} cy={CENTER} r={INNER_BULL} fill={colors.innerBull} style={effects.glowEffect ? { filter: 'url(#neonGlow)' } : {}} />,
           // Inner bull texture
           effects.useSisalTexture && <circle key="inner-bull-texture" cx={CENTER} cy={CENTER} r={INNER_BULL} fill="url(#sisalTexture)" stroke="none" />,
           // Inner bull highlight for shine
@@ -2473,7 +2473,7 @@
         }
 
         // Draw concentric ring wires at all scoring boundaries
-        [OUTER_BULL, TRIPLE_INNER, TRIPLE_OUTER, DOUBLE_INNER, DOUBLE_OUTER].forEach((radius, idx) => {
+        [INNER_BULL, OUTER_BULL, TRIPLE_INNER, TRIPLE_OUTER, DOUBLE_INNER, DOUBLE_OUTER].forEach((radius, idx) => {
           segments.push(
             <circle key={`ring-wire-${idx}`} cx={CENTER} cy={CENTER} r={radius} fill="none" stroke={colors.wireColor} strokeWidth={effects.wireWidth} />
           );
