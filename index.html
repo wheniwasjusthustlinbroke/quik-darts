@@ -563,6 +563,9 @@
               createdAt: firebase.database.ServerValue.TIMESTAMP
             });
 
+            // Auto-cleanup: Remove game if this player disconnects
+            gameRoomRef.current.onDisconnect().remove();
+
             setOpponentName(opponentData.name);
             setOpponentFlag(opponentData.flag);
             setMatchmakingState('found');
@@ -580,6 +583,9 @@
             };
 
             queueRef.child(myPlayerId).set(myQueueEntry);
+
+            // Auto-remove from queue if user disconnects (closes browser, loses connection, etc.)
+            queueRef.child(myPlayerId).onDisconnect().remove();
 
             // Listen for when someone joins OR check if others joined queue while waiting
             matchmakingIntervalRef.current = setInterval(() => {
@@ -655,6 +661,9 @@
                           status: 'playing',
                           createdAt: firebase.database.ServerValue.TIMESTAMP
                         });
+
+                        // Auto-cleanup: Remove game if this player disconnects
+                        gameRoomRef.current.onDisconnect().remove();
 
                         setOpponentName(otherPlayer.name);
                         setOpponentFlag(otherPlayer.flag);
