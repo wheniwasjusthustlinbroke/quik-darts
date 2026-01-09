@@ -96,7 +96,7 @@ struct DartboardView: View {
                 // Draw number
                 let numberAngle = angle + 9.0 // Center of segment
                 let numberRadius = (doubleOuter + radius) / 2
-                let radians = (numberAngle - 90.0) * .pi / 180.0
+                let radians = (90.0 - numberAngle) * .pi / 180.0
                 let numberX = center.x + cos(radians) * numberRadius
                 let numberY = center.y + sin(radians) * numberRadius
 
@@ -132,7 +132,7 @@ struct DartboardView: View {
             // Draw spider (wire dividers) - thin white lines
             for index in 0..<20 {
                 let angle = Double(index) * 18.0
-                let radians = (angle - 90.0) * .pi / 180.0
+                let radians = (90.0 - angle) * .pi / 180.0
                 let startPoint = CGPoint(
                     x: center.x + cos(radians) * outerBullRadius,
                     y: center.y + sin(radians) * outerBullRadius
@@ -179,8 +179,8 @@ struct DartboardView: View {
         endAngle: Double,
         color: Color
     ) {
-        let startRadians = (startAngle - 90.0) * .pi / 180.0
-        let endRadians = (endAngle - 90.0) * .pi / 180.0
+        let startRadians = (90.0 - startAngle) * .pi / 180.0
+        let endRadians = (90.0 - endAngle) * .pi / 180.0
 
         var path = Path()
 
@@ -200,9 +200,9 @@ struct DartboardView: View {
         path.addArc(
             center: center,
             radius: outerRadius,
-            startAngle: Angle(degrees: startAngle),
-            endAngle: Angle(degrees: endAngle),
-            clockwise: false
+            startAngle: Angle(degrees: 90.0 - startAngle),
+            endAngle: Angle(degrees: 90.0 - endAngle),
+            clockwise: true
         )
 
         // Line back to inner radius
@@ -215,9 +215,9 @@ struct DartboardView: View {
         path.addArc(
             center: center,
             radius: innerRadius,
-            startAngle: Angle(degrees: endAngle),
-            endAngle: Angle(degrees: startAngle),
-            clockwise: true
+            startAngle: Angle(degrees: 90.0 - endAngle),
+            endAngle: Angle(degrees: 90.0 - startAngle),
+            clockwise: false
         )
 
         path.closeSubpath()
