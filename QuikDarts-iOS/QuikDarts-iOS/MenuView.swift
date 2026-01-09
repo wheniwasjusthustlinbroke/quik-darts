@@ -582,10 +582,8 @@ struct PlayerConfigView: View {
 
                 Picker("", selection: $flag) {
                     ForEach(countries) { country in
-                        HStack {
-                            Text("\(country.flag) \(country.name)")
-                                .tag(country.flag)
-                        }
+                        Text("\(country.flag) \(country.name)")
+                            .tag(country.flag)
                     }
                 }
                 .pickerStyle(.menu)
