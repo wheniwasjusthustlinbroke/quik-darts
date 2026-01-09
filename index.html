@@ -490,6 +490,21 @@
         const myPlayerId = database.ref().push().key;
         setPlayerId(myPlayerId);
 
+        // Clean up stale queue entries (older than 90 seconds)
+        const now = Date.now();
+        queueRef.once('value', (snapshot) => {
+          if (snapshot.exists()) {
+            const queue = snapshot.val();
+            Object.keys(queue).forEach(playerId => {
+              const player = queue[playerId];
+              // Remove if older than 90 seconds
+              if (player.timestamp && (now - player.timestamp > 90000)) {
+                queueRef.child(playerId).remove();
+              }
+            });
+          }
+        });
+
         // Small delay to avoid race condition where both players check queue at exact same time
         setTimeout(() => {
           // Look for available opponent in queue
@@ -566,8 +581,9 @@
 
             queueRef.child(myPlayerId).set(myQueueEntry);
 
-            // Listen for when someone joins
+            // Listen for when someone joins OR check if others joined queue while waiting
             matchmakingIntervalRef.current = setInterval(() => {
+              // First check if someone created a game with us as player1
               database.ref(`games`).orderByChild('player1/id').equalTo(myPlayerId).once('value', (gameSnapshot) => {
                 if (gameSnapshot.exists()) {
                   if (matchmakingIntervalRef.current) {
@@ -586,6 +602,68 @@
                   setMatchmakingState('found');
 
                   setTimeout(() => startOnlineGame(roomId, 0), 1500);
+                } else {
+                  // Also check if there are OTHER players waiting in queue we can join
+                  queueRef.orderByChild('timestamp').limitToFirst(2).once('value', (queueSnapshot) => {
+                    if (queueSnapshot.exists()) {
+                      const queuePlayers = queueSnapshot.val();
+                      // Find first player that isn't us
+                      const otherPlayerId = Object.keys(queuePlayers).find(id => id !== myPlayerId);
+
+                      if (otherPlayerId) {
+                        const otherPlayer = queuePlayers[otherPlayerId];
+
+                        // Join this player's game
+                        if (matchmakingIntervalRef.current) {
+                          clearInterval(matchmakingIntervalRef.current);
+                          matchmakingIntervalRef.current = null;
+                        }
+
+                        // Remove both players from queue
+                        queueRef.child(myPlayerId).remove();
+                        queueRef.child(otherPlayerId).remove();
+
+                        // Create game room
+                        const roomId = database.ref().push().key;
+                        setGameRoomId(roomId);
+                        gameRoomRef.current = database.ref(`games/${roomId}`);
+
+                        // Set up game data with other player as player1
+                        gameRoomRef.current.set({
+                          player1: {
+                            id: otherPlayer.playerId,
+                            name: otherPlayer.name,
+                            flag: otherPlayer.flag,
+                            score: playerSetup.gameMode,
+                            ready: true
+                          },
+                          player2: {
+                            id: myPlayerId,
+                            name: sanitizeName(playerSetup.names[0]) || 'Player 2',
+                            flag: playerSetup.flags[0] || '🌍',
+                            score: playerSetup.gameMode,
+                            ready: true
+                          },
+                          currentPlayer: 0,
+                          gameMode: playerSetup.gameMode,
+                          dartsThrown: 0,
+                          currentTurnScore: 0,
+                          throwHistory: {},
+                          dartPositions: {},
+                          legScores: [0, 0],
+                          setScores: [0, 0],
+                          status: 'playing',
+                          createdAt: firebase.database.ServerValue.TIMESTAMP
+                        });
+
+                        setOpponentName(otherPlayer.name);
+                        setOpponentFlag(otherPlayer.flag);
+                        setMatchmakingState('found');
+
+                        setTimeout(() => startOnlineGame(roomId, 1), 1500);
+                      }
+                    }
+                  });
                 }
               });
             }, 2000);
