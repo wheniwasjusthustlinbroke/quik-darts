@@ -13,6 +13,7 @@ enum GameScreen {
     case matchmaking
     case practiceSelection
     case achievements
+    case themeSelector
 }
 
 struct ContentView: View {
@@ -48,6 +49,9 @@ struct ContentView: View {
 
             case .achievements:
                 AchievementsView(currentScreen: $currentScreen)
+
+            case .themeSelector:
+                ThemeSelectorView(currentScreen: $currentScreen)
             }
         }
     }

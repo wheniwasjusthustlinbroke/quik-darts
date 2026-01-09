@@ -264,6 +264,15 @@ struct MenuView: View {
                         currentScreen = .achievements
                     }
 
+                    // Customize Board Button
+                    MenuButton(
+                        title: "🎨 CUSTOMIZE BOARD",
+                        gradient: [Color(red: 0.15, green: 0.68, blue: 0.38), Color(red: 0.18, green: 0.80, blue: 0.44)],
+                        shadowColor: Color(red: 0.15, green: 0.68, blue: 0.38)
+                    ) {
+                        currentScreen = .themeSelector
+                    }
+
                     // Game Configuration
                     VStack(spacing: 20) {
                         // Game Mode Picker

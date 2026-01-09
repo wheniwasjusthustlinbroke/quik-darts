@@ -62,6 +62,265 @@
     const OUTER_BULL = 16;
     const INNER_BULL = 8;
 
+    // ============================================
+    // DARTBOARD THEME SYSTEM
+    // ============================================
+
+    // Theme ID constants (no magic strings)
+    const THEME_IDS = Object.freeze({
+      CLASSIC: 'classic',
+      PRO_WIRE: 'proWire',
+      NEON_GLOW: 'neonGlow',
+      GOLD_ELITE: 'goldElite',
+      STEALTH: 'stealth'
+    });
+
+    // Neon color options for neonGlow theme
+    const NEON_COLOR_OPTIONS = Object.freeze({
+      CYAN: 'cyan',
+      PINK: 'pink',
+      GREEN: 'green'
+    });
+
+    // Classic theme - Current web app style (default)
+    const THEME_CLASSIC = Object.freeze({
+      id: THEME_IDS.CLASSIC,
+      name: 'Classic',
+      description: 'Traditional dartboard with gold brass outer ring',
+      icon: '🎯',
+      colors: {
+        segmentPrimary: '#0a0a0a',      // Deep black
+        segmentSecondary: '#f5f0e8',     // Cream
+        doubleTripleEven: '#b8232a',     // Deep red
+        doubleTripleOdd: '#0d6b2e',      // Deep green
+        outerBull: '#0d6b2e',            // Green
+        innerBull: '#b8232a',            // Red
+        wireColor: '#2a2a2a',            // Dark wire
+        wireHighlight: 'rgba(255,255,255,0.6)',
+        chromeRing: '#c0c0c0',           // Silver chrome
+        numberRing: '#1a1a2e',           // Navy background
+        numberText: '#f5f0e8',           // Cream text
+        frameColor: '#b8860b',           // Gold frame
+        boardBackground: '#1a1a1a'
+      },
+      effects: {
+        useSisalTexture: true,
+        useWoodGrain: true,
+        useChromeGradient: true,
+        useBoardLighting: true,
+        glowEffect: false,
+        pulseAnimation: false,
+        wireWidth: 1.5,
+        shadowIntensity: 0.3
+      }
+    });
+
+    // Pro Wire theme - Tournament look with metal wire dividers
+    const THEME_PRO_WIRE = Object.freeze({
+      id: THEME_IDS.PRO_WIRE,
+      name: 'Pro Wire',
+      description: 'Tournament style with thin metal wire dividers',
+      icon: '🏆',
+      colors: {
+        segmentPrimary: '#0a0a0a',
+        segmentSecondary: '#e8e4dc',     // Slightly lighter cream
+        doubleTripleEven: '#c41e3a',     // Brighter red
+        doubleTripleOdd: '#1a8b45',      // Brighter green
+        outerBull: '#1a8b45',
+        innerBull: '#c41e3a',
+        wireColor: '#d4d4d4',            // Silver wire
+        wireHighlight: 'rgba(255,255,255,0.9)',
+        chromeRing: '#e0e0e0',           // Bright chrome
+        numberRing: '#1a1a2e',
+        numberText: '#ffffff',           // White text
+        frameColor: '#a0a0a0',           // Silver frame
+        boardBackground: '#1a1a1a'
+      },
+      effects: {
+        useSisalTexture: true,
+        useWoodGrain: false,
+        useChromeGradient: true,
+        useBoardLighting: true,
+        glowEffect: false,
+        pulseAnimation: false,
+        wireWidth: 0.8,                  // Thinner wires
+        shadowIntensity: 0.2
+      }
+    });
+
+    // Neon Glow theme - Dark board with glowing neon wires
+    const THEME_NEON_GLOW = Object.freeze({
+      id: THEME_IDS.NEON_GLOW,
+      name: 'Neon Glow',
+      description: 'Dark board with glowing neon wires',
+      icon: '✨',
+      neonColorOptions: [NEON_COLOR_OPTIONS.CYAN, NEON_COLOR_OPTIONS.PINK, NEON_COLOR_OPTIONS.GREEN],
+      defaultNeonColor: NEON_COLOR_OPTIONS.CYAN,
+      // Colors will be dynamically set based on neon color selection
+      getColors: (neonColor) => {
+        const neonColors = {
+          [NEON_COLOR_OPTIONS.CYAN]: {
+            primary: '#00ffff',
+            secondary: '#00d4ff',
+            glow: 'rgba(0, 255, 255, 0.6)'
+          },
+          [NEON_COLOR_OPTIONS.PINK]: {
+            primary: '#ff00ff',
+            secondary: '#ff44aa',
+            glow: 'rgba(255, 0, 255, 0.6)'
+          },
+          [NEON_COLOR_OPTIONS.GREEN]: {
+            primary: '#00ff66',
+            secondary: '#44ff88',
+            glow: 'rgba(0, 255, 102, 0.6)'
+          }
+        };
+        const neon = neonColors[neonColor] || neonColors[NEON_COLOR_OPTIONS.CYAN];
+        return {
+          segmentPrimary: '#0a0a12',       // Very dark
+          segmentSecondary: '#1a1a28',     // Dark purple-black
+          doubleTripleEven: '#2a0a1a',     // Dark red tint
+          doubleTripleOdd: '#0a1a1a',      // Dark green tint
+          outerBull: '#0a1a1a',
+          innerBull: '#2a0a1a',
+          wireColor: neon.primary,
+          wireHighlight: neon.glow,
+          chromeRing: '#1a1a28',
+          numberRing: '#0a0a12',
+          numberText: neon.primary,
+          frameColor: neon.secondary,
+          boardBackground: '#050508',
+          neonGlow: neon.glow,
+          neonPrimary: neon.primary
+        };
+      },
+      effects: {
+        useSisalTexture: false,
+        useWoodGrain: false,
+        useChromeGradient: false,
+        useBoardLighting: false,
+        glowEffect: true,
+        pulseAnimation: true,
+        wireWidth: 2.0,
+        shadowIntensity: 0.1
+      }
+    });
+
+    // Gold Elite theme - Black and gold luxury theme
+    const THEME_GOLD_ELITE = Object.freeze({
+      id: THEME_IDS.GOLD_ELITE,
+      name: 'Gold Elite',
+      description: 'Black and gold luxury premium theme',
+      icon: '👑',
+      colors: {
+        segmentPrimary: '#0a0a0a',        // Black
+        segmentSecondary: '#1a1a1a',      // Dark gray
+        doubleTripleEven: '#b8860b',      // Dark gold
+        doubleTripleOdd: '#daa520',       // Goldenrod
+        outerBull: '#daa520',
+        innerBull: '#ffd700',             // Gold
+        wireColor: '#ffd700',             // Gold wire
+        wireHighlight: 'rgba(255,215,0,0.8)',
+        chromeRing: '#ffd700',            // Gold
+        numberRing: '#0a0a0a',
+        numberText: '#ffd700',
+        frameColor: '#ffd700',
+        boardBackground: '#050505',
+        metallicSheen: 'rgba(255,215,0,0.15)'
+      },
+      effects: {
+        useSisalTexture: false,
+        useWoodGrain: false,
+        useChromeGradient: false,
+        useBoardLighting: true,
+        glowEffect: false,
+        pulseAnimation: false,
+        wireWidth: 1.2,
+        shadowIntensity: 0.4,
+        useMetallicSheen: true
+      }
+    });
+
+    // Stealth theme - All black/dark gray minimal (hard mode aesthetic)
+    const THEME_STEALTH = Object.freeze({
+      id: THEME_IDS.STEALTH,
+      name: 'Stealth',
+      description: 'Minimal dark theme - hard mode aesthetic',
+      icon: '🌑',
+      colors: {
+        segmentPrimary: '#0a0a0a',        // Deep black
+        segmentSecondary: '#151515',      // Very dark gray
+        doubleTripleEven: '#1a1a1a',      // Slightly lighter
+        doubleTripleOdd: '#222222',       // Dark gray
+        outerBull: '#1a1a1a',
+        innerBull: '#252525',
+        wireColor: '#333333',             // Dark gray wire
+        wireHighlight: 'rgba(255,255,255,0.1)',
+        chromeRing: '#1a1a1a',
+        numberRing: '#0a0a0a',
+        numberText: '#444444',            // Subtle text
+        frameColor: '#151515',
+        boardBackground: '#050505'
+      },
+      effects: {
+        useSisalTexture: false,
+        useWoodGrain: false,
+        useChromeGradient: false,
+        useBoardLighting: false,
+        glowEffect: false,
+        pulseAnimation: false,
+        wireWidth: 0.5,
+        shadowIntensity: 0.1
+      }
+    });
+
+    // All themes collection
+    const DARTBOARD_THEMES = Object.freeze({
+      [THEME_IDS.CLASSIC]: THEME_CLASSIC,
+      [THEME_IDS.PRO_WIRE]: THEME_PRO_WIRE,
+      [THEME_IDS.NEON_GLOW]: THEME_NEON_GLOW,
+      [THEME_IDS.GOLD_ELITE]: THEME_GOLD_ELITE,
+      [THEME_IDS.STEALTH]: THEME_STEALTH
+    });
+
+    // Theme IDs array for iteration
+    const THEME_IDS_LIST = Object.freeze([
+      THEME_IDS.CLASSIC,
+      THEME_IDS.PRO_WIRE,
+      THEME_IDS.NEON_GLOW,
+      THEME_IDS.GOLD_ELITE,
+      THEME_IDS.STEALTH
+    ]);
+
+    // Default theme
+    const DEFAULT_THEME_ID = THEME_IDS.CLASSIC;
+
+    // Validate theme ID
+    const isValidThemeId = (themeId) => {
+      return themeId && Object.values(THEME_IDS).includes(themeId);
+    };
+
+    // Get theme by ID with validation
+    const getThemeById = (themeId) => {
+      if (!isValidThemeId(themeId)) {
+        console.warn(`Invalid theme ID: ${themeId}, falling back to default`);
+        return DARTBOARD_THEMES[DEFAULT_THEME_ID];
+      }
+      return DARTBOARD_THEMES[themeId];
+    };
+
+    // Get theme colors (handles neon glow special case)
+    const getThemeColors = (theme, neonColor = null) => {
+      if (theme.id === THEME_IDS.NEON_GLOW && theme.getColors) {
+        return theme.getColors(neonColor || theme.defaultNeonColor);
+      }
+      return theme.colors;
+    };
+
+    // ============================================
+    // END DARTBOARD THEME SYSTEM
+    // ============================================
+
     // Achievements data - moved outside component to prevent recreation on every render
     const ACHIEVEMENTS_DATA = [
       // First Steps
@@ -198,6 +457,87 @@
           };
         }
       });
+
+      // Dartboard theme customization state
+      const [selectedThemeId, setSelectedThemeId] = useState(() => {
+        try {
+          const saved = localStorage.getItem('quikdarts_theme');
+          if (saved) {
+            const parsed = JSON.parse(saved);
+            // Validate the saved theme ID
+            if (isValidThemeId(parsed.themeId)) {
+              return parsed.themeId;
+            }
+          }
+          return DEFAULT_THEME_ID;
+        } catch (error) {
+          console.error('Failed to load theme from localStorage:', error);
+          return DEFAULT_THEME_ID;
+        }
+      });
+
+      const [selectedNeonColor, setSelectedNeonColor] = useState(() => {
+        try {
+          const saved = localStorage.getItem('quikdarts_theme');
+          if (saved) {
+            const parsed = JSON.parse(saved);
+            if (parsed.neonColor && Object.values(NEON_COLOR_OPTIONS).includes(parsed.neonColor)) {
+              return parsed.neonColor;
+            }
+          }
+          return NEON_COLOR_OPTIONS.CYAN;
+        } catch (error) {
+          console.error('Failed to load neon color from localStorage:', error);
+          return NEON_COLOR_OPTIONS.CYAN;
+        }
+      });
+
+      const [showThemeSelector, setShowThemeSelector] = useState(false); // Show theme customization screen
+      const [neonPulsePhase, setNeonPulsePhase] = useState(0); // For neon pulse animation
+
+      // Save theme selection to localStorage
+      const saveThemeSelection = useCallback((themeId, neonColor) => {
+        try {
+          const themeData = {
+            themeId: themeId,
+            neonColor: neonColor,
+            savedAt: new Date().toISOString()
+          };
+          localStorage.setItem('quikdarts_theme', JSON.stringify(themeData));
+        } catch (error) {
+          console.error('Failed to save theme to localStorage:', error);
+        }
+      }, []);
+
+      // Update theme selection handler
+      const handleThemeChange = useCallback((themeId) => {
+        if (isValidThemeId(themeId)) {
+          setSelectedThemeId(themeId);
+          saveThemeSelection(themeId, selectedNeonColor);
+        }
+      }, [selectedNeonColor, saveThemeSelection]);
+
+      // Update neon color selection handler
+      const handleNeonColorChange = useCallback((neonColor) => {
+        if (Object.values(NEON_COLOR_OPTIONS).includes(neonColor)) {
+          setSelectedNeonColor(neonColor);
+          saveThemeSelection(selectedThemeId, neonColor);
+        }
+      }, [selectedThemeId, saveThemeSelection]);
+
+      // Get current theme and colors
+      const currentTheme = getThemeById(selectedThemeId);
+      const currentThemeColors = getThemeColors(currentTheme, selectedNeonColor);
+
+      // Neon pulse animation effect
+      useEffect(() => {
+        if (currentTheme.effects.pulseAnimation) {
+          const interval = setInterval(() => {
+            setNeonPulsePhase(prev => (prev + 0.05) % (2 * Math.PI));
+          }, 50);
+          return () => clearInterval(interval);
+        }
+      }, [currentTheme.effects.pulseAnimation]);
 
       const boardRef = useRef(null);
       const powerIntervalRef = useRef(null);
@@ -1908,16 +2248,24 @@
 
       const renderDartboard = () => {
         const segments = [];
+        const theme = currentTheme;
+        const colors = currentThemeColors;
+        const effects = theme.effects;
+
+        // Calculate neon glow intensity for pulse animation
+        const glowIntensity = effects.pulseAnimation ? 0.6 + 0.4 * Math.sin(neonPulsePhase) : 1;
 
         // Add SVG gradients and textures for 3D effects
         segments.push(
           <defs key="gradients">
             {/* Radial gradient for board lighting (brighter in center) */}
-            <radialGradient id="boardLighting" cx="50%" cy="45%">
-              <stop offset="0%" stopColor="rgba(255,255,255,0.15)" />
-              <stop offset="60%" stopColor="rgba(255,255,255,0.05)" />
-              <stop offset="100%" stopColor="rgba(0,0,0,0.1)" />
-            </radialGradient>
+            {effects.useBoardLighting && (
+              <radialGradient id="boardLighting" cx="50%" cy="45%">
+                <stop offset="0%" stopColor="rgba(255,255,255,0.15)" />
+                <stop offset="60%" stopColor="rgba(255,255,255,0.05)" />
+                <stop offset="100%" stopColor="rgba(0,0,0,0.1)" />
+              </radialGradient>
+            )}
             {/* Gradient for raised bullseye */}
             <radialGradient id="bullGradient" cx="40%" cy="40%">
               <stop offset="0%" stopColor="rgba(255,255,255,0.3)" />
@@ -1925,50 +2273,91 @@
               <stop offset="100%" stopColor="rgba(0,0,0,0.3)" />
             </radialGradient>
             {/* Chrome effect for outer ring */}
-            <linearGradient id="chromeGradient" x1="0%" y1="0%" x2="0%" y2="100%">
-              <stop offset="0%" stopColor="#f0f0f0" />
-              <stop offset="15%" stopColor="#ffffff" />
-              <stop offset="30%" stopColor="#c0c0c0" />
-              <stop offset="50%" stopColor="#e8e8e8" />
-              <stop offset="70%" stopColor="#a0a0a0" />
-              <stop offset="85%" stopColor="#d0d0d0" />
-              <stop offset="100%" stopColor="#b0b0b0" />
-            </linearGradient>
-
+            {effects.useChromeGradient && (
+              <linearGradient id="chromeGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                <stop offset="0%" stopColor="#f0f0f0" />
+                <stop offset="15%" stopColor="#ffffff" />
+                <stop offset="30%" stopColor={colors.chromeRing} />
+                <stop offset="50%" stopColor="#e8e8e8" />
+                <stop offset="70%" stopColor="#a0a0a0" />
+                <stop offset="85%" stopColor="#d0d0d0" />
+                <stop offset="100%" stopColor="#b0b0b0" />
+              </linearGradient>
+            )}
+            {/* Neon glow filter for neon theme */}
+            {effects.glowEffect && (
+              <filter id="neonGlow" x="-50%" y="-50%" width="200%" height="200%">
+                <feGaussianBlur stdDeviation={3 * glowIntensity} result="coloredBlur" />
+                <feMerge>
+                  <feMergeNode in="coloredBlur" />
+                  <feMergeNode in="SourceGraphic" />
+                </feMerge>
+              </filter>
+            )}
+            {/* Gold metallic gradient for Gold Elite theme */}
+            {effects.useMetallicSheen && (
+              <linearGradient id="goldGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stopColor="#ffd700" />
+                <stop offset="25%" stopColor="#ffed4a" />
+                <stop offset="50%" stopColor="#ffd700" />
+                <stop offset="75%" stopColor="#b8860b" />
+                <stop offset="100%" stopColor="#ffd700" />
+              </linearGradient>
+            )}
             {/* Sisal/Cork texture pattern for board segments */}
-            <pattern id="sisalTexture" x="0" y="0" width="4" height="4" patternUnits="userSpaceOnUse">
-              <rect width="4" height="4" fill="rgba(0,0,0,0)" />
-              <circle cx="1" cy="1" r="0.3" fill="rgba(0,0,0,0.08)" />
-              <circle cx="3" cy="2" r="0.3" fill="rgba(0,0,0,0.06)" />
-              <circle cx="2" cy="3" r="0.3" fill="rgba(0,0,0,0.07)" />
-              <circle cx="0.5" cy="3.5" r="0.2" fill="rgba(255,255,255,0.03)" />
-              <circle cx="3.5" cy="0.5" r="0.2" fill="rgba(255,255,255,0.03)" />
-            </pattern>
-
+            {effects.useSisalTexture && (
+              <pattern id="sisalTexture" x="0" y="0" width="4" height="4" patternUnits="userSpaceOnUse">
+                <rect width="4" height="4" fill="rgba(0,0,0,0)" />
+                <circle cx="1" cy="1" r="0.3" fill="rgba(0,0,0,0.08)" />
+                <circle cx="3" cy="2" r="0.3" fill="rgba(0,0,0,0.06)" />
+                <circle cx="2" cy="3" r="0.3" fill="rgba(0,0,0,0.07)" />
+                <circle cx="0.5" cy="3.5" r="0.2" fill="rgba(255,255,255,0.03)" />
+                <circle cx="3.5" cy="0.5" r="0.2" fill="rgba(255,255,255,0.03)" />
+              </pattern>
+            )}
             {/* Wood grain pattern for outer ring */}
-            <pattern id="woodGrain" x="0" y="0" width="20" height="100" patternUnits="userSpaceOnUse" patternTransform="rotate(90)">
-              <rect width="20" height="100" fill="rgba(80,60,40,0.1)" />
-              <path d="M 0 10 Q 5 15, 10 10 T 20 10" stroke="rgba(60,40,20,0.15)" strokeWidth="0.5" fill="none" />
-              <path d="M 0 30 Q 5 28, 10 30 T 20 30" stroke="rgba(60,40,20,0.1)" strokeWidth="0.3" fill="none" />
-              <path d="M 0 50 Q 5 55, 10 50 T 20 50" stroke="rgba(60,40,20,0.12)" strokeWidth="0.4" fill="none" />
-              <path d="M 0 70 Q 5 68, 10 70 T 20 70" stroke="rgba(60,40,20,0.1)" strokeWidth="0.3" fill="none" />
-              <path d="M 0 90 Q 5 92, 10 90 T 20 90" stroke="rgba(60,40,20,0.08)" strokeWidth="0.3" fill="none" />
-            </pattern>
+            {effects.useWoodGrain && (
+              <pattern id="woodGrain" x="0" y="0" width="20" height="100" patternUnits="userSpaceOnUse" patternTransform="rotate(90)">
+                <rect width="20" height="100" fill="rgba(80,60,40,0.1)" />
+                <path d="M 0 10 Q 5 15, 10 10 T 20 10" stroke="rgba(60,40,20,0.15)" strokeWidth="0.5" fill="none" />
+                <path d="M 0 30 Q 5 28, 10 30 T 20 30" stroke="rgba(60,40,20,0.1)" strokeWidth="0.3" fill="none" />
+                <path d="M 0 50 Q 5 55, 10 50 T 20 50" stroke="rgba(60,40,20,0.12)" strokeWidth="0.4" fill="none" />
+                <path d="M 0 70 Q 5 68, 10 70 T 20 70" stroke="rgba(60,40,20,0.1)" strokeWidth="0.3" fill="none" />
+                <path d="M 0 90 Q 5 92, 10 90 T 20 90" stroke="rgba(60,40,20,0.08)" strokeWidth="0.3" fill="none" />
+              </pattern>
+            )}
           </defs>
         );
 
-        // Chrome outer ring with wood grain
+        // Outer frame ring (gold or themed)
         segments.push(
-          <circle key="chrome-ring" cx={CENTER} cy={CENTER} r={DOUBLE_OUTER + 8} fill="url(#chromeGradient)" />,
-          <circle key="chrome-wood" cx={CENTER} cy={CENTER} r={DOUBLE_OUTER + 8} fill="url(#woodGrain)" opacity="0.3" />,
-          <circle key="chrome-ring-inner" cx={CENTER} cy={CENTER} r={DOUBLE_OUTER + 2} fill="#1a1a1a" />
+          <circle key="frame-ring" cx={CENTER} cy={CENTER} r={DOUBLE_OUTER + 28} fill={colors.frameColor} />
         );
+
+        // Number ring background
+        segments.push(
+          <circle key="number-ring-bg" cx={CENTER} cy={CENTER} r={DOUBLE_OUTER + 20} fill={colors.numberRing} />
+        );
+
+        // Chrome/themed outer ring
+        if (effects.useChromeGradient) {
+          segments.push(
+            <circle key="chrome-ring" cx={CENTER} cy={CENTER} r={DOUBLE_OUTER + 8} fill="url(#chromeGradient)" />,
+            effects.useWoodGrain && <circle key="chrome-wood" cx={CENTER} cy={CENTER} r={DOUBLE_OUTER + 8} fill="url(#woodGrain)" opacity="0.3" />,
+            <circle key="chrome-ring-inner" cx={CENTER} cy={CENTER} r={DOUBLE_OUTER + 2} fill={colors.boardBackground} />
+          );
+        } else {
+          segments.push(
+            <circle key="chrome-ring" cx={CENTER} cy={CENTER} r={DOUBLE_OUTER + 8} fill={colors.chromeRing} />,
+            <circle key="chrome-ring-inner" cx={CENTER} cy={CENTER} r={DOUBLE_OUTER + 2} fill={colors.boardBackground} />
+          );
+        }
 
         for (let i = 0; i < 20; i++) {
           const startAngle = (i * 18 - 99) * (Math.PI / 180);
           const endAngle = ((i + 1) * 18 - 99) * (Math.PI / 180);
 
-          const createArc = (innerR, outerR, color) => {
+          const createArc = (innerR, outerR) => {
             const x1 = CENTER + innerR * Math.cos(startAngle);
             const y1 = CENTER + innerR * Math.sin(startAngle);
             const x2 = CENTER + outerR * Math.cos(startAngle);
@@ -1981,82 +2370,134 @@
             return `M ${x1} ${y1} L ${x2} ${y2} A ${outerR} ${outerR} 0 0 1 ${x3} ${y3} L ${x4} ${y4} A ${innerR} ${innerR} 0 0 0 ${x1} ${y1}`;
           };
 
-          const baseColor = SEGMENT_COLORS[i % 2];
-          // Realistic Winmau colors
-          const doubleColor = i % 2 === 0 ? '#b8232a' : '#0d6b2e'; // Deep red and green
-          const tripleColor = i % 2 === 0 ? '#b8232a' : '#0d6b2e';
+          // Use theme colors
+          const baseColor = i % 2 === 0 ? colors.segmentPrimary : colors.segmentSecondary;
+          const doubleColor = i % 2 === 0 ? colors.doubleTripleEven : colors.doubleTripleOdd;
+          const tripleColor = i % 2 === 0 ? colors.doubleTripleEven : colors.doubleTripleOdd;
 
-          // Add subtle shadow to each segment for depth
-          const shadowOffset = 0.5;
+          // Add subtle shadow to each segment for depth (if shadow intensity > 0)
+          const shadowOffset = effects.shadowIntensity > 0 ? 0.5 : 0;
+          const shadowOpacity = effects.shadowIntensity;
+
+          if (shadowOpacity > 0) {
+            segments.push(
+              <path key={`shadow-outer-${i}`} d={createArc(TRIPLE_OUTER, DOUBLE_INNER)} fill={`rgba(0,0,0,${shadowOpacity})`} transform={`translate(${shadowOffset}, ${shadowOffset})`} />,
+              <path key={`shadow-double-${i}`} d={createArc(DOUBLE_INNER, DOUBLE_OUTER)} fill={`rgba(0,0,0,${shadowOpacity})`} transform={`translate(${shadowOffset}, ${shadowOffset})`} />,
+              <path key={`shadow-inner-${i}`} d={createArc(OUTER_BULL, TRIPLE_INNER)} fill={`rgba(0,0,0,${shadowOpacity})`} transform={`translate(${shadowOffset}, ${shadowOffset})`} />,
+              <path key={`shadow-triple-${i}`} d={createArc(TRIPLE_INNER, TRIPLE_OUTER)} fill={`rgba(0,0,0,${shadowOpacity})`} transform={`translate(${shadowOffset}, ${shadowOffset})`} />
+            );
+          }
+
+          // Main segments
           segments.push(
-            <path key={`shadow-outer-${i}`} d={createArc(TRIPLE_OUTER, DOUBLE_INNER, baseColor)} fill="rgba(0,0,0,0.2)" transform={`translate(${shadowOffset}, ${shadowOffset})`} />,
-            <path key={`outer-${i}`} d={createArc(TRIPLE_OUTER, DOUBLE_INNER, baseColor)} fill={baseColor} stroke="#2a2a2a" strokeWidth="1.5" />,
-            <path key={`texture-outer-${i}`} d={createArc(TRIPLE_OUTER, DOUBLE_INNER, baseColor)} fill="url(#sisalTexture)" stroke="none" />,
-
-            <path key={`shadow-double-${i}`} d={createArc(DOUBLE_INNER, DOUBLE_OUTER, doubleColor)} fill="rgba(0,0,0,0.3)" transform={`translate(${shadowOffset}, ${shadowOffset})`} />,
-            <path key={`double-${i}`} d={createArc(DOUBLE_INNER, DOUBLE_OUTER, doubleColor)} fill={doubleColor} stroke="#2a2a2a" strokeWidth="1.5" />,
-            <path key={`texture-double-${i}`} d={createArc(DOUBLE_INNER, DOUBLE_OUTER, doubleColor)} fill="url(#sisalTexture)" stroke="none" />,
-
-            <path key={`shadow-inner-${i}`} d={createArc(OUTER_BULL, TRIPLE_INNER, baseColor)} fill="rgba(0,0,0,0.2)" transform={`translate(${shadowOffset}, ${shadowOffset})`} />,
-            <path key={`inner-${i}`} d={createArc(OUTER_BULL, TRIPLE_INNER, baseColor)} fill={baseColor} stroke="#2a2a2a" strokeWidth="1.5" />,
-            <path key={`texture-inner-${i}`} d={createArc(OUTER_BULL, TRIPLE_INNER, baseColor)} fill="url(#sisalTexture)" stroke="none" />,
-
-            <path key={`shadow-triple-${i}`} d={createArc(TRIPLE_INNER, TRIPLE_OUTER, tripleColor)} fill="rgba(0,0,0,0.3)" transform={`translate(${shadowOffset}, ${shadowOffset})`} />,
-            <path key={`triple-${i}`} d={createArc(TRIPLE_INNER, TRIPLE_OUTER, tripleColor)} fill={tripleColor} stroke="#2a2a2a" strokeWidth="1.5" />,
-            <path key={`texture-triple-${i}`} d={createArc(TRIPLE_INNER, TRIPLE_OUTER, tripleColor)} fill="url(#sisalTexture)" stroke="none" />
+            <path key={`outer-${i}`} d={createArc(TRIPLE_OUTER, DOUBLE_INNER)} fill={baseColor} stroke={colors.wireColor} strokeWidth={effects.wireWidth} />,
+            <path key={`double-${i}`} d={createArc(DOUBLE_INNER, DOUBLE_OUTER)} fill={doubleColor} stroke={colors.wireColor} strokeWidth={effects.wireWidth} />,
+            <path key={`inner-${i}`} d={createArc(OUTER_BULL, TRIPLE_INNER)} fill={baseColor} stroke={colors.wireColor} strokeWidth={effects.wireWidth} />,
+            <path key={`triple-${i}`} d={createArc(TRIPLE_INNER, TRIPLE_OUTER)} fill={tripleColor} stroke={colors.wireColor} strokeWidth={effects.wireWidth} />
           );
 
-          // Wire dividers with highlight (catches light on top edge)
-          const wireHighlightOffset = -0.3;
-          segments.push(
-            <path key={`wire-highlight-${i}`} d={createArc(TRIPLE_OUTER, DOUBLE_INNER, 'none')} fill="none" stroke="rgba(255,255,255,0.6)" strokeWidth="0.5" transform={`translate(0, ${wireHighlightOffset})`} />,
-            <path key={`wire-highlight-double-${i}`} d={createArc(DOUBLE_INNER, DOUBLE_OUTER, 'none')} fill="none" stroke="rgba(255,255,255,0.6)" strokeWidth="0.5" transform={`translate(0, ${wireHighlightOffset})`} />,
-            <path key={`wire-highlight-inner-${i}`} d={createArc(OUTER_BULL, TRIPLE_INNER, 'none')} fill="none" stroke="rgba(255,255,255,0.6)" strokeWidth="0.5" transform={`translate(0, ${wireHighlightOffset})`} />,
-            <path key={`wire-highlight-triple-${i}`} d={createArc(TRIPLE_INNER, TRIPLE_OUTER, 'none')} fill="none" stroke="rgba(255,255,255,0.6)" strokeWidth="0.5" transform={`translate(0, ${wireHighlightOffset})`} />
-          );
+          // Add texture overlay if enabled
+          if (effects.useSisalTexture) {
+            segments.push(
+              <path key={`texture-outer-${i}`} d={createArc(TRIPLE_OUTER, DOUBLE_INNER)} fill="url(#sisalTexture)" stroke="none" />,
+              <path key={`texture-double-${i}`} d={createArc(DOUBLE_INNER, DOUBLE_OUTER)} fill="url(#sisalTexture)" stroke="none" />,
+              <path key={`texture-inner-${i}`} d={createArc(OUTER_BULL, TRIPLE_INNER)} fill="url(#sisalTexture)" stroke="none" />,
+              <path key={`texture-triple-${i}`} d={createArc(TRIPLE_INNER, TRIPLE_OUTER)} fill="url(#sisalTexture)" stroke="none" />
+            );
+          }
+
+          // Wire highlights (if not in stealth mode or neon mode)
+          if (!effects.glowEffect && effects.shadowIntensity > 0.1) {
+            const wireHighlightOffset = -0.3;
+            segments.push(
+              <path key={`wire-highlight-${i}`} d={createArc(TRIPLE_OUTER, DOUBLE_INNER)} fill="none" stroke={colors.wireHighlight} strokeWidth="0.5" transform={`translate(0, ${wireHighlightOffset})`} />,
+              <path key={`wire-highlight-double-${i}`} d={createArc(DOUBLE_INNER, DOUBLE_OUTER)} fill="none" stroke={colors.wireHighlight} strokeWidth="0.5" transform={`translate(0, ${wireHighlightOffset})`} />,
+              <path key={`wire-highlight-inner-${i}`} d={createArc(OUTER_BULL, TRIPLE_INNER)} fill="none" stroke={colors.wireHighlight} strokeWidth="0.5" transform={`translate(0, ${wireHighlightOffset})`} />,
+              <path key={`wire-highlight-triple-${i}`} d={createArc(TRIPLE_INNER, TRIPLE_OUTER)} fill="none" stroke={colors.wireHighlight} strokeWidth="0.5" transform={`translate(0, ${wireHighlightOffset})`} />
+            );
+          }
 
           // Numbers with embossed effect
           const textAngle = (i * 18 - 90) * (Math.PI / 180);
           const textX = CENTER + 190 * Math.cos(textAngle);
           const textY = CENTER + 190 * Math.sin(textAngle);
 
+          const textStyle = effects.glowEffect ? { fontFamily: "'Oswald', sans-serif", filter: 'url(#neonGlow)' } : { fontFamily: "'Oswald', sans-serif" };
+
           segments.push(
             <text key={`text-shadow-${i}`} x={textX + 0.5} y={textY + 0.5} fill="rgba(0,0,0,0.5)" fontSize="16" fontWeight="bold" textAnchor="middle" dominantBaseline="middle" style={{ fontFamily: "'Oswald', sans-serif" }}>
               {SEGMENTS[i]}
             </text>,
-            <text key={`text-${i}`} x={textX} y={textY} fill="#f5f0e8" fontSize="16" fontWeight="bold" textAnchor="middle" dominantBaseline="middle" style={{ fontFamily: "'Oswald', sans-serif" }}>
+            <text key={`text-${i}`} x={textX} y={textY} fill={colors.numberText} fontSize="16" fontWeight="bold" textAnchor="middle" dominantBaseline="middle" style={textStyle}>
               {SEGMENTS[i]}
             </text>
           );
         }
 
         // Bulls with raised 3D effect and texture
+        const bullShadowOpacity = effects.shadowIntensity > 0 ? effects.shadowIntensity : 0;
+
         segments.push(
           // Outer bull shadow
-          <circle key="outer-bull-shadow" cx={CENTER + 1} cy={CENTER + 1} r={OUTER_BULL} fill="rgba(0,0,0,0.3)" />,
-          // Outer bull (green)
-          <circle key="outer-bull" cx={CENTER} cy={CENTER} r={OUTER_BULL} fill="#0d6b2e" stroke="#2a2a2a" strokeWidth="1.5" />,
+          bullShadowOpacity > 0 && <circle key="outer-bull-shadow" cx={CENTER + 1} cy={CENTER + 1} r={OUTER_BULL} fill={`rgba(0,0,0,${bullShadowOpacity})`} />,
+          // Outer bull
+          <circle key="outer-bull" cx={CENTER} cy={CENTER} r={OUTER_BULL} fill={colors.outerBull} stroke={colors.wireColor} strokeWidth={effects.wireWidth} style={effects.glowEffect ? { filter: 'url(#neonGlow)' } : {}} />,
           // Outer bull texture
-          <circle key="outer-bull-texture" cx={CENTER} cy={CENTER} r={OUTER_BULL} fill="url(#sisalTexture)" stroke="none" />,
+          effects.useSisalTexture && <circle key="outer-bull-texture" cx={CENTER} cy={CENTER} r={OUTER_BULL} fill="url(#sisalTexture)" stroke="none" />,
           // Outer bull highlight for raised effect
-          <circle key="outer-bull-highlight" cx={CENTER} cy={CENTER} r={OUTER_BULL} fill="url(#bullGradient)" />,
+          !effects.glowEffect && effects.shadowIntensity > 0.1 && <circle key="outer-bull-highlight" cx={CENTER} cy={CENTER} r={OUTER_BULL} fill="url(#bullGradient)" />,
 
           // Inner bull shadow
-          <circle key="inner-bull-shadow" cx={CENTER + 1} cy={CENTER + 1} r={INNER_BULL} fill="rgba(0,0,0,0.4)" />,
-          // Inner bull (red)
-          <circle key="inner-bull" cx={CENTER} cy={CENTER} r={INNER_BULL} fill="#b8232a" stroke="#2a2a2a" strokeWidth="1.5" />,
+          bullShadowOpacity > 0 && <circle key="inner-bull-shadow" cx={CENTER + 1} cy={CENTER + 1} r={INNER_BULL} fill={`rgba(0,0,0,${bullShadowOpacity + 0.1})`} />,
+          // Inner bull
+          <circle key="inner-bull" cx={CENTER} cy={CENTER} r={INNER_BULL} fill={colors.innerBull} stroke={colors.wireColor} strokeWidth={effects.wireWidth} style={effects.glowEffect ? { filter: 'url(#neonGlow)' } : {}} />,
           // Inner bull texture
-          <circle key="inner-bull-texture" cx={CENTER} cy={CENTER} r={INNER_BULL} fill="url(#sisalTexture)" stroke="none" />,
+          effects.useSisalTexture && <circle key="inner-bull-texture" cx={CENTER} cy={CENTER} r={INNER_BULL} fill="url(#sisalTexture)" stroke="none" />,
           // Inner bull highlight for shine
-          <ellipse key="inner-bull-shine" cx={CENTER - 2} cy={CENTER - 2} rx={INNER_BULL * 0.4} ry={INNER_BULL * 0.3} fill="rgba(255,255,255,0.4)" />
+          !effects.glowEffect && effects.shadowIntensity > 0.1 && <ellipse key="inner-bull-shine" cx={CENTER - 2} cy={CENTER - 2} rx={INNER_BULL * 0.4} ry={INNER_BULL * 0.3} fill="rgba(255,255,255,0.4)" />
         );
+
+        // Neon glow overlay for wire segments
+        if (effects.glowEffect && colors.neonPrimary) {
+          // Draw glowing wire overlay
+          for (let i = 0; i < 20; i++) {
+            const startAngle = (i * 18 - 99) * (Math.PI / 180);
+            const midAngle = ((i * 18 + 9) - 99) * (Math.PI / 180);
+
+            // Radial wire from bull to double
+            const x1 = CENTER + OUTER_BULL * Math.cos(startAngle);
+            const y1 = CENTER + OUTER_BULL * Math.sin(startAngle);
+            const x2 = CENTER + DOUBLE_OUTER * Math.cos(startAngle);
+            const y2 = CENTER + DOUBLE_OUTER * Math.sin(startAngle);
+
+            segments.push(
+              <line key={`neon-wire-${i}`} x1={x1} y1={y1} x2={x2} y2={y2} stroke={colors.neonPrimary} strokeWidth={effects.wireWidth} style={{ filter: 'url(#neonGlow)', opacity: glowIntensity }} />
+            );
+          }
+
+          // Ring wires with glow
+          [OUTER_BULL, TRIPLE_INNER, TRIPLE_OUTER, DOUBLE_INNER, DOUBLE_OUTER].forEach((radius, idx) => {
+            segments.push(
+              <circle key={`neon-ring-${idx}`} cx={CENTER} cy={CENTER} r={radius} fill="none" stroke={colors.neonPrimary} strokeWidth={effects.wireWidth * 0.8} style={{ filter: 'url(#neonGlow)', opacity: glowIntensity }} />
+            );
+          });
+        }
 
         // Overall radial lighting effect
-        segments.push(
-          <circle key="board-lighting" cx={CENTER} cy={CENTER} r={DOUBLE_OUTER + 2} fill="url(#boardLighting)" pointerEvents="none" />
-        );
+        if (effects.useBoardLighting) {
+          segments.push(
+            <circle key="board-lighting" cx={CENTER} cy={CENTER} r={DOUBLE_OUTER + 2} fill="url(#boardLighting)" pointerEvents="none" />
+          );
+        }
 
-        return segments;
+        // Metallic sheen overlay for Gold Elite
+        if (effects.useMetallicSheen && colors.metallicSheen) {
+          segments.push(
+            <circle key="metallic-sheen" cx={CENTER} cy={CENTER} r={DOUBLE_OUTER + 2} fill={colors.metallicSheen} pointerEvents="none" />
+          );
+        }
+
+        return segments.filter(Boolean); // Remove any false/null elements from conditional rendering
       };
 
       const renderDart = (position, index) => (
@@ -2220,6 +2661,170 @@
         );
       }
 
+      // Dartboard Theme Selector - check BEFORE menu and achievements
+      if (showThemeSelector) {
+        // Mini dartboard preview renderer for theme selector
+        const renderMiniDartboard = (themeId, neonColor = null, size = 120) => {
+          const theme = getThemeById(themeId);
+          const colors = getThemeColors(theme, neonColor);
+          const scale = size / BOARD_SIZE;
+          const miniCenter = size / 2;
+
+          return (
+            <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ borderRadius: '50%', boxShadow: theme.effects.glowEffect && colors.neonGlow ? `0 0 20px ${colors.neonGlow}` : '0 4px 15px rgba(0,0,0,0.3)' }}>
+              {/* Background */}
+              <circle cx={miniCenter} cy={miniCenter} r={miniCenter} fill={colors.frameColor} />
+              <circle cx={miniCenter} cy={miniCenter} r={miniCenter * 0.9} fill={colors.numberRing} />
+              <circle cx={miniCenter} cy={miniCenter} r={miniCenter * 0.75} fill={colors.chromeRing} />
+              <circle cx={miniCenter} cy={miniCenter} r={miniCenter * 0.7} fill={colors.boardBackground} />
+
+              {/* Simplified segments */}
+              {[0, 1, 2, 3, 4, 5, 6, 7].map(i => {
+                const angle = i * 45 * (Math.PI / 180);
+                const nextAngle = (i + 1) * 45 * (Math.PI / 180);
+                const innerR = miniCenter * 0.15;
+                const outerR = miniCenter * 0.65;
+
+                const x1 = miniCenter + innerR * Math.cos(angle);
+                const y1 = miniCenter + innerR * Math.sin(angle);
+                const x2 = miniCenter + outerR * Math.cos(angle);
+                const y2 = miniCenter + outerR * Math.sin(angle);
+                const x3 = miniCenter + outerR * Math.cos(nextAngle);
+                const y3 = miniCenter + outerR * Math.sin(nextAngle);
+                const x4 = miniCenter + innerR * Math.cos(nextAngle);
+                const y4 = miniCenter + innerR * Math.sin(nextAngle);
+
+                const segmentColor = i % 2 === 0 ? colors.segmentPrimary : colors.segmentSecondary;
+                const ringColor = i % 2 === 0 ? colors.doubleTripleEven : colors.doubleTripleOdd;
+
+                return (
+                  <g key={i}>
+                    <path d={`M ${x1} ${y1} L ${x2} ${y2} A ${outerR} ${outerR} 0 0 1 ${x3} ${y3} L ${x4} ${y4} A ${innerR} ${innerR} 0 0 0 ${x1} ${y1}`} fill={segmentColor} stroke={colors.wireColor} strokeWidth={theme.effects.wireWidth * 0.5} />
+                    {/* Double ring hint */}
+                    <path d={`M ${miniCenter + outerR * 0.92 * Math.cos(angle)} ${miniCenter + outerR * 0.92 * Math.sin(angle)} A ${outerR * 0.92} ${outerR * 0.92} 0 0 1 ${miniCenter + outerR * 0.92 * Math.cos(nextAngle)} ${miniCenter + outerR * 0.92 * Math.sin(nextAngle)}`} fill="none" stroke={ringColor} strokeWidth={miniCenter * 0.08} />
+                  </g>
+                );
+              })}
+
+              {/* Bulls */}
+              <circle cx={miniCenter} cy={miniCenter} r={miniCenter * 0.15} fill={colors.outerBull} stroke={colors.wireColor} strokeWidth={theme.effects.wireWidth * 0.5} />
+              <circle cx={miniCenter} cy={miniCenter} r={miniCenter * 0.08} fill={colors.innerBull} stroke={colors.wireColor} strokeWidth={theme.effects.wireWidth * 0.5} />
+
+              {/* Neon glow effect for neon theme */}
+              {theme.effects.glowEffect && colors.neonPrimary && (
+                <>
+                  <circle cx={miniCenter} cy={miniCenter} r={miniCenter * 0.65} fill="none" stroke={colors.neonPrimary} strokeWidth="1" opacity="0.6" />
+                  <circle cx={miniCenter} cy={miniCenter} r={miniCenter * 0.15} fill="none" stroke={colors.neonPrimary} strokeWidth="1" opacity="0.6" />
+                </>
+              )}
+            </svg>
+          );
+        };
+
+        return (
+          <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f0f23 100%)', display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '20px', fontFamily: "'Oswald', sans-serif" }}>
+            <div style={{ maxWidth: '800px', width: '100%' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px' }}>
+                <h1 style={{ fontSize: '36px', fontWeight: '700', color: '#ffd700', textShadow: '0 0 20px rgba(255, 215, 0, 0.5)', margin: 0, letterSpacing: '2px' }}>🎨 CUSTOMIZE BOARD</h1>
+                <button onClick={() => setShowThemeSelector(false)} style={{ padding: '12px 30px', background: 'rgba(196, 30, 58, 0.3)', color: '#e8d5b7', border: 'none', borderRadius: '10px', cursor: 'pointer', fontFamily: "'Oswald', sans-serif", fontSize: '16px', fontWeight: '600', letterSpacing: '1px' }}>BACK</button>
+              </div>
+
+              {/* Current Theme Preview */}
+              <div style={{ background: 'rgba(255, 255, 255, 0.05)', borderRadius: '20px', padding: '30px', marginBottom: '30px', backdropFilter: 'blur(10px)', border: '1px solid rgba(255, 215, 0, 0.2)', textAlign: 'center' }}>
+                <div style={{ marginBottom: '20px' }}>
+                  <div style={{ fontSize: '14px', color: '#ffd700', letterSpacing: '2px', marginBottom: '10px' }}>CURRENT THEME</div>
+                  <div style={{ fontSize: '28px', color: '#fff', fontWeight: '700' }}>{currentTheme.icon} {currentTheme.name}</div>
+                  <div style={{ fontSize: '14px', color: '#888', marginTop: '5px' }}>{currentTheme.description}</div>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'center', marginTop: '20px' }}>
+                  <div style={{ transform: 'scale(1.5)', transformOrigin: 'center' }}>
+                    {renderMiniDartboard(selectedThemeId, selectedNeonColor, 150)}
+                  </div>
+                </div>
+              </div>
+
+              {/* Theme Options */}
+              <div style={{ color: '#ffd700', fontSize: '14px', letterSpacing: '2px', marginBottom: '15px' }}>SELECT THEME</div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '20px', marginBottom: '30px' }}>
+                {THEME_IDS_LIST.map(themeId => {
+                  const theme = getThemeById(themeId);
+                  const isSelected = selectedThemeId === themeId;
+
+                  return (
+                    <div
+                      key={themeId}
+                      onClick={() => handleThemeChange(themeId)}
+                      style={{
+                        background: isSelected ? 'rgba(255, 215, 0, 0.15)' : 'rgba(255, 255, 255, 0.05)',
+                        border: `2px solid ${isSelected ? '#ffd700' : 'rgba(255, 255, 255, 0.1)'}`,
+                        borderRadius: '15px',
+                        padding: '20px',
+                        cursor: 'pointer',
+                        transition: 'all 0.3s',
+                        textAlign: 'center'
+                      }}
+                    >
+                      <div style={{ marginBottom: '15px', display: 'flex', justifyContent: 'center' }}>
+                        {renderMiniDartboard(themeId, themeId === THEME_IDS.NEON_GLOW ? selectedNeonColor : null)}
+                      </div>
+                      <div style={{ fontSize: '24px', marginBottom: '5px' }}>{theme.icon}</div>
+                      <div style={{ color: isSelected ? '#ffd700' : '#fff', fontSize: '18px', fontWeight: '700', marginBottom: '5px' }}>{theme.name}</div>
+                      <div style={{ color: '#888', fontSize: '12px' }}>{theme.description}</div>
+                      {isSelected && (
+                        <div style={{ color: '#32cd32', fontSize: '12px', fontWeight: '600', marginTop: '10px' }}>✓ SELECTED</div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Neon Color Options (only shown when Neon Glow theme is selected) */}
+              {selectedThemeId === THEME_IDS.NEON_GLOW && (
+                <div style={{ background: 'rgba(255, 255, 255, 0.05)', borderRadius: '15px', padding: '25px', marginBottom: '30px', backdropFilter: 'blur(10px)' }}>
+                  <div style={{ color: '#ffd700', fontSize: '14px', letterSpacing: '2px', marginBottom: '15px' }}>NEON COLOR</div>
+                  <div style={{ display: 'flex', gap: '15px', justifyContent: 'center' }}>
+                    {[
+                      { id: NEON_COLOR_OPTIONS.CYAN, name: 'Cyan', color: '#00ffff' },
+                      { id: NEON_COLOR_OPTIONS.PINK, name: 'Pink', color: '#ff00ff' },
+                      { id: NEON_COLOR_OPTIONS.GREEN, name: 'Green', color: '#00ff66' }
+                    ].map(option => {
+                      const isSelected = selectedNeonColor === option.id;
+                      return (
+                        <button
+                          key={option.id}
+                          onClick={() => handleNeonColorChange(option.id)}
+                          style={{
+                            padding: '15px 30px',
+                            background: isSelected ? option.color : 'rgba(255, 255, 255, 0.1)',
+                            color: isSelected ? '#000' : option.color,
+                            border: `2px solid ${option.color}`,
+                            borderRadius: '10px',
+                            cursor: 'pointer',
+                            fontFamily: "'Oswald', sans-serif",
+                            fontSize: '16px',
+                            fontWeight: '600',
+                            letterSpacing: '1px',
+                            boxShadow: isSelected ? `0 0 20px ${option.color}` : 'none',
+                            transition: 'all 0.3s'
+                          }}
+                        >
+                          {option.name}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Info */}
+              <div style={{ textAlign: 'center', color: '#666', fontSize: '14px' }}>
+                Your theme preference is saved automatically and synced across sessions.
+              </div>
+            </div>
+          </div>
+        );
+      }
+
       // Achievements Gallery - check BEFORE menu
       if (showAchievements) {
         return (
@@ -2328,7 +2933,9 @@
 
               <button onClick={enterPracticeMode} style={{ width: '100%', padding: '20px', fontSize: '24px', fontWeight: '700', background: 'linear-gradient(135deg, #9b59b6, #8e44ad)', color: '#fff', border: 'none', borderRadius: '15px', cursor: 'pointer', fontFamily: "'Oswald', sans-serif", letterSpacing: '4px', textTransform: 'uppercase', boxShadow: '0 4px 15px rgba(155, 89, 182, 0.4)', marginBottom: '15px' }}>🎯 Practice Mode</button>
 
-              <button onClick={() => setShowAchievements(true)} style={{ width: '100%', padding: '20px', fontSize: '24px', fontWeight: '700', background: 'linear-gradient(135deg, #f39c12, #e67e22)', color: '#fff', border: 'none', borderRadius: '15px', cursor: 'pointer', fontFamily: "'Oswald', sans-serif", letterSpacing: '4px', textTransform: 'uppercase', boxShadow: '0 4px 15px rgba(243, 156, 18, 0.4)', marginBottom: '30px' }}>🏆 Achievements</button>
+              <button onClick={() => setShowAchievements(true)} style={{ width: '100%', padding: '20px', fontSize: '24px', fontWeight: '700', background: 'linear-gradient(135deg, #f39c12, #e67e22)', color: '#fff', border: 'none', borderRadius: '15px', cursor: 'pointer', fontFamily: "'Oswald', sans-serif", letterSpacing: '4px', textTransform: 'uppercase', boxShadow: '0 4px 15px rgba(243, 156, 18, 0.4)', marginBottom: '15px' }}>🏆 Achievements</button>
+
+              <button onClick={() => setShowThemeSelector(true)} style={{ width: '100%', padding: '20px', fontSize: '24px', fontWeight: '700', background: 'linear-gradient(135deg, #27ae60, #2ecc71)', color: '#fff', border: 'none', borderRadius: '15px', cursor: 'pointer', fontFamily: "'Oswald', sans-serif", letterSpacing: '4px', textTransform: 'uppercase', boxShadow: '0 4px 15px rgba(39, 174, 96, 0.4)', marginBottom: '30px' }}>🎨 Customize Board</button>
 
               <div style={{ marginBottom: '30px' }}>
                 <label style={{ color: '#ffd700', fontSize: '14px', letterSpacing: '2px', display: 'block', marginBottom: '10px' }}>GAME MODE</label>
