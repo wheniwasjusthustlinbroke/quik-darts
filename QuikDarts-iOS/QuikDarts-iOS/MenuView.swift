@@ -1,5 +1,12 @@
 import SwiftUI
 
+// Country model for nationality selection
+struct Country: Identifiable {
+    let id = UUID()
+    let name: String
+    let flag: String
+}
+
 struct MenuView: View {
     @Binding var currentScreen: GameScreen
     @ObservedObject var gameState: GameStateManager
@@ -14,10 +21,10 @@ struct MenuView: View {
     @State private var player2Name: String = "Player 2"
     @State private var player3Name: String = "Player 3"
     @State private var player4Name: String = "Player 4"
-    @State private var player1Flag: String = "🏴"
-    @State private var player2Flag: String = "🌍"
+    @State private var player1Flag: String = "🏴󠁧󠁢󠁥󠁮󠁧󠁿"
+    @State private var player2Flag: String = "🇺🇸"
     @State private var player3Flag: String = "🇬🇧"
-    @State private var player4Flag: String = "🇺🇸"
+    @State private var player4Flag: String = "🇦🇺"
     @State private var player1IsAI: Bool = false
     @State private var player2IsAI: Bool = false
     @State private var player3IsAI: Bool = false
@@ -36,7 +43,118 @@ struct MenuView: View {
         ("intermediate", "🟡"),
         ("expert", "🔴")
     ]
-    let flagOptions = ["🏴", "🇬🇧", "🇺🇸", "🇮🇪", "🇳🇱", "🇩🇪", "🇧🇪", "🇦🇺", "🇯🇵", "🌍"]
+    let countries = [
+        Country(name: "Afghanistan", flag: "🇦🇫"),
+        Country(name: "Albania", flag: "🇦🇱"),
+        Country(name: "Algeria", flag: "🇩🇿"),
+        Country(name: "Argentina", flag: "🇦🇷"),
+        Country(name: "Armenia", flag: "🇦🇲"),
+        Country(name: "Australia", flag: "🇦🇺"),
+        Country(name: "Austria", flag: "🇦🇹"),
+        Country(name: "Azerbaijan", flag: "🇦🇿"),
+        Country(name: "Bahrain", flag: "🇧🇭"),
+        Country(name: "Bangladesh", flag: "🇧🇩"),
+        Country(name: "Belarus", flag: "🇧🇾"),
+        Country(name: "Belgium", flag: "🇧🇪"),
+        Country(name: "Bolivia", flag: "🇧🇴"),
+        Country(name: "Bosnia", flag: "🇧🇦"),
+        Country(name: "Brazil", flag: "🇧🇷"),
+        Country(name: "Bulgaria", flag: "🇧🇬"),
+        Country(name: "Cambodia", flag: "🇰🇭"),
+        Country(name: "Canada", flag: "🇨🇦"),
+        Country(name: "Chile", flag: "🇨🇱"),
+        Country(name: "China", flag: "🇨🇳"),
+        Country(name: "Colombia", flag: "🇨🇴"),
+        Country(name: "Costa Rica", flag: "🇨🇷"),
+        Country(name: "Croatia", flag: "🇭🇷"),
+        Country(name: "Cuba", flag: "🇨🇺"),
+        Country(name: "Cyprus", flag: "🇨🇾"),
+        Country(name: "Czech Republic", flag: "🇨🇿"),
+        Country(name: "Denmark", flag: "🇩🇰"),
+        Country(name: "Ecuador", flag: "🇪🇨"),
+        Country(name: "Egypt", flag: "🇪🇬"),
+        Country(name: "England", flag: "🏴󠁧󠁢󠁥󠁮󠁧󠁿"),
+        Country(name: "Estonia", flag: "🇪🇪"),
+        Country(name: "Ethiopia", flag: "🇪🇹"),
+        Country(name: "Finland", flag: "🇫🇮"),
+        Country(name: "France", flag: "🇫🇷"),
+        Country(name: "Georgia", flag: "🇬🇪"),
+        Country(name: "Germany", flag: "🇩🇪"),
+        Country(name: "Ghana", flag: "🇬🇭"),
+        Country(name: "Greece", flag: "🇬🇷"),
+        Country(name: "Hong Kong", flag: "🇭🇰"),
+        Country(name: "Hungary", flag: "🇭🇺"),
+        Country(name: "Iceland", flag: "🇮🇸"),
+        Country(name: "India", flag: "🇮🇳"),
+        Country(name: "Indonesia", flag: "🇮🇩"),
+        Country(name: "Iran", flag: "🇮🇷"),
+        Country(name: "Iraq", flag: "🇮🇶"),
+        Country(name: "Ireland", flag: "🇮🇪"),
+        Country(name: "Israel", flag: "🇮🇱"),
+        Country(name: "Italy", flag: "🇮🇹"),
+        Country(name: "Jamaica", flag: "🇯🇲"),
+        Country(name: "Japan", flag: "🇯🇵"),
+        Country(name: "Jordan", flag: "🇯🇴"),
+        Country(name: "Kazakhstan", flag: "🇰🇿"),
+        Country(name: "Kenya", flag: "🇰🇪"),
+        Country(name: "Kuwait", flag: "🇰🇼"),
+        Country(name: "Latvia", flag: "🇱🇻"),
+        Country(name: "Lebanon", flag: "🇱🇧"),
+        Country(name: "Libya", flag: "🇱🇾"),
+        Country(name: "Lithuania", flag: "🇱🇹"),
+        Country(name: "Luxembourg", flag: "🇱🇺"),
+        Country(name: "Malaysia", flag: "🇲🇾"),
+        Country(name: "Malta", flag: "🇲🇹"),
+        Country(name: "Mexico", flag: "🇲🇽"),
+        Country(name: "Morocco", flag: "🇲🇦"),
+        Country(name: "Nepal", flag: "🇳🇵"),
+        Country(name: "Netherlands", flag: "🇳🇱"),
+        Country(name: "New Zealand", flag: "🇳🇿"),
+        Country(name: "Nigeria", flag: "🇳🇬"),
+        Country(name: "North Korea", flag: "🇰🇵"),
+        Country(name: "Northern Ireland", flag: "🇬🇧"),
+        Country(name: "Norway", flag: "🇳🇴"),
+        Country(name: "Pakistan", flag: "🇵🇰"),
+        Country(name: "Palestine", flag: "🇵🇸"),
+        Country(name: "Panama", flag: "🇵🇦"),
+        Country(name: "Peru", flag: "🇵🇪"),
+        Country(name: "Philippines", flag: "🇵🇭"),
+        Country(name: "Poland", flag: "🇵🇱"),
+        Country(name: "Portugal", flag: "🇵🇹"),
+        Country(name: "Qatar", flag: "🇶🇦"),
+        Country(name: "Romania", flag: "🇷🇴"),
+        Country(name: "Russia", flag: "🇷🇺"),
+        Country(name: "Saudi Arabia", flag: "🇸🇦"),
+        Country(name: "Scotland", flag: "🏴󠁧󠁢󠁳󠁣󠁴󠁿"),
+        Country(name: "Senegal", flag: "🇸🇳"),
+        Country(name: "Serbia", flag: "🇷🇸"),
+        Country(name: "Singapore", flag: "🇸🇬"),
+        Country(name: "Slovakia", flag: "🇸🇰"),
+        Country(name: "Slovenia", flag: "🇸🇮"),
+        Country(name: "South Africa", flag: "🇿🇦"),
+        Country(name: "South Korea", flag: "🇰🇷"),
+        Country(name: "Spain", flag: "🇪🇸"),
+        Country(name: "Sri Lanka", flag: "🇱🇰"),
+        Country(name: "Sweden", flag: "🇸🇪"),
+        Country(name: "Switzerland", flag: "🇨🇭"),
+        Country(name: "Syria", flag: "🇸🇾"),
+        Country(name: "Taiwan", flag: "🇹🇼"),
+        Country(name: "Thailand", flag: "🇹🇭"),
+        Country(name: "Tunisia", flag: "🇹🇳"),
+        Country(name: "Turkey", flag: "🇹🇷"),
+        Country(name: "UAE", flag: "🇦🇪"),
+        Country(name: "Uganda", flag: "🇺🇬"),
+        Country(name: "Ukraine", flag: "🇺🇦"),
+        Country(name: "United Kingdom", flag: "🇬🇧"),
+        Country(name: "Uruguay", flag: "🇺🇾"),
+        Country(name: "USA", flag: "🇺🇸"),
+        Country(name: "Uzbekistan", flag: "🇺🇿"),
+        Country(name: "Venezuela", flag: "🇻🇪"),
+        Country(name: "Vietnam", flag: "🇻🇳"),
+        Country(name: "Wales", flag: "🏴󠁧󠁢󠁷󠁬󠁳󠁿"),
+        Country(name: "Yemen", flag: "🇾🇪"),
+        Country(name: "Zimbabwe", flag: "🇿🇼")
+    ]
     let aiDifficulties = ["easy", "medium", "hard", "impossible"]
 
     // Convert legs per set to legs to win (e.g., best of 3 = first to 2)
@@ -321,7 +439,7 @@ struct MenuView: View {
                                 playerNumber: 1,
                                 name: $player1Name,
                                 flag: $player1Flag,
-                                flagOptions: flagOptions,
+                                countries: countries,
                                 isAI: $player1IsAI,
                                 aiDifficulty: $player1AIDifficulty,
                                 aiDifficulties: aiDifficulties
@@ -334,7 +452,7 @@ struct MenuView: View {
                                 playerNumber: 2,
                                 name: $player2Name,
                                 flag: $player2Flag,
-                                flagOptions: flagOptions,
+                                countries: countries,
                                 isAI: $player2IsAI,
                                 aiDifficulty: $player2AIDifficulty,
                                 aiDifficulties: aiDifficulties
@@ -347,7 +465,7 @@ struct MenuView: View {
                                 playerNumber: 3,
                                 name: $player3Name,
                                 flag: $player3Flag,
-                                flagOptions: flagOptions,
+                                countries: countries,
                                 isAI: $player3IsAI,
                                 aiDifficulty: $player3AIDifficulty,
                                 aiDifficulties: aiDifficulties
@@ -360,7 +478,7 @@ struct MenuView: View {
                                 playerNumber: 4,
                                 name: $player4Name,
                                 flag: $player4Flag,
-                                flagOptions: flagOptions,
+                                countries: countries,
                                 isAI: $player4IsAI,
                                 aiDifficulty: $player4AIDifficulty,
                                 aiDifficulties: aiDifficulties
@@ -420,12 +538,10 @@ struct PlayerConfigView: View {
     let playerNumber: Int
     @Binding var name: String
     @Binding var flag: String
-    let flagOptions: [String]
+    let countries: [Country]
     @Binding var isAI: Bool
     @Binding var aiDifficulty: String
     let aiDifficulties: [String]
-
-    @State private var showFlagPicker = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -434,40 +550,40 @@ struct PlayerConfigView: View {
                 .foregroundColor(Color(red: 1.0, green: 0.84, blue: 0.0))
                 .tracking(2)
 
-            HStack(spacing: 15) {
-                // Flag picker button
-                Button(action: {
-                    showFlagPicker.toggle()
-                }) {
-                    Text(flag)
-                        .font(.system(size: 32))
-                        .frame(width: 60, height: 50)
-                        .background(Color.white.opacity(0.1))
-                        .cornerRadius(10)
-                }
-                .actionSheet(isPresented: $showFlagPicker) {
-                    ActionSheet(
-                        title: Text("Select Flag"),
-                        buttons: flagOptions.map { selectedFlag in
-                            .default(Text(selectedFlag)) {
-                                flag = selectedFlag
-                            }
-                        } + [.cancel()]
-                    )
-                }
+            // Name input
+            TextField("Player \(playerNumber)", text: Binding(
+                get: { name },
+                set: { name = String($0.prefix(20)) } // Limit to 20 characters
+            ))
+                .font(.system(size: 18, weight: .medium))
+                .foregroundColor(Color(red: 0.91, green: 0.84, blue: 0.72))
+                .padding()
+                .background(Color.white.opacity(0.1))
+                .cornerRadius(10)
+                .autocapitalization(.words)
+                .disableAutocorrection(true)
 
-                // Name input
-                TextField("Player \(playerNumber)", text: Binding(
-                    get: { name },
-                    set: { name = String($0.prefix(20)) } // Limit to 20 characters
-                ))
-                    .font(.system(size: 18, weight: .medium))
-                    .foregroundColor(Color(red: 0.91, green: 0.84, blue: 0.72))
-                    .padding()
-                    .background(Color.white.opacity(0.1))
-                    .cornerRadius(10)
-                    .autocapitalization(.words)
-                    .disableAutocorrection(true)
+            // Nationality dropdown
+            VStack(alignment: .leading, spacing: 8) {
+                Text("NATIONALITY")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundColor(Color(red: 0.53, green: 0.53, blue: 0.53))
+                    .tracking(1)
+
+                Picker("", selection: $flag) {
+                    ForEach(countries) { country in
+                        HStack {
+                            Text("\(country.flag) \(country.name)")
+                                .tag(country.flag)
+                        }
+                    }
+                }
+                .pickerStyle(.menu)
+                .tint(Color(red: 0.91, green: 0.84, blue: 0.72))
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding()
+                .background(Color.white.opacity(0.1))
+                .cornerRadius(10)
             }
 
             // AI Opponent Toggle
