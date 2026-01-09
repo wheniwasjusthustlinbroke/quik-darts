@@ -62,6 +62,46 @@
     const OUTER_BULL = 16;
     const INNER_BULL = 8;
 
+    // Achievements data - moved outside component to prevent recreation on every render
+    const ACHIEVEMENTS_DATA = [
+      // First Steps
+      { id: 'first_game', name: 'First Game', description: 'Complete your first game', icon: '🎯', rarity: 'common', mode: 'offline' },
+      { id: 'first_win', name: 'First Victory', description: 'Win your first game', icon: '🏆', rarity: 'common', mode: 'offline' },
+
+      // 180 Achievements
+      { id: 'first_180', name: 'Maximum!', description: 'Hit your first 180', icon: '💯', rarity: 'uncommon', mode: 'offline' },
+      { id: 'ten_180s', name: '180 Master', description: 'Hit 10 total 180s', icon: '⭐', rarity: 'rare', mode: 'offline' },
+      { id: 'fifty_180s', name: 'Ton Machine', description: 'Hit 50 total 180s', icon: '🌟', rarity: 'epic', mode: 'offline' },
+
+      // Nine Darter Achievements
+      { id: 'nine_darter_offline', name: 'Perfect Game', description: 'Achieve a nine-dart finish in offline mode', icon: '👑', rarity: 'legendary', mode: 'offline' },
+      { id: 'nine_darter_online', name: 'Online Legend', description: 'Achieve a nine-dart finish in online mode', icon: '💎', rarity: 'mythic', mode: 'online' },
+
+      // Bulls Achievements
+      { id: 'first_bull', name: 'Bullseye!', description: 'Hit your first bullseye', icon: '🎯', rarity: 'common', mode: 'offline' },
+      { id: 'fifty_bulls', name: 'Bull Master', description: 'Hit 50 bullseyes', icon: '🐂', rarity: 'rare', mode: 'offline' },
+      { id: 'hundred_bulls', name: 'Bull Legend', description: 'Hit 100 bullseyes', icon: '🐃', rarity: 'epic', mode: 'offline' },
+
+      // Winning Streaks
+      { id: 'five_wins', name: 'Hot Streak', description: 'Win 5 games', icon: '🔥', rarity: 'uncommon', mode: 'offline' },
+      { id: 'twenty_wins', name: 'Dominator', description: 'Win 20 games', icon: '💪', rarity: 'rare', mode: 'offline' },
+      { id: 'fifty_wins', name: 'Champion', description: 'Win 50 games', icon: '🥇', rarity: 'epic', mode: 'offline' },
+
+      // Online Achievements
+      { id: 'first_online', name: 'Going Online', description: 'Play your first online match', icon: '🌍', rarity: 'common', mode: 'online' },
+      { id: 'first_online_win', name: 'Online Victor', description: 'Win your first online match', icon: '🏅', rarity: 'uncommon', mode: 'online' },
+      { id: 'ten_online_wins', name: 'Online Warrior', description: 'Win 10 online matches', icon: '⚔️', rarity: 'rare', mode: 'online' },
+      { id: 'fifty_online_wins', name: 'Online Champion', description: 'Win 50 online matches', icon: '👑', rarity: 'epic', mode: 'online' },
+
+      // Checkout Achievements
+      { id: 'big_checkout', name: 'Big Fish', description: 'Hit a checkout of 100 or more', icon: '🐋', rarity: 'uncommon', mode: 'offline' },
+      { id: 'huge_checkout', name: 'Monster Checkout', description: 'Hit a checkout of 150 or more', icon: '🦈', rarity: 'rare', mode: 'offline' },
+
+      // Skill Achievements
+      { id: 'fifty_triples', name: 'Triple Threat', description: 'Hit 50 triples', icon: '3️⃣', rarity: 'uncommon', mode: 'offline' },
+      { id: 'two_hundred_triples', name: 'Triple Master', description: 'Hit 200 triples', icon: '💫', rarity: 'rare', mode: 'offline' }
+    ];
+
     const DartsGame = () => {
       const [gameState, setGameState] = useState('menu');
       const [players, setPlayers] = useState([]);
@@ -158,45 +198,6 @@
           };
         }
       });
-
-      const achievementsData = [
-        // First Steps
-        { id: 'first_game', name: 'First Game', description: 'Complete your first game', icon: '🎯', rarity: 'common', mode: 'offline' },
-        { id: 'first_win', name: 'First Victory', description: 'Win your first game', icon: '🏆', rarity: 'common', mode: 'offline' },
-
-        // 180 Achievements
-        { id: 'first_180', name: 'Maximum!', description: 'Hit your first 180', icon: '💯', rarity: 'uncommon', mode: 'offline' },
-        { id: 'ten_180s', name: '180 Master', description: 'Hit 10 total 180s', icon: '⭐', rarity: 'rare', mode: 'offline' },
-        { id: 'fifty_180s', name: 'Ton Machine', description: 'Hit 50 total 180s', icon: '🌟', rarity: 'epic', mode: 'offline' },
-
-        // Nine Darter Achievements
-        { id: 'nine_darter_offline', name: 'Perfect Game', description: 'Achieve a nine-dart finish in offline mode', icon: '👑', rarity: 'legendary', mode: 'offline' },
-        { id: 'nine_darter_online', name: 'Online Legend', description: 'Achieve a nine-dart finish in online mode', icon: '💎', rarity: 'mythic', mode: 'online' },
-
-        // Bulls Achievements
-        { id: 'first_bull', name: 'Bullseye!', description: 'Hit your first bullseye', icon: '🎯', rarity: 'common', mode: 'offline' },
-        { id: 'fifty_bulls', name: 'Bull Master', description: 'Hit 50 bullseyes', icon: '🐂', rarity: 'rare', mode: 'offline' },
-        { id: 'hundred_bulls', name: 'Bull Legend', description: 'Hit 100 bullseyes', icon: '🐃', rarity: 'epic', mode: 'offline' },
-
-        // Winning Streaks
-        { id: 'five_wins', name: 'Hot Streak', description: 'Win 5 games', icon: '🔥', rarity: 'uncommon', mode: 'offline' },
-        { id: 'twenty_wins', name: 'Dominator', description: 'Win 20 games', icon: '💪', rarity: 'rare', mode: 'offline' },
-        { id: 'fifty_wins', name: 'Champion', description: 'Win 50 games', icon: '🥇', rarity: 'epic', mode: 'offline' },
-
-        // Online Achievements
-        { id: 'first_online', name: 'Going Online', description: 'Play your first online match', icon: '🌍', rarity: 'common', mode: 'online' },
-        { id: 'first_online_win', name: 'Online Victor', description: 'Win your first online match', icon: '🏅', rarity: 'uncommon', mode: 'online' },
-        { id: 'ten_online_wins', name: 'Online Warrior', description: 'Win 10 online matches', icon: '⚔️', rarity: 'rare', mode: 'online' },
-        { id: 'fifty_online_wins', name: 'Online Champion', description: 'Win 50 online matches', icon: '👑', rarity: 'epic', mode: 'online' },
-
-        // Checkout Achievements
-        { id: 'big_checkout', name: 'Big Fish', description: 'Hit a checkout of 100 or more', icon: '🐋', rarity: 'uncommon', mode: 'offline' },
-        { id: 'huge_checkout', name: 'Monster Checkout', description: 'Hit a checkout of 150 or more', icon: '🦈', rarity: 'rare', mode: 'offline' },
-
-        // Skill Achievements
-        { id: 'fifty_triples', name: 'Triple Threat', description: 'Hit 50 triples', icon: '3️⃣', rarity: 'uncommon', mode: 'offline' },
-        { id: 'two_hundred_triples', name: 'Triple Master', description: 'Hit 200 triples', icon: '💫', rarity: 'rare', mode: 'offline' }
-      ];
 
       const boardRef = useRef(null);
       const powerIntervalRef = useRef(null);
@@ -1632,7 +1633,7 @@
         // Check if already unlocked
         if (unlockedAchievements.includes(achievementId)) return;
 
-        const achievement = achievementsData.find(a => a.id === achievementId);
+        const achievement = ACHIEVEMENTS_DATA.find(a => a.id === achievementId);
         if (!achievement) return;
 
         // Add to unlocked list
@@ -1648,7 +1649,7 @@
         // Show popup
         setAchievementPopup(achievement);
         setTimeout(() => setAchievementPopup(null), 4000);
-      }, [unlockedAchievements, achievementsData]);
+      }, [unlockedAchievements]);
 
       const checkAchievements = useCallback((stats) => {
         // First game
@@ -2078,15 +2079,15 @@
 
               <div style={{ background: 'rgba(255, 255, 255, 0.05)', borderRadius: '20px', padding: '25px', marginBottom: '30px', backdropFilter: 'blur(10px)' }}>
                 <div style={{ color: '#e8d5b7', fontSize: '18px', marginBottom: '5px' }}>
-                  Unlocked: <span style={{ color: '#ffd700', fontWeight: '700' }}>{unlockedAchievements.length}</span> / {achievementsData.length}
+                  Unlocked: <span style={{ color: '#ffd700', fontWeight: '700' }}>{unlockedAchievements.length}</span> / {ACHIEVEMENTS_DATA.length}
                 </div>
                 <div style={{ background: 'rgba(255, 215, 0, 0.2)', borderRadius: '10px', height: '10px', overflow: 'hidden', marginTop: '10px' }}>
-                  <div style={{ background: 'linear-gradient(90deg, #ffd700, #ffed4a)', height: '100%', width: `${(unlockedAchievements.length / achievementsData.length) * 100}%`, transition: 'width 0.5s' }}></div>
+                  <div style={{ background: 'linear-gradient(90deg, #ffd700, #ffed4a)', height: '100%', width: `${(unlockedAchievements.length / ACHIEVEMENTS_DATA.length) * 100}%`, transition: 'width 0.5s' }}></div>
                 </div>
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '20px' }}>
-                {achievementsData.map(achievement => {
+                {ACHIEVEMENTS_DATA.map(achievement => {
                   const isUnlocked = unlockedAchievements.includes(achievement.id);
                   return (
                     <div key={achievement.id} style={{
