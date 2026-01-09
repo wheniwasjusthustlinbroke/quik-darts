@@ -98,6 +98,31 @@ class GameStateManager: ObservableObject {
         isOnlineMode = false
     }
 
+    func startPracticeGame(skillLevel: Int) {
+        // Reset to practice mode
+        self.practiceMode = "active"
+        self.skillLevel = skillLevel <= 40 ? "beginner" : (skillLevel <= 80 ? "intermediate" : "expert")
+        self.gameMode = 501
+        self.numberOfPlayers = 1
+        self.player1Name = "Practice"
+        self.player1Flag = "🎯"
+        self.player1IsAI = false
+
+        // Reset practice stats
+        self.practiceStats = PracticeStats()
+
+        // Reset game state for practice
+        player1Score = 501
+        player2Score = 501
+        currentPlayer = 0
+        dartsThrown = 0
+        currentTurnScore = 0
+        throwHistory = [[], []]
+        dartPositions = []
+        winner = nil
+        isOnlineMode = false
+    }
+
     func throwDart(at point: CGPoint, in size: CGSize) {
         // Calculate center of dartboard
         let center = CGPoint(x: size.width / 2, y: size.height / 2)
