@@ -3,38 +3,38 @@ import SwiftUI
 struct DartboardView: View {
     let size: CGSize
 
+    // Static constants to avoid recreating on every view render
     // Dartboard segments in clockwise order starting from top
-    let segments = [20, 1, 18, 4, 13, 6, 10, 15, 2, 17, 3, 19, 7, 16, 8, 11, 14, 9, 12, 5]
+    private static let segments = [20, 1, 18, 4, 13, 6, 10, 15, 2, 17, 3, 19, 7, 16, 8, 11, 14, 9, 12, 5]
 
-    // Colors
-    let blackColor = Color(red: 0.1, green: 0.1, blue: 0.1)
-    let whiteColor = Color(red: 0.95, green: 0.95, blue: 0.95)
-    let redColor = Color(red: 0.85, green: 0.1, blue: 0.1)
-    let greenColor = Color(red: 0.15, green: 0.6, blue: 0.2)
-    let creamColor = Color(red: 0.95, green: 0.93, blue: 0.85)
+    // Colors - matched exactly to web version
+    private static let blackColor = Color(red: 0.039, green: 0.039, blue: 0.039) // #0a0a0a
+    private static let creamColor = Color(red: 0.96, green: 0.94, blue: 0.91) // #f5f0e8
+    private static let redColor = Color(red: 0.85, green: 0.1, blue: 0.1)
+    private static let greenColor = Color(red: 0.15, green: 0.6, blue: 0.2)
 
     var body: some View {
         Canvas { context, size in
             let center = CGPoint(x: size.width / 2, y: size.height / 2)
             let radius = min(size.width, size.height) / 2
-            let scale = radius / 170.0
+            let scale = radius / 172.0
 
-            // Ring radii (in mm, scaled)
+            // Ring radii (in mm, scaled) - matched exactly to web version
             let innerBullRadius = 8.0 * scale
             let outerBullRadius = 16.0 * scale
-            let tripleInner = 99.0 * scale
+            let tripleInner = 95.0 * scale
             let tripleOuter = 107.0 * scale
-            let doubleInner = 162.0 * scale
-            let doubleOuter = 170.0 * scale
+            let doubleInner = 160.0 * scale
+            let doubleOuter = 172.0 * scale
 
             // Draw outer board background
             context.fill(
                 Path(ellipseIn: CGRect(x: center.x - radius, y: center.y - radius, width: radius * 2, height: radius * 2)),
-                with: .color(blackColor)
+                with: .color(Self.blackColor)
             )
 
             // Draw 20 segments
-            for (index, segmentValue) in segments.enumerated() {
+            for (index, segmentValue) in Self.segments.enumerated() {
                 let angle = Double(index) * 18.0 - 9.0 // Each segment is 18°, offset by -9° to center on top
                 let nextAngle = angle + 18.0
 
@@ -46,7 +46,7 @@ struct DartboardView: View {
                     outerRadius: radius,
                     startAngle: angle,
                     endAngle: nextAngle,
-                    color: index % 2 == 0 ? blackColor : whiteColor
+                    color: index % 2 == 0 ? Self.blackColor : Self.creamColor
                 )
 
                 // Double ring
@@ -57,7 +57,7 @@ struct DartboardView: View {
                     outerRadius: doubleOuter,
                     startAngle: angle,
                     endAngle: nextAngle,
-                    color: index % 2 == 0 ? redColor : greenColor
+                    color: index % 2 == 0 ? Self.redColor : Self.greenColor
                 )
 
                 // Outer single (between double and triple)
@@ -68,7 +68,7 @@ struct DartboardView: View {
                     outerRadius: doubleInner,
                     startAngle: angle,
                     endAngle: nextAngle,
-                    color: index % 2 == 0 ? blackColor : creamColor
+                    color: index % 2 == 0 ? Self.blackColor : Self.creamColor
                 )
 
                 // Triple ring
@@ -79,7 +79,7 @@ struct DartboardView: View {
                     outerRadius: tripleOuter,
                     startAngle: angle,
                     endAngle: nextAngle,
-                    color: index % 2 == 0 ? redColor : greenColor
+                    color: index % 2 == 0 ? Self.redColor : Self.greenColor
                 )
 
                 // Inner single (between triple and bull)
@@ -90,7 +90,7 @@ struct DartboardView: View {
                     outerRadius: tripleInner,
                     startAngle: angle,
                     endAngle: nextAngle,
-                    color: index % 2 == 0 ? blackColor : creamColor
+                    color: index % 2 == 0 ? Self.blackColor : Self.creamColor
                 )
 
                 // Draw number
@@ -115,7 +115,7 @@ struct DartboardView: View {
                     width: outerBullRadius * 2,
                     height: outerBullRadius * 2
                 )),
-                with: .color(greenColor)
+                with: .color(Self.greenColor)
             )
 
             // Draw inner bull (double bull/bullseye - 50 points)
@@ -126,7 +126,7 @@ struct DartboardView: View {
                     width: innerBullRadius * 2,
                     height: innerBullRadius * 2
                 )),
-                with: .color(redColor)
+                with: .color(Self.redColor)
             )
 
             // Draw spider (wire dividers) - thin white lines
