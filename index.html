@@ -804,15 +804,29 @@
 
       // Cancel matchmaking
       const cancelMatchmaking = useCallback(() => {
+        // If in an active game, set my connected status to false to notify opponent
+        if (gameRoomRef.current && playerId !== null) {
+          const myPlayerKey = playerId === 0 ? 'player1' : 'player2';
+          gameRoomRef.current.child(`${myPlayerKey}/connected`).set(false);
+        }
+
         // Clear matchmaking interval if it's running
         if (matchmakingIntervalRef.current) {
           clearInterval(matchmakingIntervalRef.current);
           matchmakingIntervalRef.current = null;
         }
 
+        // Remove from queue if still in matchmaking
         if (playerId && database) {
           database.ref('matchmaking_queue').child(playerId).remove();
         }
+
+        // Clean up game room listener
+        if (gameRoomRef.current) {
+          gameRoomRef.current.off();
+          gameRoomRef.current = null;
+        }
+
         setMatchmakingState(null);
         setOnlineMode(false);
         setGameRoomId(null);
@@ -822,10 +836,7 @@
 
       // Leave online game
       const leaveOnlineGame = useCallback(() => {
-        if (gameRoomRef.current) {
-          gameRoomRef.current.off();
-          gameRoomRef.current = null;
-        }
+        // cancelMatchmaking now handles all cleanup including setting connected=false
         cancelMatchmaking();
       }, [cancelMatchmaking]);
 
