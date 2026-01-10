@@ -1,0 +1,3693 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Quik Darts - Championship Edition</title>
+  <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;600;700&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
+
+  <!-- Firebase SDKs -->
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Oswald', sans-serif;
+      -webkit-tap-highlight-color: transparent;
+      -webkit-touch-callout: none;
+      -webkit-user-select: none;
+      touch-action: manipulation;
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="text/babel">
+    const { useState, useRef, useEffect, useCallback } = React;
+
+    // Firebase Configuration
+    const firebaseConfig = {
+      apiKey: "AIzaSyAapEmqdhRMQgRyrXIzhhMGSvNbpfQlaoM",
+      authDomain: "quikdarts.firebaseapp.com",
+      databaseURL: "https://quikdarts-default-rtdb.europe-west1.firebasedatabase.app",
+      projectId: "quikdarts",
+      storageBucket: "quikdarts.firebasestorage.app",
+      messagingSenderId: "287454496132",
+      appId: "1:287454496132:web:dd17354a71f9eb907f89d1",
+      measurementId: "G-TE4B2W2CEJ"
+    };
+
+    // Initialize Firebase
+    let database = null;
+    try {
+      if (!firebase.apps.length) {
+        firebase.initializeApp(firebaseConfig);
+      }
+      database = firebase.database();
+    } catch (error) {
+      console.warn('Firebase not configured. Online multiplayer disabled.', error);
+    }
+
+    const BOARD_SIZE = 500;
+    const CENTER = BOARD_SIZE / 2;
+    const SEGMENTS = [20, 1, 18, 4, 13, 6, 10, 15, 2, 17, 3, 19, 7, 16, 8, 11, 14, 9, 12, 5];
+    const SEGMENT_COLORS = ['#0a0a0a', '#f5f0e8']; // Deep black and cream (more realistic)
+    const TRIPLE_INNER = 95;
+    const TRIPLE_OUTER = 107;
+    const DOUBLE_INNER = 160;
+    const DOUBLE_OUTER = 172;
+    const OUTER_BULL = 16;
+    const INNER_BULL = 8;
+
+    // ============================================
+    // DARTBOARD THEME SYSTEM
+    // ============================================
+
+    // Theme ID constants (no magic strings)
+    const THEME_IDS = Object.freeze({
+      CLASSIC: 'classic',
+      PRO_WIRE: 'proWire',
+      NEON_GLOW: 'neonGlow',
+      GOLD_ELITE: 'goldElite',
+      STEALTH: 'stealth'
+    });
+
+    // Neon color options for neonGlow theme
+    const NEON_COLOR_OPTIONS = Object.freeze({
+      CYAN: 'cyan',
+      PINK: 'pink',
+      GREEN: 'green'
+    });
+
+    // Classic theme - Matches iOS dartboard exactly (flat rendering, no 3D effects)
+    const THEME_CLASSIC = Object.freeze({
+      id: THEME_IDS.CLASSIC,
+      name: 'Classic',
+      description: 'Traditional dartboard matching iOS appearance',
+      icon: '🎯',
+      colors: {
+        segmentPrimary: '#0a0a0a',      // Deep black
+        segmentSecondary: '#f5f0e8',     // Cream
+        doubleTripleEven: '#b8232a',     // Deep red
+        doubleTripleOdd: '#0d6b2e',      // Deep green
+        outerBull: '#0d6b2e',            // Green
+        innerBull: '#b8232a',            // Red
+        wireColor: '#888888',            // Light silver wire (matches iOS)
+        wireHighlight: 'rgba(255,255,255,0.6)',
+        chromeRing: '#c0c0c0',           // Silver chrome
+        numberRing: '#1a1a2e',           // Navy background
+        numberText: '#f5f0e8',           // Cream text
+        frameColor: '#b8860b',           // Gold frame
+        boardBackground: '#1a1a1a'
+      },
+      effects: {
+        useSisalTexture: false,          // Disabled to match iOS (iOS doesn't render textures)
+        useWoodGrain: false,             // Disabled to match iOS (iOS doesn't render wood grain)
+        useChromeGradient: false,        // Disabled to match iOS (iOS uses solid chrome color)
+        useBoardLighting: false,         // Disabled to match iOS (iOS doesn't render lighting)
+        glowEffect: false,
+        pulseAnimation: false,
+        wireWidth: 1.0,                  // Thinner wire (matches iOS)
+        shadowIntensity: 0               // Disabled to match iOS (iOS doesn't render shadows)
+      }
+    });
+
+    // Pro Wire theme - Tournament look with metal wire dividers
+    const THEME_PRO_WIRE = Object.freeze({
+      id: THEME_IDS.PRO_WIRE,
+      name: 'Pro Wire',
+      description: 'Tournament style with thin metal wire dividers',
+      icon: '🏆',
+      colors: {
+        segmentPrimary: '#0a0a0a',
+        segmentSecondary: '#e8e4dc',     // Slightly lighter cream
+        doubleTripleEven: '#c41e3a',     // Brighter red
+        doubleTripleOdd: '#1a8b45',      // Brighter green
+        outerBull: '#1a8b45',
+        innerBull: '#c41e3a',
+        wireColor: '#d4d4d4',            // Silver wire
+        wireHighlight: 'rgba(255,255,255,0.9)',
+        chromeRing: '#e0e0e0',           // Bright chrome
+        numberRing: '#1a1a2e',
+        numberText: '#ffffff',           // White text
+        frameColor: '#a0a0a0',           // Silver frame
+        boardBackground: '#1a1a1a'
+      },
+      effects: {
+        useSisalTexture: true,
+        useWoodGrain: false,
+        useChromeGradient: true,
+        useBoardLighting: true,
+        glowEffect: false,
+        pulseAnimation: false,
+        wireWidth: 0.8,                  // Thinner wires
+        shadowIntensity: 0.2
+      }
+    });
+
+    // Neon Glow theme - Dark board with glowing neon wires
+    const THEME_NEON_GLOW = Object.freeze({
+      id: THEME_IDS.NEON_GLOW,
+      name: 'Neon Glow',
+      description: 'Dark board with glowing neon wires',
+      icon: '✨',
+      neonColorOptions: [NEON_COLOR_OPTIONS.CYAN, NEON_COLOR_OPTIONS.PINK, NEON_COLOR_OPTIONS.GREEN],
+      defaultNeonColor: NEON_COLOR_OPTIONS.CYAN,
+      // Colors will be dynamically set based on neon color selection
+      getColors: (neonColor) => {
+        const neonColors = {
+          [NEON_COLOR_OPTIONS.CYAN]: {
+            primary: '#00ffff',
+            secondary: '#00d4ff',
+            glow: 'rgba(0, 255, 255, 0.6)'
+          },
+          [NEON_COLOR_OPTIONS.PINK]: {
+            primary: '#ff00ff',
+            secondary: '#ff44aa',
+            glow: 'rgba(255, 0, 255, 0.6)'
+          },
+          [NEON_COLOR_OPTIONS.GREEN]: {
+            primary: '#00ff66',
+            secondary: '#44ff88',
+            glow: 'rgba(0, 255, 102, 0.6)'
+          }
+        };
+        const neon = neonColors[neonColor] || neonColors[NEON_COLOR_OPTIONS.CYAN];
+        return {
+          segmentPrimary: '#0a0a12',       // Very dark
+          segmentSecondary: '#1a1a28',     // Dark purple-black
+          doubleTripleEven: '#2a0a1a',     // Dark red tint
+          doubleTripleOdd: '#0a1a1a',      // Dark green tint
+          outerBull: '#0a1a1a',
+          innerBull: '#2a0a1a',
+          wireColor: neon.primary,
+          wireHighlight: neon.glow,
+          chromeRing: '#1a1a28',
+          numberRing: '#0a0a12',
+          numberText: neon.primary,
+          frameColor: neon.secondary,
+          boardBackground: '#050508',
+          neonGlow: neon.glow,
+          neonPrimary: neon.primary
+        };
+      },
+      effects: {
+        useSisalTexture: false,
+        useWoodGrain: false,
+        useChromeGradient: false,
+        useBoardLighting: false,
+        glowEffect: true,
+        pulseAnimation: true,
+        wireWidth: 2.0,
+        shadowIntensity: 0.1
+      }
+    });
+
+    // Gold Elite theme - Black and gold luxury theme
+    const THEME_GOLD_ELITE = Object.freeze({
+      id: THEME_IDS.GOLD_ELITE,
+      name: 'Gold Elite',
+      description: 'Black and gold luxury premium theme',
+      icon: '👑',
+      colors: {
+        segmentPrimary: '#0a0a0a',        // Black
+        segmentSecondary: '#1a1a1a',      // Dark gray
+        doubleTripleEven: '#b8860b',      // Dark gold
+        doubleTripleOdd: '#daa520',       // Goldenrod
+        outerBull: '#daa520',
+        innerBull: '#ffd700',             // Gold
+        wireColor: '#ffd700',             // Gold wire
+        wireHighlight: 'rgba(255,215,0,0.8)',
+        chromeRing: '#ffd700',            // Gold
+        numberRing: '#0a0a0a',
+        numberText: '#ffd700',
+        frameColor: '#ffd700',
+        boardBackground: '#050505',
+        metallicSheen: 'rgba(255,215,0,0.15)'
+      },
+      effects: {
+        useSisalTexture: false,
+        useWoodGrain: false,
+        useChromeGradient: false,
+        useBoardLighting: true,
+        glowEffect: false,
+        pulseAnimation: false,
+        wireWidth: 1.2,
+        shadowIntensity: 0.4,
+        useMetallicSheen: true
+      }
+    });
+
+    // Stealth theme - All black/dark gray minimal (hard mode aesthetic)
+    const THEME_STEALTH = Object.freeze({
+      id: THEME_IDS.STEALTH,
+      name: 'Stealth',
+      description: 'Minimal dark theme - hard mode aesthetic',
+      icon: '🌑',
+      colors: {
+        segmentPrimary: '#0a0a0a',        // Deep black
+        segmentSecondary: '#151515',      // Very dark gray
+        doubleTripleEven: '#1a1a1a',      // Slightly lighter
+        doubleTripleOdd: '#222222',       // Dark gray
+        outerBull: '#1a1a1a',
+        innerBull: '#252525',
+        wireColor: '#333333',             // Dark gray wire
+        wireHighlight: 'rgba(255,255,255,0.1)',
+        chromeRing: '#1a1a1a',
+        numberRing: '#0a0a0a',
+        numberText: '#444444',            // Subtle text
+        frameColor: '#151515',
+        boardBackground: '#050505'
+      },
+      effects: {
+        useSisalTexture: false,
+        useWoodGrain: false,
+        useChromeGradient: false,
+        useBoardLighting: false,
+        glowEffect: false,
+        pulseAnimation: false,
+        wireWidth: 0.5,
+        shadowIntensity: 0.1
+      }
+    });
+
+    // All themes collection
+    const DARTBOARD_THEMES = Object.freeze({
+      [THEME_IDS.CLASSIC]: THEME_CLASSIC,
+      [THEME_IDS.PRO_WIRE]: THEME_PRO_WIRE,
+      [THEME_IDS.NEON_GLOW]: THEME_NEON_GLOW,
+      [THEME_IDS.GOLD_ELITE]: THEME_GOLD_ELITE,
+      [THEME_IDS.STEALTH]: THEME_STEALTH
+    });
+
+    // Theme IDs array for iteration
+    const THEME_IDS_LIST = Object.freeze([
+      THEME_IDS.CLASSIC,
+      THEME_IDS.PRO_WIRE,
+      THEME_IDS.NEON_GLOW,
+      THEME_IDS.GOLD_ELITE,
+      THEME_IDS.STEALTH
+    ]);
+
+    // Default theme
+    const DEFAULT_THEME_ID = THEME_IDS.CLASSIC;
+
+    // Validate theme ID
+    const isValidThemeId = (themeId) => {
+      return themeId && Object.values(THEME_IDS).includes(themeId);
+    };
+
+    // Get theme by ID with validation
+    const getThemeById = (themeId) => {
+      if (!isValidThemeId(themeId)) {
+        console.warn(`Invalid theme ID: ${themeId}, falling back to default`);
+        return DARTBOARD_THEMES[DEFAULT_THEME_ID];
+      }
+      return DARTBOARD_THEMES[themeId];
+    };
+
+    // Get theme colors (handles neon glow special case)
+    const getThemeColors = (theme, neonColor = null) => {
+      if (theme.id === THEME_IDS.NEON_GLOW && theme.getColors) {
+        return theme.getColors(neonColor || theme.defaultNeonColor);
+      }
+      return theme.colors;
+    };
+
+    // ============================================
+    // END DARTBOARD THEME SYSTEM
+    // ============================================
+
+    // Achievements data - moved outside component to prevent recreation on every render
+    const ACHIEVEMENTS_DATA = [
+      // First Steps
+      { id: 'first_game', name: 'First Game', description: 'Complete your first game', icon: '🎯', rarity: 'common', mode: 'offline' },
+      { id: 'first_win', name: 'First Victory', description: 'Win your first game', icon: '🏆', rarity: 'common', mode: 'offline' },
+
+      // 180 Achievements
+      { id: 'first_180', name: 'Maximum!', description: 'Hit your first 180', icon: '💯', rarity: 'uncommon', mode: 'offline' },
+      { id: 'ten_180s', name: '180 Master', description: 'Hit 10 total 180s', icon: '⭐', rarity: 'rare', mode: 'offline' },
+      { id: 'fifty_180s', name: 'Ton Machine', description: 'Hit 50 total 180s', icon: '🌟', rarity: 'epic', mode: 'offline' },
+
+      // Nine Darter Achievements
+      { id: 'nine_darter_offline', name: 'Perfect Game', description: 'Achieve a nine-dart finish in offline mode', icon: '👑', rarity: 'legendary', mode: 'offline' },
+      { id: 'nine_darter_online', name: 'Online Legend', description: 'Achieve a nine-dart finish in online mode', icon: '💎', rarity: 'mythic', mode: 'online' },
+
+      // Bulls Achievements
+      { id: 'first_bull', name: 'Bullseye!', description: 'Hit your first bullseye', icon: '🎯', rarity: 'common', mode: 'offline' },
+      { id: 'fifty_bulls', name: 'Bull Master', description: 'Hit 50 bullseyes', icon: '🐂', rarity: 'rare', mode: 'offline' },
+      { id: 'hundred_bulls', name: 'Bull Legend', description: 'Hit 100 bullseyes', icon: '🐃', rarity: 'epic', mode: 'offline' },
+
+      // Winning Streaks
+      { id: 'five_wins', name: 'Hot Streak', description: 'Win 5 games', icon: '🔥', rarity: 'uncommon', mode: 'offline' },
+      { id: 'twenty_wins', name: 'Dominator', description: 'Win 20 games', icon: '💪', rarity: 'rare', mode: 'offline' },
+      { id: 'fifty_wins', name: 'Champion', description: 'Win 50 games', icon: '🥇', rarity: 'epic', mode: 'offline' },
+
+      // Online Achievements
+      { id: 'first_online', name: 'Going Online', description: 'Play your first online match', icon: '🌍', rarity: 'common', mode: 'online' },
+      { id: 'first_online_win', name: 'Online Victor', description: 'Win your first online match', icon: '🏅', rarity: 'uncommon', mode: 'online' },
+      { id: 'ten_online_wins', name: 'Online Warrior', description: 'Win 10 online matches', icon: '⚔️', rarity: 'rare', mode: 'online' },
+      { id: 'fifty_online_wins', name: 'Online Champion', description: 'Win 50 online matches', icon: '👑', rarity: 'epic', mode: 'online' },
+
+      // Checkout Achievements
+      { id: 'big_checkout', name: 'Big Fish', description: 'Hit a checkout of 100 or more', icon: '🐋', rarity: 'uncommon', mode: 'offline' },
+      { id: 'huge_checkout', name: 'Monster Checkout', description: 'Hit a checkout of 150 or more', icon: '🦈', rarity: 'rare', mode: 'offline' },
+
+      // Skill Achievements
+      { id: 'fifty_triples', name: 'Triple Threat', description: 'Hit 50 triples', icon: '3️⃣', rarity: 'uncommon', mode: 'offline' },
+      { id: 'two_hundred_triples', name: 'Triple Master', description: 'Hit 200 triples', icon: '💫', rarity: 'rare', mode: 'offline' }
+    ];
+
+    const DartsGame = () => {
+      const [gameState, setGameState] = useState('menu');
+      const [players, setPlayers] = useState([]);
+      const [currentPlayerIndex, setCurrentPlayerIndex] = useState(0);
+      const [dartsThrown, setDartsThrown] = useState(0);
+      const [currentTurnScore, setCurrentTurnScore] = useState(0);
+      const [throwHistory, setThrowHistory] = useState([]);
+      const [aimPosition, setAimPosition] = useState({ x: CENTER, y: CENTER });
+      const [isAiming, setIsAiming] = useState(false);
+      const [power, setPower] = useState(0);
+      const [isPowerCharging, setIsPowerCharging] = useState(false);
+      const [dartPositions, setDartPositions] = useState([]);
+      const [showScorePopup, setShowScorePopup] = useState(null);
+      const [gameStats, setGameStats] = useState({});
+      const [winner, setWinner] = useState(null);
+      const [skillLevel, setSkillLevel] = useState(60); // Default to Intermediate
+      const [soundEnabled, setSoundEnabled] = useState(true);
+      const [showStats, setShowStats] = useState(false);
+      const [playerSetup, setPlayerSetup] = useState({ count: 1, names: ['Player 1', 'Player 2', 'Player 3', 'Player 4'], gameMode: 501, aiPlayers: [false, false, false, false], aiDifficulty: [null, null, null, null], legsPerSet: 3, setsToWin: 1, flags: ['🏴󠁧󠁢󠁥󠁮󠁧󠁿', '🏴󠁧󠁢󠁥󠁮󠁧󠁿', '🏴󠁧󠁢󠁥󠁮󠁧󠁿', '🏴󠁧󠁢󠁥󠁮󠁧󠁿'] });
+      const [animatingDart, setAnimatingDart] = useState(null);
+      const [checkout, setCheckout] = useState(null);
+      const [triplesHit, setTriplesHit] = useState(0);
+      const [isCheckoutPosition, setIsCheckoutPosition] = useState(false);
+      const [legScores, setLegScores] = useState([]); // Track legs won per player
+      const [setScores, setSetScores] = useState([]); // Track sets won per player
+      const [matchWinner, setMatchWinner] = useState(null);
+      const [legDartsThrown, setLegDartsThrown] = useState([]); // Track darts thrown per player in current leg
+      const [showNineDarter, setShowNineDarter] = useState(false);
+      const [currentTurnThrows, setCurrentTurnThrows] = useState([]); // Track throws in current turn for wobble detection
+      const [aimWobble, setAimWobble] = useState({ x: 0, y: 0 }); // Wobble offset for aim position
+
+      // Online multiplayer states
+      const [onlineMode, setOnlineMode] = useState(false); // true when in online multiplayer
+      const [matchmakingState, setMatchmakingState] = useState(null); // null, 'searching', 'found', 'playing'
+      const [gameRoomId, setGameRoomId] = useState(null); // Firebase room ID
+      const [playerId, setPlayerId] = useState(null); // Player 1 or Player 2
+      const [opponentName, setOpponentName] = useState('');
+      const [opponentFlag, setOpponentFlag] = useState('🌍');
+      const gameRoomRef = useRef(null); // Firebase room reference
+
+      // Practice mode states
+      const [practiceMode, setPracticeMode] = useState(false); // true when in practice mode
+      const [practiceSkillLevel, setPracticeSkillLevel] = useState(null); // skill level for practice
+      const [practiceStats, setPracticeStats] = useState({
+        dartsThrown: 0,
+        t20: 0,
+        t19: 0,
+        t18: 0,
+        bulls: 0,
+        singleBull: 0,
+        triples: 0,
+        doubles: 0,
+        totalScore: 0
+      }); // track what player hits in practice
+
+      // Achievements system
+      const [unlockedAchievements, setUnlockedAchievements] = useState(() => {
+        try {
+          const saved = localStorage.getItem('quikdarts_achievements');
+          return saved ? JSON.parse(saved) : [];
+        } catch (error) {
+          console.error('Failed to load achievements from localStorage:', error);
+          return [];
+        }
+      });
+      const [achievementPopup, setAchievementPopup] = useState(null); // Currently showing achievement
+      const [showAchievements, setShowAchievements] = useState(false); // Show achievements gallery
+      const [achievementStats, setAchievementStats] = useState(() => {
+        try {
+          const saved = localStorage.getItem('quikdarts_stats');
+          return saved ? JSON.parse(saved) : {
+            totalGamesPlayed: 0,
+            totalGamesWon: 0,
+            total180s: 0,
+            totalNineDarters: 0,
+            totalOnlineGames: 0,
+            totalOnlineWins: 0,
+            totalBulls: 0,
+            totalTriples: 0,
+            highestCheckout: 0
+          };
+        } catch (error) {
+          console.error('Failed to load achievement stats from localStorage:', error);
+          return {
+            totalGamesPlayed: 0,
+            totalGamesWon: 0,
+            total180s: 0,
+            totalNineDarters: 0,
+            totalOnlineGames: 0,
+            totalOnlineWins: 0,
+            totalBulls: 0,
+            totalTriples: 0,
+            highestCheckout: 0
+          };
+        }
+      });
+
+      // Dartboard theme customization state
+      const [selectedThemeId, setSelectedThemeId] = useState(() => {
+        try {
+          const saved = localStorage.getItem('quikdarts_theme');
+          if (saved) {
+            const parsed = JSON.parse(saved);
+            // Validate the saved theme ID
+            if (isValidThemeId(parsed.themeId)) {
+              return parsed.themeId;
+            }
+          }
+          return DEFAULT_THEME_ID;
+        } catch (error) {
+          console.error('Failed to load theme from localStorage:', error);
+          return DEFAULT_THEME_ID;
+        }
+      });
+
+      const [selectedNeonColor, setSelectedNeonColor] = useState(() => {
+        try {
+          const saved = localStorage.getItem('quikdarts_theme');
+          if (saved) {
+            const parsed = JSON.parse(saved);
+            if (parsed.neonColor && Object.values(NEON_COLOR_OPTIONS).includes(parsed.neonColor)) {
+              return parsed.neonColor;
+            }
+          }
+          return NEON_COLOR_OPTIONS.CYAN;
+        } catch (error) {
+          console.error('Failed to load neon color from localStorage:', error);
+          return NEON_COLOR_OPTIONS.CYAN;
+        }
+      });
+
+      const [showThemeSelector, setShowThemeSelector] = useState(false); // Show theme customization screen
+      const [neonPulsePhase, setNeonPulsePhase] = useState(0); // For neon pulse animation
+
+      // Save theme selection to localStorage
+      const saveThemeSelection = useCallback((themeId, neonColor) => {
+        try {
+          const themeData = {
+            themeId: themeId,
+            neonColor: neonColor,
+            savedAt: new Date().toISOString()
+          };
+          localStorage.setItem('quikdarts_theme', JSON.stringify(themeData));
+        } catch (error) {
+          console.error('Failed to save theme to localStorage:', error);
+        }
+      }, []);
+
+      // Update theme selection handler
+      const handleThemeChange = useCallback((themeId) => {
+        if (isValidThemeId(themeId)) {
+          setSelectedThemeId(themeId);
+          saveThemeSelection(themeId, selectedNeonColor);
+        }
+      }, [selectedNeonColor, saveThemeSelection]);
+
+      // Update neon color selection handler
+      const handleNeonColorChange = useCallback((neonColor) => {
+        if (Object.values(NEON_COLOR_OPTIONS).includes(neonColor)) {
+          setSelectedNeonColor(neonColor);
+          saveThemeSelection(selectedThemeId, neonColor);
+        }
+      }, [selectedThemeId, saveThemeSelection]);
+
+      // Get current theme and colors
+      const currentTheme = getThemeById(selectedThemeId);
+      const currentThemeColors = getThemeColors(currentTheme, selectedNeonColor);
+
+      // Neon pulse animation effect
+      useEffect(() => {
+        if (currentTheme.effects.pulseAnimation) {
+          const interval = setInterval(() => {
+            setNeonPulsePhase(prev => (prev + 0.05) % (2 * Math.PI));
+          }, 50);
+          return () => clearInterval(interval);
+        }
+      }, [currentTheme.effects.pulseAnimation]);
+
+      const boardRef = useRef(null);
+      const powerIntervalRef = useRef(null);
+      const matchmakingIntervalRef = useRef(null);
+      const audioContext = useRef(null);
+
+      const countries = [
+        { name: 'Afghanistan', flag: '🇦🇫' },
+        { name: 'Albania', flag: '🇦🇱' },
+        { name: 'Algeria', flag: '🇩🇿' },
+        { name: 'Argentina', flag: '🇦🇷' },
+        { name: 'Armenia', flag: '🇦🇲' },
+        { name: 'Australia', flag: '🇦🇺' },
+        { name: 'Austria', flag: '🇦🇹' },
+        { name: 'Azerbaijan', flag: '🇦🇿' },
+        { name: 'Bahrain', flag: '🇧🇭' },
+        { name: 'Bangladesh', flag: '🇧🇩' },
+        { name: 'Belarus', flag: '🇧🇾' },
+        { name: 'Belgium', flag: '🇧🇪' },
+        { name: 'Bolivia', flag: '🇧🇴' },
+        { name: 'Bosnia', flag: '🇧🇦' },
+        { name: 'Brazil', flag: '🇧🇷' },
+        { name: 'Bulgaria', flag: '🇧🇬' },
+        { name: 'Cambodia', flag: '🇰🇭' },
+        { name: 'Canada', flag: '🇨🇦' },
+        { name: 'Chile', flag: '🇨🇱' },
+        { name: 'China', flag: '🇨🇳' },
+        { name: 'Colombia', flag: '🇨🇴' },
+        { name: 'Costa Rica', flag: '🇨🇷' },
+        { name: 'Croatia', flag: '🇭🇷' },
+        { name: 'Cuba', flag: '🇨🇺' },
+        { name: 'Cyprus', flag: '🇨🇾' },
+        { name: 'Czech Republic', flag: '🇨🇿' },
+        { name: 'Denmark', flag: '🇩🇰' },
+        { name: 'Ecuador', flag: '🇪🇨' },
+        { name: 'Egypt', flag: '🇪🇬' },
+        { name: 'England', flag: '🏴󠁧󠁢󠁥󠁮󠁧󠁿' },
+        { name: 'Estonia', flag: '🇪🇪' },
+        { name: 'Ethiopia', flag: '🇪🇹' },
+        { name: 'Finland', flag: '🇫🇮' },
+        { name: 'France', flag: '🇫🇷' },
+        { name: 'Georgia', flag: '🇬🇪' },
+        { name: 'Germany', flag: '🇩🇪' },
+        { name: 'Ghana', flag: '🇬🇭' },
+        { name: 'Greece', flag: '🇬🇷' },
+        { name: 'Hong Kong', flag: '🇭🇰' },
+        { name: 'Hungary', flag: '🇭🇺' },
+        { name: 'Iceland', flag: '🇮🇸' },
+        { name: 'India', flag: '🇮🇳' },
+        { name: 'Indonesia', flag: '🇮🇩' },
+        { name: 'Iran', flag: '🇮🇷' },
+        { name: 'Iraq', flag: '🇮🇶' },
+        { name: 'Ireland', flag: '🇮🇪' },
+        { name: 'Israel', flag: '🇮🇱' },
+        { name: 'Italy', flag: '🇮🇹' },
+        { name: 'Jamaica', flag: '🇯🇲' },
+        { name: 'Japan', flag: '🇯🇵' },
+        { name: 'Jordan', flag: '🇯🇴' },
+        { name: 'Kazakhstan', flag: '🇰🇿' },
+        { name: 'Kenya', flag: '🇰🇪' },
+        { name: 'Kuwait', flag: '🇰🇼' },
+        { name: 'Latvia', flag: '🇱🇻' },
+        { name: 'Lebanon', flag: '🇱🇧' },
+        { name: 'Libya', flag: '🇱🇾' },
+        { name: 'Lithuania', flag: '🇱🇹' },
+        { name: 'Luxembourg', flag: '🇱🇺' },
+        { name: 'Malaysia', flag: '🇲🇾' },
+        { name: 'Malta', flag: '🇲🇹' },
+        { name: 'Mexico', flag: '🇲🇽' },
+        { name: 'Morocco', flag: '🇲🇦' },
+        { name: 'Nepal', flag: '🇳🇵' },
+        { name: 'Netherlands', flag: '🇳🇱' },
+        { name: 'New Zealand', flag: '🇳🇿' },
+        { name: 'Nigeria', flag: '🇳🇬' },
+        { name: 'North Korea', flag: '🇰🇵' },
+        { name: 'Northern Ireland', flag: '🇬🇧' },
+        { name: 'Norway', flag: '🇳🇴' },
+        { name: 'Pakistan', flag: '🇵🇰' },
+        { name: 'Palestine', flag: '🇵🇸' },
+        { name: 'Panama', flag: '🇵🇦' },
+        { name: 'Peru', flag: '🇵🇪' },
+        { name: 'Philippines', flag: '🇵🇭' },
+        { name: 'Poland', flag: '🇵🇱' },
+        { name: 'Portugal', flag: '🇵🇹' },
+        { name: 'Qatar', flag: '🇶🇦' },
+        { name: 'Romania', flag: '🇷🇴' },
+        { name: 'Russia', flag: '🇷🇺' },
+        { name: 'Saudi Arabia', flag: '🇸🇦' },
+        { name: 'Scotland', flag: '🏴󠁧󠁢󠁳󠁣󠁴󠁿' },
+        { name: 'Senegal', flag: '🇸🇳' },
+        { name: 'Serbia', flag: '🇷🇸' },
+        { name: 'Singapore', flag: '🇸🇬' },
+        { name: 'Slovakia', flag: '🇸🇰' },
+        { name: 'Slovenia', flag: '🇸🇮' },
+        { name: 'South Africa', flag: '🇿🇦' },
+        { name: 'South Korea', flag: '🇰🇷' },
+        { name: 'Spain', flag: '🇪🇸' },
+        { name: 'Sri Lanka', flag: '🇱🇰' },
+        { name: 'Sweden', flag: '🇸🇪' },
+        { name: 'Switzerland', flag: '🇨🇭' },
+        { name: 'Syria', flag: '🇸🇾' },
+        { name: 'Taiwan', flag: '🇹🇼' },
+        { name: 'Thailand', flag: '🇹🇭' },
+        { name: 'Tunisia', flag: '🇹🇳' },
+        { name: 'Turkey', flag: '🇹🇷' },
+        { name: 'UAE', flag: '🇦🇪' },
+        { name: 'Uganda', flag: '🇺🇬' },
+        { name: 'Ukraine', flag: '🇺🇦' },
+        { name: 'United Kingdom', flag: '🇬🇧' },
+        { name: 'Uruguay', flag: '🇺🇾' },
+        { name: 'USA', flag: '🇺🇸' },
+        { name: 'Uzbekistan', flag: '🇺🇿' },
+        { name: 'Venezuela', flag: '🇻🇪' },
+        { name: 'Vietnam', flag: '🇻🇳' },
+        { name: 'Wales', flag: '🏴󠁧󠁢󠁷󠁬󠁳󠁿' },
+        { name: 'Yemen', flag: '🇾🇪' },
+        { name: 'Zimbabwe', flag: '🇿🇼' }
+      ];
+
+      const checkoutSuggestions = {
+        170: 'T20 T20 Bull', 167: 'T20 T19 Bull', 164: 'T20 T18 Bull', 161: 'T20 T17 Bull',
+        160: 'T20 T20 D20', 158: 'T20 T20 D19', 157: 'T20 T19 D20', 156: 'T20 T20 D18',
+        155: 'T20 T19 D19', 154: 'T20 T18 D20', 153: 'T20 T19 D18', 152: 'T20 T20 D16',
+        151: 'T20 T17 D20', 150: 'T20 T18 D18', 149: 'T20 T19 D16', 148: 'T20 T20 D14',
+        147: 'T20 T17 D18', 146: 'T20 T18 D16', 145: 'T20 T19 D14', 144: 'T20 T20 D12',
+        143: 'T20 T17 D16', 142: 'T20 T14 D20', 141: 'T20 T19 D12', 140: 'T20 T20 D10',
+        139: 'T20 T13 D20', 138: 'T20 T18 D12', 137: 'T20 T19 D10', 136: 'T20 T20 D8',
+        135: 'T20 T17 D12', 134: 'T20 T14 D16', 133: 'T20 T19 D8', 132: 'T20 T16 D12',
+        131: 'T20 T13 D16', 130: 'T20 T18 D8', 129: 'T19 T16 D12', 128: 'T18 T14 D16',
+        127: 'T20 T17 D8', 126: 'T19 T19 D6', 125: 'T20 T19 D4', 124: 'T20 T16 D8',
+        123: 'T19 T16 D9', 122: 'T18 T18 D7', 121: 'T20 T11 D14', 120: 'T20 S20 D20',
+        119: 'T19 T12 D13', 118: 'T20 S18 D20', 117: 'T20 S17 D20', 116: 'T20 S16 D20',
+        115: 'T20 S15 D20', 114: 'T20 S14 D20', 113: 'T20 S13 D20', 112: 'T20 S12 D20',
+        111: 'T20 S11 D20', 110: 'T20 S10 D20', 109: 'T20 S9 D20', 108: 'T20 S8 D20',
+        107: 'T19 S10 D20', 106: 'T20 S6 D20', 105: 'T20 S5 D20', 104: 'T20 S4 D20',
+        103: 'T20 S3 D20', 102: 'T20 S2 D20', 101: 'T20 S1 D20', 100: 'T20 D20',
+        99: 'T19 S10 D16', 98: 'T20 D19', 97: 'T19 D20', 96: 'T20 D18', 95: 'T19 D19',
+        94: 'T18 D20', 93: 'T19 D18', 92: 'T20 D16', 91: 'T17 D20', 90: 'T18 D18',
+        89: 'T19 D16', 88: 'T20 D14', 87: 'T17 D18', 86: 'T18 D16', 85: 'T19 D14',
+        84: 'T20 D12', 83: 'T17 D16', 82: 'T14 D20', 81: 'T19 D12', 80: 'T20 D10',
+        79: 'T13 D20', 78: 'T18 D12', 77: 'T19 D10', 76: 'T20 D8', 75: 'T17 D12',
+        74: 'T14 D16', 73: 'T19 D8', 72: 'T16 D12', 71: 'T13 D16', 70: 'T18 D8',
+        69: 'T19 D6', 68: 'T20 D4', 67: 'T17 D8', 66: 'T10 D18', 65: 'T19 D4',
+        64: 'T16 D8', 63: 'T13 D12', 62: 'T10 D16', 61: 'T15 D8', 60: 'S20 D20',
+        59: 'S19 D20', 58: 'S18 D20', 57: 'S17 D20', 56: 'S16 D20', 55: 'S15 D20',
+        54: 'S14 D20', 53: 'S13 D20', 52: 'S12 D20', 51: 'S11 D20', 50: 'S10 D20',
+        49: 'S9 D20', 48: 'S8 D20', 47: 'S7 D20', 46: 'S6 D20', 45: 'S5 D20',
+        44: 'S4 D20', 43: 'S3 D20', 42: 'S2 D20', 41: 'S1 D20', 40: 'D20',
+        38: 'D19', 36: 'D18', 34: 'D17', 32: 'D16', 30: 'D15', 28: 'D14',
+        26: 'D13', 24: 'D12', 22: 'D11', 20: 'D10', 18: 'D9', 16: 'D8',
+        14: 'D7', 12: 'D6', 10: 'D5', 8: 'D4', 6: 'D3', 4: 'D2', 2: 'D1',
+      };
+
+      const playSound = useCallback((type) => {
+        if (!soundEnabled) return;
+        if (!audioContext.current) {
+          audioContext.current = new (window.AudioContext || window.webkitAudioContext)();
+        }
+        const ctx = audioContext.current;
+        const oscillator = ctx.createOscillator();
+        const gainNode = ctx.createGain();
+        oscillator.connect(gainNode);
+        gainNode.connect(ctx.destination);
+        
+        switch(type) {
+          case 'throw':
+            oscillator.frequency.setValueAtTime(200, ctx.currentTime);
+            oscillator.frequency.exponentialRampToValueAtTime(100, ctx.currentTime + 0.1);
+            gainNode.gain.setValueAtTime(0.3, ctx.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.1);
+            oscillator.start(ctx.currentTime);
+            oscillator.stop(ctx.currentTime + 0.1);
+            break;
+          case 'hit':
+            oscillator.frequency.setValueAtTime(800, ctx.currentTime);
+            gainNode.gain.setValueAtTime(0.2, ctx.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.05);
+            oscillator.start(ctx.currentTime);
+            oscillator.stop(ctx.currentTime + 0.05);
+            break;
+          case 'bullseye':
+            oscillator.frequency.setValueAtTime(523, ctx.currentTime);
+            oscillator.frequency.setValueAtTime(659, ctx.currentTime + 0.1);
+            oscillator.frequency.setValueAtTime(784, ctx.currentTime + 0.2);
+            gainNode.gain.setValueAtTime(0.3, ctx.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.3);
+            oscillator.start(ctx.currentTime);
+            oscillator.stop(ctx.currentTime + 0.3);
+            break;
+          case 'bust':
+            oscillator.frequency.setValueAtTime(200, ctx.currentTime);
+            oscillator.frequency.exponentialRampToValueAtTime(50, ctx.currentTime + 0.3);
+            gainNode.gain.setValueAtTime(0.4, ctx.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.3);
+            oscillator.start(ctx.currentTime);
+            oscillator.stop(ctx.currentTime + 0.3);
+            break;
+          case 'win':
+            [523, 659, 784, 1047].forEach((freq, i) => {
+              const osc = ctx.createOscillator();
+              const gain = ctx.createGain();
+              osc.connect(gain);
+              gain.connect(ctx.destination);
+              osc.frequency.setValueAtTime(freq, ctx.currentTime + i * 0.15);
+              gain.gain.setValueAtTime(0.3, ctx.currentTime + i * 0.15);
+              gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + i * 0.15 + 0.2);
+              osc.start(ctx.currentTime + i * 0.15);
+              osc.stop(ctx.currentTime + i * 0.15 + 0.2);
+            });
+            break;
+          case '180':
+            // Exciting ascending celebration sound for 180!
+            [392, 523, 659, 784, 1047, 1319].forEach((freq, i) => {
+              const osc = ctx.createOscillator();
+              const gain = ctx.createGain();
+              osc.connect(gain);
+              gain.connect(ctx.destination);
+              osc.frequency.setValueAtTime(freq, ctx.currentTime + i * 0.08);
+              gain.gain.setValueAtTime(0.4, ctx.currentTime + i * 0.08);
+              gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + i * 0.08 + 0.15);
+              osc.start(ctx.currentTime + i * 0.08);
+              osc.stop(ctx.currentTime + i * 0.08 + 0.15);
+            });
+            break;
+          case 'ninedarter':
+            // Epic crowd roar effect
+            // Create white noise for crowd roar
+            const bufferSize = ctx.sampleRate * 3; // 3 seconds
+            const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+            const data = buffer.getChannelData(0);
+            for (let i = 0; i < bufferSize; i++) {
+              data[i] = Math.random() * 2 - 1;
+            }
+            const crowdNoise = ctx.createBufferSource();
+            crowdNoise.buffer = buffer;
+
+            const crowdFilter = ctx.createBiquadFilter();
+            crowdFilter.type = 'bandpass';
+            crowdFilter.frequency.setValueAtTime(800, ctx.currentTime);
+            crowdFilter.Q.setValueAtTime(1, ctx.currentTime);
+
+            const crowdGain = ctx.createGain();
+            crowdGain.gain.setValueAtTime(0, ctx.currentTime);
+            crowdGain.gain.linearRampToValueAtTime(0.3, ctx.currentTime + 0.5);
+            crowdGain.gain.setValueAtTime(0.3, ctx.currentTime + 2);
+            crowdGain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 3);
+
+            crowdNoise.connect(crowdFilter);
+            crowdFilter.connect(crowdGain);
+            crowdGain.connect(ctx.destination);
+            crowdNoise.start(ctx.currentTime);
+            crowdNoise.stop(ctx.currentTime + 3);
+
+            // Add epic fanfare over the crowd roar
+            [523, 659, 784, 1047, 1319, 1568].forEach((freq, i) => {
+              const osc = ctx.createOscillator();
+              const gain = ctx.createGain();
+              osc.type = 'triangle';
+              osc.connect(gain);
+              gain.connect(ctx.destination);
+              osc.frequency.setValueAtTime(freq, ctx.currentTime + i * 0.15);
+              gain.gain.setValueAtTime(0.25, ctx.currentTime + i * 0.15);
+              gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + i * 0.15 + 0.4);
+              osc.start(ctx.currentTime + i * 0.15);
+              osc.stop(ctx.currentTime + i * 0.15 + 0.4);
+            });
+            break;
+        }
+      }, [soundEnabled]);
+
+      // ========== ONLINE MULTIPLAYER FUNCTIONS ==========
+
+      // Sanitize player name for security
+      const sanitizeName = (name) => {
+        return (name || 'Player').slice(0, 20).replace(/[<>]/g, '').trim() || 'Player';
+      };
+
+      // Start matchmaking - find a random opponent
+      const startMatchmaking = useCallback(() => {
+        if (!database) {
+          alert('Firebase not configured. Please add your Firebase credentials to play online.');
+          return;
+        }
+
+        setMatchmakingState('searching');
+        setOnlineMode(true);
+        const queueRef = database.ref('matchmaking_queue');
+
+        // Generate unique player ID
+        const myPlayerId = database.ref().push().key;
+        setPlayerId(myPlayerId);
+
+        // Clean up stale queue entries (older than 90 seconds)
+        const now = Date.now();
+        queueRef.once('value', (snapshot) => {
+          if (snapshot.exists()) {
+            const queue = snapshot.val();
+            Object.keys(queue).forEach(playerId => {
+              const player = queue[playerId];
+              // Remove if older than 90 seconds
+              if (player.timestamp && (now - player.timestamp > 90000)) {
+                queueRef.child(playerId).remove();
+              }
+            });
+          }
+        });
+
+        // Small delay to avoid race condition where both players check queue at exact same time
+        setTimeout(() => {
+          // Look for available opponent in queue
+          queueRef.orderByChild('timestamp').limitToFirst(1).once('value', (snapshot) => {
+          if (snapshot.exists()) {
+            // Found an opponent - join their game
+            const opponentId = Object.keys(snapshot.val())[0];
+            const opponentData = snapshot.val()[opponentId];
+
+            // Make sure we're not matching with ourselves
+            if (opponentData.playerId === myPlayerId) {
+              // This shouldn't happen, but if it does, add ourselves to queue instead
+              const myQueueEntry = {
+                playerId: myPlayerId,
+                name: playerSetup.names[0] || 'Player 1',
+                flag: playerSetup.flags[0] || '🌍',
+                timestamp: firebase.database.ServerValue.TIMESTAMP
+              };
+              queueRef.child(myPlayerId).set(myQueueEntry);
+              return;
+            }
+
+            // Remove opponent from queue
+            queueRef.child(opponentId).remove();
+
+            // Create game room
+            const roomId = database.ref().push().key;
+            setGameRoomId(roomId);
+            gameRoomRef.current = database.ref(`games/${roomId}`);
+
+            // Set up game data
+            gameRoomRef.current.set({
+              player1: {
+                id: opponentData.playerId,
+                name: opponentData.name,
+                flag: opponentData.flag,
+                score: playerSetup.gameMode,
+                ready: true
+                // connected will be set when player1 joins
+              },
+              player2: {
+                id: myPlayerId,
+                name: sanitizeName(playerSetup.names[0]) || 'Player 2',
+                flag: playerSetup.flags[0] || '🌍',
+                score: playerSetup.gameMode,
+                ready: true
+                // connected will be set below
+              },
+              currentPlayer: 0,
+              gameMode: playerSetup.gameMode,
+              dartsThrown: 0,
+              currentTurnScore: 0,
+              throwHistory: {},
+              dartPositions: {},
+              legScores: [0, 0],
+              setScores: [0, 0],
+              status: 'playing',
+              createdAt: firebase.database.ServerValue.TIMESTAMP
+            });
+
+            setOpponentName(opponentData.name);
+            setOpponentFlag(opponentData.flag);
+            setMatchmakingState('found');
+
+            // Start game as player 2
+            setTimeout(() => startOnlineGame(roomId, 1), 1500);
+
+          } else {
+            // No opponent found - add self to queue
+            const myQueueEntry = {
+              playerId: myPlayerId,
+              name: sanitizeName(playerSetup.names[0]) || 'Player 1',
+              flag: playerSetup.flags[0] || '🌍',
+              timestamp: firebase.database.ServerValue.TIMESTAMP
+            };
+
+            queueRef.child(myPlayerId).set(myQueueEntry);
+
+            // Auto-remove from queue if user disconnects (closes browser, loses connection, etc.)
+            queueRef.child(myPlayerId).onDisconnect().remove();
+
+            // Listen for when someone joins OR check if others joined queue while waiting
+            matchmakingIntervalRef.current = setInterval(() => {
+              // First check if someone created a game with us as player1
+              database.ref(`games`).orderByChild('player1/id').equalTo(myPlayerId).once('value', (gameSnapshot) => {
+                if (gameSnapshot.exists()) {
+                  if (matchmakingIntervalRef.current) {
+                    clearInterval(matchmakingIntervalRef.current);
+                    matchmakingIntervalRef.current = null;
+                  }
+                  queueRef.child(myPlayerId).remove();
+
+                  const roomId = Object.keys(gameSnapshot.val())[0];
+                  const gameData = gameSnapshot.val()[roomId];
+
+                  setGameRoomId(roomId);
+                  gameRoomRef.current = database.ref(`games/${roomId}`);
+                  setOpponentName(gameData.player2.name);
+                  setOpponentFlag(gameData.player2.flag);
+                  setMatchmakingState('found');
+
+                  setTimeout(() => startOnlineGame(roomId, 0), 1500);
+                } else {
+                  // Also check if there are OTHER players waiting in queue we can join
+                  queueRef.orderByChild('timestamp').limitToFirst(2).once('value', (queueSnapshot) => {
+                    if (queueSnapshot.exists()) {
+                      const queuePlayers = queueSnapshot.val();
+                      // Find first player that isn't us
+                      const otherPlayerId = Object.keys(queuePlayers).find(id => id !== myPlayerId);
+
+                      if (otherPlayerId) {
+                        const otherPlayer = queuePlayers[otherPlayerId];
+
+                        // Join this player's game
+                        if (matchmakingIntervalRef.current) {
+                          clearInterval(matchmakingIntervalRef.current);
+                          matchmakingIntervalRef.current = null;
+                        }
+
+                        // Remove both players from queue
+                        queueRef.child(myPlayerId).remove();
+                        queueRef.child(otherPlayerId).remove();
+
+                        // Create game room
+                        const roomId = database.ref().push().key;
+                        setGameRoomId(roomId);
+                        gameRoomRef.current = database.ref(`games/${roomId}`);
+
+                        // Set up game data with other player as player1
+                        gameRoomRef.current.set({
+                          player1: {
+                            id: otherPlayer.playerId,
+                            name: otherPlayer.name,
+                            flag: otherPlayer.flag,
+                            score: playerSetup.gameMode,
+                            ready: true
+                            // connected will be set when player1 joins
+                          },
+                          player2: {
+                            id: myPlayerId,
+                            name: sanitizeName(playerSetup.names[0]) || 'Player 2',
+                            flag: playerSetup.flags[0] || '🌍',
+                            score: playerSetup.gameMode,
+                            ready: true
+                            // connected will be set below
+                          },
+                          currentPlayer: 0,
+                          gameMode: playerSetup.gameMode,
+                          dartsThrown: 0,
+                          currentTurnScore: 0,
+                          throwHistory: {},
+                          dartPositions: {},
+                          legScores: [0, 0],
+                          setScores: [0, 0],
+                          status: 'playing',
+                          createdAt: firebase.database.ServerValue.TIMESTAMP
+                        });
+
+                        // Auto-cleanup: Remove game if this player disconnects
+                        gameRoomRef.current.onDisconnect().remove();
+
+                        setOpponentName(otherPlayer.name);
+                        setOpponentFlag(otherPlayer.flag);
+                        setMatchmakingState('found');
+
+                        setTimeout(() => startOnlineGame(roomId, 1), 1500);
+                      }
+                    }
+                  });
+                }
+              });
+            }, 2000);
+
+            // Timeout after 60 seconds
+            setTimeout(() => {
+              if (matchmakingState === 'searching') {
+                if (matchmakingIntervalRef.current) {
+                  clearInterval(matchmakingIntervalRef.current);
+                  matchmakingIntervalRef.current = null;
+                }
+                queueRef.child(myPlayerId).remove();
+                cancelMatchmaking();
+                alert('No opponent found. Please try again.');
+              }
+            }, 60000);
+          }
+        });
+        }, 500); // 500ms delay to avoid race condition
+      }, [database, playerSetup, matchmakingState]);
+
+      // Start the online game
+      const startOnlineGame = useCallback((roomId, playerIndex) => {
+        setMatchmakingState('playing');
+        setGameState('playing');
+        setPlayerId(playerIndex);
+
+        // Cleanup any existing listener first (prevent memory leak)
+        if (gameRoomRef.current) {
+          gameRoomRef.current.off();
+          gameRoomRef.current = null;
+        }
+
+        // Initialize game state for online mode
+        setWinner(null);
+        setMatchWinner(null);
+        setTriplesHit(0);
+        setIsCheckoutPosition(false);
+        setCurrentTurnThrows([]);
+        setGameStats({});
+        setLegDartsThrown([0, 0]);
+
+        // Listen for game state changes
+        const roomRef = database.ref(`games/${roomId}`);
+        gameRoomRef.current = roomRef;
+
+        // Set my presence as connected
+        const myPlayerKey = playerIndex === 0 ? 'player1' : 'player2';
+        roomRef.child(`${myPlayerKey}/connected`).set(true);
+
+        // Auto-disconnect presence when I leave
+        roomRef.child(`${myPlayerKey}/connected`).onDisconnect().set(false);
+
+        roomRef.on('value', (snapshot) => {
+          const gameData = snapshot.val();
+          if (!gameData) return;
+
+          // Update local game state from Firebase
+          const myPlayer = playerIndex === 0 ? gameData.player1 : gameData.player2;
+          const opponent = playerIndex === 0 ? gameData.player2 : gameData.player1;
+
+          // Check if opponent disconnected
+          if (opponent.connected === false && !gameData.winner) {
+            alert(`${opponent.name} has disconnected. Returning to menu.`);
+            cancelMatchmaking();
+            return;
+          }
+
+          setPlayers([
+            {
+              name: gameData.player1.name,
+              flag: gameData.player1.flag,
+              score: gameData.player1.score,
+              isAI: false
+            },
+            {
+              name: gameData.player2.name,
+              flag: gameData.player2.flag,
+              score: gameData.player2.score,
+              isAI: false
+            }
+          ]);
+
+          setCurrentPlayerIndex(gameData.currentPlayer);
+          setDartsThrown(gameData.dartsThrown || 0);
+          setCurrentTurnScore(gameData.currentTurnScore || 0);
+
+          // Convert throwHistory from Firebase object to array
+          const throwsArray = gameData.throwHistory ? Object.values(gameData.throwHistory) : [];
+          setThrowHistory(throwsArray);
+
+          // Convert dartPositions from Firebase object to array
+          const dartsArray = gameData.dartPositions ? Object.values(gameData.dartPositions) : [];
+          setDartPositions(dartsArray);
+
+          setLegScores(gameData.legScores || [0, 0]);
+          setSetScores(gameData.setScores || [0, 0]);
+
+          // Check for winner
+          if (gameData.winner !== undefined) {
+            const winnerIndex = gameData.winner;
+            setMatchWinner(winnerIndex === playerIndex ? myPlayer : opponent);
+          }
+        });
+      }, [database]);
+
+      // Sync throw to Firebase
+      const syncThrowToFirebase = useCallback((throwData) => {
+        if (!onlineMode || !gameRoomRef.current) return;
+
+        // Push the throw to history
+        gameRoomRef.current.child('throwHistory').push(throwData);
+
+        // Add dart position to array
+        gameRoomRef.current.child('dartPositions').push(throwData.position);
+
+        // Update game state
+        gameRoomRef.current.update({
+          dartsThrown: throwData.dartsThrown,
+          currentTurnScore: throwData.currentTurnScore,
+          currentPlayer: throwData.currentPlayer
+        });
+
+        // Update player score
+        const playerKey = playerId === 0 ? 'player1' : 'player2';
+        gameRoomRef.current.child(`${playerKey}/score`).set(throwData.newScore);
+      }, [onlineMode, playerId]);
+
+      // Cancel matchmaking
+      const cancelMatchmaking = useCallback(() => {
+        // If in an active game, set my connected status to false to notify opponent
+        if (gameRoomRef.current && playerId !== null) {
+          const myPlayerKey = playerId === 0 ? 'player1' : 'player2';
+          gameRoomRef.current.child(`${myPlayerKey}/connected`).set(false);
+        }
+
+        // Clear matchmaking interval if it's running
+        if (matchmakingIntervalRef.current) {
+          clearInterval(matchmakingIntervalRef.current);
+          matchmakingIntervalRef.current = null;
+        }
+
+        // Remove from queue if still in matchmaking
+        if (playerId && database) {
+          database.ref('matchmaking_queue').child(playerId).remove();
+        }
+
+        // Clean up game room listener
+        if (gameRoomRef.current) {
+          gameRoomRef.current.off();
+          gameRoomRef.current = null;
+        }
+
+        setMatchmakingState(null);
+        setOnlineMode(false);
+        setGameRoomId(null);
+        setPlayerId(null);
+        setGameState('menu');
+      }, [playerId, database]);
+
+      // Leave online game
+      const leaveOnlineGame = useCallback(() => {
+        // cancelMatchmaking now handles all cleanup including setting connected=false
+        cancelMatchmaking();
+      }, [cancelMatchmaking]);
+
+      // ========== END ONLINE MULTIPLAYER FUNCTIONS ==========
+
+      const calculateScore = useCallback((x, y) => {
+        const dx = x - CENTER;
+        const dy = y - CENTER;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        
+        if (distance > DOUBLE_OUTER) return { score: 0, label: 'MISS', multiplier: 0 };
+        if (distance <= INNER_BULL) return { score: 50, label: 'BULL', multiplier: 1 };
+        if (distance <= OUTER_BULL) return { score: 25, label: '25', multiplier: 1 };
+        
+        let angle = Math.atan2(dy, dx) * (180 / Math.PI) + 90;
+        if (angle < 0) angle += 360;
+        const segmentIndex = Math.floor((angle + 9) / 18) % 20;
+        const baseScore = SEGMENTS[segmentIndex];
+        
+        if (distance >= DOUBLE_INNER && distance <= DOUBLE_OUTER) {
+          return { score: baseScore * 2, label: `D${baseScore}`, multiplier: 2, base: baseScore };
+        }
+        if (distance >= TRIPLE_INNER && distance <= TRIPLE_OUTER) {
+          return { score: baseScore * 3, label: `T${baseScore}`, multiplier: 3, base: baseScore };
+        }
+        return { score: baseScore, label: `${baseScore}`, multiplier: 1, base: baseScore };
+      }, []);
+
+      const addRandomness = useCallback((targetX, targetY, power, isInPerfectZone) => {
+        // If in perfect zone, guarantee 100% accuracy - no randomness at all
+        if (isInPerfectZone) {
+          return {
+            x: targetX,
+            y: targetY
+          };
+        }
+
+        // Not in perfect zone - apply massive penalty to make hitting targets nearly impossible
+        const skillFactor = (100 - skillLevel) / 100;
+        const powerFactor = Math.abs(power - 50) / 50;
+
+        const skillRandomness = skillFactor * 25;
+        const powerRandomness = powerFactor * 20;
+
+        // Calculate how far from perfect zone (50%)
+        const distanceFromPerfect = Math.abs(power - 50);
+        // Huge penalty: 80 base + up to 60 more based on distance from 50%
+        const perfectZonePenalty = 80 + (distanceFromPerfect * 1.2);
+
+        // Total randomness - very high when outside perfect zone
+        const randomness = skillRandomness + powerRandomness + perfectZonePenalty;
+
+        const angle = Math.random() * Math.PI * 2;
+        const offset = Math.random() * randomness;
+
+        return {
+          x: targetX + Math.cos(angle) * offset,
+          y: targetY + Math.sin(angle) * offset
+        };
+      }, [skillLevel]);
+
+      const getAITarget = useCallback((difficulty, currentScore) => {
+        // Calculate angle and distance for a specific segment
+        const getSegmentPosition = (segmentValue, multiplier = 1) => {
+          const segmentIndex = SEGMENTS.indexOf(segmentValue);
+          const angle = (segmentIndex * 18 - 90) * (Math.PI / 180);
+          let distance;
+          if (multiplier === 3) distance = (TRIPLE_INNER + TRIPLE_OUTER) / 2;
+          else if (multiplier === 2) distance = (DOUBLE_INNER + DOUBLE_OUTER) / 2;
+          else distance = (TRIPLE_OUTER + DOUBLE_INNER) / 2;
+
+          return {
+            x: CENTER + distance * Math.cos(angle),
+            y: CENTER + distance * Math.sin(angle)
+          };
+        };
+
+        // For checkout situations
+        if (checkoutSuggestions[currentScore] && (difficulty === 'hard' || difficulty === 'impossible')) {
+          const suggestion = checkoutSuggestions[currentScore];
+          if (suggestion.includes('T20')) return getSegmentPosition(20, 3);
+          if (suggestion.includes('D20')) return getSegmentPosition(20, 2);
+          if (suggestion.includes('Bull')) return { x: CENTER, y: CENTER };
+        }
+
+        switch(difficulty) {
+          case 'easy':
+            // Aim at random segments, single rings
+            const randomSegment = SEGMENTS[Math.floor(Math.random() * SEGMENTS.length)];
+            return getSegmentPosition(randomSegment, 1);
+
+          case 'medium':
+            // Aim at high-value segments (19, 20), sometimes triples
+            const targetSegment = Math.random() > 0.5 ? 20 : 19;
+            const useTriple = Math.random() > 0.6;
+            return getSegmentPosition(targetSegment, useTriple ? 3 : 1);
+
+          case 'hard':
+            // Consistently aim for T20, T19, or doubles for checkout
+            if (currentScore <= 40 && currentScore % 2 === 0) {
+              return getSegmentPosition(20, 2);
+            }
+            return getSegmentPosition(20, 3);
+
+          case 'impossible':
+            // Perfect strategy
+            if (currentScore <= 170 && checkoutSuggestions[currentScore]) {
+              return getSegmentPosition(20, 3);
+            }
+            return getSegmentPosition(20, 3);
+
+          default:
+            return { x: CENTER, y: CENTER };
+        }
+      }, []);
+
+      const getAIAccuracy = (difficulty) => {
+        switch(difficulty) {
+          case 'easy': return 35;
+          case 'medium': return 60;
+          case 'hard': return 80;
+          case 'impossible': return 95;
+          default: return 50;
+        }
+      };
+
+      const handleLegWin = useCallback((playerIndex, dartsInLeg = null) => {
+        // Check for nine-darter (only possible in 501)
+        // Use passed dartsInLeg if provided, otherwise read from state
+        const playerDartsInLeg = dartsInLeg !== null ? dartsInLeg : (legDartsThrown[playerIndex] || 0);
+        if (playerSetup.gameMode === 501 && playerDartsInLeg === 9) {
+          setShowNineDarter(true);
+          playSound('ninedarter'); // Epic crowd roar and fanfare
+          setTimeout(() => setShowNineDarter(false), 6000);
+
+          // Track nine-darter achievement
+          if (!players[playerIndex].isAI) {
+            if (onlineMode) {
+              unlockAchievement('nine_darter_online');
+            } else if (!practiceMode) {
+              unlockAchievement('nine_darter_offline');
+              updateAchievementStats({ totalNineDarters: achievementStats.totalNineDarters + 1 });
+            }
+          }
+        }
+
+        if (playerSetup.gameMode !== 501 || playerDartsInLeg !== 9) {
+          playSound('win'); // Only play regular win sound if not a nine-darter
+        }
+
+        // Update leg scores
+        const newLegScores = [...legScores];
+        newLegScores[playerIndex] = (newLegScores[playerIndex] || 0) + 1;
+        setLegScores(newLegScores);
+
+        // Check if player won the set (first to legsPerSet wins)
+        if (newLegScores[playerIndex] >= playerSetup.legsPerSet) {
+          // Player won the set!
+          const newSetScores = [...setScores];
+          newSetScores[playerIndex] = (newSetScores[playerIndex] || 0) + 1;
+          setSetScores(newSetScores);
+
+          // Check if player won the match (first to setsToWin wins)
+          if (newSetScores[playerIndex] >= playerSetup.setsToWin) {
+            // Player won the match!
+            setMatchWinner(players[playerIndex]);
+            setWinner(players[playerIndex]);
+
+            // Track game completion and win
+            if (!players[playerIndex].isAI && !practiceMode) {
+              if (onlineMode) {
+                updateAchievementStats({
+                  totalOnlineGames: achievementStats.totalOnlineGames + 1,
+                  totalOnlineWins: achievementStats.totalOnlineWins + 1
+                });
+              } else {
+                updateAchievementStats({
+                  totalGamesPlayed: achievementStats.totalGamesPlayed + 1,
+                  totalGamesWon: achievementStats.totalGamesWon + 1
+                });
+              }
+            } else if (!practiceMode) {
+              // Track game played but not won (lost to AI or other player)
+              if (onlineMode) {
+                updateAchievementStats({ totalOnlineGames: achievementStats.totalOnlineGames + 1 });
+              } else {
+                updateAchievementStats({ totalGamesPlayed: achievementStats.totalGamesPlayed + 1 });
+              }
+            }
+            return;
+          }
+
+          // Reset legs for new set
+          setLegScores(new Array(players.length).fill(0));
+        }
+
+        // Start new leg
+        setTimeout(() => {
+          const newPlayers = players.map(p => ({
+            ...p,
+            score: playerSetup.gameMode
+          }));
+          setPlayers(newPlayers);
+          setDartsThrown(0);
+          setCurrentTurnScore(0);
+          setDartPositions([]);
+          setTriplesHit(0);
+          setThrowHistory([]);
+          setWinner(null);
+          setLegDartsThrown(new Array(players.length).fill(0));
+        }, 2000);
+      }, [legScores, setScores, players, playerSetup, playSound, legDartsThrown, unlockAchievement, updateAchievementStats, achievementStats, onlineMode, practiceMode]);
+
+      const throwDart = useCallback(() => {
+        // Practice mode: unlimited throws with stat tracking
+        if (practiceMode === 'active') {
+          playSound('throw');
+
+          // Apply wobble offset to aim position
+          const effectiveAimX = aimPosition.x + aimWobble.x;
+          const effectiveAimY = aimPosition.y + aimWobble.y;
+
+          // Use practice skill level for difficulty
+          const currentSkill = practiceSkillLevel;
+          let perfectZoneWidth;
+          if (currentSkill <= 40) {
+            perfectZoneWidth = 10; // Beginner
+          } else {
+            const baseZoneWidth = 10;
+            const shrinkRate = currentSkill >= 81 ? 3 : 2.5;
+            perfectZoneWidth = Math.max(baseZoneWidth - (triplesHit * shrinkRate), 4);
+          }
+          const perfectZoneLeft = 50 - (perfectZoneWidth / 2);
+          const perfectZoneRight = 50 + (perfectZoneWidth / 2);
+          const isInPerfectZone = power > perfectZoneLeft && power < perfectZoneRight;
+
+          const finalPosition = addRandomness(effectiveAimX, effectiveAimY, power, isInPerfectZone);
+          const result = calculateScore(finalPosition.x, finalPosition.y);
+
+          if (isInPerfectZone) {
+            setTriplesHit(prev => prev + 1);
+          }
+
+          setAnimatingDart({ start: { x: CENTER, y: BOARD_SIZE + 50 }, end: finalPosition });
+
+          setTimeout(() => {
+            setAnimatingDart(null);
+            setDartPositions(prev => [...prev, finalPosition]);
+
+            // Update practice stats
+            setPracticeStats(prev => {
+              const newStats = { ...prev };
+              newStats.dartsThrown += 1;
+              newStats.totalScore += result.score;
+
+              // Track specific hits
+              if (result.score === 50) {
+                newStats.bulls += 1;
+                playSound('bullseye');
+              } else if (result.score === 25) {
+                newStats.singleBull += 1;
+                playSound('hit');
+              } else if (result.multiplier === 3) {
+                newStats.triples += 1;
+                if (result.label === 'T20') newStats.t20 += 1;
+                if (result.label === 'T19') newStats.t19 += 1;
+                if (result.label === 'T18') newStats.t18 += 1;
+                playSound('hit');
+              } else if (result.multiplier === 2) {
+                newStats.doubles += 1;
+                playSound('hit');
+              } else if (result.score > 0) {
+                playSound('hit');
+              }
+
+              return newStats;
+            });
+
+            // Show score popup
+            setShowScorePopup({ ...result, position: finalPosition });
+            setTimeout(() => setShowScorePopup(null), 1000);
+
+            // Clear board after 3 darts
+            if (dartPositions.length + 1 >= 3) {
+              setTimeout(() => {
+                setDartPositions([]);
+                setTriplesHit(0);
+                setCurrentTurnThrows([]);
+                setAimWobble({ x: 0, y: 0 });
+              }, 1000);
+            }
+          }, 300);
+
+          return; // Exit early for practice mode
+        }
+
+        // Regular game mode checks
+        if (dartsThrown >= 3 || winner) return;
+
+        // Online mode: only allow throws on your turn
+        if (onlineMode && currentPlayerIndex !== playerId) {
+          return; // Not your turn
+        }
+
+        playSound('throw');
+
+        // Apply wobble offset to aim position (expert mode 180 challenge)
+        const effectiveAimX = aimPosition.x + aimWobble.x;
+        const effectiveAimY = aimPosition.y + aimWobble.y;
+
+        // Check if player is aiming at the winning double
+        const currentPlayer = players[currentPlayerIndex];
+        const aimingAt = calculateScore(effectiveAimX, effectiveAimY);
+        const isAimingAtWinningDouble = isCheckoutPosition && aimingAt.multiplier === 2 && aimingAt.score === currentPlayer.score;
+
+        // Calculate if power is in perfect zone
+        // Beginner mode (40% or below): constant 10% zone, no shrinking
+        // Intermediate (41-80%): shrinks by 2.5% for each perfect hit
+        // Expert (81%+): shrinks by 3% for each perfect hit
+        // Aiming at winning double: ultra-small 2% zone
+        let perfectZoneWidth;
+        if (skillLevel <= 40) {
+          // Beginner mode - constant 10% zone, no shrinking
+          perfectZoneWidth = 10;
+        } else {
+          // Normal mode - shrinking zones
+          if (isAimingAtWinningDouble) {
+            perfectZoneWidth = 2; // Ultra-small zone for winning double
+          } else {
+            const baseZoneWidth = 10;
+            const shrinkRate = skillLevel >= 81 ? 3 : 2.5; // 2.5% for 41-80%, 3% for 81%+
+            perfectZoneWidth = Math.max(baseZoneWidth - (triplesHit * shrinkRate), 4);
+          }
+        }
+        const perfectZoneLeft = 50 - (perfectZoneWidth / 2);
+        const perfectZoneRight = 50 + (perfectZoneWidth / 2);
+        const isInPerfectZone = power > perfectZoneLeft && power < perfectZoneRight;
+
+        // Use effective aim position (includes wobble for expert mode)
+        const finalPosition = addRandomness(effectiveAimX, effectiveAimY, power, isInPerfectZone);
+        const result = calculateScore(finalPosition.x, finalPosition.y);
+
+        // Increase difficulty by shrinking perfect zone when perfect throw is hit
+        if (isInPerfectZone) {
+          setTriplesHit(prev => prev + 1);
+        }
+
+        setAnimatingDart({ start: { x: CENTER, y: BOARD_SIZE + 50 }, end: finalPosition });
+        
+        setTimeout(() => {
+          setAnimatingDart(null);
+          setDartPositions(prev => [...prev, finalPosition]);
+
+          const currentPlayer = players[currentPlayerIndex];
+          const newScore = currentPlayer.score - result.score;
+
+          // Track throw for wobble detection (expert mode 180 challenge)
+          setCurrentTurnThrows(prev => [...prev, { score: result.score, multiplier: result.multiplier }]);
+
+          // Check for 180 FIRST (before any sounds or popups)
+          const newTurnScore = currentTurnScore + result.score;
+          const is180 = newTurnScore === 180 && dartsThrown + 1 === 3;
+
+          if (is180) {
+            playSound('180');
+            setShowScorePopup({ score: 180, label: '180!!!', position: finalPosition });
+            setTimeout(() => setShowScorePopup(null), 2000);
+
+            // Track 180 for achievements (only in offline mode, not practice)
+            if (!onlineMode && !practiceMode) {
+              updateAchievementStats({ total180s: achievementStats.total180s + 1 });
+            }
+          } else {
+            // Play regular hit sounds only if NOT a 180
+            if (result.score === 50) {
+              playSound('bullseye');
+              // Track bull for achievements (only in offline mode, not practice)
+              if (!onlineMode && !practiceMode) {
+                updateAchievementStats({ totalBulls: achievementStats.totalBulls + 1 });
+              }
+            } else if (result.score > 0) {
+              playSound('hit');
+            }
+
+            // Track triples for achievements (only in offline mode, not practice)
+            if (result.multiplier === 3 && !onlineMode && !practiceMode) {
+              updateAchievementStats({ totalTriples: achievementStats.totalTriples + 1 });
+            }
+
+            setShowScorePopup({ ...result, position: finalPosition });
+            setTimeout(() => setShowScorePopup(null), 1000);
+          }
+
+          if (newScore < 0 || newScore === 1 || (newScore === 0 && result.multiplier !== 2)) {
+            playSound('bust');
+            setShowScorePopup({ score: 'BUST!', label: 'BUST!', position: finalPosition });
+            setTimeout(() => {
+              setShowScorePopup(null);
+              nextPlayer(true);
+            }, 1500);
+            return;
+          }
+
+          if (newScore === 0 && result.multiplier === 2) {
+            const newPlayers = [...players];
+            newPlayers[currentPlayerIndex] = { ...currentPlayer, score: 0 };
+            setPlayers(newPlayers);
+            updateStats(currentPlayerIndex, result);
+
+            // Track checkout for achievements
+            const checkoutValue = currentPlayer.score;
+            if (!players[currentPlayerIndex].isAI && !onlineMode && !practiceMode) {
+              if (checkoutValue > (achievementStats.highestCheckout || 0)) {
+                updateAchievementStats({ highestCheckout: checkoutValue });
+              }
+            }
+
+            // Calculate final dart count including this winning dart
+            const finalDartCount = (legDartsThrown[currentPlayerIndex] || 0) + 1;
+
+            // Increment leg darts before checking for nine-darter
+            setLegDartsThrown(prev => {
+              const newLegDarts = [...prev];
+              newLegDarts[currentPlayerIndex] = finalDartCount;
+              return newLegDarts;
+            });
+
+            setWinner(currentPlayer); // Set temporary leg winner for display
+            handleLegWin(currentPlayerIndex, finalDartCount);
+            return;
+          }
+
+          const newCurrentTurnScore = currentTurnScore + result.score;
+          const newDartsThrown = dartsThrown + 1;
+          const nextPlayerIndex = newDartsThrown >= 3 ? (currentPlayerIndex + 1) % players.length : currentPlayerIndex;
+
+          // In online mode, ONLY sync to Firebase - don't update local state
+          // The Firebase listener will update state for both players
+          if (onlineMode) {
+            syncThrowToFirebase({
+              player: currentPlayerIndex,
+              score: result.score,
+              multiplier: result.multiplier,
+              label: result.label,
+              newScore: newScore,
+              remaining: newScore,
+              dartsThrown: newDartsThrown,
+              currentTurnScore: newCurrentTurnScore,
+              currentPlayer: nextPlayerIndex,
+              position: finalPosition
+            });
+
+            // After 3 darts, clear the board in Firebase
+            if (newDartsThrown >= 3) {
+              setTimeout(() => {
+                if (gameRoomRef.current) {
+                  gameRoomRef.current.update({
+                    dartPositions: {},
+                    dartsThrown: 0,
+                    currentTurnScore: 0
+                  });
+                }
+                // Reset turn tracking - same as offline mode
+                setCurrentTurnThrows([]);
+                setTriplesHit(0); // Reset power bar shrinking
+                setAimWobble({ x: 0, y: 0 }); // Reset wobble
+              }, 1000);
+            }
+          } else {
+            // Offline mode: update local state directly
+            const newPlayers = [...players];
+            newPlayers[currentPlayerIndex] = { ...currentPlayer, score: newScore };
+            setPlayers(newPlayers);
+
+            setCurrentTurnScore(newCurrentTurnScore);
+            setThrowHistory(prev => [...prev, { player: currentPlayerIndex, ...result, remaining: newScore }]);
+            setDartsThrown(newDartsThrown);
+            setLegDartsThrown(prev => {
+              const newLegDarts = [...prev];
+              newLegDarts[currentPlayerIndex] = (newLegDarts[currentPlayerIndex] || 0) + 1;
+              return newLegDarts;
+            });
+            updateStats(currentPlayerIndex, result);
+
+            if (newDartsThrown >= 3) {
+              setTimeout(() => nextPlayer(false), 1000);
+            }
+          }
+        }, 300);
+      }, [aimPosition, aimWobble, power, dartsThrown, players, currentPlayerIndex, winner, calculateScore, addRandomness, playSound, isCheckoutPosition, triplesHit, handleLegWin, updateStats, nextPlayer, onlineMode, playerId, syncThrowToFirebase, currentTurnScore, practiceMode, practiceSkillLevel, dartPositions, updateAchievementStats, achievementStats]);
+
+      const updateStats = useCallback((playerIndex, result) => {
+        setGameStats(prev => {
+          const playerStats = prev[playerIndex] || { 
+            throws: 0, totalScore: 0, doubles: 0, triples: 0, bullseyes: 0,
+            misses: 0, highestThrow: 0, averagePerDart: 0
+          };
+          
+          const newThrows = playerStats.throws + 1;
+          const newTotal = playerStats.totalScore + result.score;
+          
+          return {
+            ...prev,
+            [playerIndex]: {
+              throws: newThrows, totalScore: newTotal,
+              doubles: playerStats.doubles + (result.multiplier === 2 ? 1 : 0),
+              triples: playerStats.triples + (result.multiplier === 3 ? 1 : 0),
+              bullseyes: playerStats.bullseyes + (result.score === 50 ? 1 : 0),
+              misses: playerStats.misses + (result.score === 0 ? 1 : 0),
+              highestThrow: Math.max(playerStats.highestThrow, result.score),
+              averagePerDart: (newTotal / newThrows).toFixed(1)
+            }
+          };
+        });
+      }, []);
+
+      const nextPlayer = useCallback((busted) => {
+        if (busted) {
+          const newPlayers = [...players];
+          newPlayers[currentPlayerIndex] = { ...players[currentPlayerIndex], score: players[currentPlayerIndex].score + currentTurnScore };
+          setPlayers(newPlayers);
+        }
+
+        setDartsThrown(0);
+        setCurrentTurnScore(0);
+        setDartPositions([]);
+        setTriplesHit(0);
+        setCurrentTurnThrows([]); // Reset turn throws for wobble detection
+        setAimWobble({ x: 0, y: 0 }); // Reset wobble
+        setCurrentPlayerIndex((currentPlayerIndex + 1) % players.length);
+      }, [currentPlayerIndex, players, currentTurnScore]);
+
+      const handleMouseMove = useCallback((e) => {
+        if (!boardRef.current || isPowerCharging) return;
+        const rect = boardRef.current.getBoundingClientRect();
+        const x = ((e.clientX - rect.left) / rect.width) * BOARD_SIZE;
+        const y = ((e.clientY - rect.top) / rect.height) * BOARD_SIZE;
+        setAimPosition({ x, y });
+      }, [isPowerCharging]);
+
+      const handleMouseDown = useCallback((e) => {
+        const currentPlayer = players[currentPlayerIndex];
+        if (dartsThrown >= 3 || winner || animatingDart || (currentPlayer && currentPlayer.isAI)) return;
+        e.preventDefault();
+        setIsPowerCharging(true);
+        setPower(0);
+        
+        let increasing = true;
+        let currentPower = 0;
+        
+        powerIntervalRef.current = setInterval(() => {
+          if (increasing) {
+            currentPower += 2;
+            if (currentPower >= 100) increasing = false;
+          } else {
+            currentPower -= 2;
+            if (currentPower <= 0) increasing = true;
+          }
+          setPower(currentPower);
+        }, 20);
+      }, [dartsThrown, winner, animatingDart, players, currentPlayerIndex]);
+
+      const handleMouseUp = useCallback(() => {
+        if (powerIntervalRef.current) {
+          clearInterval(powerIntervalRef.current);
+          powerIntervalRef.current = null;
+        }
+        if (isPowerCharging) {
+          setIsPowerCharging(false);
+          throwDart();
+        }
+      }, [isPowerCharging, throwDart]);
+
+      // Touch event handlers for mobile devices (iPhone, iPad, etc.)
+      const handleTouchMove = useCallback((e) => {
+        if (!boardRef.current || isPowerCharging) return;
+        e.preventDefault();
+        const touch = e.touches[0];
+        const rect = boardRef.current.getBoundingClientRect();
+        const x = ((touch.clientX - rect.left) / rect.width) * BOARD_SIZE;
+        const y = ((touch.clientY - rect.top) / rect.height) * BOARD_SIZE;
+        setAimPosition({ x, y });
+      }, [isPowerCharging]);
+
+      const handleTouchStart = useCallback((e) => {
+        const currentPlayer = players[currentPlayerIndex];
+        if (dartsThrown >= 3 || winner || animatingDart || (currentPlayer && currentPlayer.isAI)) return;
+        e.preventDefault();
+
+        // Update aim position on touch start
+        const touch = e.touches[0];
+        const rect = boardRef.current.getBoundingClientRect();
+        const x = ((touch.clientX - rect.left) / rect.width) * BOARD_SIZE;
+        const y = ((touch.clientY - rect.top) / rect.height) * BOARD_SIZE;
+        setAimPosition({ x, y });
+
+        setIsPowerCharging(true);
+        setPower(0);
+
+        let increasing = true;
+        let currentPower = 0;
+
+        powerIntervalRef.current = setInterval(() => {
+          if (increasing) {
+            currentPower += 2;
+            if (currentPower >= 100) increasing = false;
+          } else {
+            currentPower -= 2;
+            if (currentPower <= 0) increasing = true;
+          }
+          setPower(currentPower);
+        }, 20);
+      }, [dartsThrown, winner, animatingDart, players, currentPlayerIndex]);
+
+      const handleTouchEnd = useCallback((e) => {
+        e.preventDefault();
+        if (powerIntervalRef.current) {
+          clearInterval(powerIntervalRef.current);
+          powerIntervalRef.current = null;
+        }
+        if (isPowerCharging) {
+          setIsPowerCharging(false);
+          throwDart();
+        }
+      }, [isPowerCharging, throwDart]);
+
+      const handleTouchCancel = useCallback((e) => {
+        e.preventDefault();
+        // Clean up interval when touch is interrupted (scroll, notification, etc.)
+        if (powerIntervalRef.current) {
+          clearInterval(powerIntervalRef.current);
+          powerIntervalRef.current = null;
+        }
+        // Reset charging state without throwing dart
+        if (isPowerCharging) {
+          setIsPowerCharging(false);
+          setPower(0);
+        }
+      }, [isPowerCharging]);
+
+      useEffect(() => {
+        return () => {
+          if (powerIntervalRef.current) clearInterval(powerIntervalRef.current);
+          if (matchmakingIntervalRef.current) clearInterval(matchmakingIntervalRef.current);
+        };
+      }, []);
+
+      useEffect(() => {
+        const currentPlayer = players[currentPlayerIndex];
+        if (currentPlayer && checkoutSuggestions[currentPlayer.score]) {
+          setCheckout(checkoutSuggestions[currentPlayer.score]);
+          setIsCheckoutPosition(true);
+        } else {
+          setCheckout(null);
+          // Also check for simple double finishes (2-40, even numbers)
+          if (currentPlayer && currentPlayer.score >= 2 && currentPlayer.score <= 40 && currentPlayer.score % 2 === 0) {
+            setIsCheckoutPosition(true);
+          } else {
+            setIsCheckoutPosition(false);
+          }
+        }
+      }, [players, currentPlayerIndex]);
+
+      // Wobble mechanics: Apply aim wobble for pressure moments
+      useEffect(() => {
+        const currentPlayer = players[currentPlayerIndex];
+        if (!currentPlayer || currentPlayer.isAI) return; // Only for human players
+
+        // Condition 1: Expert mode (81%+) and 2 T20s hit in a row (180 attempt)
+        const twoT20sHit = currentTurnThrows.length === 2 &&
+                          currentTurnThrows[0].score === 20 && currentTurnThrows[0].multiplier === 3 &&
+                          currentTurnThrows[1].score === 20 && currentTurnThrows[1].multiplier === 3;
+        const wobbleFor180 = skillLevel >= 81 && twoT20sHit && dartsThrown === 2;
+
+        // Condition 2: Intermediate/Expert (41%+) aiming at winning double (final dart to win leg)
+        const aimingAt = calculateScore(aimPosition.x, aimPosition.y);
+        const isAimingAtWinningDouble = isCheckoutPosition && aimingAt.multiplier === 2 && aimingAt.score === currentPlayer.score;
+        const wobbleForWinningDart = skillLevel >= 41 && isAimingAtWinningDouble && !isPowerCharging;
+
+        // Apply wobble if either condition is met
+        if (wobbleFor180 || wobbleForWinningDart) {
+          // Apply continuous wobble
+          const wobbleInterval = setInterval(() => {
+            const wobbleAmount = 8; // pixels of wobble
+            setAimWobble({
+              x: (Math.random() - 0.5) * wobbleAmount,
+              y: (Math.random() - 0.5) * wobbleAmount
+            });
+          }, 50); // Update every 50ms for smooth wobble
+
+          return () => clearInterval(wobbleInterval);
+        } else {
+          // No wobble - reset
+          setAimWobble({ x: 0, y: 0 });
+        }
+      }, [skillLevel, currentTurnThrows, dartsThrown, isPowerCharging, players, currentPlayerIndex, aimPosition, isCheckoutPosition, calculateScore]);
+
+      // Online multiplayer cleanup: Handle disconnection and cleanup
+      useEffect(() => {
+        return () => {
+          // Cleanup when component unmounts or leaves online mode
+          if (gameRoomRef.current) {
+            gameRoomRef.current.off();
+          }
+          if (playerId && database && onlineMode) {
+            database.ref('matchmaking_queue').child(playerId).remove();
+          }
+        };
+      }, [onlineMode, playerId, database]);
+
+      useEffect(() => {
+        const currentPlayer = players[currentPlayerIndex];
+        if (currentPlayer && currentPlayer.isAI && gameState === 'playing' && !winner && !animatingDart && dartsThrown < 3) {
+          const aiThrowDelay = setTimeout(() => {
+            const target = getAITarget(currentPlayer.aiDifficulty, currentPlayer.score);
+            const aiAccuracy = getAIAccuracy(currentPlayer.aiDifficulty);
+            const aiPower = 45 + Math.random() * 10; // AI aims for ~50 power (perfect zone)
+
+            playSound('throw');
+
+            // Check if AI is aiming at the winning double
+            const aimingAt = calculateScore(target.x, target.y);
+            const isAimingAtWinningDouble = isCheckoutPosition && aimingAt.multiplier === 2 && aimingAt.score === currentPlayer.score;
+
+            // Calculate if AI power is in perfect zone
+            // Beginner mode (40% or below): constant 10% zone, no shrinking
+            // Intermediate (41-80%): shrinks by 2.5% for each perfect hit
+            // Expert (81%+): shrinks by 3% for each perfect hit
+            // Aiming at winning double: ultra-small 2% zone
+            let perfectZoneWidth;
+            if (skillLevel <= 40) {
+              // Beginner mode - constant 10% zone, no shrinking
+              perfectZoneWidth = 10;
+            } else {
+              // Normal mode - shrinking zones
+              if (isAimingAtWinningDouble) {
+                perfectZoneWidth = 2; // Ultra-small zone for winning double
+              } else {
+                const baseZoneWidth = 10;
+                const shrinkRate = skillLevel >= 81 ? 3 : 2.5; // 2.5% for 41-80%, 3% for 81%+
+                perfectZoneWidth = Math.max(baseZoneWidth - (triplesHit * shrinkRate), 4);
+              }
+            }
+            const perfectZoneLeft = 50 - (perfectZoneWidth / 2);
+            const perfectZoneRight = 50 + (perfectZoneWidth / 2);
+            const isInPerfectZone = aiPower > perfectZoneLeft && aiPower < perfectZoneRight;
+
+            // Calculate final position with same logic as human players
+            let finalPosition;
+            if (isInPerfectZone) {
+              // Perfect zone hit - 100% accuracy, no randomness
+              finalPosition = {
+                x: target.x,
+                y: target.y
+              };
+            } else {
+              // Not in perfect zone - apply randomness based on AI accuracy and power
+              const effectiveSkillLevel = aiAccuracy;
+              const skillFactor = (100 - effectiveSkillLevel) / 100;
+              const powerFactor = Math.abs(aiPower - 50) / 50;
+              const skillRandomness = skillFactor * 25;
+              const powerRandomness = powerFactor * 20;
+
+              const distanceFromPerfect = Math.abs(aiPower - 50);
+              const perfectZonePenalty = 80 + (distanceFromPerfect * 1.2);
+
+              const randomness = skillRandomness + powerRandomness + perfectZonePenalty;
+              const angle = Math.random() * Math.PI * 2;
+              const offset = Math.random() * randomness;
+
+              finalPosition = {
+                x: target.x + Math.cos(angle) * offset,
+                y: target.y + Math.sin(angle) * offset
+              };
+            }
+
+            const result = calculateScore(finalPosition.x, finalPosition.y);
+
+            // Increase difficulty by shrinking perfect zone when perfect throw is hit
+            if (isInPerfectZone) {
+              setTriplesHit(prev => prev + 1);
+            }
+
+            setAnimatingDart({ start: { x: CENTER, y: BOARD_SIZE + 50 }, end: finalPosition });
+
+            setTimeout(() => {
+              setAnimatingDart(null);
+              setDartPositions(prev => [...prev, finalPosition]);
+
+              const newScore = currentPlayer.score - result.score;
+
+              // Check for 180 FIRST (before any sounds or popups)
+              const newTurnScore = currentTurnScore + result.score;
+              const is180 = newTurnScore === 180 && dartsThrown + 1 === 3;
+
+              if (is180) {
+                playSound('180');
+                setShowScorePopup({ score: 180, label: '180!!!', position: finalPosition });
+                setTimeout(() => setShowScorePopup(null), 2000);
+              } else {
+                // Play regular hit sounds only if NOT a 180
+                if (result.score === 50) playSound('bullseye');
+                else if (result.score > 0) playSound('hit');
+
+                setShowScorePopup({ ...result, position: finalPosition });
+                setTimeout(() => setShowScorePopup(null), 1000);
+              }
+              setShowScorePopup({ ...result, position: finalPosition });
+              setTimeout(() => setShowScorePopup(null), 1000);
+
+              if (newScore < 0 || newScore === 1 || (newScore === 0 && result.multiplier !== 2)) {
+                playSound('bust');
+                setShowScorePopup({ score: 'BUST!', label: 'BUST!', position: finalPosition });
+                setTimeout(() => {
+                  setShowScorePopup(null);
+                  nextPlayer(true);
+                }, 1500);
+                return;
+              }
+
+              if (newScore === 0 && result.multiplier === 2) {
+                const newPlayers = [...players];
+                newPlayers[currentPlayerIndex] = { ...currentPlayer, score: 0 };
+                setPlayers(newPlayers);
+                updateStats(currentPlayerIndex, result);
+
+                // Calculate final dart count including this winning dart
+                const finalDartCount = (legDartsThrown[currentPlayerIndex] || 0) + 1;
+
+                // Increment leg darts before checking for nine-darter
+                setLegDartsThrown(prev => {
+                  const newLegDarts = [...prev];
+                  newLegDarts[currentPlayerIndex] = finalDartCount;
+                  return newLegDarts;
+                });
+
+                setWinner(currentPlayer); // Set temporary leg winner for display
+                handleLegWin(currentPlayerIndex, finalDartCount);
+                return;
+              }
+
+              const newPlayers = [...players];
+              newPlayers[currentPlayerIndex] = { ...currentPlayer, score: newScore };
+              setPlayers(newPlayers);
+
+              setCurrentTurnScore(prev => prev + result.score);
+              setThrowHistory(prev => [...prev, { player: currentPlayerIndex, ...result, remaining: newScore }]);
+              setDartsThrown(prev => prev + 1);
+              setLegDartsThrown(prev => {
+                const newLegDarts = [...prev];
+                newLegDarts[currentPlayerIndex] = (newLegDarts[currentPlayerIndex] || 0) + 1;
+                return newLegDarts;
+              });
+              updateStats(currentPlayerIndex, result);
+
+              if (dartsThrown + 1 >= 3) {
+                setTimeout(() => nextPlayer(false), 1000);
+              }
+            }, 300);
+          }, 800);
+
+          return () => clearTimeout(aiThrowDelay);
+        }
+      }, [players, currentPlayerIndex, gameState, winner, animatingDart, dartsThrown, getAITarget, calculateScore, playSound, updateStats, nextPlayer]);
+
+      const startGame = () => {
+        const newPlayers = Array.from({ length: playerSetup.count }, (_, i) => ({
+          name: playerSetup.names[i] || `Player ${i + 1}`,
+          score: playerSetup.gameMode,
+          isAI: playerSetup.aiPlayers[i] || false,
+          aiDifficulty: playerSetup.aiDifficulty[i] || null,
+          flag: playerSetup.flags[i] || '🏴󠁧󠁢󠁥󠁮󠁧󠁿'
+        }));
+        setPlayers(newPlayers);
+        setCurrentPlayerIndex(0);
+        setDartsThrown(0);
+        setCurrentTurnScore(0);
+        setThrowHistory([]);
+        setDartPositions([]);
+        setGameStats({});
+        setWinner(null);
+        setMatchWinner(null);
+        setTriplesHit(0);
+        setIsCheckoutPosition(false);
+        setLegScores(new Array(playerSetup.count).fill(0));
+        setSetScores(new Array(playerSetup.count).fill(0));
+        setLegDartsThrown(new Array(playerSetup.count).fill(0));
+        setGameState('playing');
+      };
+
+      const resetGame = () => {
+        setGameState('menu');
+        setWinner(null);
+      };
+
+      // Practice Mode Functions
+      const enterPracticeMode = () => {
+        setPracticeMode('selecting'); // Show skill selection screen
+      };
+
+      const startPracticeSession = (skill) => {
+        setPracticeSkillLevel(skill);
+        setPracticeMode('active');
+        setGameState('playing');
+
+        // Reset practice stats
+        setPracticeStats({
+          dartsThrown: 0,
+          t20: 0,
+          t19: 0,
+          t18: 0,
+          bulls: 0,
+          singleBull: 0,
+          triples: 0,
+          doubles: 0,
+          totalScore: 0
+        });
+
+        // Reset game-related states
+        setDartPositions([]);
+        setTriplesHit(0);
+        setCurrentTurnThrows([]);
+        setAimWobble({ x: 0, y: 0 });
+      };
+
+      const exitPracticeMode = () => {
+        setPracticeMode(false);
+        setPracticeSkillLevel(null);
+        setGameState('menu');
+        setDartPositions([]);
+      };
+
+      // Achievements Functions
+      const unlockAchievement = useCallback((achievementId) => {
+        // Check if already unlocked
+        if (unlockedAchievements.includes(achievementId)) return;
+
+        const achievement = ACHIEVEMENTS_DATA.find(a => a.id === achievementId);
+        if (!achievement) return;
+
+        // Add to unlocked list
+        const newUnlocked = [...unlockedAchievements, achievementId];
+        setUnlockedAchievements(newUnlocked);
+
+        try {
+          localStorage.setItem('quikdarts_achievements', JSON.stringify(newUnlocked));
+        } catch (error) {
+          console.error('Failed to save achievements to localStorage:', error);
+        }
+
+        // Show popup (timeout cleanup handled by useEffect)
+        setAchievementPopup(achievement);
+        setTimeout(() => setAchievementPopup(null), 4000);
+      }, [unlockedAchievements]);
+
+      const checkAchievements = useCallback((stats) => {
+        // First game
+        if (stats.totalGamesPlayed >= 1) {
+          unlockAchievement('first_game');
+        }
+
+        // First win
+        if (stats.totalGamesWon >= 1) {
+          unlockAchievement('first_win');
+        }
+
+        // 180 achievements
+        if (stats.total180s >= 1) {
+          unlockAchievement('first_180');
+        }
+        if (stats.total180s >= 10) {
+          unlockAchievement('ten_180s');
+        }
+        if (stats.total180s >= 50) {
+          unlockAchievement('fifty_180s');
+        }
+
+        // Bulls achievements
+        if (stats.totalBulls >= 1) {
+          unlockAchievement('first_bull');
+        }
+        if (stats.totalBulls >= 50) {
+          unlockAchievement('fifty_bulls');
+        }
+        if (stats.totalBulls >= 100) {
+          unlockAchievement('hundred_bulls');
+        }
+
+        // Winning streaks
+        if (stats.totalGamesWon >= 5) {
+          unlockAchievement('five_wins');
+        }
+        if (stats.totalGamesWon >= 20) {
+          unlockAchievement('twenty_wins');
+        }
+        if (stats.totalGamesWon >= 50) {
+          unlockAchievement('fifty_wins');
+        }
+
+        // Online achievements
+        if (stats.totalOnlineGames >= 1) {
+          unlockAchievement('first_online');
+        }
+        if (stats.totalOnlineWins >= 1) {
+          unlockAchievement('first_online_win');
+        }
+        if (stats.totalOnlineWins >= 10) {
+          unlockAchievement('ten_online_wins');
+        }
+        if (stats.totalOnlineWins >= 50) {
+          unlockAchievement('fifty_online_wins');
+        }
+
+        // Checkout achievements
+        if (stats.highestCheckout >= 100) {
+          unlockAchievement('big_checkout');
+        }
+        if (stats.highestCheckout >= 150) {
+          unlockAchievement('huge_checkout');
+        }
+
+        // Triples achievements
+        if (stats.totalTriples >= 50) {
+          unlockAchievement('fifty_triples');
+        }
+        if (stats.totalTriples >= 200) {
+          unlockAchievement('two_hundred_triples');
+        }
+      }, [unlockAchievement]);
+
+      const updateAchievementStats = useCallback((update) => {
+        setAchievementStats(prev => {
+          const newStats = { ...prev, ...update };
+
+          try {
+            localStorage.setItem('quikdarts_stats', JSON.stringify(newStats));
+          } catch (error) {
+            console.error('Failed to save achievement stats to localStorage:', error);
+          }
+
+          checkAchievements(newStats);
+          return newStats;
+        });
+      }, [checkAchievements]);
+
+      // Auto-hide achievement popup after 4 seconds with proper cleanup
+      useEffect(() => {
+        if (achievementPopup) {
+          const timeoutId = setTimeout(() => {
+            setAchievementPopup(null);
+          }, 4000);
+
+          // Cleanup function to clear timeout if component unmounts or popup changes
+          return () => clearTimeout(timeoutId);
+        }
+      }, [achievementPopup]);
+
+      const getRarityColor = (rarity) => {
+        switch (rarity) {
+          case 'common': return '#95a5a6';
+          case 'uncommon': return '#27ae60';
+          case 'rare': return '#3498db';
+          case 'epic': return '#9b59b6';
+          case 'legendary': return '#f39c12';
+          case 'mythic': return '#e74c3c';
+          default: return '#95a5a6';
+        }
+      };
+
+      const renderDartboard = () => {
+        const segments = [];
+        const theme = currentTheme;
+        const colors = currentThemeColors;
+        const effects = theme.effects;
+
+        // Calculate neon glow intensity for pulse animation
+        const glowIntensity = effects.pulseAnimation ? 0.6 + 0.4 * Math.sin(neonPulsePhase) : 1;
+
+        // Add SVG gradients and textures for 3D effects
+        segments.push(
+          <defs key="gradients">
+            {/* Radial gradient for board lighting (brighter in center) */}
+            {effects.useBoardLighting && (
+              <radialGradient id="boardLighting" cx="50%" cy="45%">
+                <stop offset="0%" stopColor="rgba(255,255,255,0.15)" />
+                <stop offset="60%" stopColor="rgba(255,255,255,0.05)" />
+                <stop offset="100%" stopColor="rgba(0,0,0,0.1)" />
+              </radialGradient>
+            )}
+            {/* Gradient for raised bullseye */}
+            <radialGradient id="bullGradient" cx="40%" cy="40%">
+              <stop offset="0%" stopColor="rgba(255,255,255,0.3)" />
+              <stop offset="70%" stopColor="rgba(0,0,0,0)" />
+              <stop offset="100%" stopColor="rgba(0,0,0,0.3)" />
+            </radialGradient>
+            {/* Chrome effect for outer ring */}
+            {effects.useChromeGradient && (
+              <linearGradient id="chromeGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                <stop offset="0%" stopColor="#f0f0f0" />
+                <stop offset="15%" stopColor="#ffffff" />
+                <stop offset="30%" stopColor={colors.chromeRing} />
+                <stop offset="50%" stopColor="#e8e8e8" />
+                <stop offset="70%" stopColor="#a0a0a0" />
+                <stop offset="85%" stopColor="#d0d0d0" />
+                <stop offset="100%" stopColor="#b0b0b0" />
+              </linearGradient>
+            )}
+            {/* Neon glow filter for neon theme */}
+            {effects.glowEffect && (
+              <filter id="neonGlow" x="-50%" y="-50%" width="200%" height="200%">
+                <feGaussianBlur stdDeviation={3 * glowIntensity} result="coloredBlur" />
+                <feMerge>
+                  <feMergeNode in="coloredBlur" />
+                  <feMergeNode in="SourceGraphic" />
+                </feMerge>
+              </filter>
+            )}
+            {/* Gold metallic gradient for Gold Elite theme */}
+            {effects.useMetallicSheen && (
+              <linearGradient id="goldGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stopColor="#ffd700" />
+                <stop offset="25%" stopColor="#ffed4a" />
+                <stop offset="50%" stopColor="#ffd700" />
+                <stop offset="75%" stopColor="#b8860b" />
+                <stop offset="100%" stopColor="#ffd700" />
+              </linearGradient>
+            )}
+            {/* Sisal/Cork texture pattern for board segments */}
+            {effects.useSisalTexture && (
+              <pattern id="sisalTexture" x="0" y="0" width="4" height="4" patternUnits="userSpaceOnUse">
+                <rect width="4" height="4" fill="rgba(0,0,0,0)" />
+                <circle cx="1" cy="1" r="0.3" fill="rgba(0,0,0,0.08)" />
+                <circle cx="3" cy="2" r="0.3" fill="rgba(0,0,0,0.06)" />
+                <circle cx="2" cy="3" r="0.3" fill="rgba(0,0,0,0.07)" />
+                <circle cx="0.5" cy="3.5" r="0.2" fill="rgba(255,255,255,0.03)" />
+                <circle cx="3.5" cy="0.5" r="0.2" fill="rgba(255,255,255,0.03)" />
+              </pattern>
+            )}
+            {/* Wood grain pattern for outer ring */}
+            {effects.useWoodGrain && (
+              <pattern id="woodGrain" x="0" y="0" width="20" height="100" patternUnits="userSpaceOnUse" patternTransform="rotate(90)">
+                <rect width="20" height="100" fill="rgba(80,60,40,0.1)" />
+                <path d="M 0 10 Q 5 15, 10 10 T 20 10" stroke="rgba(60,40,20,0.15)" strokeWidth="0.5" fill="none" />
+                <path d="M 0 30 Q 5 28, 10 30 T 20 30" stroke="rgba(60,40,20,0.1)" strokeWidth="0.3" fill="none" />
+                <path d="M 0 50 Q 5 55, 10 50 T 20 50" stroke="rgba(60,40,20,0.12)" strokeWidth="0.4" fill="none" />
+                <path d="M 0 70 Q 5 68, 10 70 T 20 70" stroke="rgba(60,40,20,0.1)" strokeWidth="0.3" fill="none" />
+                <path d="M 0 90 Q 5 92, 10 90 T 20 90" stroke="rgba(60,40,20,0.08)" strokeWidth="0.3" fill="none" />
+              </pattern>
+            )}
+          </defs>
+        );
+
+        // Outer frame ring (gold or themed)
+        segments.push(
+          <circle key="frame-ring" cx={CENTER} cy={CENTER} r={DOUBLE_OUTER + 28} fill={colors.frameColor} />
+        );
+
+        // Number ring background (radius matches iOS: radius - 4*scale for parity)
+        segments.push(
+          <circle key="number-ring-bg" cx={CENTER} cy={CENTER} r={DOUBLE_OUTER + 24} fill={colors.numberRing} />
+        );
+
+        // Chrome/themed outer ring
+        if (effects.useChromeGradient) {
+          segments.push(
+            <circle key="chrome-ring" cx={CENTER} cy={CENTER} r={DOUBLE_OUTER + 8} fill="url(#chromeGradient)" />,
+            effects.useWoodGrain && <circle key="chrome-wood" cx={CENTER} cy={CENTER} r={DOUBLE_OUTER + 8} fill="url(#woodGrain)" opacity="0.3" />,
+            <circle key="chrome-ring-inner" cx={CENTER} cy={CENTER} r={DOUBLE_OUTER + 2} fill={colors.boardBackground} />
+          );
+        } else {
+          segments.push(
+            <circle key="chrome-ring" cx={CENTER} cy={CENTER} r={DOUBLE_OUTER + 8} fill={colors.chromeRing} />,
+            <circle key="chrome-ring-inner" cx={CENTER} cy={CENTER} r={DOUBLE_OUTER + 2} fill={colors.boardBackground} />
+          );
+        }
+
+        for (let i = 0; i < 20; i++) {
+          const startAngle = (i * 18 - 99) * (Math.PI / 180);
+          const endAngle = ((i + 1) * 18 - 99) * (Math.PI / 180);
+
+          const createArc = (innerR, outerR) => {
+            const x1 = CENTER + innerR * Math.cos(startAngle);
+            const y1 = CENTER + innerR * Math.sin(startAngle);
+            const x2 = CENTER + outerR * Math.cos(startAngle);
+            const y2 = CENTER + outerR * Math.sin(startAngle);
+            const x3 = CENTER + outerR * Math.cos(endAngle);
+            const y3 = CENTER + outerR * Math.sin(endAngle);
+            const x4 = CENTER + innerR * Math.cos(endAngle);
+            const y4 = CENTER + innerR * Math.sin(endAngle);
+
+            return `M ${x1} ${y1} L ${x2} ${y2} A ${outerR} ${outerR} 0 0 1 ${x3} ${y3} L ${x4} ${y4} A ${innerR} ${innerR} 0 0 0 ${x1} ${y1}`;
+          };
+
+          // Use theme colors
+          const baseColor = i % 2 === 0 ? colors.segmentPrimary : colors.segmentSecondary;
+          const doubleColor = i % 2 === 0 ? colors.doubleTripleEven : colors.doubleTripleOdd;
+          const tripleColor = i % 2 === 0 ? colors.doubleTripleEven : colors.doubleTripleOdd;
+
+          // Add subtle shadow to each segment for depth (if shadow intensity > 0)
+          const shadowOffset = effects.shadowIntensity > 0 ? 0.5 : 0;
+          const shadowOpacity = effects.shadowIntensity;
+
+          if (shadowOpacity > 0) {
+            segments.push(
+              <path key={`shadow-outer-${i}`} d={createArc(TRIPLE_OUTER, DOUBLE_INNER)} fill={`rgba(0,0,0,${shadowOpacity})`} transform={`translate(${shadowOffset}, ${shadowOffset})`} />,
+              <path key={`shadow-double-${i}`} d={createArc(DOUBLE_INNER, DOUBLE_OUTER)} fill={`rgba(0,0,0,${shadowOpacity})`} transform={`translate(${shadowOffset}, ${shadowOffset})`} />,
+              <path key={`shadow-inner-${i}`} d={createArc(OUTER_BULL, TRIPLE_INNER)} fill={`rgba(0,0,0,${shadowOpacity})`} transform={`translate(${shadowOffset}, ${shadowOffset})`} />,
+              <path key={`shadow-triple-${i}`} d={createArc(TRIPLE_INNER, TRIPLE_OUTER)} fill={`rgba(0,0,0,${shadowOpacity})`} transform={`translate(${shadowOffset}, ${shadowOffset})`} />
+            );
+          }
+
+          // Main segments (fill only - wires drawn separately via spider overlay for iOS parity)
+          segments.push(
+            <path key={`outer-${i}`} d={createArc(TRIPLE_OUTER, DOUBLE_INNER)} fill={baseColor} />,
+            <path key={`double-${i}`} d={createArc(DOUBLE_INNER, DOUBLE_OUTER)} fill={doubleColor} />,
+            <path key={`inner-${i}`} d={createArc(OUTER_BULL, TRIPLE_INNER)} fill={baseColor} />,
+            <path key={`triple-${i}`} d={createArc(TRIPLE_INNER, TRIPLE_OUTER)} fill={tripleColor} />
+          );
+
+          // Add texture overlay if enabled
+          if (effects.useSisalTexture) {
+            segments.push(
+              <path key={`texture-outer-${i}`} d={createArc(TRIPLE_OUTER, DOUBLE_INNER)} fill="url(#sisalTexture)" stroke="none" />,
+              <path key={`texture-double-${i}`} d={createArc(DOUBLE_INNER, DOUBLE_OUTER)} fill="url(#sisalTexture)" stroke="none" />,
+              <path key={`texture-inner-${i}`} d={createArc(OUTER_BULL, TRIPLE_INNER)} fill="url(#sisalTexture)" stroke="none" />,
+              <path key={`texture-triple-${i}`} d={createArc(TRIPLE_INNER, TRIPLE_OUTER)} fill="url(#sisalTexture)" stroke="none" />
+            );
+          }
+
+          // Wire highlights (if not in stealth mode or neon mode)
+          if (!effects.glowEffect && effects.shadowIntensity > 0.1) {
+            const wireHighlightOffset = -0.3;
+            segments.push(
+              <path key={`wire-highlight-${i}`} d={createArc(TRIPLE_OUTER, DOUBLE_INNER)} fill="none" stroke={colors.wireHighlight} strokeWidth="0.5" transform={`translate(0, ${wireHighlightOffset})`} />,
+              <path key={`wire-highlight-double-${i}`} d={createArc(DOUBLE_INNER, DOUBLE_OUTER)} fill="none" stroke={colors.wireHighlight} strokeWidth="0.5" transform={`translate(0, ${wireHighlightOffset})`} />,
+              <path key={`wire-highlight-inner-${i}`} d={createArc(OUTER_BULL, TRIPLE_INNER)} fill="none" stroke={colors.wireHighlight} strokeWidth="0.5" transform={`translate(0, ${wireHighlightOffset})`} />,
+              <path key={`wire-highlight-triple-${i}`} d={createArc(TRIPLE_INNER, TRIPLE_OUTER)} fill="none" stroke={colors.wireHighlight} strokeWidth="0.5" transform={`translate(0, ${wireHighlightOffset})`} />
+            );
+          }
+
+          // Numbers with embossed effect
+          const textAngle = (i * 18 - 90) * (Math.PI / 180);
+          const textX = CENTER + 190 * Math.cos(textAngle);
+          const textY = CENTER + 190 * Math.sin(textAngle);
+
+          const textStyle = effects.glowEffect ? { fontFamily: "'Oswald', sans-serif", filter: 'url(#neonGlow)' } : { fontFamily: "'Oswald', sans-serif" };
+
+          // Only render text shadow when shadowIntensity > 0 (iOS doesn't render text shadows)
+          if (effects.shadowIntensity > 0) {
+            segments.push(
+              <text key={`text-shadow-${i}`} x={textX + 0.5} y={textY + 0.5} fill="rgba(0,0,0,0.5)" fontSize="16" fontWeight="bold" textAnchor="middle" dominantBaseline="middle" style={{ fontFamily: "'Oswald', sans-serif" }}>
+                {SEGMENTS[i]}
+              </text>
+            );
+          }
+          segments.push(
+            <text key={`text-${i}`} x={textX} y={textY} fill={colors.numberText} fontSize="16" fontWeight="bold" textAnchor="middle" dominantBaseline="middle" style={textStyle}>
+              {SEGMENTS[i]}
+            </text>
+          );
+        }
+
+        // Bulls with raised 3D effect and texture
+        const bullShadowOpacity = effects.shadowIntensity > 0 ? effects.shadowIntensity : 0;
+
+        segments.push(
+          // Outer bull shadow
+          bullShadowOpacity > 0 && <circle key="outer-bull-shadow" cx={CENTER + 1} cy={CENTER + 1} r={OUTER_BULL} fill={`rgba(0,0,0,${bullShadowOpacity})`} />,
+          // Outer bull (wire drawn via ring overlay at OUTER_BULL radius)
+          <circle key="outer-bull" cx={CENTER} cy={CENTER} r={OUTER_BULL} fill={colors.outerBull} style={effects.glowEffect ? { filter: 'url(#neonGlow)' } : {}} />,
+          // Outer bull texture
+          effects.useSisalTexture && <circle key="outer-bull-texture" cx={CENTER} cy={CENTER} r={OUTER_BULL} fill="url(#sisalTexture)" stroke="none" />,
+          // Outer bull highlight for raised effect
+          !effects.glowEffect && effects.shadowIntensity > 0.1 && <circle key="outer-bull-highlight" cx={CENTER} cy={CENTER} r={OUTER_BULL} fill="url(#bullGradient)" />,
+
+          // Inner bull shadow
+          bullShadowOpacity > 0 && <circle key="inner-bull-shadow" cx={CENTER + 1} cy={CENTER + 1} r={INNER_BULL} fill={`rgba(0,0,0,${bullShadowOpacity + 0.1})`} />,
+          // Inner bull (wire drawn via ring overlay at INNER_BULL radius)
+          <circle key="inner-bull" cx={CENTER} cy={CENTER} r={INNER_BULL} fill={colors.innerBull} style={effects.glowEffect ? { filter: 'url(#neonGlow)' } : {}} />,
+          // Inner bull texture
+          effects.useSisalTexture && <circle key="inner-bull-texture" cx={CENTER} cy={CENTER} r={INNER_BULL} fill="url(#sisalTexture)" stroke="none" />,
+          // Inner bull highlight for shine
+          !effects.glowEffect && effects.shadowIntensity > 0.1 && <ellipse key="inner-bull-shine" cx={CENTER - 2} cy={CENTER - 2} rx={INNER_BULL * 0.4} ry={INNER_BULL * 0.3} fill="rgba(255,255,255,0.4)" />
+        );
+
+        // Spider wire overlay - 20 radial spokes + 5 concentric ring circles
+        // This matches iOS DartboardView exactly for pixel-perfect cross-platform consistency
+        // Draw radial spoke wires from outer bull to double outer (on segment boundaries)
+        for (let i = 0; i < 20; i++) {
+          const angle = (i * 18 - 99) * (Math.PI / 180);
+          const x1 = CENTER + OUTER_BULL * Math.cos(angle);
+          const y1 = CENTER + OUTER_BULL * Math.sin(angle);
+          const x2 = CENTER + DOUBLE_OUTER * Math.cos(angle);
+          const y2 = CENTER + DOUBLE_OUTER * Math.sin(angle);
+
+          segments.push(
+            <line key={`spider-wire-${i}`} x1={x1} y1={y1} x2={x2} y2={y2} stroke={colors.wireColor} strokeWidth={effects.wireWidth} />
+          );
+        }
+
+        // Draw concentric ring wires at all scoring boundaries
+        [INNER_BULL, OUTER_BULL, TRIPLE_INNER, TRIPLE_OUTER, DOUBLE_INNER, DOUBLE_OUTER].forEach((radius, idx) => {
+          segments.push(
+            <circle key={`ring-wire-${idx}`} cx={CENTER} cy={CENTER} r={radius} fill="none" stroke={colors.wireColor} strokeWidth={effects.wireWidth} />
+          );
+        });
+
+        // Neon glow overlay for wire segments
+        if (effects.glowEffect && colors.neonPrimary) {
+          // Draw glowing wire overlay
+          for (let i = 0; i < 20; i++) {
+            const startAngle = (i * 18 - 99) * (Math.PI / 180);
+            const midAngle = ((i * 18 + 9) - 99) * (Math.PI / 180);
+
+            // Radial wire from bull to double
+            const x1 = CENTER + OUTER_BULL * Math.cos(startAngle);
+            const y1 = CENTER + OUTER_BULL * Math.sin(startAngle);
+            const x2 = CENTER + DOUBLE_OUTER * Math.cos(startAngle);
+            const y2 = CENTER + DOUBLE_OUTER * Math.sin(startAngle);
+
+            segments.push(
+              <line key={`neon-wire-${i}`} x1={x1} y1={y1} x2={x2} y2={y2} stroke={colors.neonPrimary} strokeWidth={effects.wireWidth} style={{ filter: 'url(#neonGlow)', opacity: glowIntensity }} />
+            );
+          }
+
+          // Ring wires with glow
+          [OUTER_BULL, TRIPLE_INNER, TRIPLE_OUTER, DOUBLE_INNER, DOUBLE_OUTER].forEach((radius, idx) => {
+            segments.push(
+              <circle key={`neon-ring-${idx}`} cx={CENTER} cy={CENTER} r={radius} fill="none" stroke={colors.neonPrimary} strokeWidth={effects.wireWidth * 0.8} style={{ filter: 'url(#neonGlow)', opacity: glowIntensity }} />
+            );
+          });
+        }
+
+        // Overall radial lighting effect
+        if (effects.useBoardLighting) {
+          segments.push(
+            <circle key="board-lighting" cx={CENTER} cy={CENTER} r={DOUBLE_OUTER + 2} fill="url(#boardLighting)" pointerEvents="none" />
+          );
+        }
+
+        // Metallic sheen overlay for Gold Elite
+        if (effects.useMetallicSheen && colors.metallicSheen) {
+          segments.push(
+            <circle key="metallic-sheen" cx={CENTER} cy={CENTER} r={DOUBLE_OUTER + 2} fill={colors.metallicSheen} pointerEvents="none" />
+          );
+        }
+
+        return segments.filter(Boolean); // Remove any false/null elements from conditional rendering
+      };
+
+      const renderDart = (position, index) => (
+        <g key={index} transform={`translate(${position.x}, ${position.y})`}>
+          <ellipse cx="0" cy="2" rx="4" ry="2" fill="rgba(0,0,0,0.3)" />
+          <line x1="0" y1="-15" x2="0" y2="5" stroke="#c0c0c0" strokeWidth="2" />
+          <polygon points="-4,-15 4,-15 0,-25" fill="#c41e3a" />
+          <circle cx="0" cy="0" r="3" fill="#ffd700" />
+          <polygon points="-6,5 6,5 0,-2" fill="#1a1a2e" />
+        </g>
+      );
+
+      // Practice mode skill selection screen
+      if (practiceMode === 'selecting') {
+        return (
+          <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f0f23 100%)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '20px', fontFamily: "'Oswald', sans-serif" }}>
+            <div style={{ background: 'rgba(255, 255, 255, 0.05)', borderRadius: '20px', padding: '60px 40px', backdropFilter: 'blur(10px)', border: '1px solid rgba(155, 89, 182, 0.3)', maxWidth: '500px', textAlign: 'center', width: '100%' }}>
+              <div style={{ fontSize: '64px', marginBottom: '20px' }}>🎯</div>
+              <h2 style={{ color: '#9b59b6', fontSize: '32px', marginBottom: '10px', letterSpacing: '3px' }}>PRACTICE MODE</h2>
+              <p style={{ color: '#e8d5b7', fontSize: '16px', marginBottom: '40px' }}>Select your skill level</p>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '15px', marginBottom: '30px' }}>
+                <button
+                  onClick={() => startPracticeSession(30)}
+                  style={{
+                    padding: '20px',
+                    background: 'linear-gradient(135deg, #228b22, #32cd32)',
+                    color: '#fff',
+                    border: 'none',
+                    borderRadius: '10px',
+                    cursor: 'pointer',
+                    fontFamily: "'Oswald', sans-serif",
+                    fontSize: '20px',
+                    fontWeight: '600',
+                    letterSpacing: '2px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '10px',
+                    boxShadow: '0 4px 15px rgba(34, 139, 34, 0.4)'
+                  }}
+                >
+                  <span style={{ fontSize: '24px' }}>🟢</span>
+                  BEGINNER
+                </button>
+
+                <button
+                  onClick={() => startPracticeSession(60)}
+                  style={{
+                    padding: '20px',
+                    background: 'linear-gradient(135deg, #ffa500, #ffb732)',
+                    color: '#fff',
+                    border: 'none',
+                    borderRadius: '10px',
+                    cursor: 'pointer',
+                    fontFamily: "'Oswald', sans-serif",
+                    fontSize: '20px',
+                    fontWeight: '600',
+                    letterSpacing: '2px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '10px',
+                    boxShadow: '0 4px 15px rgba(255, 165, 0, 0.4)'
+                  }}
+                >
+                  <span style={{ fontSize: '24px' }}>🟡</span>
+                  INTERMEDIATE
+                </button>
+
+                <button
+                  onClick={() => startPracticeSession(90)}
+                  style={{
+                    padding: '20px',
+                    background: 'linear-gradient(135deg, #c41e3a, #e74c3c)',
+                    color: '#fff',
+                    border: 'none',
+                    borderRadius: '10px',
+                    cursor: 'pointer',
+                    fontFamily: "'Oswald', sans-serif",
+                    fontSize: '20px',
+                    fontWeight: '600',
+                    letterSpacing: '2px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '10px',
+                    boxShadow: '0 4px 15px rgba(196, 30, 58, 0.4)'
+                  }}
+                >
+                  <span style={{ fontSize: '24px' }}>🔴</span>
+                  EXPERT
+                </button>
+              </div>
+
+              <button
+                onClick={exitPracticeMode}
+                style={{
+                  padding: '15px 40px',
+                  background: 'rgba(255, 255, 255, 0.1)',
+                  color: '#e8d5b7',
+                  border: '1px solid rgba(155, 89, 182, 0.3)',
+                  borderRadius: '10px',
+                  fontSize: '16px',
+                  fontWeight: '600',
+                  cursor: 'pointer',
+                  fontFamily: "'Oswald', sans-serif",
+                  letterSpacing: '2px'
+                }}
+              >
+                BACK TO MENU
+              </button>
+            </div>
+          </div>
+        );
+      }
+
+      // Matchmaking screen - check FIRST before menu
+      if (matchmakingState === 'searching' || matchmakingState === 'found') {
+        return (
+          <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f0f23 100%)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '20px', fontFamily: "'Oswald', sans-serif" }}>
+            <div style={{ background: 'rgba(255, 255, 255, 0.05)', borderRadius: '20px', padding: '60px 40px', backdropFilter: 'blur(10px)', border: '1px solid rgba(255, 215, 0, 0.2)', maxWidth: '500px', textAlign: 'center' }}>
+              {matchmakingState === 'searching' && (
+                <>
+                  <div style={{ fontSize: '64px', marginBottom: '30px', animation: 'spin 2s linear infinite' }}>🌍</div>
+                  <h2 style={{ color: '#ffd700', fontSize: '32px', marginBottom: '20px', letterSpacing: '3px' }}>FINDING OPPONENT...</h2>
+                  <p style={{ color: '#e8d5b7', fontSize: '16px', marginBottom: '40px' }}>Searching for players worldwide</p>
+                  <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', marginBottom: '30px' }}>
+                    <div style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#4a90e2', animation: 'pulse 1.5s ease-in-out infinite' }}></div>
+                    <div style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#4a90e2', animation: 'pulse 1.5s ease-in-out infinite 0.2s' }}></div>
+                    <div style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#4a90e2', animation: 'pulse 1.5s ease-in-out infinite 0.4s' }}></div>
+                  </div>
+                  <button onClick={cancelMatchmaking} style={{ padding: '15px 40px', background: 'rgba(255, 255, 255, 0.1)', color: '#e8d5b7', border: '1px solid rgba(255, 215, 0, 0.3)', borderRadius: '10px', fontSize: '16px', fontWeight: '600', cursor: 'pointer', fontFamily: "'Oswald', sans-serif", letterSpacing: '2px' }}>CANCEL</button>
+                </>
+              )}
+
+              {matchmakingState === 'found' && (
+                <>
+                  <div style={{ fontSize: '64px', marginBottom: '30px' }}>✓</div>
+                  <h2 style={{ color: '#32cd32', fontSize: '32px', marginBottom: '20px', letterSpacing: '3px' }}>OPPONENT FOUND!</h2>
+                  <div style={{ background: 'rgba(255, 255, 255, 0.05)', padding: '20px', borderRadius: '10px', marginBottom: '20px' }}>
+                    <div style={{ fontSize: '40px', marginBottom: '10px' }}>{opponentFlag}</div>
+                    <div style={{ color: '#ffd700', fontSize: '24px', fontWeight: '600' }}>{opponentName}</div>
+                  </div>
+                  <p style={{ color: '#e8d5b7', fontSize: '16px' }}>Starting game...</p>
+                </>
+              )}
+            </div>
+
+            <style>{`
+              @keyframes spin {
+                0% { transform: rotate(0deg); }
+                100% { transform: rotate(360deg); }
+              }
+              @keyframes pulse {
+                0%, 100% { opacity: 0.3; transform: scale(0.8); }
+                50% { opacity: 1; transform: scale(1.2); }
+              }
+            `}</style>
+          </div>
+        );
+      }
+
+      // Dartboard Theme Selector - check BEFORE menu and achievements
+      if (showThemeSelector) {
+        // Mini dartboard preview renderer for theme selector
+        const renderMiniDartboard = (themeId, neonColor = null, size = 120) => {
+          const theme = getThemeById(themeId);
+          const colors = getThemeColors(theme, neonColor);
+          const scale = size / BOARD_SIZE;
+          const miniCenter = size / 2;
+
+          return (
+            <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ borderRadius: '50%', boxShadow: theme.effects.glowEffect && colors.neonGlow ? `0 0 20px ${colors.neonGlow}` : '0 4px 15px rgba(0,0,0,0.3)' }}>
+              {/* Background */}
+              <circle cx={miniCenter} cy={miniCenter} r={miniCenter} fill={colors.frameColor} />
+              <circle cx={miniCenter} cy={miniCenter} r={miniCenter * 0.9} fill={colors.numberRing} />
+              <circle cx={miniCenter} cy={miniCenter} r={miniCenter * 0.75} fill={colors.chromeRing} />
+              <circle cx={miniCenter} cy={miniCenter} r={miniCenter * 0.7} fill={colors.boardBackground} />
+
+              {/* Simplified segments */}
+              {[0, 1, 2, 3, 4, 5, 6, 7].map(i => {
+                const angle = i * 45 * (Math.PI / 180);
+                const nextAngle = (i + 1) * 45 * (Math.PI / 180);
+                const innerR = miniCenter * 0.15;
+                const outerR = miniCenter * 0.65;
+
+                const x1 = miniCenter + innerR * Math.cos(angle);
+                const y1 = miniCenter + innerR * Math.sin(angle);
+                const x2 = miniCenter + outerR * Math.cos(angle);
+                const y2 = miniCenter + outerR * Math.sin(angle);
+                const x3 = miniCenter + outerR * Math.cos(nextAngle);
+                const y3 = miniCenter + outerR * Math.sin(nextAngle);
+                const x4 = miniCenter + innerR * Math.cos(nextAngle);
+                const y4 = miniCenter + innerR * Math.sin(nextAngle);
+
+                const segmentColor = i % 2 === 0 ? colors.segmentPrimary : colors.segmentSecondary;
+                const ringColor = i % 2 === 0 ? colors.doubleTripleEven : colors.doubleTripleOdd;
+
+                return (
+                  <g key={i}>
+                    <path d={`M ${x1} ${y1} L ${x2} ${y2} A ${outerR} ${outerR} 0 0 1 ${x3} ${y3} L ${x4} ${y4} A ${innerR} ${innerR} 0 0 0 ${x1} ${y1}`} fill={segmentColor} stroke={colors.wireColor} strokeWidth={theme.effects.wireWidth * 0.5} />
+                    {/* Double ring hint */}
+                    <path d={`M ${miniCenter + outerR * 0.92 * Math.cos(angle)} ${miniCenter + outerR * 0.92 * Math.sin(angle)} A ${outerR * 0.92} ${outerR * 0.92} 0 0 1 ${miniCenter + outerR * 0.92 * Math.cos(nextAngle)} ${miniCenter + outerR * 0.92 * Math.sin(nextAngle)}`} fill="none" stroke={ringColor} strokeWidth={miniCenter * 0.08} />
+                  </g>
+                );
+              })}
+
+              {/* Bulls */}
+              <circle cx={miniCenter} cy={miniCenter} r={miniCenter * 0.15} fill={colors.outerBull} stroke={colors.wireColor} strokeWidth={theme.effects.wireWidth * 0.5} />
+              <circle cx={miniCenter} cy={miniCenter} r={miniCenter * 0.08} fill={colors.innerBull} stroke={colors.wireColor} strokeWidth={theme.effects.wireWidth * 0.5} />
+
+              {/* Neon glow effect for neon theme */}
+              {theme.effects.glowEffect && colors.neonPrimary && (
+                <>
+                  <circle cx={miniCenter} cy={miniCenter} r={miniCenter * 0.65} fill="none" stroke={colors.neonPrimary} strokeWidth="1" opacity="0.6" />
+                  <circle cx={miniCenter} cy={miniCenter} r={miniCenter * 0.15} fill="none" stroke={colors.neonPrimary} strokeWidth="1" opacity="0.6" />
+                </>
+              )}
+            </svg>
+          );
+        };
+
+        return (
+          <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f0f23 100%)', display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '20px', fontFamily: "'Oswald', sans-serif" }}>
+            <div style={{ maxWidth: '800px', width: '100%' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px' }}>
+                <h1 style={{ fontSize: '36px', fontWeight: '700', color: '#ffd700', textShadow: '0 0 20px rgba(255, 215, 0, 0.5)', margin: 0, letterSpacing: '2px' }}>🎨 CUSTOMIZE BOARD</h1>
+                <button onClick={() => setShowThemeSelector(false)} style={{ padding: '12px 30px', background: 'rgba(196, 30, 58, 0.3)', color: '#e8d5b7', border: 'none', borderRadius: '10px', cursor: 'pointer', fontFamily: "'Oswald', sans-serif", fontSize: '16px', fontWeight: '600', letterSpacing: '1px' }}>BACK</button>
+              </div>
+
+              {/* Current Theme Preview */}
+              <div style={{ background: 'rgba(255, 255, 255, 0.05)', borderRadius: '20px', padding: '30px', marginBottom: '30px', backdropFilter: 'blur(10px)', border: '1px solid rgba(255, 215, 0, 0.2)', textAlign: 'center' }}>
+                <div style={{ marginBottom: '20px' }}>
+                  <div style={{ fontSize: '14px', color: '#ffd700', letterSpacing: '2px', marginBottom: '10px' }}>CURRENT THEME</div>
+                  <div style={{ fontSize: '28px', color: '#fff', fontWeight: '700' }}>{currentTheme.icon} {currentTheme.name}</div>
+                  <div style={{ fontSize: '14px', color: '#888', marginTop: '5px' }}>{currentTheme.description}</div>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'center', marginTop: '20px' }}>
+                  <div style={{ transform: 'scale(1.5)', transformOrigin: 'center' }}>
+                    {renderMiniDartboard(selectedThemeId, selectedNeonColor, 150)}
+                  </div>
+                </div>
+              </div>
+
+              {/* Theme Options */}
+              <div style={{ color: '#ffd700', fontSize: '14px', letterSpacing: '2px', marginBottom: '15px' }}>SELECT THEME</div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '20px', marginBottom: '30px' }}>
+                {THEME_IDS_LIST.map(themeId => {
+                  const theme = getThemeById(themeId);
+                  const isSelected = selectedThemeId === themeId;
+
+                  return (
+                    <div
+                      key={themeId}
+                      onClick={() => handleThemeChange(themeId)}
+                      style={{
+                        background: isSelected ? 'rgba(255, 215, 0, 0.15)' : 'rgba(255, 255, 255, 0.05)',
+                        border: `2px solid ${isSelected ? '#ffd700' : 'rgba(255, 255, 255, 0.1)'}`,
+                        borderRadius: '15px',
+                        padding: '20px',
+                        cursor: 'pointer',
+                        transition: 'all 0.3s',
+                        textAlign: 'center'
+                      }}
+                    >
+                      <div style={{ marginBottom: '15px', display: 'flex', justifyContent: 'center' }}>
+                        {renderMiniDartboard(themeId, themeId === THEME_IDS.NEON_GLOW ? selectedNeonColor : null)}
+                      </div>
+                      <div style={{ fontSize: '24px', marginBottom: '5px' }}>{theme.icon}</div>
+                      <div style={{ color: isSelected ? '#ffd700' : '#fff', fontSize: '18px', fontWeight: '700', marginBottom: '5px' }}>{theme.name}</div>
+                      <div style={{ color: '#888', fontSize: '12px' }}>{theme.description}</div>
+                      {isSelected && (
+                        <div style={{ color: '#32cd32', fontSize: '12px', fontWeight: '600', marginTop: '10px' }}>✓ SELECTED</div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Neon Color Options (only shown when Neon Glow theme is selected) */}
+              {selectedThemeId === THEME_IDS.NEON_GLOW && (
+                <div style={{ background: 'rgba(255, 255, 255, 0.05)', borderRadius: '15px', padding: '25px', marginBottom: '30px', backdropFilter: 'blur(10px)' }}>
+                  <div style={{ color: '#ffd700', fontSize: '14px', letterSpacing: '2px', marginBottom: '15px' }}>NEON COLOR</div>
+                  <div style={{ display: 'flex', gap: '15px', justifyContent: 'center' }}>
+                    {[
+                      { id: NEON_COLOR_OPTIONS.CYAN, name: 'Cyan', color: '#00ffff' },
+                      { id: NEON_COLOR_OPTIONS.PINK, name: 'Pink', color: '#ff00ff' },
+                      { id: NEON_COLOR_OPTIONS.GREEN, name: 'Green', color: '#00ff66' }
+                    ].map(option => {
+                      const isSelected = selectedNeonColor === option.id;
+                      return (
+                        <button
+                          key={option.id}
+                          onClick={() => handleNeonColorChange(option.id)}
+                          style={{
+                            padding: '15px 30px',
+                            background: isSelected ? option.color : 'rgba(255, 255, 255, 0.1)',
+                            color: isSelected ? '#000' : option.color,
+                            border: `2px solid ${option.color}`,
+                            borderRadius: '10px',
+                            cursor: 'pointer',
+                            fontFamily: "'Oswald', sans-serif",
+                            fontSize: '16px',
+                            fontWeight: '600',
+                            letterSpacing: '1px',
+                            boxShadow: isSelected ? `0 0 20px ${option.color}` : 'none',
+                            transition: 'all 0.3s'
+                          }}
+                        >
+                          {option.name}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Info */}
+              <div style={{ textAlign: 'center', color: '#666', fontSize: '14px' }}>
+                Your theme preference is saved automatically and synced across sessions.
+              </div>
+            </div>
+          </div>
+        );
+      }
+
+      // Achievements Gallery - check BEFORE menu
+      if (showAchievements) {
+        return (
+          <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f0f23 100%)', display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '20px', fontFamily: "'Oswald', sans-serif" }}>
+            <div style={{ maxWidth: '1000px', width: '100%' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px' }}>
+                <h1 style={{ fontSize: '48px', fontWeight: '700', color: '#ffd700', textShadow: '0 0 20px rgba(255, 215, 0, 0.5)', margin: 0 }}>🏆 ACHIEVEMENTS</h1>
+                <button onClick={() => setShowAchievements(false)} style={{ padding: '12px 30px', background: 'rgba(196, 30, 58, 0.3)', color: '#e8d5b7', border: 'none', borderRadius: '10px', cursor: 'pointer', fontFamily: "'Oswald', sans-serif", fontSize: '16px', fontWeight: '600', letterSpacing: '1px' }}>BACK</button>
+              </div>
+
+              <div style={{ background: 'rgba(255, 255, 255, 0.05)', borderRadius: '20px', padding: '25px', marginBottom: '30px', backdropFilter: 'blur(10px)' }}>
+                <div style={{ color: '#e8d5b7', fontSize: '18px', marginBottom: '5px' }}>
+                  Unlocked: <span style={{ color: '#ffd700', fontWeight: '700' }}>{unlockedAchievements.length}</span> / {ACHIEVEMENTS_DATA.length}
+                </div>
+                <div style={{ background: 'rgba(255, 215, 0, 0.2)', borderRadius: '10px', height: '10px', overflow: 'hidden', marginTop: '10px' }}>
+                  <div style={{ background: 'linear-gradient(90deg, #ffd700, #ffed4a)', height: '100%', width: `${(unlockedAchievements.length / ACHIEVEMENTS_DATA.length) * 100}%`, transition: 'width 0.5s' }}></div>
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '20px' }}>
+                {ACHIEVEMENTS_DATA.map(achievement => {
+                  const isUnlocked = unlockedAchievements.includes(achievement.id);
+                  return (
+                    <div key={achievement.id} style={{
+                      background: isUnlocked ? 'rgba(255, 255, 255, 0.1)' : 'rgba(255, 255, 255, 0.03)',
+                      border: `2px solid ${isUnlocked ? getRarityColor(achievement.rarity) : 'rgba(255, 255, 255, 0.1)'}`,
+                      borderRadius: '15px',
+                      padding: '20px',
+                      opacity: isUnlocked ? 1 : 0.5,
+                      transition: 'all 0.3s',
+                      cursor: isUnlocked ? 'pointer' : 'default',
+                      backdropFilter: 'blur(10px)'
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'flex-start', gap: '15px', marginBottom: '10px' }}>
+                        <div style={{ fontSize: '40px', filter: isUnlocked ? 'none' : 'grayscale(100%)' }}>
+                          {achievement.icon}
+                        </div>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ color: isUnlocked ? '#fff' : '#666', fontSize: '18px', fontWeight: '700', marginBottom: '5px' }}>
+                            {achievement.name}
+                          </div>
+                          <div style={{ color: isUnlocked ? '#ccc' : '#555', fontSize: '13px', marginBottom: '8px' }}>
+                            {achievement.description}
+                          </div>
+                          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                            <div style={{
+                              display: 'inline-block',
+                              color: isUnlocked ? getRarityColor(achievement.rarity) : '#555',
+                              fontSize: '10px',
+                              fontWeight: '600',
+                              letterSpacing: '1px',
+                              textTransform: 'uppercase',
+                              border: `1px solid ${isUnlocked ? getRarityColor(achievement.rarity) : '#555'}`,
+                              borderRadius: '8px',
+                              padding: '3px 8px'
+                            }}>
+                              {achievement.rarity}
+                            </div>
+                            <div style={{
+                              display: 'inline-block',
+                              color: achievement.mode === 'online' ? '#4a90e2' : '#ffd700',
+                              fontSize: '10px',
+                              fontWeight: '600',
+                              letterSpacing: '1px',
+                              textTransform: 'uppercase',
+                              border: `1px solid ${achievement.mode === 'online' ? '#4a90e2' : '#ffd700'}`,
+                              borderRadius: '8px',
+                              padding: '3px 8px'
+                            }}>
+                              {achievement.mode === 'online' ? '🌍 ONLINE' : '🎯 OFFLINE'}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      {isUnlocked && (
+                        <div style={{ color: '#32cd32', fontSize: '12px', fontWeight: '600', letterSpacing: '1px', marginTop: '10px' }}>
+                          ✓ UNLOCKED
+                        </div>
+                      )}
+                      {!isUnlocked && (
+                        <div style={{ color: '#555', fontSize: '12px', fontWeight: '600', letterSpacing: '1px', marginTop: '10px' }}>
+                          🔒 LOCKED
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        );
+      }
+
+      if (gameState === 'menu') {
+        return (
+          <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f0f23 100%)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '20px', fontFamily: "'Oswald', sans-serif" }}>
+            <div style={{ textAlign: 'center', marginBottom: '40px' }}>
+              <h1 style={{ fontSize: '72px', fontWeight: '700', color: '#ffd700', textShadow: '0 0 20px rgba(255, 215, 0, 0.5), 0 4px 8px rgba(0,0,0,0.5)', margin: '0 0 10px 0', letterSpacing: '4px' }}>QUIK DARTS</h1>
+              <p style={{ fontSize: '18px', color: '#e8d5b7', letterSpacing: '8px', textTransform: 'uppercase' }}>Championship Edition</p>
+            </div>
+            
+            <div style={{ background: 'rgba(255, 255, 255, 0.05)', borderRadius: '20px', padding: '40px', backdropFilter: 'blur(10px)', border: '1px solid rgba(255, 215, 0, 0.2)', width: '100%', maxWidth: '450px' }}>
+              <button onClick={startGame} style={{ width: '100%', padding: '20px', fontSize: '24px', fontWeight: '700', background: 'linear-gradient(135deg, #c41e3a, #e74c3c)', color: '#fff', border: 'none', borderRadius: '15px', cursor: 'pointer', fontFamily: "'Oswald', sans-serif", letterSpacing: '4px', textTransform: 'uppercase', boxShadow: '0 4px 15px rgba(196, 30, 58, 0.4)', marginBottom: '15px' }}>🎯 Start Game</button>
+
+              <button onClick={startMatchmaking} style={{ width: '100%', padding: '20px', fontSize: '24px', fontWeight: '700', background: 'linear-gradient(135deg, #4a90e2, #357abd)', color: '#fff', border: 'none', borderRadius: '15px', cursor: 'pointer', fontFamily: "'Oswald', sans-serif", letterSpacing: '4px', textTransform: 'uppercase', boxShadow: '0 4px 15px rgba(74, 144, 226, 0.4)', marginBottom: '15px' }}>🌍 Play Online</button>
+
+              <button onClick={enterPracticeMode} style={{ width: '100%', padding: '20px', fontSize: '24px', fontWeight: '700', background: 'linear-gradient(135deg, #9b59b6, #8e44ad)', color: '#fff', border: 'none', borderRadius: '15px', cursor: 'pointer', fontFamily: "'Oswald', sans-serif", letterSpacing: '4px', textTransform: 'uppercase', boxShadow: '0 4px 15px rgba(155, 89, 182, 0.4)', marginBottom: '15px' }}>🎯 Practice Mode</button>
+
+              <button onClick={() => setShowAchievements(true)} style={{ width: '100%', padding: '20px', fontSize: '24px', fontWeight: '700', background: 'linear-gradient(135deg, #f39c12, #e67e22)', color: '#fff', border: 'none', borderRadius: '15px', cursor: 'pointer', fontFamily: "'Oswald', sans-serif", letterSpacing: '4px', textTransform: 'uppercase', boxShadow: '0 4px 15px rgba(243, 156, 18, 0.4)', marginBottom: '15px' }}>🏆 Achievements</button>
+
+              <button onClick={() => setShowThemeSelector(true)} style={{ width: '100%', padding: '20px', fontSize: '24px', fontWeight: '700', background: 'linear-gradient(135deg, #27ae60, #2ecc71)', color: '#fff', border: 'none', borderRadius: '15px', cursor: 'pointer', fontFamily: "'Oswald', sans-serif", letterSpacing: '4px', textTransform: 'uppercase', boxShadow: '0 4px 15px rgba(39, 174, 96, 0.4)', marginBottom: '30px' }}>🎨 Customize Board</button>
+
+              <div style={{ marginBottom: '30px' }}>
+                <label style={{ color: '#ffd700', fontSize: '14px', letterSpacing: '2px', display: 'block', marginBottom: '10px' }}>GAME MODE</label>
+                <div style={{ display: 'flex', gap: '10px' }}>
+                  {[301, 501].map(mode => (
+                    <button key={mode} onClick={() => setPlayerSetup(prev => ({ ...prev, gameMode: mode }))} style={{ flex: 1, padding: '15px', fontSize: '20px', fontWeight: '600', background: playerSetup.gameMode === mode ? 'linear-gradient(135deg, #ffd700, #ffed4a)' : 'rgba(255, 255, 255, 0.1)', color: playerSetup.gameMode === mode ? '#1a1a2e' : '#e8d5b7', border: 'none', borderRadius: '10px', cursor: 'pointer', fontFamily: "'Oswald', sans-serif" }}>{mode}</button>
+                  ))}
+                </div>
+              </div>
+
+              <div style={{ marginBottom: '30px' }}>
+                <label style={{ color: '#ffd700', fontSize: '14px', letterSpacing: '2px', display: 'block', marginBottom: '10px' }}>LEGS PER SET</label>
+                <div style={{ display: 'flex', gap: '10px' }}>
+                  {[1, 3, 5, 7].map(legs => (
+                    <button key={legs} onClick={() => setPlayerSetup(prev => ({ ...prev, legsPerSet: legs }))} style={{ flex: 1, padding: '15px', fontSize: '20px', fontWeight: '600', background: playerSetup.legsPerSet === legs ? 'linear-gradient(135deg, #ffd700, #ffed4a)' : 'rgba(255, 255, 255, 0.1)', color: playerSetup.legsPerSet === legs ? '#1a1a2e' : '#e8d5b7', border: 'none', borderRadius: '10px', cursor: 'pointer', fontFamily: "'Oswald', sans-serif" }}>{legs}</button>
+                  ))}
+                </div>
+              </div>
+
+              <div style={{ marginBottom: '30px' }}>
+                <label style={{ color: '#ffd700', fontSize: '14px', letterSpacing: '2px', display: 'block', marginBottom: '10px' }}>SETS TO WIN</label>
+                <div style={{ display: 'flex', gap: '10px' }}>
+                  {[1, 3, 5, 7].map(sets => (
+                    <button key={sets} onClick={() => setPlayerSetup(prev => ({ ...prev, setsToWin: sets }))} style={{ flex: 1, padding: '15px', fontSize: '20px', fontWeight: '600', background: playerSetup.setsToWin === sets ? 'linear-gradient(135deg, #ffd700, #ffed4a)' : 'rgba(255, 255, 255, 0.1)', color: playerSetup.setsToWin === sets ? '#1a1a2e' : '#e8d5b7', border: 'none', borderRadius: '10px', cursor: 'pointer', fontFamily: "'Oswald', sans-serif" }}>{sets}</button>
+                  ))}
+                </div>
+              </div>
+
+              <div style={{ marginBottom: '30px' }}>
+                <label style={{ color: '#ffd700', fontSize: '14px', letterSpacing: '2px', display: 'block', marginBottom: '10px' }}>NUMBER OF PLAYERS</label>
+                <div style={{ display: 'flex', gap: '10px' }}>
+                  {[1, 2, 3, 4].map(num => (
+                    <button key={num} onClick={() => setPlayerSetup(prev => ({ ...prev, count: num }))} style={{ flex: 1, padding: '15px', fontSize: '20px', fontWeight: '600', background: playerSetup.count === num ? 'linear-gradient(135deg, #ffd700, #ffed4a)' : 'rgba(255, 255, 255, 0.1)', color: playerSetup.count === num ? '#1a1a2e' : '#e8d5b7', border: 'none', borderRadius: '10px', cursor: 'pointer', fontFamily: "'Oswald', sans-serif" }}>{num}</button>
+                  ))}
+                </div>
+              </div>
+              
+              {Array.from({ length: playerSetup.count }).map((_, i) => (
+                <div key={i} style={{ marginBottom: '20px', background: 'rgba(255, 255, 255, 0.05)', padding: '15px', borderRadius: '10px', border: '1px solid rgba(255, 215, 0, 0.2)' }}>
+                  <input
+                    type="text"
+                    value={playerSetup.names[i]}
+                    onChange={(e) => {
+                      const newNames = [...playerSetup.names];
+                      // Limit to 20 characters and remove dangerous characters
+                      const sanitized = e.target.value.slice(0, 20).replace(/[<>]/g, '');
+                      newNames[i] = sanitized;
+                      setPlayerSetup(prev => ({ ...prev, names: newNames }));
+                    }}
+                    placeholder={`Player ${i + 1}`}
+                    maxLength={20}
+                    style={{ width: '100%', padding: '12px', fontSize: '16px', background: 'rgba(255, 255, 255, 0.1)', border: '1px solid rgba(255, 215, 0, 0.3)', borderRadius: '8px', color: '#e8d5b7', outline: 'none', fontFamily: "'Roboto Mono', monospace", boxSizing: 'border-box', marginBottom: '10px' }}
+                  />
+
+                  <div style={{ marginBottom: '10px' }}>
+                    <label style={{ color: '#888', fontSize: '11px', letterSpacing: '1px', display: 'block', marginBottom: '8px' }}>NATIONALITY</label>
+                    <select value={playerSetup.flags[i]} onChange={(e) => { const newFlags = [...playerSetup.flags]; newFlags[i] = e.target.value; setPlayerSetup(prev => ({ ...prev, flags: newFlags })); }} style={{ width: '100%', padding: '10px', fontSize: '16px', background: 'rgba(255, 255, 255, 0.1)', border: '1px solid rgba(255, 215, 0, 0.3)', borderRadius: '8px', color: '#e8d5b7', outline: 'none', fontFamily: "'Roboto Mono', monospace", cursor: 'pointer', boxSizing: 'border-box' }}>
+                      {countries.map(country => (
+                        <option key={country.name} value={country.flag} style={{ background: '#1a1a2e', color: '#e8d5b7' }}>
+                          {country.flag} {country.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {i > 0 && playerSetup.count > 1 && (
+                    <>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: playerSetup.aiPlayers[i] ? '10px' : '0' }}>
+                        <span style={{ color: '#888', fontSize: '13px', letterSpacing: '1px' }}>AI OPPONENT</span>
+                        <button onClick={() => {
+                          const newAiPlayers = [...playerSetup.aiPlayers];
+                          newAiPlayers[i] = !newAiPlayers[i];
+                          const newAiDifficulty = [...playerSetup.aiDifficulty];
+                          if (newAiPlayers[i] && !newAiDifficulty[i]) newAiDifficulty[i] = 'medium';
+                          setPlayerSetup(prev => ({ ...prev, aiPlayers: newAiPlayers, aiDifficulty: newAiDifficulty }));
+                        }} style={{ padding: '6px 15px', background: playerSetup.aiPlayers[i] ? 'linear-gradient(135deg, #228b22, #32cd32)' : 'rgba(255, 255, 255, 0.1)', color: playerSetup.aiPlayers[i] ? '#fff' : '#888', border: 'none', borderRadius: '15px', cursor: 'pointer', fontFamily: "'Oswald', sans-serif", fontSize: '12px', fontWeight: '600' }}>
+                          {playerSetup.aiPlayers[i] ? 'ON' : 'OFF'}
+                        </button>
+                      </div>
+
+                      {playerSetup.aiPlayers[i] && (
+                        <div>
+                          <label style={{ color: '#888', fontSize: '11px', letterSpacing: '1px', display: 'block', marginBottom: '8px' }}>DIFFICULTY</label>
+                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '6px' }}>
+                            {['easy', 'medium', 'hard', 'impossible'].map(diff => (
+                              <button key={diff} onClick={() => {
+                                const newAiDifficulty = [...playerSetup.aiDifficulty];
+                                newAiDifficulty[i] = diff;
+                                setPlayerSetup(prev => ({ ...prev, aiDifficulty: newAiDifficulty }));
+                              }} style={{ padding: '8px 4px', fontSize: '11px', fontWeight: '600', background: playerSetup.aiDifficulty[i] === diff ? 'linear-gradient(135deg, #ffd700, #ffed4a)' : 'rgba(255, 255, 255, 0.1)', color: playerSetup.aiDifficulty[i] === diff ? '#1a1a2e' : '#888', border: 'none', borderRadius: '6px', cursor: 'pointer', fontFamily: "'Oswald', sans-serif", textTransform: 'uppercase' }}>
+                                {diff}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+              ))}
+              
+              <div style={{ marginBottom: '30px', marginTop: '30px' }}>
+                <label style={{ color: '#ffd700', fontSize: '14px', letterSpacing: '2px', display: 'block', marginBottom: '15px' }}>SKILL LEVEL</label>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px' }}>
+                  <button
+                    onClick={() => setSkillLevel(30)}
+                    style={{
+                      padding: '15px 10px',
+                      background: skillLevel <= 40 ? 'linear-gradient(135deg, #228b22, #32cd32)' : 'rgba(255, 255, 255, 0.1)',
+                      color: skillLevel <= 40 ? '#fff' : '#888',
+                      border: skillLevel <= 40 ? '2px solid #32cd32' : '2px solid transparent',
+                      borderRadius: '10px',
+                      cursor: 'pointer',
+                      fontFamily: "'Oswald', sans-serif",
+                      fontSize: '14px',
+                      fontWeight: '600',
+                      transition: 'all 0.2s'
+                    }}
+                  >
+                    <div style={{ fontSize: '16px', marginBottom: '5px' }}>🟢</div>
+                    BEGINNER
+                  </button>
+                  <button
+                    onClick={() => setSkillLevel(60)}
+                    style={{
+                      padding: '15px 10px',
+                      background: skillLevel >= 41 && skillLevel <= 80 ? 'linear-gradient(135deg, #ffa500, #ffb732)' : 'rgba(255, 255, 255, 0.1)',
+                      color: skillLevel >= 41 && skillLevel <= 80 ? '#fff' : '#888',
+                      border: skillLevel >= 41 && skillLevel <= 80 ? '2px solid #ffb732' : '2px solid transparent',
+                      borderRadius: '10px',
+                      cursor: 'pointer',
+                      fontFamily: "'Oswald', sans-serif",
+                      fontSize: '14px',
+                      fontWeight: '600',
+                      transition: 'all 0.2s'
+                    }}
+                  >
+                    <div style={{ fontSize: '16px', marginBottom: '5px' }}>🟡</div>
+                    INTERMEDIATE
+                  </button>
+                  <button
+                    onClick={() => setSkillLevel(90)}
+                    style={{
+                      padding: '15px 10px',
+                      background: skillLevel >= 81 ? 'linear-gradient(135deg, #c41e3a, #e74c3c)' : 'rgba(255, 255, 255, 0.1)',
+                      color: skillLevel >= 81 ? '#fff' : '#888',
+                      border: skillLevel >= 81 ? '2px solid #e74c3c' : '2px solid transparent',
+                      borderRadius: '10px',
+                      cursor: 'pointer',
+                      fontFamily: "'Oswald', sans-serif",
+                      fontSize: '14px',
+                      fontWeight: '600',
+                      transition: 'all 0.2s'
+                    }}
+                  >
+                    <div style={{ fontSize: '16px', marginBottom: '5px' }}>🔴</div>
+                    EXPERT
+                  </button>
+                </div>
+              </div>
+              
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <span style={{ color: '#e8d5b7', fontSize: '14px', letterSpacing: '2px' }}>SOUND EFFECTS</span>
+                <button onClick={() => setSoundEnabled(!soundEnabled)} style={{ padding: '10px 20px', background: soundEnabled ? 'linear-gradient(135deg, #228b22, #32cd32)' : 'rgba(255, 255, 255, 0.1)', color: soundEnabled ? '#fff' : '#888', border: 'none', borderRadius: '20px', cursor: 'pointer', fontFamily: "'Oswald', sans-serif", fontSize: '14px' }}>{soundEnabled ? 'ON' : 'OFF'}</button>
+              </div>
+            </div>
+            
+            <p style={{ color: '#666', marginTop: '30px', fontSize: '14px' }}>Hold mouse to charge power • Release to throw</p>
+          </div>
+        );
+      }
+
+      return (
+        <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f0f23 100%)', padding: '20px', fontFamily: "'Oswald', sans-serif" }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '30px', maxWidth: '1400px', margin: '0 auto', justifyContent: 'center' }}>
+            {/* Scoreboard or Practice Stats */}
+            <div style={{ background: 'rgba(255, 255, 255, 0.05)', borderRadius: '20px', padding: '25px', minWidth: '280px', backdropFilter: 'blur(10px)', border: practiceMode === 'active' ? '1px solid rgba(155, 89, 182, 0.3)' : '1px solid rgba(255, 215, 0, 0.2)' }}>
+              {practiceMode === 'active' ? (
+                <>
+                  <h2 style={{ color: '#9b59b6', margin: '0 0 20px 0', letterSpacing: '3px', fontSize: '18px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <span>🎯</span> PRACTICE MODE
+                  </h2>
+
+                  <div style={{ background: 'rgba(155, 89, 182, 0.1)', borderRadius: '10px', padding: '15px', marginBottom: '20px' }}>
+                    <div style={{ color: '#9b59b6', fontSize: '12px', letterSpacing: '1px', marginBottom: '5px' }}>SKILL LEVEL</div>
+                    <div style={{ color: '#e8d5b7', fontSize: '16px', fontWeight: '600' }}>
+                      {practiceSkillLevel <= 40 && '🟢 BEGINNER'}
+                      {practiceSkillLevel > 40 && practiceSkillLevel <= 80 && '🟡 INTERMEDIATE'}
+                      {practiceSkillLevel > 80 && '🔴 EXPERT'}
+                    </div>
+                  </div>
+
+                  <div style={{ background: 'rgba(255, 255, 255, 0.05)', borderRadius: '10px', padding: '15px', marginBottom: '15px' }}>
+                    <div style={{ color: '#ffd700', fontSize: '12px', letterSpacing: '2px', marginBottom: '10px' }}>SESSION STATS</div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', fontSize: '14px', color: '#e8d5b7' }}>
+                      <div>
+                        <div style={{ color: '#888', fontSize: '11px' }}>Darts Thrown</div>
+                        <div style={{ fontSize: '20px', fontWeight: '600', color: '#fff' }}>{practiceStats.dartsThrown}</div>
+                      </div>
+                      <div>
+                        <div style={{ color: '#888', fontSize: '11px' }}>Total Score</div>
+                        <div style={{ fontSize: '20px', fontWeight: '600', color: '#fff' }}>{practiceStats.totalScore}</div>
+                      </div>
+                      <div>
+                        <div style={{ color: '#888', fontSize: '11px' }}>Average</div>
+                        <div style={{ fontSize: '20px', fontWeight: '600', color: '#32cd32' }}>
+                          {practiceStats.dartsThrown > 0 ? (practiceStats.totalScore / practiceStats.dartsThrown).toFixed(1) : '0.0'}
+                        </div>
+                      </div>
+                      <div>
+                        <div style={{ color: '#888', fontSize: '11px' }}>Bulls</div>
+                        <div style={{ fontSize: '20px', fontWeight: '600', color: '#c41e3a' }}>{practiceStats.bulls}</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div style={{ background: 'rgba(255, 255, 255, 0.05)', borderRadius: '10px', padding: '15px', marginBottom: '20px' }}>
+                    <div style={{ color: '#ffd700', fontSize: '12px', letterSpacing: '2px', marginBottom: '10px' }}>ACCURACY</div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', fontSize: '14px', color: '#e8d5b7' }}>
+                      <div>
+                        <div style={{ color: '#888', fontSize: '11px' }}>Triples</div>
+                        <div style={{ fontSize: '18px', fontWeight: '600' }}>{practiceStats.triples}</div>
+                      </div>
+                      <div>
+                        <div style={{ color: '#888', fontSize: '11px' }}>Doubles</div>
+                        <div style={{ fontSize: '18px', fontWeight: '600' }}>{practiceStats.doubles}</div>
+                      </div>
+                      <div>
+                        <div style={{ color: '#888', fontSize: '11px' }}>T20</div>
+                        <div style={{ fontSize: '18px', fontWeight: '600', color: '#32cd32' }}>{practiceStats.t20}</div>
+                      </div>
+                      <div>
+                        <div style={{ color: '#888', fontSize: '11px' }}>T19</div>
+                        <div style={{ fontSize: '18px', fontWeight: '600' }}>{practiceStats.t19}</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={exitPracticeMode}
+                    style={{
+                      width: '100%',
+                      padding: '15px',
+                      background: 'linear-gradient(135deg, #c41e3a, #e74c3c)',
+                      color: '#fff',
+                      border: 'none',
+                      borderRadius: '10px',
+                      fontSize: '16px',
+                      fontWeight: '600',
+                      cursor: 'pointer',
+                      fontFamily: "'Oswald', sans-serif",
+                      letterSpacing: '2px',
+                      textTransform: 'uppercase'
+                    }}
+                  >
+                    Exit Practice
+                  </button>
+                </>
+              ) : (
+                <>
+                  <h2 style={{ color: '#ffd700', margin: '0 0 20px 0', letterSpacing: '3px', fontSize: '18px' }}>SCOREBOARD</h2>
+
+                  {players.map((player, index) => (
+                <div key={index} style={{ background: currentPlayerIndex === index ? 'linear-gradient(135deg, rgba(255, 215, 0, 0.2), rgba(255, 215, 0, 0.1))' : 'rgba(255, 255, 255, 0.05)', borderRadius: '15px', padding: '20px', marginBottom: '15px', border: currentPlayerIndex === index ? '2px solid #ffd700' : '1px solid rgba(255, 255, 255, 0.1)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '5px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span style={{ fontSize: '20px' }}>{player.flag}</span>
+                      <span style={{ color: '#e8d5b7', fontSize: '16px' }}>{player.name}</span>
+                      {player.isAI && <span style={{ background: 'rgba(100, 149, 237, 0.3)', color: '#6495ed', padding: '2px 8px', borderRadius: '10px', fontSize: '10px', fontWeight: '600', letterSpacing: '1px' }}>AI</span>}
+                    </div>
+                    {currentPlayerIndex === index && <span style={{ color: '#ffd700', fontSize: '12px' }}>▶ THROWING</span>}
+                  </div>
+                  {player.isAI && <div style={{ fontSize: '10px', color: '#6495ed', marginBottom: '5px', textTransform: 'uppercase' }}>{player.aiDifficulty}</div>}
+                  <div style={{ fontSize: '48px', fontWeight: '700', color: player.score <= 170 ? '#32cd32' : '#fff', textAlign: 'center', margin: '10px 0', fontFamily: "'Roboto Mono', monospace" }}>{player.score}</div>
+                  {gameStats[index] && <div style={{ fontSize: '12px', color: '#888', textAlign: 'center' }}>Avg: {gameStats[index].averagePerDart} per dart</div>}
+                  {(playerSetup.legsPerSet > 1 || playerSetup.setsToWin > 1) && (
+                    <div style={{ fontSize: '11px', color: '#ffd700', textAlign: 'center', marginTop: '8px', letterSpacing: '1px' }}>
+                      Sets: {setScores[index] || 0} | Legs: {legScores[index] || 0}
+                    </div>
+                  )}
+                </div>
+              ))}
+              
+              {checkout && (
+                <div style={{ background: 'linear-gradient(135deg, rgba(50, 205, 50, 0.2), rgba(34, 139, 34, 0.1))', borderRadius: '10px', padding: '15px', marginTop: '20px', border: '1px solid rgba(50, 205, 50, 0.3)' }}>
+                  <div style={{ color: '#32cd32', fontSize: '12px', letterSpacing: '2px', marginBottom: '5px' }}>CHECKOUT</div>
+                  <div style={{ color: '#fff', fontSize: '18px', fontWeight: '600' }}>{checkout}</div>
+                </div>
+              )}
+              
+              {onlineMode && (
+                <div style={{ marginTop: '20px', padding: '15px', background: 'linear-gradient(135deg, rgba(74, 144, 226, 0.2), rgba(53, 122, 189, 0.2))', borderRadius: '10px', border: '2px solid #4a90e2' }}>
+                  <div style={{ color: '#4a90e2', fontSize: '12px', fontWeight: '600', letterSpacing: '2px', marginBottom: '8px' }}>🌍 ONLINE MATCH</div>
+                  <div style={{ color: currentPlayerIndex === playerId ? '#32cd32' : '#ffd700', fontSize: '16px', fontWeight: '700', letterSpacing: '1px' }}>
+                    {currentPlayerIndex === playerId ? '▶ YOUR TURN' : '⏸ OPPONENT\'S TURN'}
+                  </div>
+                </div>
+              )}
+
+              <div style={{ marginTop: '20px', padding: '15px', background: 'rgba(255, 255, 255, 0.05)', borderRadius: '10px' }}>
+                <div style={{ color: '#888', fontSize: '12px', marginBottom: '5px' }}>TURN SCORE</div>
+                <div style={{ color: '#ffd700', fontSize: '32px', fontWeight: '700', fontFamily: "'Roboto Mono', monospace" }}>{currentTurnScore}</div>
+                <div style={{ color: '#888', fontSize: '14px', marginTop: '5px' }}>Darts: {'🎯'.repeat(dartsThrown)}{'○'.repeat(3 - dartsThrown)}</div>
+              </div>
+
+              <div style={{ marginTop: '20px', display: 'flex', gap: '10px' }}>
+                <button onClick={() => setShowStats(true)} style={{ flex: 1, padding: '12px', background: 'rgba(255, 255, 255, 0.1)', color: '#e8d5b7', border: 'none', borderRadius: '10px', cursor: 'pointer', fontFamily: "'Oswald', sans-serif", fontSize: '14px' }}>STATS</button>
+                <button onClick={onlineMode ? leaveOnlineGame : resetGame} style={{ flex: 1, padding: '12px', background: 'rgba(196, 30, 58, 0.3)', color: '#e8d5b7', border: 'none', borderRadius: '10px', cursor: 'pointer', fontFamily: "'Oswald', sans-serif", fontSize: '14px' }}>{onlineMode ? 'LEAVE' : 'MENU'}</button>
+              </div>
+                </>
+              )}
+            </div>
+            
+            {/* Dartboard */}
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+              <div ref={boardRef} onMouseMove={handleMouseMove} onMouseDown={handleMouseDown} onMouseUp={handleMouseUp} onMouseLeave={handleMouseUp} onTouchMove={handleTouchMove} onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd} onTouchCancel={handleTouchCancel} style={{ width: `${BOARD_SIZE}px`, height: `${BOARD_SIZE}px`, borderRadius: '50%', cursor: isPowerCharging ? 'grabbing' : 'crosshair', boxShadow: '0 0 60px rgba(0, 0, 0, 0.8), inset 0 0 30px rgba(0, 0, 0, 0.5)', position: 'relative', userSelect: 'none' }}>
+                <svg width={BOARD_SIZE} height={BOARD_SIZE} style={{ filter: 'drop-shadow(0 0 10px rgba(0,0,0,0.5))' }}>
+                  <defs><radialGradient id="boardGradient" cx="50%" cy="50%" r="50%"><stop offset="0%" stopColor="#2a2a4e" /><stop offset="100%" stopColor="#1a1a2e" /></radialGradient></defs>
+                  <circle cx={CENTER} cy={CENTER} r={CENTER - 5} fill="url(#boardGradient)" stroke="#b8860b" strokeWidth="8" />
+                  {renderDartboard()}
+                  
+                  {!isPowerCharging && !animatingDart && (
+                    <g>
+                      {/* Apply wobble offset for expert mode 180 challenge */}
+                      <circle cx={aimPosition.x + aimWobble.x} cy={aimPosition.y + aimWobble.y} r="15" fill="none" stroke="rgba(255, 215, 0, 0.5)" strokeWidth="2" strokeDasharray="5,5" />
+                      <line x1={aimPosition.x + aimWobble.x - 20} y1={aimPosition.y + aimWobble.y} x2={aimPosition.x + aimWobble.x + 20} y2={aimPosition.y + aimWobble.y} stroke="rgba(255, 215, 0, 0.5)" strokeWidth="1" />
+                      <line x1={aimPosition.x + aimWobble.x} y1={aimPosition.y + aimWobble.y - 20} x2={aimPosition.x + aimWobble.x} y2={aimPosition.y + aimWobble.y + 20} stroke="rgba(255, 215, 0, 0.5)" strokeWidth="1" />
+                    </g>
+                  )}
+                  
+                  {dartPositions.map((pos, i) => renderDart(pos, i))}
+                  {animatingDart && <g style={{ animation: 'throwDart 0.3s ease-out forwards' }}>{renderDart(animatingDart.end, 'animating')}</g>}
+                </svg>
+                
+                {showScorePopup && (
+                  <div style={{
+                    position: 'absolute',
+                    left: showScorePopup.position.x,
+                    top: showScorePopup.position.y - 40,
+                    transform: 'translateX(-50%)',
+                    background: showScorePopup.label === '180!!!' ? 'linear-gradient(135deg, #ffd700, #ffed4a)' : showScorePopup.label === 'BUST!' ? '#c41e3a' : showScorePopup.score === 50 ? '#ffd700' : '#228b22',
+                    color: (showScorePopup.score === 50 || showScorePopup.label === '180!!!') ? '#1a1a2e' : '#fff',
+                    padding: showScorePopup.label === '180!!!' ? '12px 24px' : '8px 16px',
+                    borderRadius: '20px',
+                    fontSize: showScorePopup.label === '180!!!' ? '32px' : '20px',
+                    fontWeight: '700',
+                    animation: 'popUp 0.5s ease-out',
+                    pointerEvents: 'none',
+                    zIndex: 10,
+                    boxShadow: showScorePopup.label === '180!!!' ? '0 0 30px rgba(255, 215, 0, 0.8)' : 'none'
+                  }}>{showScorePopup.label}</div>
+                )}
+              </div>
+
+              {/* Achievement Unlock Popup */}
+              {achievementPopup && (
+                <div style={{
+                  position: 'fixed',
+                  top: '20px',
+                  right: '20px',
+                  background: 'linear-gradient(135deg, rgba(0, 0, 0, 0.95), rgba(20, 20, 40, 0.95))',
+                  border: `3px solid ${getRarityColor(achievementPopup.rarity)}`,
+                  borderRadius: '15px',
+                  padding: '20px',
+                  minWidth: '300px',
+                  maxWidth: '400px',
+                  boxShadow: `0 10px 40px ${getRarityColor(achievementPopup.rarity)}80, 0 0 20px ${getRarityColor(achievementPopup.rarity)}40`,
+                  animation: 'slideInRight 0.5s ease-out',
+                  zIndex: 1000,
+                  fontFamily: "'Oswald', sans-serif"
+                }}>
+                  <div style={{ color: getRarityColor(achievementPopup.rarity), fontSize: '12px', fontWeight: '600', letterSpacing: '2px', marginBottom: '10px' }}>
+                    🏆 ACHIEVEMENT UNLOCKED
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+                    <div style={{ fontSize: '48px' }}>{achievementPopup.icon}</div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ color: '#fff', fontSize: '20px', fontWeight: '700', marginBottom: '5px' }}>
+                        {achievementPopup.name}
+                      </div>
+                      <div style={{ color: '#ccc', fontSize: '14px', marginBottom: '5px' }}>
+                        {achievementPopup.description}
+                      </div>
+                      <div style={{
+                        display: 'inline-block',
+                        color: getRarityColor(achievementPopup.rarity),
+                        fontSize: '11px',
+                        fontWeight: '600',
+                        letterSpacing: '1px',
+                        textTransform: 'uppercase',
+                        border: `1px solid ${getRarityColor(achievementPopup.rarity)}`,
+                        borderRadius: '10px',
+                        padding: '3px 10px'
+                      }}>
+                        {achievementPopup.rarity}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+              
+              <div style={{ width: `${BOARD_SIZE}px`, marginTop: '20px' }}>
+                <div style={{ background: 'rgba(255, 255, 255, 0.1)', borderRadius: '10px', height: '30px', overflow: 'hidden', position: 'relative' }}>
+                  {(() => {
+                    // Check if player is aiming at the winning double
+                    const currentPlayer = players[currentPlayerIndex];
+                    const aimingAt = currentPlayer ? calculateScore(aimPosition.x, aimPosition.y) : { multiplier: 0, score: 0 };
+                    const isAimingAtWinningDouble = isCheckoutPosition && aimingAt.multiplier === 2 && aimingAt.score === currentPlayer?.score;
+
+                    // Calculate perfect zone width
+                    // Beginner mode (40% or below): constant 10% zone, no shrinking
+                    // Intermediate (41-80%): shrinks by 2.5% for each perfect hit
+                    // Expert (81%+): shrinks by 3% for each perfect hit
+                    // Aiming at winning double: ultra-small 2% zone
+                    let perfectZoneWidth;
+                    if (skillLevel <= 40) {
+                      // Beginner mode - constant 10% zone, no shrinking
+                      perfectZoneWidth = 10;
+                    } else {
+                      // Normal mode - shrinking zones
+                      if (isAimingAtWinningDouble) {
+                        perfectZoneWidth = 2; // Ultra-small zone for winning double
+                      } else {
+                        const baseZoneWidth = 10;
+                        const shrinkRate = skillLevel >= 81 ? 3 : 2.5; // 2.5% for 41-80%, 3% for 81%+
+                        perfectZoneWidth = Math.max(baseZoneWidth - (triplesHit * shrinkRate), 4);
+                      }
+                    }
+
+                    const perfectZoneLeft = 50 - (perfectZoneWidth / 2);
+                    const perfectZoneRight = 50 + (perfectZoneWidth / 2);
+                    const isInPerfectZone = power > perfectZoneLeft && power < perfectZoneRight;
+                    return (
+                      <>
+                        <div style={{ height: '100%', width: `${power}%`, background: isInPerfectZone ? 'linear-gradient(90deg, #228b22, #32cd32)' : 'linear-gradient(90deg, #c41e3a, #e74c3c)', transition: isPowerCharging ? 'none' : 'width 0.2s', borderRadius: '10px' }} />
+                        <div style={{ position: 'absolute', left: '50%', top: 0, bottom: 0, width: '4px', marginLeft: '-2px', background: '#ffd700', opacity: 0.5 }} />
+                        <div style={{ position: 'absolute', left: `${perfectZoneLeft}%`, top: 0, bottom: 0, width: `${perfectZoneWidth}%`, background: 'rgba(50, 205, 50, 0.2)', borderRadius: '5px' }} />
+                      </>
+                    );
+                  })()}
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', color: '#888', fontSize: '12px', marginTop: '5px' }}>
+                  <span>WEAK</span>
+                  <span style={{ color: isCheckoutPosition ? '#ffd700' : '#32cd32', fontWeight: isCheckoutPosition ? '700' : 'normal' }}>
+                    {(() => {
+                      if (skillLevel <= 40) {
+                        return isCheckoutPosition ? 'CHECKOUT!' : 'PERFECT';
+                      }
+                      const shrinkRate = skillLevel >= 81 ? 3 : 2.5;
+                      const totalShrink = triplesHit > 0 ? triplesHit * shrinkRate : 0;
+                      return isCheckoutPosition
+                        ? `CHECKOUT! ${totalShrink > 0 ? `(-${totalShrink}%)` : ''}`
+                        : `PERFECT ${totalShrink > 0 ? `(-${totalShrink}%)` : ''}`;
+                    })()}
+                  </span>
+                  <span>STRONG</span>
+                </div>
+              </div>
+              
+              <p style={{ color: '#888', marginTop: '15px', fontSize: '14px', textAlign: 'center' }}>{isPowerCharging ? 'Release to throw!' : 'Click and hold to charge, release to throw'}</p>
+            </div>
+            
+            {/* History */}
+            <div style={{ background: 'rgba(255, 255, 255, 0.05)', borderRadius: '20px', padding: '25px', minWidth: '200px', maxHeight: '500px', overflowY: 'auto', backdropFilter: 'blur(10px)', border: '1px solid rgba(255, 215, 0, 0.2)' }}>
+              <h2 style={{ color: '#ffd700', margin: '0 0 20px 0', letterSpacing: '3px', fontSize: '18px' }}>HISTORY</h2>
+              {throwHistory.slice(-15).reverse().map((throw_, index) => (
+                <div key={index} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px', background: 'rgba(255, 255, 255, 0.05)', borderRadius: '8px', marginBottom: '8px', fontSize: '14px' }}>
+                  <span style={{ color: '#888' }}>{players[throw_.player]?.name}</span>
+                  <span style={{ color: throw_.multiplier === 3 ? '#ffd700' : throw_.multiplier === 2 ? '#32cd32' : '#e8d5b7', fontWeight: '600' }}>{throw_.label}</span>
+                </div>
+              ))}
+              {throwHistory.length === 0 && <p style={{ color: '#666', textAlign: 'center', fontSize: '14px' }}>No throws yet</p>}
+            </div>
+          </div>
+
+          {/* Nine-Darter Star Celebration */}
+          {showNineDarter && (
+            <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 200, pointerEvents: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              {/* Background glow effect */}
+              <div style={{
+                position: 'absolute',
+                top: '50%',
+                left: '50%',
+                transform: 'translate(-50%, -50%)',
+                width: '400px',
+                height: '400px',
+                background: 'radial-gradient(circle, rgba(255,215,0,0.3) 0%, rgba(255,215,0,0) 70%)',
+                animation: 'pulseGlow 2s ease-in-out infinite',
+                borderRadius: '50%'
+              }} />
+
+              {/* Sparkle particles */}
+              {[...Array(20)].map((_, i) => (
+                <div key={i} style={{
+                  position: 'absolute',
+                  top: '50%',
+                  left: '50%',
+                  width: '6px',
+                  height: '6px',
+                  background: '#ffd700',
+                  borderRadius: '50%',
+                  boxShadow: '0 0 10px #ffd700',
+                  animation: `sparkle${i % 4} 2s ease-out infinite`,
+                  animationDelay: `${i * 0.1}s`,
+                  opacity: 0
+                }} />
+              ))}
+
+              {/* Star container with epic animation */}
+              <div style={{
+                position: 'relative',
+                animation: 'epicStarEntry 6s cubic-bezier(0.34, 1.56, 0.64, 1)',
+                transformOrigin: 'center center'
+              }}>
+                <svg width="250" height="250" viewBox="0 0 200 200" style={{
+                  filter: 'drop-shadow(0 0 20px rgba(255,215,0,0.8)) drop-shadow(0 0 40px rgba(255,215,0,0.4))',
+                  animation: 'starGlowSequence 6s cubic-bezier(0.34, 1.56, 0.64, 1)'
+                }}>
+                  <defs>
+                    {/* Gold gradient for star */}
+                    <radialGradient id="starGradient">
+                      <stop offset="0%" stopColor="#ffed4a" />
+                      <stop offset="50%" stopColor="#ffd700" />
+                      <stop offset="100%" stopColor="#daa520" />
+                    </radialGradient>
+
+                    {/* Inner glow gradient */}
+                    <radialGradient id="starInnerGlow">
+                      <stop offset="0%" stopColor="#fff" stopOpacity="0.8" />
+                      <stop offset="50%" stopColor="#ffd700" stopOpacity="0.4" />
+                      <stop offset="100%" stopColor="#ffd700" stopOpacity="0" />
+                    </radialGradient>
+                  </defs>
+
+                  {/* Outer glow circles (pulsing) */}
+                  <circle cx="100" cy="100" r="70" fill="url(#starInnerGlow)" opacity="0.6" style={{ animation: 'starPulse 2s ease-in-out infinite' }} />
+                  <circle cx="100" cy="100" r="50" fill="url(#starInnerGlow)" opacity="0.4" style={{ animation: 'starPulse 2s ease-in-out infinite 0.3s' }} />
+
+                  {/* Main 5-pointed star */}
+                  <path
+                    d="M 100 20 L 115 70 L 170 75 L 125 110 L 140 165 L 100 135 L 60 165 L 75 110 L 30 75 L 85 70 Z"
+                    fill="url(#starGradient)"
+                    stroke="#daa520"
+                    strokeWidth="3"
+                    style={{ animation: 'starRotate 4s linear infinite 2s' }}
+                  />
+
+                  {/* Inner star for depth */}
+                  <path
+                    d="M 100 40 L 110 80 L 150 85 L 118 108 L 127 148 L 100 125 L 73 148 L 82 108 L 50 85 L 90 80 Z"
+                    fill="#ffed4a"
+                    opacity="0.7"
+                    style={{ animation: 'starRotate 4s linear infinite 2s' }}
+                  />
+
+                  {/* Center brilliant point */}
+                  <circle cx="100" cy="100" r="15" fill="#fff" opacity="0.9" style={{ animation: 'starTwinkle 1.5s ease-in-out infinite' }} />
+                  <circle cx="100" cy="100" r="8" fill="#ffed4a" style={{ animation: 'starTwinkle 1.5s ease-in-out infinite 0.2s' }} />
+                </svg>
+
+                {/* Epic text */}
+                <div style={{
+                  position: 'absolute',
+                  top: '-80px',
+                  left: '50%',
+                  transform: 'translateX(-50%)',
+                  fontSize: '64px',
+                  fontWeight: '900',
+                  color: '#ffd700',
+                  textShadow: '0 0 30px rgba(255,215,0,1), 0 0 60px rgba(255,215,0,0.8), 0 4px 10px rgba(0,0,0,0.5)',
+                  whiteSpace: 'nowrap',
+                  fontFamily: "'Oswald', sans-serif",
+                  letterSpacing: '4px',
+                  animation: 'textPulse 2s ease-in-out infinite 3s',
+                  opacity: 0,
+                  animationFillMode: 'forwards'
+                }}>
+                  NINE DARTER!!!
+                </div>
+
+                {/* Subtitle */}
+                <div style={{
+                  position: 'absolute',
+                  bottom: '-60px',
+                  left: '50%',
+                  transform: 'translateX(-50%)',
+                  fontSize: '24px',
+                  fontWeight: '600',
+                  color: '#ffed4a',
+                  textShadow: '0 0 20px rgba(255,215,0,0.8)',
+                  whiteSpace: 'nowrap',
+                  fontFamily: "'Oswald', sans-serif",
+                  letterSpacing: '2px',
+                  animation: 'textPulse 2s ease-in-out infinite 3.5s',
+                  opacity: 0,
+                  animationFillMode: 'forwards'
+                }}>
+                  LEGENDARY!
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Stats Modal */}
+          {showStats && (
+            <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0, 0, 0, 0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }} onClick={() => setShowStats(false)}>
+              <div style={{ background: 'linear-gradient(135deg, #1a1a2e, #16213e)', borderRadius: '20px', padding: '30px', maxWidth: '600px', width: '90%', border: '1px solid rgba(255, 215, 0, 0.3)' }} onClick={e => e.stopPropagation()}>
+                <h2 style={{ color: '#ffd700', margin: '0 0 25px 0', letterSpacing: '3px' }}>GAME STATISTICS</h2>
+                {players.map((player, index) => (
+                  <div key={index} style={{ background: 'rgba(255, 255, 255, 0.05)', borderRadius: '15px', padding: '20px', marginBottom: '15px' }}>
+                    <h3 style={{ color: '#e8d5b7', margin: '0 0 15px 0' }}>{player.name}</h3>
+                    {gameStats[index] ? (
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '15px' }}>
+                        <div style={{ textAlign: 'center' }}><div style={{ color: '#ffd700', fontSize: '24px', fontWeight: '700' }}>{gameStats[index].throws}</div><div style={{ color: '#888', fontSize: '12px' }}>Throws</div></div>
+                        <div style={{ textAlign: 'center' }}><div style={{ color: '#ffd700', fontSize: '24px', fontWeight: '700' }}>{gameStats[index].averagePerDart}</div><div style={{ color: '#888', fontSize: '12px' }}>Avg/Dart</div></div>
+                        <div style={{ textAlign: 'center' }}><div style={{ color: '#ffd700', fontSize: '24px', fontWeight: '700' }}>{gameStats[index].highestThrow}</div><div style={{ color: '#888', fontSize: '12px' }}>Best</div></div>
+                        <div style={{ textAlign: 'center' }}><div style={{ color: '#32cd32', fontSize: '24px', fontWeight: '700' }}>{gameStats[index].triples}</div><div style={{ color: '#888', fontSize: '12px' }}>Triples</div></div>
+                        <div style={{ textAlign: 'center' }}><div style={{ color: '#228b22', fontSize: '24px', fontWeight: '700' }}>{gameStats[index].doubles}</div><div style={{ color: '#888', fontSize: '12px' }}>Doubles</div></div>
+                        <div style={{ textAlign: 'center' }}><div style={{ color: '#c41e3a', fontSize: '24px', fontWeight: '700' }}>{gameStats[index].bullseyes}</div><div style={{ color: '#888', fontSize: '12px' }}>Bullseyes</div></div>
+                      </div>
+                    ) : <p style={{ color: '#666', margin: 0 }}>No stats yet</p>}
+                  </div>
+                ))}
+                <button onClick={() => setShowStats(false)} style={{ width: '100%', padding: '15px', background: 'linear-gradient(135deg, #ffd700, #ffed4a)', color: '#1a1a2e', border: 'none', borderRadius: '10px', fontSize: '16px', fontWeight: '600', cursor: 'pointer', fontFamily: "'Oswald', sans-serif" }}>CLOSE</button>
+              </div>
+            </div>
+          )}
+          
+          {/* Winner Modal */}
+          {winner && (
+            <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0, 0, 0, 0.9)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }}>
+              <div style={{ textAlign: 'center', animation: 'fadeIn 0.5s ease-out' }}>
+                <div style={{ fontSize: '100px', marginBottom: '20px' }}>{matchWinner ? '🏆' : '✓'}</div>
+                <h1 style={{ fontSize: '48px', color: '#ffd700', margin: '0 0 10px 0', textShadow: '0 0 30px rgba(255, 215, 0, 0.5)' }}>{winner.name} {matchWinner ? 'WINS THE MATCH!' : 'WINS THE LEG!'}</h1>
+                <p style={{ color: '#e8d5b7', fontSize: '20px', marginBottom: '30px' }}>{matchWinner ? 'Match Complete - Champion Crowned!' : 'Next leg starting soon...'}</p>
+                {matchWinner && (
+                  <div style={{ display: 'flex', gap: '15px', justifyContent: 'center' }}>
+                    <button onClick={startGame} style={{ padding: '15px 40px', background: 'linear-gradient(135deg, #228b22, #32cd32)', color: '#fff', border: 'none', borderRadius: '10px', fontSize: '18px', fontWeight: '600', cursor: 'pointer', fontFamily: "'Oswald', sans-serif" }}>PLAY AGAIN</button>
+                    <button onClick={resetGame} style={{ padding: '15px 40px', background: 'rgba(255, 255, 255, 0.1)', color: '#e8d5b7', border: 'none', borderRadius: '10px', fontSize: '18px', fontWeight: '600', cursor: 'pointer', fontFamily: "'Oswald', sans-serif" }}>MAIN MENU</button>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+          
+          <style>{`
+            @keyframes popUp { 0% { transform: translateX(-50%) scale(0.5); opacity: 0; } 50% { transform: translateX(-50%) scale(1.2); } 100% { transform: translateX(-50%) scale(1); opacity: 1; } }
+            @keyframes fadeIn { from { opacity: 0; transform: scale(0.9); } to { opacity: 1; transform: scale(1); } }
+            @keyframes throwDart { from { opacity: 0; transform: translateY(50px); } to { opacity: 1; transform: translateY(0); } }
+            @keyframes slideInRight { 0% { transform: translateX(400px); opacity: 0; } 100% { transform: translateX(0); opacity: 1; } }
+
+            /* Epic Nine-Darter Star Animations */
+            @keyframes epicStarEntry {
+              0% { transform: scale(0.3) translateY(100px); opacity: 0; }
+              15% { transform: scale(1.3) translateY(-80px) rotate(0deg); opacity: 1; }
+              30% { transform: scale(1.2) translateY(-60px) rotate(360deg); }
+              45% { transform: scale(1.25) translateY(-40px) rotate(360deg); }
+              60% { transform: scale(1.1) translateY(0px) rotate(720deg); }
+              75% { transform: scale(1.15) translateY(-10px) rotate(720deg); }
+              85% { transform: scale(1.05) translateY(5px) rotate(720deg); }
+              100% { transform: scale(1.1) translateY(0px) rotate(720deg); }
+            }
+
+            @keyframes starGlowSequence {
+              0% { filter: drop-shadow(0 0 10px rgba(255,215,0,0.3)); }
+              50% { filter: drop-shadow(0 0 50px rgba(255,215,0,1)) drop-shadow(0 0 100px rgba(255,215,0,0.8)); }
+              100% { filter: drop-shadow(0 0 40px rgba(255,215,0,0.9)) drop-shadow(0 0 80px rgba(255,215,0,0.6)); }
+            }
+
+            @keyframes starRotate {
+              0% { transform: rotate(0deg); }
+              100% { transform: rotate(360deg); }
+            }
+
+            @keyframes starPulse {
+              0%, 100% { transform: scale(1); opacity: 0.6; }
+              50% { transform: scale(1.2); opacity: 0.3; }
+            }
+
+            @keyframes starTwinkle {
+              0%, 100% { opacity: 0.9; transform: scale(1); }
+              50% { opacity: 0.4; transform: scale(0.7); }
+            }
+
+            @keyframes pulseGlow {
+              0%, 100% { transform: translate(-50%, -50%) scale(1); opacity: 0.4; }
+              50% { transform: translate(-50%, -50%) scale(1.3); opacity: 0.7; }
+            }
+
+            @keyframes textPulse {
+              0% { opacity: 0; transform: translateX(-50%) scale(0.5); }
+              10% { opacity: 1; transform: translateX(-50%) scale(1.2); }
+              20% { opacity: 1; transform: translateX(-50%) scale(1); }
+              30%, 100% { opacity: 1; transform: translateX(-50%) scale(1); }
+            }
+
+            @keyframes sparkle0 {
+              0% { transform: translate(0, 0) scale(0); opacity: 0; }
+              10% { opacity: 1; }
+              100% { transform: translate(120px, -150px) scale(1); opacity: 0; }
+            }
+
+            @keyframes sparkle1 {
+              0% { transform: translate(0, 0) scale(0); opacity: 0; }
+              10% { opacity: 1; }
+              100% { transform: translate(-130px, -140px) scale(1); opacity: 0; }
+            }
+
+            @keyframes sparkle2 {
+              0% { transform: translate(0, 0) scale(0); opacity: 0; }
+              10% { opacity: 1; }
+              100% { transform: translate(140px, 120px) scale(1); opacity: 0; }
+            }
+
+            @keyframes sparkle3 {
+              0% { transform: translate(0, 0) scale(0); opacity: 0; }
+              10% { opacity: 1; }
+              100% { transform: translate(-110px, 130px) scale(1); opacity: 0; }
+            }
+          `}</style>
+        </div>
+      );
+    };
+
+    ReactDOM.render(<DartsGame />, document.getElementById('root'));
+  </script>
+</body>
+</html>

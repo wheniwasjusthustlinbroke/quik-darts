@@ -1,0 +1,22 @@
+# Dependencies
+node_modules/
+
+# iOS build artifacts
+ios/App/Pods/
+ios/App/build/
+ios/App/App/public/
+*.xcworkspace/xcuserdata/
+*.xcodeproj/xcuserdata/
+*.xcodeproj/project.xcworkspace/
+DerivedData/
+
+# macOS
+.DS_Store
+
+# IDE
+.idea/
+.vscode/
+
+# Logs
+*.log
+npm-debug.log*
