@@ -391,7 +391,13 @@
       const [showNineDarter, setShowNineDarter] = useState(false);
       const [currentTurnThrows, setCurrentTurnThrows] = useState([]); // Track throws in current turn for wobble detection
       const [aimWobble, setAimWobble] = useState({ x: 0, y: 0 }); // Wobble offset for aim position
-      const [isMobile, setIsMobile] = useState(() => window.innerWidth < 600); // Mobile detection for responsive UI
+      const [isMobile, setIsMobile] = useState(() => {
+        // Robust mobile detection: check screen width, touch capability, and user agent
+        const isSmallScreen = window.innerWidth < 600;
+        const hasTouchScreen = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+        const isMobileUA = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+        return isSmallScreen || (hasTouchScreen && isMobileUA);
+      }); // Mobile detection for responsive UI
 
       // Online multiplayer states
       const [onlineMode, setOnlineMode] = useState(false); // true when in online multiplayer
@@ -542,7 +548,12 @@
 
       // Mobile detection resize listener
       useEffect(() => {
-        const handleResize = () => setIsMobile(window.innerWidth < 600);
+        const handleResize = () => {
+          const isSmallScreen = window.innerWidth < 600;
+          const hasTouchScreen = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+          const isMobileUA = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+          setIsMobile(isSmallScreen || (hasTouchScreen && isMobileUA));
+        };
         window.addEventListener('resize', handleResize);
         return () => window.removeEventListener('resize', handleResize);
       }, []);
