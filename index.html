@@ -391,7 +391,7 @@
       const [showNineDarter, setShowNineDarter] = useState(false);
       const [currentTurnThrows, setCurrentTurnThrows] = useState([]); // Track throws in current turn for wobble detection
       const [aimWobble, setAimWobble] = useState({ x: 0, y: 0 }); // Wobble offset for aim position
-      const [isMobile, setIsMobile] = useState(() => window.innerWidth < 600); // Mobile detection for responsive UI
+      const [isMobile, setIsMobile] = useState(() => window.innerWidth < 600 || !!window.Capacitor || /iPhone|iPad|iPod|Android/i.test(navigator.userAgent)); // Mobile detection for responsive UI
 
       // Online multiplayer states
       const [onlineMode, setOnlineMode] = useState(false); // true when in online multiplayer
@@ -542,7 +542,8 @@
 
       // Mobile detection resize listener
       useEffect(() => {
-        const handleResize = () => setIsMobile(window.innerWidth < 600);
+        const checkMobile = () => window.innerWidth < 600 || !!window.Capacitor || /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+        const handleResize = () => setIsMobile(checkMobile());
         window.addEventListener('resize', handleResize);
         return () => window.removeEventListener('resize', handleResize);
       }, []);
