@@ -4,10 +4,11 @@ struct GameView: View {
     @Binding var currentScreen: GameScreen
     @ObservedObject var gameState: GameStateManager
 
-    @State private var isPowerCharging = false
-    @State private var power: Double = 0.0
-    @State private var powerTimer: Timer?
-    @GestureState private var isPressed = false
+    // TODO: Implement web-style throwing system
+    // - Power oscillates back and forth (0↔100↔0)
+    // - Perfect zone around 50% for 100% accuracy
+    // - Massive accuracy penalty outside perfect zone
+    // - WEAK - PERFECT - STRONG labels
 
     var body: some View {
         ZStack {
@@ -118,36 +119,10 @@ struct GameView: View {
                                     .position(dart.point)
                             }
 
-                            // Power bar overlay (when charging)
-                            if isPowerCharging {
-                                VStack {
-                                    Spacer()
-                                    PowerBarView(power: power)
-                                        .frame(height: 40)
-                                        .padding(.bottom, 30)
-                                }
-                            }
+                            // TODO: Add power bar overlay when implementing web-style throwing
                         }
                         .frame(width: boardSize.width, height: boardSize.height)
-                        .gesture(
-                            DragGesture(minimumDistance: 0)
-                                .updating($isPressed) { _, state, _ in
-                                    state = true
-                                }
-                                .onChanged { _ in
-                                    if !isPowerCharging {
-                                        startPowerCharging()
-                                    }
-                                }
-                                .onEnded { value in
-                                    throwDart(at: value.location, in: boardSize)
-                                }
-                        )
-                        .onChange(of: isPressed) { pressed in
-                            if !pressed && isPowerCharging {
-                                stopPowerCharging()
-                            }
-                        }
+                        // TODO: Add gesture handlers for web-style throwing system
 
                         Spacer()
                     }
@@ -193,58 +168,10 @@ struct GameView: View {
         }
     }
 
-    private func startPowerCharging() {
-        isPowerCharging = true
-        power = 0.0
-
-        // Haptic feedback
-        let impact = UIImpactFeedbackGenerator(style: .light)
-        impact.impactOccurred()
-
-        // Start power charging animation
-        powerTimer = Timer.scheduledTimer(withTimeInterval: 0.016, repeats: true) { _ in
-            power += 0.02
-            if power >= 1.0 {
-                power = 0.0 // Loop back
-            }
-
-            // Haptic feedback at intervals
-            if power.truncatingRemainder(dividingBy: 0.2) < 0.02 {
-                let impact = UIImpactFeedbackGenerator(style: .light)
-                impact.impactOccurred()
-            }
-        }
-    }
-
-    private func stopPowerCharging() {
-        powerTimer?.invalidate()
-        powerTimer = nil
-        isPowerCharging = false
-
-        // Heavy haptic feedback on release
-        let impact = UIImpactFeedbackGenerator(style: .heavy)
-        impact.impactOccurred()
-    }
-
-    private func throwDart(at point: CGPoint, in size: CGSize) {
-        stopPowerCharging()
-
-        // Apply power-based accuracy variance
-        let variance = (1.0 - power) * 20.0 // Max 20 points variance at minimum power
-        let randomX = Double.random(in: -variance...variance)
-        let randomY = Double.random(in: -variance...variance)
-
-        let adjustedPoint = CGPoint(
-            x: point.x + randomX,
-            y: point.y + randomY
-        )
-
-        gameState.throwDart(at: adjustedPoint, in: size)
-
-        // Success haptic feedback
-        let notification = UINotificationFeedbackGenerator()
-        notification.notificationOccurred(.success)
-    }
+    // TODO: Implement web-style throwing functions:
+    // - startPowerCharging() - power oscillates 0↔100↔0
+    // - stopPowerCharging() - stop timer
+    // - throwDart() - check perfect zone, apply accuracy
 }
 
 // Player score component
@@ -292,44 +219,11 @@ struct PlayerScoreView: View {
     }
 }
 
-// Power bar component
-struct PowerBarView: View {
-    let power: Double
-
-    var body: some View {
-        VStack(spacing: 5) {
-            Text("POWER: \(Int(power * 100))%")
-                .font(.custom("Oswald", size: 14))
-                .fontWeight(.bold)
-                .foregroundColor(.white)
-
-            GeometryReader { geometry in
-                ZStack(alignment: .leading) {
-                    // Background
-                    RoundedRectangle(cornerRadius: 10)
-                        .fill(Color.black.opacity(0.5))
-
-                    // Power fill
-                    RoundedRectangle(cornerRadius: 10)
-                        .fill(
-                            LinearGradient(
-                                colors: [
-                                    Color(red: 0.77, green: 0.12, blue: 0.23),
-                                    Color(red: 0.91, green: 0.30, blue: 0.24),
-                                    Color(red: 1.0, green: 0.84, blue: 0.0)
-                                ],
-                                startPoint: .leading,
-                                endPoint: .trailing
-                            )
-                        )
-                        .frame(width: geometry.size.width * power)
-                }
-            }
-            .frame(height: 20)
-        }
-        .padding(.horizontal, 40)
-    }
-}
+// TODO: Implement web-style PowerBarView with:
+// - WEAK / PERFECT / STRONG labels
+// - Green highlight for perfect zone (around 50%)
+// - Power bar that oscillates back and forth
+// - Perfect zone shrinks with consecutive hits
 
 // Winner overlay
 struct WinnerOverlay: View {
