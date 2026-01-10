@@ -391,6 +391,7 @@
       const [showNineDarter, setShowNineDarter] = useState(false);
       const [currentTurnThrows, setCurrentTurnThrows] = useState([]); // Track throws in current turn for wobble detection
       const [aimWobble, setAimWobble] = useState({ x: 0, y: 0 }); // Wobble offset for aim position
+      const [isMobile, setIsMobile] = useState(() => window.innerWidth < 600); // Mobile detection for responsive UI
 
       // Online multiplayer states
       const [onlineMode, setOnlineMode] = useState(false); // true when in online multiplayer
@@ -538,6 +539,13 @@
           return () => clearInterval(interval);
         }
       }, [currentTheme.effects.pulseAnimation]);
+
+      // Mobile detection resize listener
+      useEffect(() => {
+        const handleResize = () => setIsMobile(window.innerWidth < 600);
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
+      }, []);
 
       const boardRef = useRef(null);
       const powerIntervalRef = useRef(null);
@@ -2329,10 +2337,12 @@
           </defs>
         );
 
-        // Outer frame ring (gold or themed)
-        segments.push(
-          <circle key="frame-ring" cx={CENTER} cy={CENTER} r={DOUBLE_OUTER + 28} fill={colors.frameColor} />
-        );
+        // Outer frame ring (gold or themed) - hidden on mobile to maximize dartboard size
+        if (!isMobile) {
+          segments.push(
+            <circle key="frame-ring" cx={CENTER} cy={CENTER} r={DOUBLE_OUTER + 28} fill={colors.frameColor} />
+          );
+        }
 
         // Number ring background (radius matches iOS: radius - 4*scale for parity)
         segments.push(
