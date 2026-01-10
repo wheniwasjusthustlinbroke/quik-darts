@@ -2335,37 +2335,8 @@
           </defs>
         );
 
-        // Detect touch device inline
-        const isTouchDevice = navigator.maxTouchPoints > 0 || /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-
-        // On touch devices: only show chrome ring (one gold border)
-        // On desktop: show all three rings (frame, number bg, chrome)
-        if (!isTouchDevice) {
-          // Outer frame ring (gold or themed)
-          segments.push(
-            <circle key="frame-ring" cx={CENTER} cy={CENTER} r={DOUBLE_OUTER + 28} fill={colors.frameColor} />
-          );
-          // Number ring background
-          segments.push(
-            <circle key="number-ring-bg" cx={CENTER} cy={CENTER} r={DOUBLE_OUTER + 24} fill={colors.numberRing} />
-          );
-        }
-
-        // Chrome/themed outer ring - hide on touch devices (no gold rings on mobile)
-        if (!isTouchDevice) {
-          if (effects.useChromeGradient) {
-            segments.push(
-              <circle key="chrome-ring" cx={CENTER} cy={CENTER} r={DOUBLE_OUTER + 8} fill="url(#chromeGradient)" />,
-              effects.useWoodGrain && <circle key="chrome-wood" cx={CENTER} cy={CENTER} r={DOUBLE_OUTER + 8} fill="url(#woodGrain)" opacity="0.3" />,
-              <circle key="chrome-ring-inner" cx={CENTER} cy={CENTER} r={DOUBLE_OUTER + 2} fill={colors.boardBackground} />
-            );
-          } else {
-            segments.push(
-              <circle key="chrome-ring" cx={CENTER} cy={CENTER} r={DOUBLE_OUTER + 8} fill={colors.chromeRing} />,
-              <circle key="chrome-ring-inner" cx={CENTER} cy={CENTER} r={DOUBLE_OUTER + 2} fill={colors.boardBackground} />
-            );
-          }
-        }
+        // TEMPORARILY REMOVED ALL GOLD RINGS TO TEST IF CODE IS BEING APPLIED
+        // If rings still show, the www/index.html is not being used
 
         for (let i = 0; i < 20; i++) {
           const startAngle = (i * 18 - 99) * (Math.PI / 180);
