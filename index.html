@@ -2335,15 +2335,18 @@
           </defs>
         );
 
-        // Outer frame ring (gold or themed) - hidden on mobile to maximize dartboard size
-        if (!isMobile) {
+        // Detect touch device inline to ensure it's evaluated at render time
+        const isTouchDevice = navigator.maxTouchPoints > 0 || /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+
+        // Outer frame ring (gold or themed) - hidden on touch devices to maximize dartboard size
+        if (!isTouchDevice) {
           segments.push(
             <circle key="frame-ring" cx={CENTER} cy={CENTER} r={DOUBLE_OUTER + 28} fill={colors.frameColor} />
           );
         }
 
-        // Number ring background (radius matches iOS: radius - 4*scale for parity) - hidden on mobile
-        if (!isMobile) {
+        // Number ring background - hidden on touch devices
+        if (!isTouchDevice) {
           segments.push(
             <circle key="number-ring-bg" cx={CENTER} cy={CENTER} r={DOUBLE_OUTER + 24} fill={colors.numberRing} />
           );
