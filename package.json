@@ -1,0 +1,24 @@
+{
+  "name": "quik-darts",
+  "version": "1.0.0",
+  "description": "A fully-featured web-based darts game with realistic gameplay mechanics.",
+  "main": "index.js",
+  "scripts": {
+    "build": "cp index.html www/",
+    "sync": "npm run build && npx cap sync",
+    "ios": "npm run sync && npx cap open ios",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "http://local_proxy@127.0.0.1:51657/git/wheniwasjusthustlinbroke/quik-darts"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@capacitor/cli": "^8.0.0",
+    "@capacitor/core": "^8.0.0",
+    "@capacitor/ios": "^8.0.0"
+  }
+}
