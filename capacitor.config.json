@@ -1,5 +1,13 @@
 {
   "appId": "com.quikdarts.app",
   "appName": "Quik Darts",
-  "webDir": "www"
+  "webDir": "www",
+  "ios": {
+    "contentInset": "always",
+    "preferredContentMode": "mobile",
+    "scrollEnabled": true
+  },
+  "server": {
+    "allowNavigation": ["quikdarts.com", "*.quikdarts.com"]
+  }
 }
