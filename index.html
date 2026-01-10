@@ -2345,10 +2345,12 @@
           );
         }
 
-        // Number ring background (radius matches iOS: radius - 4*scale for parity)
-        segments.push(
-          <circle key="number-ring-bg" cx={CENTER} cy={CENTER} r={DOUBLE_OUTER + 24} fill={colors.numberRing} />
-        );
+        // Number ring background (radius matches iOS: radius - 4*scale for parity) - hidden on mobile
+        if (!isMobile) {
+          segments.push(
+            <circle key="number-ring-bg" cx={CENTER} cy={CENTER} r={DOUBLE_OUTER + 24} fill={colors.numberRing} />
+          );
+        }
 
         // Chrome/themed outer ring
         if (effects.useChromeGradient) {
