@@ -3380,7 +3380,7 @@
                       <div>
                         <label style={{ color: 'rgba(255, 255, 255, 0.4)', fontSize: '10px', letterSpacing: '2px', display: 'block', marginBottom: '6px' }}>NATIONALITY</label>
                         <select value={playerSetup.flags[i]} onChange={(e) => { const newFlags = [...playerSetup.flags]; newFlags[i] = e.target.value; setPlayerSetup(prev => ({ ...prev, flags: newFlags })); }} style={{ width: '100%', padding: '10px 12px', fontSize: '14px', background: 'rgba(255, 255, 255, 0.05)', border: '1px solid rgba(255, 255, 255, 0.1)', borderRadius: '6px', color: 'rgba(255, 255, 255, 0.9)', outline: 'none', cursor: 'pointer', boxSizing: 'border-box' }}>
-                          {countries.map(country => (
+                          {COUNTRIES.map(country => (
                             <option key={country.name} value={country.flag} style={{ background: '#1a1a1a', color: '#fff' }}>
                               {country.flag} {country.name}
                             </option>
