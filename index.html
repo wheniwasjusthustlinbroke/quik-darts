@@ -3,8 +3,11 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="description" content="Quik Darts - Championship-style online darts. Play solo, challenge friends, or compete online. No download required.">
   <title>Quik Darts - Championship Edition</title>
-  <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;600;700&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
@@ -13,64 +16,299 @@
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
   <style>
+    /* CSS Custom Properties - Design System */
+    :root {
+      --color-primary: #1B4332;
+      --color-primary-light: #2D6A4F;
+      --color-primary-dark: #143728;
+      --color-accent: #D4A03A;
+      --color-accent-light: #E8B94A;
+      --color-accent-dark: #B8862E;
+      --color-background: #0D1117;
+      --color-background-light: #161B22;
+      --color-background-card: #1C2128;
+      --color-text: #F5F5F5;
+      --color-text-muted: #8B949E;
+      --color-text-dark: #0D1117;
+      --color-success: #2D8A2D;
+      --color-error: #C92A2A;
+      --font-primary: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      --font-mono: 'Roboto Mono', monospace;
+      --radius-sm: 6px;
+      --radius-md: 10px;
+      --radius-lg: 16px;
+      --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.3);
+      --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.4);
+      --shadow-lg: 0 16px 48px rgba(0, 0, 0, 0.5);
+      --transition-fast: 0.15s ease;
+      --transition-normal: 0.3s ease;
+    }
+
     * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    html { scroll-behavior: smooth; }
+
     body {
-      font-family: 'Oswald', sans-serif;
+      font-family: var(--font-primary);
+      background: var(--color-background);
+      color: var(--color-text);
       -webkit-tap-highlight-color: transparent;
       -webkit-touch-callout: none;
       -webkit-user-select: none;
+      user-select: none;
       touch-action: manipulation;
+      line-height: 1.5;
     }
-    /* Mobile: Reorder - Dartboard first, History second, Scoreboard last */
+
+    /* Typography */
+    h1, h2, h3, h4 { font-weight: 700; line-height: 1.2; }
+    h1 { font-size: clamp(2rem, 5vw, 3.5rem); }
+    h2 { font-size: clamp(1.5rem, 4vw, 2.5rem); }
+    h3 { font-size: clamp(1.25rem, 3vw, 1.75rem); }
+
+    /* Navigation */
+    .nav {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 1000;
+      background: rgba(13, 17, 23, 0.95);
+      backdrop-filter: blur(10px);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      transition: var(--transition-normal);
+    }
+    .nav-container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0 24px;
+      height: 64px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .nav-logo {
+      font-size: 1.25rem;
+      font-weight: 800;
+      color: var(--color-accent);
+      text-decoration: none;
+      letter-spacing: 1px;
+    }
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 32px;
+      list-style: none;
+    }
+    .nav-link {
+      color: var(--color-text-muted);
+      text-decoration: none;
+      font-size: 0.9rem;
+      font-weight: 500;
+      transition: var(--transition-fast);
+      cursor: pointer;
+    }
+    .nav-link:hover { color: var(--color-text); }
+    .nav-cta {
+      background: var(--color-accent);
+      color: var(--color-text-dark);
+      padding: 10px 20px;
+      border-radius: var(--radius-sm);
+      font-weight: 600;
+      font-size: 0.9rem;
+      cursor: pointer;
+      border: none;
+      transition: var(--transition-fast);
+    }
+    .nav-cta:hover {
+      background: var(--color-accent-light);
+      transform: translateY(-1px);
+    }
+    .nav-hamburger {
+      display: none;
+      flex-direction: column;
+      gap: 5px;
+      cursor: pointer;
+      padding: 8px;
+      background: none;
+      border: none;
+    }
+    .nav-hamburger span {
+      width: 24px;
+      height: 2px;
+      background: var(--color-text);
+      transition: var(--transition-fast);
+    }
+    .nav-mobile {
+      display: none;
+      position: fixed;
+      top: 64px;
+      left: 0;
+      right: 0;
+      background: var(--color-background);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      padding: 16px 24px;
+    }
+    .nav-mobile.open { display: block; }
+    .nav-mobile-links {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
     @media (max-width: 768px) {
-      .game-layout {
-        flex-direction: column !important;
-      }
+      .nav-links { display: none; }
+      .nav-hamburger { display: flex; }
+      .game-layout { flex-direction: column !important; }
       .game-dartboard { order: 1 !important; }
-      .game-history {
-        order: 2 !important;
-        max-height: 180px !important;  /* Show ~3 throws, scroll for more */
-      }
+      .game-history { order: 2 !important; max-height: 180px !important; }
       .game-scoreboard { order: 3 !important; }
     }
 
-    /* Premium Menu Styles */
-    @keyframes bokeh-float {
-      0%, 100% { transform: translate(0, 0) scale(1); opacity: 0.3; }
-      25% { transform: translate(10px, -15px) scale(1.1); opacity: 0.5; }
-      50% { transform: translate(-5px, -25px) scale(0.9); opacity: 0.4; }
-      75% { transform: translate(-15px, -10px) scale(1.05); opacity: 0.35; }
+    /* Buttons */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 14px 28px;
+      font-family: var(--font-primary);
+      font-size: 1rem;
+      font-weight: 600;
+      border: none;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      transition: all var(--transition-normal);
+      text-decoration: none;
+      min-height: 48px;
     }
-    .menu-btn {
-      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-      position: relative;
-      overflow: hidden;
+    .btn-primary {
+      background: linear-gradient(135deg, var(--color-accent) 0%, var(--color-accent-dark) 100%);
+      color: var(--color-text-dark);
+      box-shadow: 0 4px 16px rgba(212, 160, 58, 0.3);
     }
-    .menu-btn:hover {
-      transform: translateY(-3px) scale(1.02);
-      box-shadow: 0 12px 35px rgba(0, 0, 0, 0.4) !important;
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px rgba(212, 160, 58, 0.4);
     }
-    .menu-btn:active {
-      transform: translateY(0px) scale(0.98);
+    .btn-secondary {
+      background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark) 100%);
+      color: var(--color-text);
+      box-shadow: 0 4px 16px rgba(27, 67, 50, 0.3);
     }
-    .menu-btn::before {
-      content: '';
+    .btn-secondary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px rgba(27, 67, 50, 0.4);
+    }
+    .btn-ghost {
+      background: transparent;
+      color: var(--color-text);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+    .btn-ghost:hover {
+      background: rgba(255, 255, 255, 0.05);
+      border-color: rgba(255, 255, 255, 0.3);
+    }
+    .btn:active { transform: translateY(0) scale(0.98); }
+
+    /* Footer */
+    .footer {
+      background: var(--color-background);
+      border-top: 1px solid rgba(255, 255, 255, 0.1);
+      padding: 48px 24px 24px;
+    }
+    .footer-container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+    .footer-content {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      flex-wrap: wrap;
+      gap: 32px;
+      margin-bottom: 32px;
+    }
+    .footer-brand h3 {
+      color: var(--color-accent);
+      margin-bottom: 8px;
+    }
+    .footer-brand p {
+      color: var(--color-text-muted);
+      font-size: 0.9rem;
+    }
+    .footer-links {
+      display: flex;
+      gap: 48px;
+      flex-wrap: wrap;
+    }
+    .footer-links-group h4 {
+      color: var(--color-text);
+      font-size: 0.9rem;
+      margin-bottom: 12px;
+    }
+    .footer-links-group ul {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .footer-links-group a {
+      color: var(--color-text-muted);
+      text-decoration: none;
+      font-size: 0.85rem;
+      transition: var(--transition-fast);
+      cursor: pointer;
+    }
+    .footer-links-group a:hover { color: var(--color-text); }
+    .footer-bottom {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding-top: 24px;
+      border-top: 1px solid rgba(255, 255, 255, 0.1);
+      flex-wrap: wrap;
+      gap: 16px;
+    }
+    .footer-bottom p {
+      color: var(--color-text-muted);
+      font-size: 0.8rem;
+    }
+    .footer-social {
+      display: flex;
+      gap: 16px;
+    }
+    .footer-social a {
+      color: var(--color-text-muted);
+      transition: var(--transition-fast);
+    }
+    .footer-social a:hover { color: var(--color-accent); }
+
+    /* Animations */
+    @keyframes fadeInUp {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.7; }
+    }
+    .animate-fade-in { animation: fadeInUp 0.6s ease forwards; }
+    .animate-delay-1 { animation-delay: 0.1s; opacity: 0; }
+    .animate-delay-2 { animation-delay: 0.2s; opacity: 0; }
+    .animate-delay-3 { animation-delay: 0.3s; opacity: 0; }
+
+    /* Utility */
+    .sr-only {
       position: absolute;
-      top: 0;
-      left: -100%;
-      width: 100%;
-      height: 100%;
-      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
-      transition: left 0.5s;
-    }
-    .menu-btn:hover::before {
-      left: 100%;
-    }
-    .option-btn {
-      transition: all 0.2s ease;
-    }
-    .option-btn:hover {
-      transform: scale(1.05);
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      border: 0;
     }
   </style>
 </head>
@@ -130,6 +368,55 @@
         <path d="M6 4H4V6C4 7.10457 4.89543 8 6 8V4ZM18 4V8C19.1046 8 20 7.10457 20 6V4H18Z" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
       </svg>
     );
+
+    // Additional icons for navigation and UI
+    const MenuIcon = ({ size = 24 }) => (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <path d="M3 12H21M3 6H21M3 18H21" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+      </svg>
+    );
+
+    const CloseIcon = ({ size = 24 }) => (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <path d="M18 6L6 18M6 6L18 18" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+      </svg>
+    );
+
+    const PlayIcon = ({ size = 20 }) => (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+        <path d="M8 5v14l11-7z"/>
+      </svg>
+    );
+
+    const BookIcon = ({ size = 20 }) => (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden="true" style={{ marginRight: '8px', flexShrink: 0 }}>
+        <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20M4 19.5A2.5 2.5 0 0 0 6.5 22H20V2H6.5A2.5 2.5 0 0 0 4 4.5v15z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+      </svg>
+    );
+
+    const UsersIcon = ({ size = 20 }) => (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden="true" style={{ marginRight: '8px', flexShrink: 0 }}>
+        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+      </svg>
+    );
+
+    // Design System Colors (matching CSS variables)
+    const COLORS = {
+      primary: '#1B4332',
+      primaryLight: '#2D6A4F',
+      primaryDark: '#143728',
+      accent: '#D4A03A',
+      accentLight: '#E8B94A',
+      accentDark: '#B8862E',
+      background: '#0D1117',
+      backgroundLight: '#161B22',
+      backgroundCard: '#1C2128',
+      text: '#F5F5F5',
+      textMuted: '#8B949E',
+      textDark: '#0D1117',
+      success: '#2D8A2D',
+      error: '#C92A2A'
+    };
 
     // Pre-computed bokeh light sizes (deterministic, no Math.random in render)
     const BOKEH_LIGHTS = [
@@ -454,7 +741,8 @@
     ];
 
     const DartsGame = () => {
-      const [gameState, setGameState] = useState('menu');
+      const [gameState, setGameState] = useState('landing');
+      const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
       const [players, setPlayers] = useState([]);
       const [currentPlayerIndex, setCurrentPlayerIndex] = useState(0);
       const [dartsThrown, setDartsThrown] = useState(0);
@@ -2932,47 +3220,357 @@
         );
       }
 
+      // ============================================
+      // NAVIGATION COMPONENT
+      // ============================================
+      const Navigation = ({ onNavigate, currentPage }) => (
+        <nav className="nav" role="navigation" aria-label="Main navigation">
+          <div className="nav-container">
+            <a href="#" className="nav-logo" onClick={(e) => { e.preventDefault(); onNavigate('landing'); }}>
+              QUIK DARTS
+            </a>
+            <ul className="nav-links">
+              <li><a className="nav-link" onClick={() => onNavigate('landing')}>Home</a></li>
+              <li><a className="nav-link" onClick={() => onNavigate('menu')}>Play</a></li>
+              <li><a className="nav-link" onClick={() => { onNavigate('menu'); setTimeout(() => enterPracticeMode(), 100); }}>Practice</a></li>
+              <li><a className="nav-link" onClick={() => setShowAchievements(true)}>Achievements</a></li>
+              <li><a className="nav-link" onClick={() => onNavigate('howToPlay')}>How to Play</a></li>
+              <li><button className="nav-cta" onClick={() => onNavigate('menu')}>Play Now</button></li>
+            </ul>
+            <button className="nav-hamburger" onClick={() => setMobileMenuOpen(!mobileMenuOpen)} aria-label="Toggle menu" aria-expanded={mobileMenuOpen}>
+              {mobileMenuOpen ? <CloseIcon /> : <MenuIcon />}
+            </button>
+          </div>
+          <div className={`nav-mobile ${mobileMenuOpen ? 'open' : ''}`}>
+            <ul className="nav-mobile-links">
+              <li><a className="nav-link" onClick={() => { onNavigate('landing'); setMobileMenuOpen(false); }}>Home</a></li>
+              <li><a className="nav-link" onClick={() => { onNavigate('menu'); setMobileMenuOpen(false); }}>Play</a></li>
+              <li><a className="nav-link" onClick={() => { onNavigate('howToPlay'); setMobileMenuOpen(false); }}>How to Play</a></li>
+              <li><a className="nav-link" onClick={() => { setShowAchievements(true); setMobileMenuOpen(false); }}>Achievements</a></li>
+              <li><button className="btn btn-primary" style={{ width: '100%', marginTop: '8px' }} onClick={() => { onNavigate('menu'); setMobileMenuOpen(false); }}>Play Now</button></li>
+            </ul>
+          </div>
+        </nav>
+      );
+
+      // ============================================
+      // FOOTER COMPONENT
+      // ============================================
+      const Footer = ({ onNavigate }) => (
+        <footer className="footer" role="contentinfo">
+          <div className="footer-container">
+            <div className="footer-content">
+              <div className="footer-brand">
+                <h3>Quik Darts</h3>
+                <p>Championship-style online darts.<br />Play anywhere, anytime.</p>
+              </div>
+              <div className="footer-links">
+                <div className="footer-links-group">
+                  <h4>Play</h4>
+                  <ul>
+                    <li><a onClick={() => onNavigate('menu')}>Start Game</a></li>
+                    <li><a onClick={() => onNavigate('menu')}>Practice Mode</a></li>
+                    <li><a onClick={() => onNavigate('menu')}>Online Match</a></li>
+                  </ul>
+                </div>
+                <div className="footer-links-group">
+                  <h4>Learn</h4>
+                  <ul>
+                    <li><a onClick={() => onNavigate('howToPlay')}>How to Play</a></li>
+                    <li><a onClick={() => onNavigate('howToPlay')}>Scoring Rules</a></li>
+                    <li><a onClick={() => onNavigate('howToPlay')}>Tips & Strategy</a></li>
+                  </ul>
+                </div>
+                <div className="footer-links-group">
+                  <h4>Legal</h4>
+                  <ul>
+                    <li><a href="#">Privacy Policy</a></li>
+                    <li><a href="#">Terms of Service</a></li>
+                    <li><a href="#">Contact</a></li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+            <div className="footer-bottom">
+              <p>Made with <span role="img" aria-label="dart">🎯</span> | v1.0 Championship Edition</p>
+              <div className="footer-social">
+                <a href="#" aria-label="Twitter">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+                </a>
+                <a href="#" aria-label="GitHub">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+                </a>
+              </div>
+            </div>
+          </div>
+        </footer>
+      );
+
+      // ============================================
+      // LANDING PAGE
+      // ============================================
+      if (gameState === 'landing') {
+        return (
+          <div style={{ minHeight: '100vh', background: COLORS.background }}>
+            <Navigation onNavigate={setGameState} currentPage="landing" />
+
+            {/* Hero Section */}
+            <section style={{
+              minHeight: '100vh',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '100px 24px 60px',
+              position: 'relative',
+              overflow: 'hidden'
+            }}>
+              {/* Background gradient */}
+              <div style={{
+                position: 'absolute',
+                inset: 0,
+                background: `radial-gradient(ellipse at 30% 20%, ${COLORS.primary}40 0%, transparent 50%), radial-gradient(ellipse at 70% 80%, ${COLORS.accent}20 0%, transparent 40%), linear-gradient(180deg, ${COLORS.background} 0%, ${COLORS.backgroundLight} 100%)`,
+                zIndex: 0
+              }} />
+
+              {/* Decorative dartboard */}
+              <div style={{
+                position: 'absolute',
+                right: '-10%',
+                top: '50%',
+                transform: 'translateY(-50%)',
+                width: '600px',
+                height: '600px',
+                opacity: 0.08,
+                background: `radial-gradient(circle, ${COLORS.accent} 0%, ${COLORS.accent} 5%, transparent 5%, transparent 10%, ${COLORS.primary} 10%, ${COLORS.primary} 15%, transparent 15%, transparent 40%, ${COLORS.accent} 40%, ${COLORS.accent} 43%, transparent 43%, transparent 80%, ${COLORS.primary} 80%, ${COLORS.primary} 85%, transparent 85%)`,
+                borderRadius: '50%',
+                zIndex: 1
+              }} />
+
+              <div style={{ maxWidth: '1200px', width: '100%', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '60px', alignItems: 'center', zIndex: 2, position: 'relative' }}>
+                {/* Text Content */}
+                <div className="animate-fade-in">
+                  <div style={{ display: 'inline-block', background: `${COLORS.accent}20`, color: COLORS.accent, padding: '8px 16px', borderRadius: '20px', fontSize: '0.85rem', fontWeight: '600', marginBottom: '24px' }}>
+                    No Download Required
+                  </div>
+                  <h1 style={{ color: COLORS.text, marginBottom: '16px', fontWeight: '800' }}>
+                    Quik Darts
+                    <span style={{ display: 'block', color: COLORS.accent, fontSize: '0.5em', fontWeight: '600', letterSpacing: '3px', marginTop: '8px' }}>CHAMPIONSHIP EDITION</span>
+                  </h1>
+                  <p style={{ color: COLORS.textMuted, fontSize: '1.25rem', marginBottom: '32px', maxWidth: '500px', lineHeight: '1.7' }}>
+                    Championship-style online darts. Play solo, challenge friends, or compete online. Experience realistic 501 gameplay right in your browser.
+                  </p>
+                  <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
+                    <button className="btn btn-primary" onClick={() => setGameState('menu')} style={{ fontSize: '1.1rem', padding: '16px 32px' }}>
+                      <PlayIcon /> Play Now
+                    </button>
+                    <button className="btn btn-ghost" onClick={() => setGameState('howToPlay')}>
+                      <BookIcon /> How to Play
+                    </button>
+                  </div>
+                </div>
+
+                {/* Visual Preview - Mini Dartboard */}
+                <div className="animate-fade-in animate-delay-2" style={{ display: 'flex', justifyContent: 'center' }}>
+                  <div style={{
+                    width: '320px',
+                    height: '320px',
+                    borderRadius: '50%',
+                    background: `conic-gradient(from 0deg, #1a1a1a 0deg 18deg, #f5f0e8 18deg 36deg, #1a1a1a 36deg 54deg, #f5f0e8 54deg 72deg, #1a1a1a 72deg 90deg, #f5f0e8 90deg 108deg, #1a1a1a 108deg 126deg, #f5f0e8 126deg 144deg, #1a1a1a 144deg 162deg, #f5f0e8 162deg 180deg, #1a1a1a 180deg 198deg, #f5f0e8 198deg 216deg, #1a1a1a 216deg 234deg, #f5f0e8 234deg 252deg, #1a1a1a 252deg 270deg, #f5f0e8 270deg 288deg, #1a1a1a 288deg 306deg, #f5f0e8 306deg 324deg, #1a1a1a 324deg 342deg, #f5f0e8 342deg 360deg)`,
+                    boxShadow: `0 0 0 15px ${COLORS.primary}, 0 0 0 20px ${COLORS.accent}, 0 25px 80px rgba(0,0,0,0.5)`,
+                    position: 'relative'
+                  }}>
+                    <div style={{ position: 'absolute', inset: '35%', borderRadius: '50%', background: COLORS.primary }} />
+                    <div style={{ position: 'absolute', inset: '42%', borderRadius: '50%', background: COLORS.error }} />
+                    <div style={{ position: 'absolute', inset: '46%', borderRadius: '50%', background: COLORS.primary }} />
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            {/* Features Section */}
+            <section style={{ padding: '80px 24px', background: COLORS.backgroundLight }}>
+              <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
+                <h2 style={{ textAlign: 'center', color: COLORS.text, marginBottom: '16px' }}>Why Play Quik Darts?</h2>
+                <p style={{ textAlign: 'center', color: COLORS.textMuted, marginBottom: '48px', maxWidth: '600px', margin: '0 auto 48px' }}>
+                  Experience the thrill of competitive darts with features designed for players of all skill levels.
+                </p>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '24px' }}>
+                  {[
+                    { icon: <TargetIcon size={32} color={COLORS.accent} />, title: 'Realistic Gameplay', desc: 'Authentic 501 rules with double-out finish. Power meter and aim wobble simulate real darts.' },
+                    { icon: <GlobeIcon size={32} color={COLORS.accent} />, title: 'Play Online', desc: 'Challenge players worldwide in real-time matches. No account required to get started.' },
+                    { icon: <UsersIcon size={32} color={COLORS.accent} />, title: 'Local Multiplayer', desc: 'Play with up to 4 players on the same device. Perfect for game night with friends.' },
+                    { icon: <TrophyIcon size={32} color={COLORS.accent} />, title: 'Track Progress', desc: 'Earn achievements, track your stats, and climb the leaderboards.' }
+                  ].map((feature, i) => (
+                    <div key={i} style={{
+                      background: COLORS.backgroundCard,
+                      padding: '32px',
+                      borderRadius: '12px',
+                      border: `1px solid rgba(255,255,255,0.05)`
+                    }}>
+                      <div style={{ marginBottom: '16px' }}>{feature.icon}</div>
+                      <h3 style={{ color: COLORS.text, fontSize: '1.25rem', marginBottom: '8px' }}>{feature.title}</h3>
+                      <p style={{ color: COLORS.textMuted, fontSize: '0.95rem', lineHeight: '1.6' }}>{feature.desc}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </section>
+
+            {/* CTA Section */}
+            <section style={{ padding: '80px 24px', background: COLORS.background, textAlign: 'center' }}>
+              <h2 style={{ color: COLORS.text, marginBottom: '16px' }}>Ready to Play?</h2>
+              <p style={{ color: COLORS.textMuted, marginBottom: '32px', maxWidth: '500px', margin: '0 auto 32px' }}>
+                Jump into a game now. No downloads, no sign-ups, just darts.
+              </p>
+              <button className="btn btn-primary" onClick={() => setGameState('menu')} style={{ fontSize: '1.1rem', padding: '16px 40px' }}>
+                <PlayIcon /> Start Playing
+              </button>
+            </section>
+
+            <Footer onNavigate={setGameState} />
+          </div>
+        );
+      }
+
+      // ============================================
+      // HOW TO PLAY PAGE
+      // ============================================
+      if (gameState === 'howToPlay') {
+        return (
+          <div style={{ minHeight: '100vh', background: COLORS.background }}>
+            <Navigation onNavigate={setGameState} currentPage="howToPlay" />
+
+            <main style={{ paddingTop: '100px', paddingBottom: '80px' }}>
+              <div style={{ maxWidth: '800px', margin: '0 auto', padding: '0 24px' }}>
+                <h1 style={{ color: COLORS.text, marginBottom: '16px' }}>How to Play</h1>
+                <p style={{ color: COLORS.textMuted, fontSize: '1.1rem', marginBottom: '48px' }}>
+                  Learn the basics of Quik Darts and become a champion.
+                </p>
+
+                {/* Section: Basic Rules */}
+                <section style={{ marginBottom: '48px' }}>
+                  <h2 style={{ color: COLORS.accent, fontSize: '1.5rem', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <span style={{ background: COLORS.accent, color: COLORS.textDark, width: '32px', height: '32px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1rem', fontWeight: '700' }}>1</span>
+                    Basic 501 Rules
+                  </h2>
+                  <div style={{ background: COLORS.backgroundCard, padding: '24px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                    <ul style={{ color: COLORS.textMuted, lineHeight: '1.8', paddingLeft: '20px' }}>
+                      <li>Each player starts with <strong style={{ color: COLORS.text }}>501 points</strong></li>
+                      <li>Throw 3 darts per turn to reduce your score</li>
+                      <li>Score is subtracted from your total after each turn</li>
+                      <li>You must finish exactly on <strong style={{ color: COLORS.text }}>0 points</strong></li>
+                      <li>The final dart must land on a <strong style={{ color: COLORS.accent }}>double</strong> (outer ring) or the bullseye</li>
+                      <li>If you go below 0 or hit exactly 1, your turn is "bust" and your score resets</li>
+                    </ul>
+                  </div>
+                </section>
+
+                {/* Section: Scoring */}
+                <section style={{ marginBottom: '48px' }}>
+                  <h2 style={{ color: COLORS.accent, fontSize: '1.5rem', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <span style={{ background: COLORS.accent, color: COLORS.textDark, width: '32px', height: '32px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1rem', fontWeight: '700' }}>2</span>
+                    Dartboard Scoring
+                  </h2>
+                  <div style={{ background: COLORS.backgroundCard, padding: '24px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
+                      <div style={{ padding: '16px', background: 'rgba(0,0,0,0.2)', borderRadius: '8px' }}>
+                        <h4 style={{ color: COLORS.text, marginBottom: '8px' }}>Single (Main Bed)</h4>
+                        <p style={{ color: COLORS.textMuted, fontSize: '0.9rem' }}>Face value of the number (1-20)</p>
+                      </div>
+                      <div style={{ padding: '16px', background: 'rgba(0,0,0,0.2)', borderRadius: '8px' }}>
+                        <h4 style={{ color: COLORS.text, marginBottom: '8px' }}>Double (Outer Ring)</h4>
+                        <p style={{ color: COLORS.textMuted, fontSize: '0.9rem' }}>2x the number value</p>
+                      </div>
+                      <div style={{ padding: '16px', background: 'rgba(0,0,0,0.2)', borderRadius: '8px' }}>
+                        <h4 style={{ color: COLORS.text, marginBottom: '8px' }}>Triple (Inner Ring)</h4>
+                        <p style={{ color: COLORS.textMuted, fontSize: '0.9rem' }}>3x the number value</p>
+                      </div>
+                      <div style={{ padding: '16px', background: 'rgba(0,0,0,0.2)', borderRadius: '8px' }}>
+                        <h4 style={{ color: COLORS.text, marginBottom: '8px' }}>Bullseye</h4>
+                        <p style={{ color: COLORS.textMuted, fontSize: '0.9rem' }}>Outer: 25 | Inner: 50 (double)</p>
+                      </div>
+                    </div>
+                  </div>
+                </section>
+
+                {/* Section: Controls */}
+                <section style={{ marginBottom: '48px' }}>
+                  <h2 style={{ color: COLORS.accent, fontSize: '1.5rem', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <span style={{ background: COLORS.accent, color: COLORS.textDark, width: '32px', height: '32px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1rem', fontWeight: '700' }}>3</span>
+                    How to Throw
+                  </h2>
+                  <div style={{ background: COLORS.backgroundCard, padding: '24px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                    <ol style={{ color: COLORS.textMuted, lineHeight: '2', paddingLeft: '20px' }}>
+                      <li><strong style={{ color: COLORS.text }}>Aim:</strong> Move your mouse/finger to position your aim on the dartboard</li>
+                      <li><strong style={{ color: COLORS.text }}>Charge:</strong> Press and hold the mouse button or tap and hold to charge power</li>
+                      <li><strong style={{ color: COLORS.text }}>Release:</strong> Let go when the power meter is in the green zone (40-60%) for best accuracy</li>
+                      <li><strong style={{ color: COLORS.text }}>Wobble:</strong> Your aim naturally wobbles - this simulates real throwing variance</li>
+                    </ol>
+                    <div style={{ marginTop: '16px', padding: '16px', background: `${COLORS.accent}15`, borderRadius: '8px', borderLeft: `3px solid ${COLORS.accent}` }}>
+                      <p style={{ color: COLORS.text, fontSize: '0.9rem', margin: 0 }}>
+                        <strong>Pro Tip:</strong> Higher skill levels reduce wobble. Practice to improve your accuracy!
+                      </p>
+                    </div>
+                  </div>
+                </section>
+
+                {/* Section: Game Modes */}
+                <section style={{ marginBottom: '48px' }}>
+                  <h2 style={{ color: COLORS.accent, fontSize: '1.5rem', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <span style={{ background: COLORS.accent, color: COLORS.textDark, width: '32px', height: '32px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1rem', fontWeight: '700' }}>4</span>
+                    Game Modes
+                  </h2>
+                  <div style={{ display: 'grid', gap: '16px' }}>
+                    {[
+                      { title: 'Local Play', desc: '1-4 players on the same device. Add AI opponents for extra challenge.' },
+                      { title: 'Online Match', desc: 'Play against real opponents worldwide. Get matched instantly.' },
+                      { title: 'Practice Mode', desc: 'Hone your skills with unlimited throws. No pressure, just practice.' }
+                    ].map((mode, i) => (
+                      <div key={i} style={{ background: COLORS.backgroundCard, padding: '20px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                        <h4 style={{ color: COLORS.text, marginBottom: '8px' }}>{mode.title}</h4>
+                        <p style={{ color: COLORS.textMuted, fontSize: '0.95rem', margin: 0 }}>{mode.desc}</p>
+                      </div>
+                    ))}
+                  </div>
+                </section>
+
+                <div style={{ textAlign: 'center', marginTop: '48px' }}>
+                  <button className="btn btn-primary" onClick={() => setGameState('menu')} style={{ fontSize: '1.1rem', padding: '16px 40px' }}>
+                    <PlayIcon /> Start Playing
+                  </button>
+                </div>
+              </div>
+            </main>
+
+            <Footer onNavigate={setGameState} />
+          </div>
+        );
+      }
+
+      // ============================================
+      // GAME SETUP MENU
+      // ============================================
       if (gameState === 'menu') {
         return (
-          <div style={{
-            minHeight: '100vh',
-            background: '#0a0a0f',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: '20px',
-            fontFamily: "'Oswald', sans-serif",
-            position: 'relative',
-            overflow: 'hidden'
-          }}>
-            {/* Atmospheric background with gradient overlay */}
-            <div style={{
-              position: 'absolute',
-              inset: 0,
-              background: 'radial-gradient(ellipse at 50% 0%, rgba(139, 69, 19, 0.15) 0%, transparent 50%), radial-gradient(ellipse at 80% 80%, rgba(120, 60, 20, 0.1) 0%, transparent 40%), radial-gradient(ellipse at 20% 90%, rgba(100, 50, 20, 0.08) 0%, transparent 35%), linear-gradient(180deg, #0a0a0f 0%, #12100e 50%, #0d0b0a 100%)',
-              zIndex: 0
-            }} />
+          <div style={{ minHeight: '100vh', background: COLORS.background }}>
+            <Navigation onNavigate={setGameState} currentPage="menu" />
 
-            {/* Bokeh lights effect */}
-            <div style={{ position: 'absolute', inset: 0, zIndex: 1, pointerEvents: 'none', overflow: 'hidden' }}>
-              {BOKEH_LIGHTS.map((light, i) => (
-                <div key={i} style={{
-                  position: 'absolute',
-                  width: `${light.size}px`,
-                  height: `${light.size}px`,
-                  borderRadius: '50%',
-                  background: i % 3 === 0 ? 'radial-gradient(circle, rgba(255, 180, 80, 0.4) 0%, transparent 70%)'
-                    : i % 3 === 1 ? 'radial-gradient(circle, rgba(255, 140, 60, 0.3) 0%, transparent 70%)'
-                    : 'radial-gradient(circle, rgba(200, 100, 50, 0.25) 0%, transparent 70%)',
-                  left: `${light.left}%`,
-                  top: `${light.top}%`,
-                  animation: `bokeh-float ${8 + i * 2}s ease-in-out infinite`,
-                  animationDelay: `${i * -1.5}s`,
-                  filter: 'blur(2px)'
-                }} />
-              ))}
-            </div>
+            <main style={{
+              minHeight: '100vh',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '100px 20px 40px',
+              position: 'relative'
+            }}>
+              {/* Background accent */}
+              <div style={{
+                position: 'absolute',
+                inset: 0,
+                background: `radial-gradient(ellipse at 50% 0%, ${COLORS.primary}30 0%, transparent 50%), radial-gradient(ellipse at 80% 100%, ${COLORS.accent}15 0%, transparent 40%)`,
+                zIndex: 0
+              }} />
 
             {/* Decorative dartboard silhouette */}
             <div style={{
@@ -2989,128 +3587,79 @@
             }} />
 
             {/* Title section */}
-            <div style={{ textAlign: 'center', marginBottom: '50px', zIndex: 2, position: 'relative' }}>
+            <div style={{ textAlign: 'center', marginBottom: '40px', zIndex: 2, position: 'relative' }}>
               <h1 style={{
-                fontSize: 'clamp(48px, 12vw, 80px)',
-                fontWeight: '700',
+                fontSize: 'clamp(36px, 10vw, 56px)',
+                fontWeight: '800',
                 margin: '0',
-                letterSpacing: '6px',
-                background: 'linear-gradient(180deg, #fff 0%, #c9a227 25%, #f4d03f 50%, #c9a227 75%, #8b6914 100%)',
-                WebkitBackgroundClip: 'text',
-                WebkitTextFillColor: 'transparent',
-                backgroundClip: 'text',
-                filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.8)) drop-shadow(0 4px 8px rgba(0,0,0,0.5))',
-                textShadow: 'none'
-              }}>QUIK DARTS</h1>
-              <div style={{
-                width: '120px',
-                height: '2px',
-                background: 'linear-gradient(90deg, transparent, rgba(201, 162, 39, 0.6), transparent)',
-                margin: '15px auto 0'
-              }} />
+                color: COLORS.text
+              }}>Game Setup</h1>
+              <p style={{ color: COLORS.textMuted, marginTop: '8px' }}>Configure your match settings</p>
             </div>
 
             {/* Main content card */}
             <div style={{
-              background: 'linear-gradient(180deg, rgba(30, 28, 25, 0.95) 0%, rgba(20, 18, 15, 0.98) 100%)',
+              background: COLORS.backgroundCard,
               borderRadius: '16px',
-              padding: '35px 30px',
-              border: '1px solid rgba(201, 162, 39, 0.15)',
-              boxShadow: '0 25px 60px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.05)',
+              padding: '32px',
+              border: '1px solid rgba(255, 255, 255, 0.05)',
+              boxShadow: '0 25px 60px rgba(0, 0, 0, 0.5)',
               width: '100%',
-              maxWidth: '420px',
+              maxWidth: '480px',
               zIndex: 2,
               position: 'relative'
             }}>
               {/* Main action buttons */}
-              <button className="menu-btn" onClick={startGame} style={{
+              <button className="btn btn-primary" onClick={startGame} style={{
                 width: '100%',
-                padding: '18px 24px',
-                fontSize: '20px',
-                fontWeight: '600',
-                background: 'linear-gradient(180deg, #c92a2a 0%, #a61c1c 50%, #8a1717 100%)',
-                color: '#fff',
-                border: 'none',
-                borderRadius: '8px',
-                cursor: 'pointer',
-                fontFamily: "'Oswald', sans-serif",
-                letterSpacing: '3px',
-                textTransform: 'uppercase',
-                boxShadow: '0 4px 15px rgba(169, 28, 28, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.15), inset 0 -2px 0 rgba(0, 0, 0, 0.2)',
+                padding: '16px 24px',
+                fontSize: '1rem',
                 marginBottom: '12px',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center'
-              }}><DartIcon size={22} color="#fff" />Start Game</button>
+              }}><DartIcon size={20} color={COLORS.textDark} />Start Game</button>
 
-              <button className="menu-btn" onClick={startMatchmaking} style={{
+              <button className="btn btn-secondary" onClick={startMatchmaking} style={{
                 width: '100%',
-                padding: '18px 24px',
-                fontSize: '20px',
-                fontWeight: '600',
-                background: 'linear-gradient(180deg, #2a7bc9 0%, #1c5fa6 50%, #174d8a 100%)',
-                color: '#fff',
-                border: 'none',
-                borderRadius: '8px',
-                cursor: 'pointer',
-                fontFamily: "'Oswald', sans-serif",
-                letterSpacing: '3px',
-                textTransform: 'uppercase',
-                boxShadow: '0 4px 15px rgba(28, 95, 166, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.15), inset 0 -2px 0 rgba(0, 0, 0, 0.2)',
+                padding: '16px 24px',
+                fontSize: '1rem',
                 marginBottom: '12px',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center'
-              }}><GlobeIcon size={22} color="#fff" />Play Online</button>
+              }}><GlobeIcon size={20} color={COLORS.text} />Play Online</button>
 
-              <button className="menu-btn" onClick={enterPracticeMode} style={{
+              <button className="btn btn-ghost" onClick={enterPracticeMode} style={{
                 width: '100%',
-                padding: '18px 24px',
-                fontSize: '20px',
-                fontWeight: '600',
-                background: 'linear-gradient(180deg, #6b5b95 0%, #524578 50%, #3d3359 100%)',
-                color: '#fff',
-                border: 'none',
-                borderRadius: '8px',
-                cursor: 'pointer',
-                fontFamily: "'Oswald', sans-serif",
-                letterSpacing: '3px',
-                textTransform: 'uppercase',
-                boxShadow: '0 4px 15px rgba(82, 69, 120, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.15), inset 0 -2px 0 rgba(0, 0, 0, 0.2)',
+                padding: '16px 24px',
+                fontSize: '1rem',
                 marginBottom: '12px',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center'
-              }}><TargetIcon size={22} color="#fff" />Practice</button>
+              }}><TargetIcon size={20} color={COLORS.text} />Practice Mode</button>
 
-              <button className="menu-btn" onClick={() => setShowAchievements(true)} style={{
+              <button className="btn btn-ghost" onClick={() => setShowAchievements(true)} style={{
                 width: '100%',
-                padding: '18px 24px',
-                fontSize: '20px',
-                fontWeight: '600',
-                background: 'linear-gradient(180deg, rgba(201, 162, 39, 0.15) 0%, rgba(139, 105, 20, 0.1) 100%)',
-                color: '#c9a227',
-                border: '1px solid rgba(201, 162, 39, 0.3)',
-                borderRadius: '8px',
-                cursor: 'pointer',
-                fontFamily: "'Oswald', sans-serif",
-                letterSpacing: '3px',
-                textTransform: 'uppercase',
-                boxShadow: '0 4px 15px rgba(0, 0, 0, 0.2)',
-                marginBottom: '25px',
+                padding: '16px 24px',
+                fontSize: '1rem',
+                marginBottom: '24px',
                 display: 'flex',
                 alignItems: 'center',
-                justifyContent: 'center'
-              }}><TrophyIcon size={22} color="#c9a227" />Achievements</button>
+                justifyContent: 'center',
+                color: COLORS.accent,
+                borderColor: `${COLORS.accent}40`
+              }}><TrophyIcon size={20} color={COLORS.accent} />Achievements</button>
 
               {/* Divider */}
-              <div style={{ height: '1px', background: 'linear-gradient(90deg, transparent, rgba(201, 162, 39, 0.2), transparent)', marginBottom: '25px' }} />
+              <div style={{ height: '1px', background: `linear-gradient(90deg, transparent, ${COLORS.accent}30, transparent)`, marginBottom: '24px' }} />
 
-              <div style={{ marginBottom: '22px' }}>
-                <label style={{ color: 'rgba(201, 162, 39, 0.8)', fontSize: '11px', letterSpacing: '3px', display: 'block', marginBottom: '10px', fontWeight: '500' }}>GAME MODE</label>
+              <div style={{ marginBottom: '20px' }}>
+                <label style={{ color: COLORS.textMuted, fontSize: '0.75rem', letterSpacing: '2px', display: 'block', marginBottom: '10px', fontWeight: '600', textTransform: 'uppercase' }}>Game Mode</label>
                 <div style={{ display: 'flex', gap: '8px' }}>
                   {[301, 501].map(mode => (
-                    <button className="option-btn" key={mode} onClick={() => setPlayerSetup(prev => ({ ...prev, gameMode: mode }))} style={{ flex: 1, padding: '14px', fontSize: '18px', fontWeight: '600', background: playerSetup.gameMode === mode ? 'linear-gradient(180deg, #c9a227 0%, #a68b1f 100%)' : 'rgba(255, 255, 255, 0.03)', color: playerSetup.gameMode === mode ? '#0a0a0f' : 'rgba(255, 255, 255, 0.5)', border: playerSetup.gameMode === mode ? 'none' : '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '6px', cursor: 'pointer', fontFamily: "'Oswald', sans-serif", boxShadow: playerSetup.gameMode === mode ? 'inset 0 1px 0 rgba(255, 255, 255, 0.3)' : 'none' }}>{mode}</button>
+                    <button className="option-btn" key={mode} onClick={() => setPlayerSetup(prev => ({ ...prev, gameMode: mode }))} style={{ flex: 1, padding: '12px', fontSize: '1rem', fontWeight: '600', background: playerSetup.gameMode === mode ? `linear-gradient(135deg, ${COLORS.accent}, ${COLORS.accentDark})` : 'rgba(255, 255, 255, 0.03)', color: playerSetup.gameMode === mode ? COLORS.textDark : COLORS.textMuted, border: playerSetup.gameMode === mode ? 'none' : '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '6px', cursor: 'pointer', fontFamily: 'var(--font-primary)' }}>{mode}</button>
                   ))}
                 </div>
               </div>
@@ -3280,7 +3829,10 @@
               </div>
             </div>
 
-            <p style={{ color: 'rgba(255, 255, 255, 0.25)', marginTop: '35px', fontSize: '12px', letterSpacing: '1px', zIndex: 2, position: 'relative' }}>Hold to charge power • Release to throw</p>
+            <p style={{ color: COLORS.textMuted, marginTop: '24px', fontSize: '0.85rem', zIndex: 2, position: 'relative' }}>Hold to charge power • Release to throw</p>
+            </main>
+
+            <Footer onNavigate={setGameState} />
           </div>
         );
       }
