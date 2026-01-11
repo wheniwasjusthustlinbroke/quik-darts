@@ -21,6 +21,12 @@
       -webkit-user-select: none;
       touch-action: manipulation;
     }
+    /* Mobile: Show dartboard first, scoreboard below */
+    @media (max-width: 768px) {
+      .game-layout {
+        flex-direction: column-reverse !important;
+      }
+    }
   </style>
 </head>
 <body>
@@ -3030,7 +3036,7 @@
 
       return (
         <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f0f23 100%)', padding: '20px', fontFamily: "'Oswald', sans-serif" }}>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '30px', maxWidth: '1400px', margin: '0 auto', justifyContent: 'center' }}>
+          <div className="game-layout" style={{ display: 'flex', flexWrap: 'wrap', gap: '30px', maxWidth: '1400px', margin: '0 auto', justifyContent: 'center' }}>
             {/* Scoreboard or Practice Stats */}
             <div style={{ background: 'rgba(255, 255, 255, 0.05)', borderRadius: '20px', padding: '25px', minWidth: '280px', backdropFilter: 'blur(10px)', border: practiceMode === 'active' ? '1px solid rgba(155, 89, 182, 0.3)' : '1px solid rgba(255, 215, 0, 0.2)' }}>
               {practiceMode === 'active' ? (
