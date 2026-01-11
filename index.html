@@ -1739,12 +1739,19 @@
         const currentPlayer = players[currentPlayerIndex];
         if (dartsThrown >= 3 || winner || animatingDart || (currentPlayer && currentPlayer.isAI)) return;
         e.preventDefault();
+
+        // Clear any existing interval before starting a new one (safety check)
+        if (powerIntervalRef.current) {
+          clearInterval(powerIntervalRef.current);
+          powerIntervalRef.current = null;
+        }
+
         setIsPowerCharging(true);
         setPower(0);
-        
+
         let increasing = true;
         let currentPower = 0;
-        
+
         powerIntervalRef.current = setInterval(() => {
           if (increasing) {
             currentPower += 2;
@@ -1765,6 +1772,7 @@
         if (isPowerCharging) {
           setIsPowerCharging(false);
           throwDart();
+          setPower(0); // Reset power after throw to prevent visual glitch
         }
       }, [isPowerCharging, throwDart]);
 
@@ -1783,6 +1791,12 @@
         const currentPlayer = players[currentPlayerIndex];
         if (dartsThrown >= 3 || winner || animatingDart || (currentPlayer && currentPlayer.isAI)) return;
         e.preventDefault();
+
+        // Clear any existing interval before starting a new one (safety check)
+        if (powerIntervalRef.current) {
+          clearInterval(powerIntervalRef.current);
+          powerIntervalRef.current = null;
+        }
 
         // Update aim position on touch start
         const touch = e.touches[0];
@@ -1818,6 +1832,7 @@
         if (isPowerCharging) {
           setIsPowerCharging(false);
           throwDart();
+          setPower(0); // Reset power after throw to prevent visual glitch
         }
       }, [isPowerCharging, throwDart]);
 
