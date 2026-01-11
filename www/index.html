@@ -3510,13 +3510,80 @@
                   </div>
 
                   {/* Sets To Win */}
-                  <div>
+                  <div style={{ marginBottom: '20px' }}>
                     <label style={{ color: COLORS.textMuted, fontSize: '0.75rem', letterSpacing: '2px', display: 'block', marginBottom: '10px', fontWeight: '600', textTransform: 'uppercase' }}>Sets To Win</label>
                     <div style={{ display: 'flex', gap: '8px' }}>
                       {[1, 3, 5, 7].map(sets => (
                         <button key={sets} onClick={() => setPlayerSetup(prev => ({ ...prev, setsToWin: sets }))} style={{ flex: 1, padding: '12px', fontSize: '1rem', fontWeight: '600', background: playerSetup.setsToWin === sets ? `linear-gradient(135deg, ${COLORS.accent}, ${COLORS.accentDark})` : 'rgba(255, 255, 255, 0.03)', color: playerSetup.setsToWin === sets ? COLORS.textDark : COLORS.textMuted, border: playerSetup.setsToWin === sets ? 'none' : '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '6px', cursor: 'pointer' }}>{sets}</button>
                       ))}
                     </div>
+                  </div>
+
+                  {/* Players */}
+                  <div style={{ marginBottom: '20px' }}>
+                    <label style={{ color: COLORS.textMuted, fontSize: '0.75rem', letterSpacing: '2px', display: 'block', marginBottom: '10px', fontWeight: '600', textTransform: 'uppercase' }}>Players</label>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      {[1, 2, 3, 4].map(num => (
+                        <button key={num} onClick={() => setPlayerSetup(prev => ({ ...prev, count: num }))} style={{ flex: 1, padding: '12px', fontSize: '1rem', fontWeight: '600', background: playerSetup.count === num ? `linear-gradient(135deg, ${COLORS.accent}, ${COLORS.accentDark})` : 'rgba(255, 255, 255, 0.03)', color: playerSetup.count === num ? COLORS.textDark : COLORS.textMuted, border: playerSetup.count === num ? 'none' : '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '6px', cursor: 'pointer' }}>{num}</button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Player Setup */}
+                  {Array.from({ length: playerSetup.count }).map((_, i) => (
+                    <div key={i} style={{ marginBottom: '12px', background: 'rgba(0, 0, 0, 0.3)', padding: '14px', borderRadius: '8px', border: '1px solid rgba(255, 255, 255, 0.05)' }}>
+                      <input
+                        type="text"
+                        value={playerSetup.names[i]}
+                        onChange={(e) => {
+                          const newNames = [...playerSetup.names];
+                          const sanitized = e.target.value.slice(0, 20).replace(/[<>]/g, '');
+                          newNames[i] = sanitized;
+                          setPlayerSetup(prev => ({ ...prev, names: newNames }));
+                        }}
+                        placeholder={`Player ${i + 1}`}
+                        maxLength={20}
+                        style={{ width: '100%', padding: '11px 14px', fontSize: '14px', background: 'rgba(255, 255, 255, 0.05)', border: '1px solid rgba(255, 255, 255, 0.1)', borderRadius: '6px', color: 'rgba(255, 255, 255, 0.9)', outline: 'none', boxSizing: 'border-box', marginBottom: '10px' }}
+                      />
+                      <div>
+                        <label style={{ color: 'rgba(255, 255, 255, 0.4)', fontSize: '10px', letterSpacing: '2px', display: 'block', marginBottom: '6px' }}>NATIONALITY</label>
+                        <select value={playerSetup.flags[i]} onChange={(e) => { const newFlags = [...playerSetup.flags]; newFlags[i] = e.target.value; setPlayerSetup(prev => ({ ...prev, flags: newFlags })); }} style={{ width: '100%', padding: '10px 12px', fontSize: '14px', background: 'rgba(255, 255, 255, 0.05)', border: '1px solid rgba(255, 255, 255, 0.1)', borderRadius: '6px', color: 'rgba(255, 255, 255, 0.9)', outline: 'none', cursor: 'pointer', boxSizing: 'border-box' }}>
+                          {countries.map(country => (
+                            <option key={country.name} value={country.flag} style={{ background: '#1a1a1a', color: '#fff' }}>
+                              {country.flag} {country.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                  ))}
+
+                  {/* Divider */}
+                  <div style={{ height: '1px', background: `linear-gradient(90deg, transparent, ${COLORS.accent}30, transparent)`, margin: '20px 0' }} />
+
+                  {/* Skill Level */}
+                  <div style={{ marginBottom: '20px' }}>
+                    <label style={{ color: COLORS.textMuted, fontSize: '0.75rem', letterSpacing: '2px', display: 'block', marginBottom: '10px', fontWeight: '600', textTransform: 'uppercase' }}>Skill Level</label>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px' }}>
+                      <button onClick={() => setSkillLevel(30)} style={{ padding: '12px 8px', background: skillLevel <= 40 ? 'linear-gradient(135deg, #2d8a2d, #1f6b1f)' : 'rgba(255, 255, 255, 0.03)', color: skillLevel <= 40 ? '#fff' : COLORS.textMuted, border: skillLevel <= 40 ? 'none' : '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '6px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: '600' }}>
+                        <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: skillLevel <= 40 ? '#90EE90' : 'rgba(144, 238, 144, 0.4)', margin: '0 auto 6px' }} />
+                        BEGINNER
+                      </button>
+                      <button onClick={() => setSkillLevel(60)} style={{ padding: '12px 8px', background: skillLevel >= 41 && skillLevel <= 80 ? `linear-gradient(135deg, ${COLORS.accent}, ${COLORS.accentDark})` : 'rgba(255, 255, 255, 0.03)', color: skillLevel >= 41 && skillLevel <= 80 ? COLORS.textDark : COLORS.textMuted, border: skillLevel >= 41 && skillLevel <= 80 ? 'none' : '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '6px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: '600' }}>
+                        <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: skillLevel >= 41 && skillLevel <= 80 ? COLORS.textDark : 'rgba(255, 193, 7, 0.4)', margin: '0 auto 6px' }} />
+                        INTERMEDIATE
+                      </button>
+                      <button onClick={() => setSkillLevel(90)} style={{ padding: '12px 8px', background: skillLevel >= 81 ? 'linear-gradient(135deg, #a61c1c, #8a1717)' : 'rgba(255, 255, 255, 0.03)', color: skillLevel >= 81 ? '#fff' : COLORS.textMuted, border: skillLevel >= 81 ? 'none' : '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '6px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: '600' }}>
+                        <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: skillLevel >= 81 ? '#ff6b6b' : 'rgba(255, 107, 107, 0.4)', margin: '0 auto 6px' }} />
+                        EXPERT
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Sound */}
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 0' }}>
+                    <span style={{ color: COLORS.textMuted, fontSize: '0.75rem', letterSpacing: '2px', fontWeight: '600' }}>SOUND</span>
+                    <button onClick={() => setSoundEnabled(!soundEnabled)} style={{ padding: '6px 16px', background: soundEnabled ? 'linear-gradient(135deg, #2d8a2d, #1f6b1f)' : 'rgba(255, 255, 255, 0.05)', color: soundEnabled ? '#fff' : COLORS.textMuted, border: soundEnabled ? 'none' : '1px solid rgba(255, 255, 255, 0.1)', borderRadius: '4px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: '600' }}>{soundEnabled ? 'ON' : 'OFF'}</button>
                   </div>
                 </div>
               </div>
