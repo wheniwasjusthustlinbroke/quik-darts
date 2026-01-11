@@ -469,6 +469,30 @@
           <circle cx={CENTER} cy={CENTER} r={INNER_BULL} fill="#b8232a" stroke="#888" strokeWidth="1.5" />
           {/* Numbers */}
           {numbers}
+          {/* Three darts in T20 */}
+          {[
+            { x: 245, y: 124, rotation: -5 },
+            { x: 250, y: 127, rotation: 2 },
+            { x: 256, y: 122, rotation: -8 }
+          ].map((dart, i) => (
+            <g key={`dart-${i}`} transform={`translate(${dart.x}, ${dart.y}) rotate(${dart.rotation})`}>
+              {/* Dart point */}
+              <polygon points="0,0 -2,-8 2,-8" fill="#c0c0c0" />
+              {/* Dart barrel */}
+              <rect x="-3" y="-28" width="6" height="20" fill="#2a2a2a" rx="1" />
+              <rect x="-2.5" y="-26" width="5" height="16" fill="#404040" rx="1" />
+              {/* Grip rings */}
+              <rect x="-3" y="-24" width="6" height="1" fill="#606060" />
+              <rect x="-3" y="-21" width="6" height="1" fill="#606060" />
+              <rect x="-3" y="-18" width="6" height="1" fill="#606060" />
+              {/* Shaft */}
+              <rect x="-1.5" y="-45" width="3" height="17" fill="#1a1a1a" />
+              {/* Flights */}
+              <path d="M0,-45 L-12,-65 L0,-55 Z" fill="#b8232a" />
+              <path d="M0,-45 L12,-65 L0,-55 Z" fill="#b8232a" />
+              <path d="M0,-45 L0,-65 L3,-55 Z" fill="#8b1a1a" />
+            </g>
+          ))}
         </svg>
       );
     };
@@ -3405,19 +3429,6 @@
                 zIndex: 0
               }} />
 
-              {/* Decorative dartboard */}
-              <div style={{
-                position: 'absolute',
-                right: '-10%',
-                top: '50%',
-                transform: 'translateY(-50%)',
-                width: '600px',
-                height: '600px',
-                opacity: 0.08,
-                background: `radial-gradient(circle, ${COLORS.accent} 0%, ${COLORS.accent} 5%, transparent 5%, transparent 10%, ${COLORS.primary} 10%, ${COLORS.primary} 15%, transparent 15%, transparent 40%, ${COLORS.accent} 40%, ${COLORS.accent} 43%, transparent 43%, transparent 80%, ${COLORS.primary} 80%, ${COLORS.primary} 85%, transparent 85%)`,
-                borderRadius: '50%',
-                zIndex: 1
-              }} />
 
               <div style={{ maxWidth: '1200px', width: '100%', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '60px', alignItems: 'center', zIndex: 2, position: 'relative' }}>
                 {/* Text Content */}
