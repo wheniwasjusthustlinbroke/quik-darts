@@ -33,6 +33,57 @@
       }
       .game-scoreboard { order: 3 !important; }
     }
+
+    /* Premium Menu Styles */
+    @keyframes float {
+      0%, 100% { transform: translateY(0px) rotate(0deg); }
+      50% { transform: translateY(-10px) rotate(2deg); }
+    }
+    @keyframes pulse-glow {
+      0%, 100% { filter: drop-shadow(0 0 20px rgba(255, 215, 0, 0.3)); }
+      50% { filter: drop-shadow(0 0 40px rgba(255, 215, 0, 0.6)); }
+    }
+    @keyframes shimmer {
+      0% { background-position: -200% center; }
+      100% { background-position: 200% center; }
+    }
+    @keyframes bokeh-float {
+      0%, 100% { transform: translate(0, 0) scale(1); opacity: 0.3; }
+      25% { transform: translate(10px, -15px) scale(1.1); opacity: 0.5; }
+      50% { transform: translate(-5px, -25px) scale(0.9); opacity: 0.4; }
+      75% { transform: translate(-15px, -10px) scale(1.05); opacity: 0.35; }
+    }
+    .menu-btn {
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      position: relative;
+      overflow: hidden;
+    }
+    .menu-btn:hover {
+      transform: translateY(-3px) scale(1.02);
+      box-shadow: 0 12px 35px rgba(0, 0, 0, 0.4) !important;
+    }
+    .menu-btn:active {
+      transform: translateY(0px) scale(0.98);
+    }
+    .menu-btn::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: -100%;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+      transition: left 0.5s;
+    }
+    .menu-btn:hover::before {
+      left: 100%;
+    }
+    .option-btn {
+      transition: all 0.2s ease;
+    }
+    .option-btn:hover {
+      transform: scale(1.05);
+    }
   </style>
 </head>
 <body>
@@ -2852,81 +2903,269 @@
         );
       }
 
+      // Dart icon SVG component
+      const DartIcon = ({ size = 20, color = 'currentColor' }) => (
+        <svg width={size} height={size} viewBox="0 0 24 24" fill="none" style={{ marginRight: '12px', flexShrink: 0 }}>
+          <path d="M22 2L13 11M22 2L18 22L13 11M22 2L2 7L13 11" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
+      );
+
+      // Globe icon for online play
+      const GlobeIcon = ({ size = 20, color = 'currentColor' }) => (
+        <svg width={size} height={size} viewBox="0 0 24 24" fill="none" style={{ marginRight: '12px', flexShrink: 0 }}>
+          <circle cx="12" cy="12" r="10" stroke={color} strokeWidth="2"/>
+          <path d="M2 12H22M12 2C14.5 4.5 16 8 16 12C16 16 14.5 19.5 12 22C9.5 19.5 8 16 8 12C8 8 9.5 4.5 12 2Z" stroke={color} strokeWidth="2"/>
+        </svg>
+      );
+
+      // Target icon for practice
+      const TargetIcon = ({ size = 20, color = 'currentColor' }) => (
+        <svg width={size} height={size} viewBox="0 0 24 24" fill="none" style={{ marginRight: '12px', flexShrink: 0 }}>
+          <circle cx="12" cy="12" r="10" stroke={color} strokeWidth="2"/>
+          <circle cx="12" cy="12" r="6" stroke={color} strokeWidth="2"/>
+          <circle cx="12" cy="12" r="2" fill={color}/>
+        </svg>
+      );
+
+      // Trophy icon for achievements
+      const TrophyIcon = ({ size = 20, color = 'currentColor' }) => (
+        <svg width={size} height={size} viewBox="0 0 24 24" fill="none" style={{ marginRight: '12px', flexShrink: 0 }}>
+          <path d="M8 21H16M12 17V21M6 4H18V8C18 11.3137 15.3137 14 12 14C8.68629 14 6 11.3137 6 8V4Z" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+          <path d="M6 4H4V6C4 7.10457 4.89543 8 6 8V4ZM18 4V8C19.1046 8 20 7.10457 20 6V4H18Z" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
+      );
+
       if (gameState === 'menu') {
         return (
-          <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f0f23 100%)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '20px', fontFamily: "'Oswald', sans-serif" }}>
-            <div style={{ textAlign: 'center', marginBottom: '40px' }}>
-              <h1 style={{ fontSize: '72px', fontWeight: '700', color: '#ffd700', textShadow: '0 0 20px rgba(255, 215, 0, 0.5), 0 4px 8px rgba(0,0,0,0.5)', margin: '0 0 10px 0', letterSpacing: '4px' }}>QUIK DARTS</h1>
-              <p style={{ fontSize: '18px', color: '#e8d5b7', letterSpacing: '8px', textTransform: 'uppercase' }}>Championship Edition</p>
+          <div style={{
+            minHeight: '100vh',
+            background: '#0a0a0f',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '20px',
+            fontFamily: "'Oswald', sans-serif",
+            position: 'relative',
+            overflow: 'hidden'
+          }}>
+            {/* Atmospheric background with gradient overlay */}
+            <div style={{
+              position: 'absolute',
+              inset: 0,
+              background: 'radial-gradient(ellipse at 50% 0%, rgba(139, 69, 19, 0.15) 0%, transparent 50%), radial-gradient(ellipse at 80% 80%, rgba(120, 60, 20, 0.1) 0%, transparent 40%), radial-gradient(ellipse at 20% 90%, rgba(100, 50, 20, 0.08) 0%, transparent 35%), linear-gradient(180deg, #0a0a0f 0%, #12100e 50%, #0d0b0a 100%)',
+              zIndex: 0
+            }} />
+
+            {/* Bokeh lights effect */}
+            <div style={{ position: 'absolute', inset: 0, zIndex: 1, pointerEvents: 'none', overflow: 'hidden' }}>
+              {[...Array(8)].map((_, i) => (
+                <div key={i} style={{
+                  position: 'absolute',
+                  width: `${30 + Math.random() * 60}px`,
+                  height: `${30 + Math.random() * 60}px`,
+                  borderRadius: '50%',
+                  background: i % 3 === 0 ? 'radial-gradient(circle, rgba(255, 180, 80, 0.4) 0%, transparent 70%)'
+                    : i % 3 === 1 ? 'radial-gradient(circle, rgba(255, 140, 60, 0.3) 0%, transparent 70%)'
+                    : 'radial-gradient(circle, rgba(200, 100, 50, 0.25) 0%, transparent 70%)',
+                  left: `${10 + (i * 12)}%`,
+                  top: `${5 + (i * 10) % 80}%`,
+                  animation: `bokeh-float ${8 + i * 2}s ease-in-out infinite`,
+                  animationDelay: `${i * -1.5}s`,
+                  filter: 'blur(2px)'
+                }} />
+              ))}
             </div>
-            
-            <div style={{ background: 'rgba(255, 255, 255, 0.05)', borderRadius: '20px', padding: '40px', backdropFilter: 'blur(10px)', border: '1px solid rgba(255, 215, 0, 0.2)', width: '100%', maxWidth: '450px' }}>
-              <button onClick={startGame} style={{ width: '100%', padding: '20px', fontSize: '24px', fontWeight: '700', background: 'linear-gradient(135deg, #c41e3a, #e74c3c)', color: '#fff', border: 'none', borderRadius: '15px', cursor: 'pointer', fontFamily: "'Oswald', sans-serif", letterSpacing: '4px', textTransform: 'uppercase', boxShadow: '0 4px 15px rgba(196, 30, 58, 0.4)', marginBottom: '15px' }}>🎯 Start Game</button>
 
-              <button onClick={startMatchmaking} style={{ width: '100%', padding: '20px', fontSize: '24px', fontWeight: '700', background: 'linear-gradient(135deg, #4a90e2, #357abd)', color: '#fff', border: 'none', borderRadius: '15px', cursor: 'pointer', fontFamily: "'Oswald', sans-serif", letterSpacing: '4px', textTransform: 'uppercase', boxShadow: '0 4px 15px rgba(74, 144, 226, 0.4)', marginBottom: '15px' }}>🌍 Play Online</button>
+            {/* Decorative dartboard silhouette */}
+            <div style={{
+              position: 'absolute',
+              right: '-150px',
+              top: '50%',
+              transform: 'translateY(-50%)',
+              width: '500px',
+              height: '500px',
+              opacity: 0.03,
+              zIndex: 1,
+              background: 'radial-gradient(circle, #fff 0%, #fff 8%, transparent 8%, transparent 15%, #fff 15%, #fff 20%, transparent 20%, transparent 45%, #fff 45%, #fff 48%, transparent 48%, transparent 85%, #fff 85%, #fff 90%, transparent 90%)',
+              borderRadius: '50%'
+            }} />
 
-              <button onClick={enterPracticeMode} style={{ width: '100%', padding: '20px', fontSize: '24px', fontWeight: '700', background: 'linear-gradient(135deg, #9b59b6, #8e44ad)', color: '#fff', border: 'none', borderRadius: '15px', cursor: 'pointer', fontFamily: "'Oswald', sans-serif", letterSpacing: '4px', textTransform: 'uppercase', boxShadow: '0 4px 15px rgba(155, 89, 182, 0.4)', marginBottom: '15px' }}>🎯 Practice Mode</button>
+            {/* Title section */}
+            <div style={{ textAlign: 'center', marginBottom: '50px', zIndex: 2, position: 'relative' }}>
+              <h1 style={{
+                fontSize: 'clamp(48px, 12vw, 80px)',
+                fontWeight: '700',
+                margin: '0',
+                letterSpacing: '6px',
+                background: 'linear-gradient(180deg, #fff 0%, #c9a227 25%, #f4d03f 50%, #c9a227 75%, #8b6914 100%)',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+                backgroundClip: 'text',
+                filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.8)) drop-shadow(0 4px 8px rgba(0,0,0,0.5))',
+                textShadow: 'none'
+              }}>QUIK DARTS</h1>
+              <div style={{
+                width: '120px',
+                height: '2px',
+                background: 'linear-gradient(90deg, transparent, rgba(201, 162, 39, 0.6), transparent)',
+                margin: '15px auto 0'
+              }} />
+            </div>
 
-              <button onClick={() => setShowAchievements(true)} style={{ width: '100%', padding: '20px', fontSize: '24px', fontWeight: '700', background: 'linear-gradient(135deg, #f39c12, #e67e22)', color: '#fff', border: 'none', borderRadius: '15px', cursor: 'pointer', fontFamily: "'Oswald', sans-serif", letterSpacing: '4px', textTransform: 'uppercase', boxShadow: '0 4px 15px rgba(243, 156, 18, 0.4)', marginBottom: '30px' }}>🏆 Achievements</button>
+            {/* Main content card */}
+            <div style={{
+              background: 'linear-gradient(180deg, rgba(30, 28, 25, 0.95) 0%, rgba(20, 18, 15, 0.98) 100%)',
+              borderRadius: '16px',
+              padding: '35px 30px',
+              border: '1px solid rgba(201, 162, 39, 0.15)',
+              boxShadow: '0 25px 60px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.05)',
+              width: '100%',
+              maxWidth: '420px',
+              zIndex: 2,
+              position: 'relative'
+            }}>
+              {/* Main action buttons */}
+              <button className="menu-btn" onClick={startGame} style={{
+                width: '100%',
+                padding: '18px 24px',
+                fontSize: '20px',
+                fontWeight: '600',
+                background: 'linear-gradient(180deg, #c92a2a 0%, #a61c1c 50%, #8a1717 100%)',
+                color: '#fff',
+                border: 'none',
+                borderRadius: '8px',
+                cursor: 'pointer',
+                fontFamily: "'Oswald', sans-serif",
+                letterSpacing: '3px',
+                textTransform: 'uppercase',
+                boxShadow: '0 4px 15px rgba(169, 28, 28, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.15), inset 0 -2px 0 rgba(0, 0, 0, 0.2)',
+                marginBottom: '12px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}><DartIcon size={22} color="#fff" />Start Game</button>
 
-              <div style={{ marginBottom: '30px' }}>
-                <label style={{ color: '#ffd700', fontSize: '14px', letterSpacing: '2px', display: 'block', marginBottom: '10px' }}>GAME MODE</label>
-                <div style={{ display: 'flex', gap: '10px' }}>
+              <button className="menu-btn" onClick={startMatchmaking} style={{
+                width: '100%',
+                padding: '18px 24px',
+                fontSize: '20px',
+                fontWeight: '600',
+                background: 'linear-gradient(180deg, #2a7bc9 0%, #1c5fa6 50%, #174d8a 100%)',
+                color: '#fff',
+                border: 'none',
+                borderRadius: '8px',
+                cursor: 'pointer',
+                fontFamily: "'Oswald', sans-serif",
+                letterSpacing: '3px',
+                textTransform: 'uppercase',
+                boxShadow: '0 4px 15px rgba(28, 95, 166, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.15), inset 0 -2px 0 rgba(0, 0, 0, 0.2)',
+                marginBottom: '12px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}><GlobeIcon size={22} color="#fff" />Play Online</button>
+
+              <button className="menu-btn" onClick={enterPracticeMode} style={{
+                width: '100%',
+                padding: '18px 24px',
+                fontSize: '20px',
+                fontWeight: '600',
+                background: 'linear-gradient(180deg, #6b5b95 0%, #524578 50%, #3d3359 100%)',
+                color: '#fff',
+                border: 'none',
+                borderRadius: '8px',
+                cursor: 'pointer',
+                fontFamily: "'Oswald', sans-serif",
+                letterSpacing: '3px',
+                textTransform: 'uppercase',
+                boxShadow: '0 4px 15px rgba(82, 69, 120, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.15), inset 0 -2px 0 rgba(0, 0, 0, 0.2)',
+                marginBottom: '12px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}><TargetIcon size={22} color="#fff" />Practice</button>
+
+              <button className="menu-btn" onClick={() => setShowAchievements(true)} style={{
+                width: '100%',
+                padding: '18px 24px',
+                fontSize: '20px',
+                fontWeight: '600',
+                background: 'linear-gradient(180deg, rgba(201, 162, 39, 0.15) 0%, rgba(139, 105, 20, 0.1) 100%)',
+                color: '#c9a227',
+                border: '1px solid rgba(201, 162, 39, 0.3)',
+                borderRadius: '8px',
+                cursor: 'pointer',
+                fontFamily: "'Oswald', sans-serif",
+                letterSpacing: '3px',
+                textTransform: 'uppercase',
+                boxShadow: '0 4px 15px rgba(0, 0, 0, 0.2)',
+                marginBottom: '25px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}><TrophyIcon size={22} color="#c9a227" />Achievements</button>
+
+              {/* Divider */}
+              <div style={{ height: '1px', background: 'linear-gradient(90deg, transparent, rgba(201, 162, 39, 0.2), transparent)', marginBottom: '25px' }} />
+
+              <div style={{ marginBottom: '22px' }}>
+                <label style={{ color: 'rgba(201, 162, 39, 0.8)', fontSize: '11px', letterSpacing: '3px', display: 'block', marginBottom: '10px', fontWeight: '500' }}>GAME MODE</label>
+                <div style={{ display: 'flex', gap: '8px' }}>
                   {[301, 501].map(mode => (
-                    <button key={mode} onClick={() => setPlayerSetup(prev => ({ ...prev, gameMode: mode }))} style={{ flex: 1, padding: '15px', fontSize: '20px', fontWeight: '600', background: playerSetup.gameMode === mode ? 'linear-gradient(135deg, #ffd700, #ffed4a)' : 'rgba(255, 255, 255, 0.1)', color: playerSetup.gameMode === mode ? '#1a1a2e' : '#e8d5b7', border: 'none', borderRadius: '10px', cursor: 'pointer', fontFamily: "'Oswald', sans-serif" }}>{mode}</button>
+                    <button className="option-btn" key={mode} onClick={() => setPlayerSetup(prev => ({ ...prev, gameMode: mode }))} style={{ flex: 1, padding: '14px', fontSize: '18px', fontWeight: '600', background: playerSetup.gameMode === mode ? 'linear-gradient(180deg, #c9a227 0%, #a68b1f 100%)' : 'rgba(255, 255, 255, 0.03)', color: playerSetup.gameMode === mode ? '#0a0a0f' : 'rgba(255, 255, 255, 0.5)', border: playerSetup.gameMode === mode ? 'none' : '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '6px', cursor: 'pointer', fontFamily: "'Oswald', sans-serif", boxShadow: playerSetup.gameMode === mode ? 'inset 0 1px 0 rgba(255, 255, 255, 0.3)' : 'none' }}>{mode}</button>
                   ))}
                 </div>
               </div>
 
-              <div style={{ marginBottom: '30px' }}>
-                <label style={{ color: '#ffd700', fontSize: '14px', letterSpacing: '2px', display: 'block', marginBottom: '10px' }}>LEGS PER SET</label>
-                <div style={{ display: 'flex', gap: '10px' }}>
+              <div style={{ marginBottom: '22px' }}>
+                <label style={{ color: 'rgba(201, 162, 39, 0.8)', fontSize: '11px', letterSpacing: '3px', display: 'block', marginBottom: '10px', fontWeight: '500' }}>LEGS PER SET</label>
+                <div style={{ display: 'flex', gap: '8px' }}>
                   {[1, 3, 5, 7].map(legs => (
-                    <button key={legs} onClick={() => setPlayerSetup(prev => ({ ...prev, legsPerSet: legs }))} style={{ flex: 1, padding: '15px', fontSize: '20px', fontWeight: '600', background: playerSetup.legsPerSet === legs ? 'linear-gradient(135deg, #ffd700, #ffed4a)' : 'rgba(255, 255, 255, 0.1)', color: playerSetup.legsPerSet === legs ? '#1a1a2e' : '#e8d5b7', border: 'none', borderRadius: '10px', cursor: 'pointer', fontFamily: "'Oswald', sans-serif" }}>{legs}</button>
+                    <button className="option-btn" key={legs} onClick={() => setPlayerSetup(prev => ({ ...prev, legsPerSet: legs }))} style={{ flex: 1, padding: '14px', fontSize: '18px', fontWeight: '600', background: playerSetup.legsPerSet === legs ? 'linear-gradient(180deg, #c9a227 0%, #a68b1f 100%)' : 'rgba(255, 255, 255, 0.03)', color: playerSetup.legsPerSet === legs ? '#0a0a0f' : 'rgba(255, 255, 255, 0.5)', border: playerSetup.legsPerSet === legs ? 'none' : '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '6px', cursor: 'pointer', fontFamily: "'Oswald', sans-serif", boxShadow: playerSetup.legsPerSet === legs ? 'inset 0 1px 0 rgba(255, 255, 255, 0.3)' : 'none' }}>{legs}</button>
                   ))}
                 </div>
               </div>
 
-              <div style={{ marginBottom: '30px' }}>
-                <label style={{ color: '#ffd700', fontSize: '14px', letterSpacing: '2px', display: 'block', marginBottom: '10px' }}>SETS TO WIN</label>
-                <div style={{ display: 'flex', gap: '10px' }}>
+              <div style={{ marginBottom: '22px' }}>
+                <label style={{ color: 'rgba(201, 162, 39, 0.8)', fontSize: '11px', letterSpacing: '3px', display: 'block', marginBottom: '10px', fontWeight: '500' }}>SETS TO WIN</label>
+                <div style={{ display: 'flex', gap: '8px' }}>
                   {[1, 3, 5, 7].map(sets => (
-                    <button key={sets} onClick={() => setPlayerSetup(prev => ({ ...prev, setsToWin: sets }))} style={{ flex: 1, padding: '15px', fontSize: '20px', fontWeight: '600', background: playerSetup.setsToWin === sets ? 'linear-gradient(135deg, #ffd700, #ffed4a)' : 'rgba(255, 255, 255, 0.1)', color: playerSetup.setsToWin === sets ? '#1a1a2e' : '#e8d5b7', border: 'none', borderRadius: '10px', cursor: 'pointer', fontFamily: "'Oswald', sans-serif" }}>{sets}</button>
+                    <button className="option-btn" key={sets} onClick={() => setPlayerSetup(prev => ({ ...prev, setsToWin: sets }))} style={{ flex: 1, padding: '14px', fontSize: '18px', fontWeight: '600', background: playerSetup.setsToWin === sets ? 'linear-gradient(180deg, #c9a227 0%, #a68b1f 100%)' : 'rgba(255, 255, 255, 0.03)', color: playerSetup.setsToWin === sets ? '#0a0a0f' : 'rgba(255, 255, 255, 0.5)', border: playerSetup.setsToWin === sets ? 'none' : '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '6px', cursor: 'pointer', fontFamily: "'Oswald', sans-serif", boxShadow: playerSetup.setsToWin === sets ? 'inset 0 1px 0 rgba(255, 255, 255, 0.3)' : 'none' }}>{sets}</button>
                   ))}
                 </div>
               </div>
 
-              <div style={{ marginBottom: '30px' }}>
-                <label style={{ color: '#ffd700', fontSize: '14px', letterSpacing: '2px', display: 'block', marginBottom: '10px' }}>NUMBER OF PLAYERS</label>
-                <div style={{ display: 'flex', gap: '10px' }}>
+              <div style={{ marginBottom: '22px' }}>
+                <label style={{ color: 'rgba(201, 162, 39, 0.8)', fontSize: '11px', letterSpacing: '3px', display: 'block', marginBottom: '10px', fontWeight: '500' }}>PLAYERS</label>
+                <div style={{ display: 'flex', gap: '8px' }}>
                   {[1, 2, 3, 4].map(num => (
-                    <button key={num} onClick={() => setPlayerSetup(prev => ({ ...prev, count: num }))} style={{ flex: 1, padding: '15px', fontSize: '20px', fontWeight: '600', background: playerSetup.count === num ? 'linear-gradient(135deg, #ffd700, #ffed4a)' : 'rgba(255, 255, 255, 0.1)', color: playerSetup.count === num ? '#1a1a2e' : '#e8d5b7', border: 'none', borderRadius: '10px', cursor: 'pointer', fontFamily: "'Oswald', sans-serif" }}>{num}</button>
+                    <button className="option-btn" key={num} onClick={() => setPlayerSetup(prev => ({ ...prev, count: num }))} style={{ flex: 1, padding: '14px', fontSize: '18px', fontWeight: '600', background: playerSetup.count === num ? 'linear-gradient(180deg, #c9a227 0%, #a68b1f 100%)' : 'rgba(255, 255, 255, 0.03)', color: playerSetup.count === num ? '#0a0a0f' : 'rgba(255, 255, 255, 0.5)', border: playerSetup.count === num ? 'none' : '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '6px', cursor: 'pointer', fontFamily: "'Oswald', sans-serif", boxShadow: playerSetup.count === num ? 'inset 0 1px 0 rgba(255, 255, 255, 0.3)' : 'none' }}>{num}</button>
                   ))}
                 </div>
               </div>
               
               {Array.from({ length: playerSetup.count }).map((_, i) => (
-                <div key={i} style={{ marginBottom: '20px', background: 'rgba(255, 255, 255, 0.05)', padding: '15px', borderRadius: '10px', border: '1px solid rgba(255, 215, 0, 0.2)' }}>
+                <div key={i} style={{ marginBottom: '12px', background: 'rgba(0, 0, 0, 0.3)', padding: '14px', borderRadius: '8px', border: '1px solid rgba(255, 255, 255, 0.05)' }}>
                   <input
                     type="text"
                     value={playerSetup.names[i]}
                     onChange={(e) => {
                       const newNames = [...playerSetup.names];
-                      // Limit to 20 characters and remove dangerous characters
                       const sanitized = e.target.value.slice(0, 20).replace(/[<>]/g, '');
                       newNames[i] = sanitized;
                       setPlayerSetup(prev => ({ ...prev, names: newNames }));
                     }}
                     placeholder={`Player ${i + 1}`}
                     maxLength={20}
-                    style={{ width: '100%', padding: '12px', fontSize: '16px', background: 'rgba(255, 255, 255, 0.1)', border: '1px solid rgba(255, 215, 0, 0.3)', borderRadius: '8px', color: '#e8d5b7', outline: 'none', fontFamily: "'Roboto Mono', monospace", boxSizing: 'border-box', marginBottom: '10px' }}
+                    style={{ width: '100%', padding: '11px 14px', fontSize: '14px', background: 'rgba(255, 255, 255, 0.05)', border: '1px solid rgba(255, 255, 255, 0.1)', borderRadius: '6px', color: 'rgba(255, 255, 255, 0.9)', outline: 'none', fontFamily: "'Roboto Mono', monospace", boxSizing: 'border-box', marginBottom: '10px' }}
                   />
 
                   <div style={{ marginBottom: '10px' }}>
-                    <label style={{ color: '#888', fontSize: '11px', letterSpacing: '1px', display: 'block', marginBottom: '8px' }}>NATIONALITY</label>
-                    <select value={playerSetup.flags[i]} onChange={(e) => { const newFlags = [...playerSetup.flags]; newFlags[i] = e.target.value; setPlayerSetup(prev => ({ ...prev, flags: newFlags })); }} style={{ width: '100%', padding: '10px', fontSize: '16px', background: 'rgba(255, 255, 255, 0.1)', border: '1px solid rgba(255, 215, 0, 0.3)', borderRadius: '8px', color: '#e8d5b7', outline: 'none', fontFamily: "'Roboto Mono', monospace", cursor: 'pointer', boxSizing: 'border-box' }}>
+                    <label style={{ color: 'rgba(255, 255, 255, 0.4)', fontSize: '10px', letterSpacing: '2px', display: 'block', marginBottom: '6px' }}>NATIONALITY</label>
+                    <select value={playerSetup.flags[i]} onChange={(e) => { const newFlags = [...playerSetup.flags]; newFlags[i] = e.target.value; setPlayerSetup(prev => ({ ...prev, flags: newFlags })); }} style={{ width: '100%', padding: '10px 12px', fontSize: '14px', background: 'rgba(255, 255, 255, 0.05)', border: '1px solid rgba(255, 255, 255, 0.1)', borderRadius: '6px', color: 'rgba(255, 255, 255, 0.9)', outline: 'none', fontFamily: "'Roboto Mono', monospace", cursor: 'pointer', boxSizing: 'border-box' }}>
                       {countries.map(country => (
-                        <option key={country.name} value={country.flag} style={{ background: '#1a1a2e', color: '#e8d5b7' }}>
+                        <option key={country.name} value={country.flag} style={{ background: '#1a1a1a', color: '#fff' }}>
                           {country.flag} {country.name}
                         </option>
                       ))}
@@ -2936,29 +3175,29 @@
                   {i > 0 && playerSetup.count > 1 && (
                     <>
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: playerSetup.aiPlayers[i] ? '10px' : '0' }}>
-                        <span style={{ color: '#888', fontSize: '13px', letterSpacing: '1px' }}>AI OPPONENT</span>
+                        <span style={{ color: 'rgba(255, 255, 255, 0.4)', fontSize: '10px', letterSpacing: '2px' }}>AI OPPONENT</span>
                         <button onClick={() => {
                           const newAiPlayers = [...playerSetup.aiPlayers];
                           newAiPlayers[i] = !newAiPlayers[i];
                           const newAiDifficulty = [...playerSetup.aiDifficulty];
                           if (newAiPlayers[i] && !newAiDifficulty[i]) newAiDifficulty[i] = 'medium';
                           setPlayerSetup(prev => ({ ...prev, aiPlayers: newAiPlayers, aiDifficulty: newAiDifficulty }));
-                        }} style={{ padding: '6px 15px', background: playerSetup.aiPlayers[i] ? 'linear-gradient(135deg, #228b22, #32cd32)' : 'rgba(255, 255, 255, 0.1)', color: playerSetup.aiPlayers[i] ? '#fff' : '#888', border: 'none', borderRadius: '15px', cursor: 'pointer', fontFamily: "'Oswald', sans-serif", fontSize: '12px', fontWeight: '600' }}>
+                        }} style={{ padding: '5px 14px', background: playerSetup.aiPlayers[i] ? 'linear-gradient(180deg, #2d8a2d, #1f6b1f)' : 'rgba(255, 255, 255, 0.05)', color: playerSetup.aiPlayers[i] ? '#fff' : 'rgba(255, 255, 255, 0.4)', border: playerSetup.aiPlayers[i] ? 'none' : '1px solid rgba(255, 255, 255, 0.1)', borderRadius: '4px', cursor: 'pointer', fontFamily: "'Oswald', sans-serif", fontSize: '11px', fontWeight: '600', letterSpacing: '1px' }}>
                           {playerSetup.aiPlayers[i] ? 'ON' : 'OFF'}
                         </button>
                       </div>
 
                       {playerSetup.aiPlayers[i] && (
                         <div>
-                          <label style={{ color: '#888', fontSize: '11px', letterSpacing: '1px', display: 'block', marginBottom: '8px' }}>DIFFICULTY</label>
-                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '6px' }}>
+                          <label style={{ color: 'rgba(255, 255, 255, 0.4)', fontSize: '10px', letterSpacing: '2px', display: 'block', marginBottom: '6px' }}>DIFFICULTY</label>
+                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '5px' }}>
                             {['easy', 'medium', 'hard', 'impossible'].map(diff => (
-                              <button key={diff} onClick={() => {
+                              <button className="option-btn" key={diff} onClick={() => {
                                 const newAiDifficulty = [...playerSetup.aiDifficulty];
                                 newAiDifficulty[i] = diff;
                                 setPlayerSetup(prev => ({ ...prev, aiDifficulty: newAiDifficulty }));
-                              }} style={{ padding: '8px 4px', fontSize: '11px', fontWeight: '600', background: playerSetup.aiDifficulty[i] === diff ? 'linear-gradient(135deg, #ffd700, #ffed4a)' : 'rgba(255, 255, 255, 0.1)', color: playerSetup.aiDifficulty[i] === diff ? '#1a1a2e' : '#888', border: 'none', borderRadius: '6px', cursor: 'pointer', fontFamily: "'Oswald', sans-serif", textTransform: 'uppercase' }}>
-                                {diff}
+                              }} style={{ padding: '7px 4px', fontSize: '10px', fontWeight: '600', background: playerSetup.aiDifficulty[i] === diff ? 'linear-gradient(180deg, #c9a227 0%, #a68b1f 100%)' : 'rgba(255, 255, 255, 0.03)', color: playerSetup.aiDifficulty[i] === diff ? '#0a0a0f' : 'rgba(255, 255, 255, 0.4)', border: playerSetup.aiDifficulty[i] === diff ? 'none' : '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '4px', cursor: 'pointer', fontFamily: "'Oswald', sans-serif", textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                                {diff === 'impossible' ? 'IMPOS' : diff}
                               </button>
                             ))}
                           </div>
@@ -2969,73 +3208,82 @@
                 </div>
               ))}
               
-              <div style={{ marginBottom: '30px', marginTop: '30px' }}>
-                <label style={{ color: '#ffd700', fontSize: '14px', letterSpacing: '2px', display: 'block', marginBottom: '15px' }}>SKILL LEVEL</label>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px' }}>
+              {/* Divider */}
+              <div style={{ height: '1px', background: 'linear-gradient(90deg, transparent, rgba(201, 162, 39, 0.2), transparent)', margin: '20px 0' }} />
+
+              <div style={{ marginBottom: '20px' }}>
+                <label style={{ color: 'rgba(201, 162, 39, 0.8)', fontSize: '11px', letterSpacing: '3px', display: 'block', marginBottom: '10px', fontWeight: '500' }}>SKILL LEVEL</label>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px' }}>
                   <button
+                    className="option-btn"
                     onClick={() => setSkillLevel(30)}
                     style={{
-                      padding: '15px 10px',
-                      background: skillLevel <= 40 ? 'linear-gradient(135deg, #228b22, #32cd32)' : 'rgba(255, 255, 255, 0.1)',
-                      color: skillLevel <= 40 ? '#fff' : '#888',
-                      border: skillLevel <= 40 ? '2px solid #32cd32' : '2px solid transparent',
-                      borderRadius: '10px',
+                      padding: '14px 8px',
+                      background: skillLevel <= 40 ? 'linear-gradient(180deg, #2d8a2d, #1f6b1f)' : 'rgba(255, 255, 255, 0.03)',
+                      color: skillLevel <= 40 ? '#fff' : 'rgba(255, 255, 255, 0.5)',
+                      border: skillLevel <= 40 ? 'none' : '1px solid rgba(255, 255, 255, 0.08)',
+                      borderRadius: '6px',
                       cursor: 'pointer',
                       fontFamily: "'Oswald', sans-serif",
-                      fontSize: '14px',
+                      fontSize: '12px',
                       fontWeight: '600',
-                      transition: 'all 0.2s'
+                      letterSpacing: '1px',
+                      boxShadow: skillLevel <= 40 ? 'inset 0 1px 0 rgba(255, 255, 255, 0.2)' : 'none'
                     }}
                   >
-                    <div style={{ fontSize: '16px', marginBottom: '5px' }}>🟢</div>
+                    <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: skillLevel <= 40 ? '#90EE90' : 'rgba(144, 238, 144, 0.4)', margin: '0 auto 6px' }} />
                     BEGINNER
                   </button>
                   <button
+                    className="option-btn"
                     onClick={() => setSkillLevel(60)}
                     style={{
-                      padding: '15px 10px',
-                      background: skillLevel >= 41 && skillLevel <= 80 ? 'linear-gradient(135deg, #ffa500, #ffb732)' : 'rgba(255, 255, 255, 0.1)',
-                      color: skillLevel >= 41 && skillLevel <= 80 ? '#fff' : '#888',
-                      border: skillLevel >= 41 && skillLevel <= 80 ? '2px solid #ffb732' : '2px solid transparent',
-                      borderRadius: '10px',
+                      padding: '14px 8px',
+                      background: skillLevel >= 41 && skillLevel <= 80 ? 'linear-gradient(180deg, #c9a227, #a68b1f)' : 'rgba(255, 255, 255, 0.03)',
+                      color: skillLevel >= 41 && skillLevel <= 80 ? '#0a0a0f' : 'rgba(255, 255, 255, 0.5)',
+                      border: skillLevel >= 41 && skillLevel <= 80 ? 'none' : '1px solid rgba(255, 255, 255, 0.08)',
+                      borderRadius: '6px',
                       cursor: 'pointer',
                       fontFamily: "'Oswald', sans-serif",
-                      fontSize: '14px',
+                      fontSize: '12px',
                       fontWeight: '600',
-                      transition: 'all 0.2s'
+                      letterSpacing: '1px',
+                      boxShadow: skillLevel >= 41 && skillLevel <= 80 ? 'inset 0 1px 0 rgba(255, 255, 255, 0.3)' : 'none'
                     }}
                   >
-                    <div style={{ fontSize: '16px', marginBottom: '5px' }}>🟡</div>
+                    <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: skillLevel >= 41 && skillLevel <= 80 ? '#0a0a0f' : 'rgba(255, 193, 7, 0.4)', margin: '0 auto 6px' }} />
                     INTERMEDIATE
                   </button>
                   <button
+                    className="option-btn"
                     onClick={() => setSkillLevel(90)}
                     style={{
-                      padding: '15px 10px',
-                      background: skillLevel >= 81 ? 'linear-gradient(135deg, #c41e3a, #e74c3c)' : 'rgba(255, 255, 255, 0.1)',
-                      color: skillLevel >= 81 ? '#fff' : '#888',
-                      border: skillLevel >= 81 ? '2px solid #e74c3c' : '2px solid transparent',
-                      borderRadius: '10px',
+                      padding: '14px 8px',
+                      background: skillLevel >= 81 ? 'linear-gradient(180deg, #a61c1c, #8a1717)' : 'rgba(255, 255, 255, 0.03)',
+                      color: skillLevel >= 81 ? '#fff' : 'rgba(255, 255, 255, 0.5)',
+                      border: skillLevel >= 81 ? 'none' : '1px solid rgba(255, 255, 255, 0.08)',
+                      borderRadius: '6px',
                       cursor: 'pointer',
                       fontFamily: "'Oswald', sans-serif",
-                      fontSize: '14px',
+                      fontSize: '12px',
                       fontWeight: '600',
-                      transition: 'all 0.2s'
+                      letterSpacing: '1px',
+                      boxShadow: skillLevel >= 81 ? 'inset 0 1px 0 rgba(255, 255, 255, 0.2)' : 'none'
                     }}
                   >
-                    <div style={{ fontSize: '16px', marginBottom: '5px' }}>🔴</div>
+                    <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: skillLevel >= 81 ? '#ff6b6b' : 'rgba(255, 107, 107, 0.4)', margin: '0 auto 6px' }} />
                     EXPERT
                   </button>
                 </div>
               </div>
-              
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <span style={{ color: '#e8d5b7', fontSize: '14px', letterSpacing: '2px' }}>SOUND EFFECTS</span>
-                <button onClick={() => setSoundEnabled(!soundEnabled)} style={{ padding: '10px 20px', background: soundEnabled ? 'linear-gradient(135deg, #228b22, #32cd32)' : 'rgba(255, 255, 255, 0.1)', color: soundEnabled ? '#fff' : '#888', border: 'none', borderRadius: '20px', cursor: 'pointer', fontFamily: "'Oswald', sans-serif", fontSize: '14px' }}>{soundEnabled ? 'ON' : 'OFF'}</button>
+
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 0' }}>
+                <span style={{ color: 'rgba(255, 255, 255, 0.5)', fontSize: '12px', letterSpacing: '2px' }}>SOUND</span>
+                <button onClick={() => setSoundEnabled(!soundEnabled)} style={{ padding: '6px 16px', background: soundEnabled ? 'linear-gradient(180deg, #2d8a2d, #1f6b1f)' : 'rgba(255, 255, 255, 0.05)', color: soundEnabled ? '#fff' : 'rgba(255, 255, 255, 0.4)', border: soundEnabled ? 'none' : '1px solid rgba(255, 255, 255, 0.1)', borderRadius: '4px', cursor: 'pointer', fontFamily: "'Oswald', sans-serif", fontSize: '12px', fontWeight: '600', letterSpacing: '1px' }}>{soundEnabled ? 'ON' : 'OFF'}</button>
               </div>
             </div>
-            
-            <p style={{ color: '#666', marginTop: '30px', fontSize: '14px' }}>Hold mouse to charge power • Release to throw</p>
+
+            <p style={{ color: 'rgba(255, 255, 255, 0.25)', marginTop: '35px', fontSize: '12px', letterSpacing: '1px', zIndex: 2, position: 'relative' }}>Hold to charge power • Release to throw</p>
           </div>
         );
       }
