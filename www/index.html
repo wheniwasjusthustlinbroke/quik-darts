@@ -3443,13 +3443,80 @@
                   <p style={{ color: COLORS.textMuted, fontSize: '1.25rem', marginBottom: '32px', maxWidth: '500px', lineHeight: '1.7' }}>
                     Championship-style online darts. Play solo, challenge friends, or compete online. Experience realistic 501 gameplay right in your browser.
                   </p>
-                  <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
-                    <button className="btn btn-primary" onClick={() => setGameState('menu')} style={{ fontSize: '1.1rem', padding: '16px 32px' }}>
-                      <PlayIcon /> Play Now
-                    </button>
-                    <button className="btn btn-ghost" onClick={() => setGameState('howToPlay')}>
-                      <BookIcon /> How to Play
-                    </button>
+                </div>
+
+                {/* Game Setup Card */}
+                <div className="animate-fade-in animate-delay-2" style={{
+                  background: COLORS.backgroundCard,
+                  borderRadius: '16px',
+                  padding: '32px',
+                  border: '1px solid rgba(255, 255, 255, 0.05)',
+                  boxShadow: '0 25px 60px rgba(0, 0, 0, 0.5)',
+                  width: '100%',
+                  maxWidth: '420px'
+                }}>
+                  {/* Main action buttons */}
+                  <button className="btn btn-primary" onClick={startGame} style={{
+                    width: '100%',
+                    padding: '16px 24px',
+                    fontSize: '1rem',
+                    marginBottom: '12px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}><DartIcon size={20} color={COLORS.textDark} />Start Game</button>
+
+                  <button className="btn btn-secondary" onClick={startMatchmaking} style={{
+                    width: '100%',
+                    padding: '16px 24px',
+                    fontSize: '1rem',
+                    marginBottom: '12px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}><GlobeIcon size={20} color={COLORS.text} />Play Online</button>
+
+                  <button className="btn btn-ghost" onClick={enterPracticeMode} style={{
+                    width: '100%',
+                    padding: '16px 24px',
+                    fontSize: '1rem',
+                    marginBottom: '24px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}><TargetIcon size={20} color={COLORS.text} />Practice Mode</button>
+
+                  {/* Divider */}
+                  <div style={{ height: '1px', background: `linear-gradient(90deg, transparent, ${COLORS.accent}30, transparent)`, marginBottom: '24px' }} />
+
+                  {/* Game Mode */}
+                  <div style={{ marginBottom: '20px' }}>
+                    <label style={{ color: COLORS.textMuted, fontSize: '0.75rem', letterSpacing: '2px', display: 'block', marginBottom: '10px', fontWeight: '600', textTransform: 'uppercase' }}>Game Mode</label>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      {[301, 501].map(mode => (
+                        <button key={mode} onClick={() => setPlayerSetup(prev => ({ ...prev, gameMode: mode }))} style={{ flex: 1, padding: '12px', fontSize: '1rem', fontWeight: '600', background: playerSetup.gameMode === mode ? `linear-gradient(135deg, ${COLORS.accent}, ${COLORS.accentDark})` : 'rgba(255, 255, 255, 0.03)', color: playerSetup.gameMode === mode ? COLORS.textDark : COLORS.textMuted, border: playerSetup.gameMode === mode ? 'none' : '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '6px', cursor: 'pointer' }}>{mode}</button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Legs Per Set */}
+                  <div style={{ marginBottom: '20px' }}>
+                    <label style={{ color: COLORS.textMuted, fontSize: '0.75rem', letterSpacing: '2px', display: 'block', marginBottom: '10px', fontWeight: '600', textTransform: 'uppercase' }}>Legs Per Set</label>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      {[1, 3, 5, 7].map(legs => (
+                        <button key={legs} onClick={() => setPlayerSetup(prev => ({ ...prev, legsPerSet: legs }))} style={{ flex: 1, padding: '12px', fontSize: '1rem', fontWeight: '600', background: playerSetup.legsPerSet === legs ? `linear-gradient(135deg, ${COLORS.accent}, ${COLORS.accentDark})` : 'rgba(255, 255, 255, 0.03)', color: playerSetup.legsPerSet === legs ? COLORS.textDark : COLORS.textMuted, border: playerSetup.legsPerSet === legs ? 'none' : '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '6px', cursor: 'pointer' }}>{legs}</button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Sets To Win */}
+                  <div>
+                    <label style={{ color: COLORS.textMuted, fontSize: '0.75rem', letterSpacing: '2px', display: 'block', marginBottom: '10px', fontWeight: '600', textTransform: 'uppercase' }}>Sets To Win</label>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      {[1, 3, 5, 7].map(sets => (
+                        <button key={sets} onClick={() => setPlayerSetup(prev => ({ ...prev, setsToWin: sets }))} style={{ flex: 1, padding: '12px', fontSize: '1rem', fontWeight: '600', background: playerSetup.setsToWin === sets ? `linear-gradient(135deg, ${COLORS.accent}, ${COLORS.accentDark})` : 'rgba(255, 255, 255, 0.03)', color: playerSetup.setsToWin === sets ? COLORS.textDark : COLORS.textMuted, border: playerSetup.setsToWin === sets ? 'none' : '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '6px', cursor: 'pointer' }}>{sets}</button>
+                      ))}
+                    </div>
                   </div>
                 </div>
               </div>
