@@ -562,6 +562,7 @@
       const powerResetTimeoutRef = useRef(null);
       const matchmakingIntervalRef = useRef(null);
       const audioContext = useRef(null);
+      const aimPositionRef = useRef({ x: CENTER, y: CENTER });
 
       const countries = [
         { name: 'Afghanistan', flag: '🇦🇫' },
@@ -1414,9 +1415,9 @@
         if (practiceMode === 'active') {
           playSound('throw');
 
-          // Apply wobble offset to aim position
-          const effectiveAimX = aimPosition.x + aimWobble.x;
-          const effectiveAimY = aimPosition.y + aimWobble.y;
+          // Apply wobble offset to aim position (use ref for current value, avoids stale closure)
+          const effectiveAimX = aimPositionRef.current.x + aimWobble.x;
+          const effectiveAimY = aimPositionRef.current.y + aimWobble.y;
 
           // Use practice skill level for difficulty
           const currentSkill = practiceSkillLevel;
@@ -1502,9 +1503,9 @@
 
         playSound('throw');
 
-        // Apply wobble offset to aim position (expert mode 180 challenge)
-        const effectiveAimX = aimPosition.x + aimWobble.x;
-        const effectiveAimY = aimPosition.y + aimWobble.y;
+        // Apply wobble offset to aim position (use ref for current value, avoids stale closure)
+        const effectiveAimX = aimPositionRef.current.x + aimWobble.x;
+        const effectiveAimY = aimPositionRef.current.y + aimWobble.y;
 
         // Check if player is aiming at the winning double
         const currentPlayer = players[currentPlayerIndex];
@@ -1733,6 +1734,7 @@
         const rect = boardRef.current.getBoundingClientRect();
         const x = ((e.clientX - rect.left) / rect.width) * BOARD_SIZE;
         const y = ((e.clientY - rect.top) / rect.height) * BOARD_SIZE;
+        aimPositionRef.current = { x, y };
         setAimPosition({ x, y });
       }, [isPowerCharging]);
 
@@ -1795,6 +1797,7 @@
         const rect = boardRef.current.getBoundingClientRect();
         const x = ((touch.clientX - rect.left) / rect.width) * BOARD_SIZE;
         const y = ((touch.clientY - rect.top) / rect.height) * BOARD_SIZE;
+        aimPositionRef.current = { x, y };
         setAimPosition({ x, y });
       }, [isPowerCharging]);
 
@@ -1820,6 +1823,7 @@
         const rect = boardRef.current.getBoundingClientRect();
         const x = ((touch.clientX - rect.left) / rect.width) * BOARD_SIZE;
         const y = ((touch.clientY - rect.top) / rect.height) * BOARD_SIZE;
+        aimPositionRef.current = { x, y };
         setAimPosition({ x, y });
 
         setIsPowerCharging(true);
