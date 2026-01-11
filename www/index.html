@@ -2431,26 +2431,6 @@
             );
           }
 
-          // Numbers with embossed effect
-          const textAngle = (i * 18 - 90) * (Math.PI / 180);
-          const textX = CENTER + 190 * Math.cos(textAngle);
-          const textY = CENTER + 190 * Math.sin(textAngle);
-
-          const textStyle = effects.glowEffect ? { fontFamily: "'Oswald', sans-serif", filter: 'url(#neonGlow)' } : { fontFamily: "'Oswald', sans-serif" };
-
-          // Only render text shadow when shadowIntensity > 0 (iOS doesn't render text shadows)
-          if (effects.shadowIntensity > 0) {
-            segments.push(
-              <text key={`text-shadow-${i}`} x={textX + 0.5} y={textY + 0.5} fill="rgba(0,0,0,0.5)" fontSize="16" fontWeight="bold" textAnchor="middle" dominantBaseline="middle" style={{ fontFamily: "'Oswald', sans-serif" }}>
-                {SEGMENTS[i]}
-              </text>
-            );
-          }
-          segments.push(
-            <text key={`text-${i}`} x={textX} y={textY} fill={colors.numberText} fontSize="16" fontWeight="bold" textAnchor="middle" dominantBaseline="middle" style={textStyle}>
-              {SEGMENTS[i]}
-            </text>
-          );
         }
 
         // Bulls with raised 3D effect and texture
@@ -2535,6 +2515,31 @@
         if (effects.useMetallicSheen && colors.metallicSheen) {
           segments.push(
             <circle key="metallic-sheen" cx={CENTER} cy={CENTER} r={DOUBLE_OUTER + 2} fill={colors.metallicSheen} pointerEvents="none" />
+          );
+        }
+
+        // Numbers - rendered LAST to ensure they appear on top of all other elements
+        const textStyle = effects.glowEffect ? { fontFamily: "'Oswald', sans-serif", filter: 'url(#neonGlow)' } : { fontFamily: "'Oswald', sans-serif" };
+        const numberRadius = DOUBLE_OUTER + 16; // Position numbers between chrome ring and number ring edge
+
+        for (let i = 0; i < 20; i++) {
+          const textAngle = (i * 18 - 90) * (Math.PI / 180);
+          const textX = CENTER + numberRadius * Math.cos(textAngle);
+          const textY = CENTER + numberRadius * Math.sin(textAngle);
+
+          // Text shadow (if enabled)
+          if (effects.shadowIntensity > 0) {
+            segments.push(
+              <text key={`text-shadow-${i}`} x={textX + 0.5} y={textY + 0.5} fill="rgba(0,0,0,0.5)" fontSize="16" fontWeight="bold" textAnchor="middle" dominantBaseline="middle" style={{ fontFamily: "'Oswald', sans-serif" }}>
+                {SEGMENTS[i]}
+              </text>
+            );
+          }
+          // Number text
+          segments.push(
+            <text key={`text-${i}`} x={textX} y={textY} fill={colors.numberText} fontSize="16" fontWeight="bold" textAnchor="middle" dominantBaseline="middle" style={textStyle}>
+              {SEGMENTS[i]}
+            </text>
           );
         }
 
