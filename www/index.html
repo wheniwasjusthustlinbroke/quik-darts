@@ -27,7 +27,10 @@
         flex-direction: column !important;
       }
       .game-dartboard { order: 1 !important; }
-      .game-history { order: 2 !important; }
+      .game-history {
+        order: 2 !important;
+        max-height: 180px !important;  /* Show ~3 throws, scroll for more */
+      }
       .game-scoreboard { order: 3 !important; }
     }
   </style>
