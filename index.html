@@ -114,6 +114,47 @@
       console.warn('Firebase not configured. Online multiplayer disabled.', error);
     }
 
+    // Menu Icon Components (defined outside component to prevent recreation on each render)
+    const DartIcon = ({ size = 20, color = 'currentColor' }) => (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden="true" style={{ marginRight: '12px', flexShrink: 0 }}>
+        <path d="M22 2L13 11M22 2L18 22L13 11M22 2L2 7L13 11" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+      </svg>
+    );
+
+    const GlobeIcon = ({ size = 20, color = 'currentColor' }) => (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden="true" style={{ marginRight: '12px', flexShrink: 0 }}>
+        <circle cx="12" cy="12" r="10" stroke={color} strokeWidth="2"/>
+        <path d="M2 12H22M12 2C14.5 4.5 16 8 16 12C16 16 14.5 19.5 12 22C9.5 19.5 8 16 8 12C8 8 9.5 4.5 12 2Z" stroke={color} strokeWidth="2"/>
+      </svg>
+    );
+
+    const TargetIcon = ({ size = 20, color = 'currentColor' }) => (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden="true" style={{ marginRight: '12px', flexShrink: 0 }}>
+        <circle cx="12" cy="12" r="10" stroke={color} strokeWidth="2"/>
+        <circle cx="12" cy="12" r="6" stroke={color} strokeWidth="2"/>
+        <circle cx="12" cy="12" r="2" fill={color}/>
+      </svg>
+    );
+
+    const TrophyIcon = ({ size = 20, color = 'currentColor' }) => (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden="true" style={{ marginRight: '12px', flexShrink: 0 }}>
+        <path d="M8 21H16M12 17V21M6 4H18V8C18 11.3137 15.3137 14 12 14C8.68629 14 6 11.3137 6 8V4Z" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+        <path d="M6 4H4V6C4 7.10457 4.89543 8 6 8V4ZM18 4V8C19.1046 8 20 7.10457 20 6V4H18Z" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+      </svg>
+    );
+
+    // Pre-computed bokeh light sizes (deterministic, no Math.random in render)
+    const BOKEH_LIGHTS = [
+      { size: 45, left: 10, top: 5 },
+      { size: 65, left: 22, top: 15 },
+      { size: 38, left: 34, top: 25 },
+      { size: 72, left: 46, top: 35 },
+      { size: 50, left: 58, top: 45 },
+      { size: 58, left: 70, top: 55 },
+      { size: 42, left: 82, top: 65 },
+      { size: 68, left: 94, top: 75 }
+    ];
+
     const BOARD_SIZE = 500;
     const CENTER = BOARD_SIZE / 2;
     const SEGMENTS = [20, 1, 18, 4, 13, 6, 10, 15, 2, 17, 3, 19, 7, 16, 8, 11, 14, 9, 12, 5];
@@ -2903,38 +2944,6 @@
         );
       }
 
-      // Dart icon SVG component
-      const DartIcon = ({ size = 20, color = 'currentColor' }) => (
-        <svg width={size} height={size} viewBox="0 0 24 24" fill="none" style={{ marginRight: '12px', flexShrink: 0 }}>
-          <path d="M22 2L13 11M22 2L18 22L13 11M22 2L2 7L13 11" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-        </svg>
-      );
-
-      // Globe icon for online play
-      const GlobeIcon = ({ size = 20, color = 'currentColor' }) => (
-        <svg width={size} height={size} viewBox="0 0 24 24" fill="none" style={{ marginRight: '12px', flexShrink: 0 }}>
-          <circle cx="12" cy="12" r="10" stroke={color} strokeWidth="2"/>
-          <path d="M2 12H22M12 2C14.5 4.5 16 8 16 12C16 16 14.5 19.5 12 22C9.5 19.5 8 16 8 12C8 8 9.5 4.5 12 2Z" stroke={color} strokeWidth="2"/>
-        </svg>
-      );
-
-      // Target icon for practice
-      const TargetIcon = ({ size = 20, color = 'currentColor' }) => (
-        <svg width={size} height={size} viewBox="0 0 24 24" fill="none" style={{ marginRight: '12px', flexShrink: 0 }}>
-          <circle cx="12" cy="12" r="10" stroke={color} strokeWidth="2"/>
-          <circle cx="12" cy="12" r="6" stroke={color} strokeWidth="2"/>
-          <circle cx="12" cy="12" r="2" fill={color}/>
-        </svg>
-      );
-
-      // Trophy icon for achievements
-      const TrophyIcon = ({ size = 20, color = 'currentColor' }) => (
-        <svg width={size} height={size} viewBox="0 0 24 24" fill="none" style={{ marginRight: '12px', flexShrink: 0 }}>
-          <path d="M8 21H16M12 17V21M6 4H18V8C18 11.3137 15.3137 14 12 14C8.68629 14 6 11.3137 6 8V4Z" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-          <path d="M6 4H4V6C4 7.10457 4.89543 8 6 8V4ZM18 4V8C19.1046 8 20 7.10457 20 6V4H18Z" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-        </svg>
-      );
-
       if (gameState === 'menu') {
         return (
           <div style={{
@@ -2959,17 +2968,17 @@
 
             {/* Bokeh lights effect */}
             <div style={{ position: 'absolute', inset: 0, zIndex: 1, pointerEvents: 'none', overflow: 'hidden' }}>
-              {[...Array(8)].map((_, i) => (
+              {BOKEH_LIGHTS.map((light, i) => (
                 <div key={i} style={{
                   position: 'absolute',
-                  width: `${30 + Math.random() * 60}px`,
-                  height: `${30 + Math.random() * 60}px`,
+                  width: `${light.size}px`,
+                  height: `${light.size}px`,
                   borderRadius: '50%',
                   background: i % 3 === 0 ? 'radial-gradient(circle, rgba(255, 180, 80, 0.4) 0%, transparent 70%)'
                     : i % 3 === 1 ? 'radial-gradient(circle, rgba(255, 140, 60, 0.3) 0%, transparent 70%)'
                     : 'radial-gradient(circle, rgba(200, 100, 50, 0.25) 0%, transparent 70%)',
-                  left: `${10 + (i * 12)}%`,
-                  top: `${5 + (i * 10) % 80}%`,
+                  left: `${light.left}%`,
+                  top: `${light.top}%`,
                   animation: `bokeh-float ${8 + i * 2}s ease-in-out infinite`,
                   animationDelay: `${i * -1.5}s`,
                   filter: 'blur(2px)'
