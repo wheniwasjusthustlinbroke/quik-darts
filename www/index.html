@@ -3764,7 +3764,7 @@
                 <label style={{ color: COLORS.textMuted, fontSize: '0.75rem', letterSpacing: '2px', display: 'block', marginBottom: '10px', fontWeight: '600', textTransform: 'uppercase' }}>Game Mode</label>
                 <div style={{ display: 'flex', gap: '8px' }}>
                   {[301, 501].map(mode => (
-                    <button className="option-btn" key={mode} onClick={() => setPlayerSetup(prev => ({ ...prev, gameMode: mode }))} style={{ flex: 1, padding: '12px', fontSize: '1rem', fontWeight: '600', background: playerSetup.gameMode === mode ? `linear-gradient(135deg, ${COLORS.accent}, ${COLORS.accentDark})` : 'rgba(255, 255, 255, 0.03)', color: playerSetup.gameMode === mode ? COLORS.textDark : COLORS.textMuted, border: playerSetup.gameMode === mode ? 'none' : '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '6px', cursor: 'pointer', fontFamily: 'var(--font-primary)' }}>{mode}</button>
+                    <button key={mode} onClick={() => setPlayerSetup(prev => ({ ...prev, gameMode: mode }))} style={{ flex: 1, padding: '12px', fontSize: '1rem', fontWeight: '600', background: playerSetup.gameMode === mode ? `linear-gradient(135deg, ${COLORS.accent}, ${COLORS.accentDark})` : 'rgba(255, 255, 255, 0.03)', color: playerSetup.gameMode === mode ? COLORS.textDark : COLORS.textMuted, border: playerSetup.gameMode === mode ? 'none' : '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '6px', cursor: 'pointer', fontFamily: 'var(--font-primary)' }}>{mode}</button>
                   ))}
                 </div>
               </div>
@@ -3773,7 +3773,7 @@
                 <label style={{ color: 'rgba(201, 162, 39, 0.8)', fontSize: '11px', letterSpacing: '3px', display: 'block', marginBottom: '10px', fontWeight: '500' }}>LEGS PER SET</label>
                 <div style={{ display: 'flex', gap: '8px' }}>
                   {[1, 3, 5, 7].map(legs => (
-                    <button className="option-btn" key={legs} onClick={() => setPlayerSetup(prev => ({ ...prev, legsPerSet: legs }))} style={{ flex: 1, padding: '14px', fontSize: '18px', fontWeight: '600', background: playerSetup.legsPerSet === legs ? 'linear-gradient(180deg, #c9a227 0%, #a68b1f 100%)' : 'rgba(255, 255, 255, 0.03)', color: playerSetup.legsPerSet === legs ? '#0a0a0f' : 'rgba(255, 255, 255, 0.5)', border: playerSetup.legsPerSet === legs ? 'none' : '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '6px', cursor: 'pointer', fontFamily: "'Oswald', sans-serif", boxShadow: playerSetup.legsPerSet === legs ? 'inset 0 1px 0 rgba(255, 255, 255, 0.3)' : 'none' }}>{legs}</button>
+                    <button key={legs} onClick={() => setPlayerSetup(prev => ({ ...prev, legsPerSet: legs }))} style={{ flex: 1, padding: '14px', fontSize: '18px', fontWeight: '600', background: playerSetup.legsPerSet === legs ? 'linear-gradient(180deg, #c9a227 0%, #a68b1f 100%)' : 'rgba(255, 255, 255, 0.03)', color: playerSetup.legsPerSet === legs ? '#0a0a0f' : 'rgba(255, 255, 255, 0.5)', border: playerSetup.legsPerSet === legs ? 'none' : '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '6px', cursor: 'pointer', fontFamily: "'Oswald', sans-serif", boxShadow: playerSetup.legsPerSet === legs ? 'inset 0 1px 0 rgba(255, 255, 255, 0.3)' : 'none' }}>{legs}</button>
                   ))}
                 </div>
               </div>
@@ -3782,7 +3782,7 @@
                 <label style={{ color: 'rgba(201, 162, 39, 0.8)', fontSize: '11px', letterSpacing: '3px', display: 'block', marginBottom: '10px', fontWeight: '500' }}>SETS TO WIN</label>
                 <div style={{ display: 'flex', gap: '8px' }}>
                   {[1, 3, 5, 7].map(sets => (
-                    <button className="option-btn" key={sets} onClick={() => setPlayerSetup(prev => ({ ...prev, setsToWin: sets }))} style={{ flex: 1, padding: '14px', fontSize: '18px', fontWeight: '600', background: playerSetup.setsToWin === sets ? 'linear-gradient(180deg, #c9a227 0%, #a68b1f 100%)' : 'rgba(255, 255, 255, 0.03)', color: playerSetup.setsToWin === sets ? '#0a0a0f' : 'rgba(255, 255, 255, 0.5)', border: playerSetup.setsToWin === sets ? 'none' : '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '6px', cursor: 'pointer', fontFamily: "'Oswald', sans-serif", boxShadow: playerSetup.setsToWin === sets ? 'inset 0 1px 0 rgba(255, 255, 255, 0.3)' : 'none' }}>{sets}</button>
+                    <button key={sets} onClick={() => setPlayerSetup(prev => ({ ...prev, setsToWin: sets }))} style={{ flex: 1, padding: '14px', fontSize: '18px', fontWeight: '600', background: playerSetup.setsToWin === sets ? 'linear-gradient(180deg, #c9a227 0%, #a68b1f 100%)' : 'rgba(255, 255, 255, 0.03)', color: playerSetup.setsToWin === sets ? '#0a0a0f' : 'rgba(255, 255, 255, 0.5)', border: playerSetup.setsToWin === sets ? 'none' : '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '6px', cursor: 'pointer', fontFamily: "'Oswald', sans-serif", boxShadow: playerSetup.setsToWin === sets ? 'inset 0 1px 0 rgba(255, 255, 255, 0.3)' : 'none' }}>{sets}</button>
                   ))}
                 </div>
               </div>
@@ -3791,7 +3791,7 @@
                 <label style={{ color: 'rgba(201, 162, 39, 0.8)', fontSize: '11px', letterSpacing: '3px', display: 'block', marginBottom: '10px', fontWeight: '500' }}>PLAYERS</label>
                 <div style={{ display: 'flex', gap: '8px' }}>
                   {[1, 2, 3, 4].map(num => (
-                    <button className="option-btn" key={num} onClick={() => setPlayerSetup(prev => ({ ...prev, count: num }))} style={{ flex: 1, padding: '14px', fontSize: '18px', fontWeight: '600', background: playerSetup.count === num ? 'linear-gradient(180deg, #c9a227 0%, #a68b1f 100%)' : 'rgba(255, 255, 255, 0.03)', color: playerSetup.count === num ? '#0a0a0f' : 'rgba(255, 255, 255, 0.5)', border: playerSetup.count === num ? 'none' : '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '6px', cursor: 'pointer', fontFamily: "'Oswald', sans-serif", boxShadow: playerSetup.count === num ? 'inset 0 1px 0 rgba(255, 255, 255, 0.3)' : 'none' }}>{num}</button>
+                    <button key={num} onClick={() => setPlayerSetup(prev => ({ ...prev, count: num }))} style={{ flex: 1, padding: '14px', fontSize: '18px', fontWeight: '600', background: playerSetup.count === num ? 'linear-gradient(180deg, #c9a227 0%, #a68b1f 100%)' : 'rgba(255, 255, 255, 0.03)', color: playerSetup.count === num ? '#0a0a0f' : 'rgba(255, 255, 255, 0.5)', border: playerSetup.count === num ? 'none' : '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '6px', cursor: 'pointer', fontFamily: "'Oswald', sans-serif", boxShadow: playerSetup.count === num ? 'inset 0 1px 0 rgba(255, 255, 255, 0.3)' : 'none' }}>{num}</button>
                   ))}
                 </div>
               </div>
@@ -3843,7 +3843,7 @@
                           <label style={{ color: 'rgba(255, 255, 255, 0.4)', fontSize: '10px', letterSpacing: '2px', display: 'block', marginBottom: '6px' }}>DIFFICULTY</label>
                           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '5px' }}>
                             {['easy', 'medium', 'hard', 'impossible'].map(diff => (
-                              <button className="option-btn" key={diff} onClick={() => {
+                              <button key={diff} onClick={() => {
                                 const newAiDifficulty = [...playerSetup.aiDifficulty];
                                 newAiDifficulty[i] = diff;
                                 setPlayerSetup(prev => ({ ...prev, aiDifficulty: newAiDifficulty }));
@@ -3866,7 +3866,6 @@
                 <label style={{ color: 'rgba(201, 162, 39, 0.8)', fontSize: '11px', letterSpacing: '3px', display: 'block', marginBottom: '10px', fontWeight: '500' }}>SKILL LEVEL</label>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px' }}>
                   <button
-                    className="option-btn"
                     onClick={() => setSkillLevel(30)}
                     style={{
                       padding: '14px 8px',
@@ -3886,7 +3885,6 @@
                     BEGINNER
                   </button>
                   <button
-                    className="option-btn"
                     onClick={() => setSkillLevel(60)}
                     style={{
                       padding: '14px 8px',
@@ -3906,7 +3904,6 @@
                     INTERMEDIATE
                   </button>
                   <button
-                    className="option-btn"
                     onClick={() => setSkillLevel(90)}
                     style={{
                       padding: '14px 8px',
