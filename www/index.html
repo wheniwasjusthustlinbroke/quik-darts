@@ -400,6 +400,79 @@
       </svg>
     );
 
+    // Static dartboard for hero section (matches classic game dartboard)
+    const HeroDartboard = ({ size = 320 }) => {
+      const scale = size / 500;
+      const CENTER = 250;
+      const SEGMENTS = [20, 1, 18, 4, 13, 6, 10, 15, 2, 17, 3, 19, 7, 16, 8, 11, 14, 9, 12, 5];
+      const TRIPLE_INNER = 119, TRIPLE_OUTER = 134, DOUBLE_INNER = 200, DOUBLE_OUTER = 215, OUTER_BULL = 20, INNER_BULL = 10;
+
+      const createArc = (innerR, outerR, startAngle, endAngle) => {
+        const x1 = CENTER + innerR * Math.cos(startAngle);
+        const y1 = CENTER + innerR * Math.sin(startAngle);
+        const x2 = CENTER + outerR * Math.cos(startAngle);
+        const y2 = CENTER + outerR * Math.sin(startAngle);
+        const x3 = CENTER + outerR * Math.cos(endAngle);
+        const y3 = CENTER + outerR * Math.sin(endAngle);
+        const x4 = CENTER + innerR * Math.cos(endAngle);
+        const y4 = CENTER + innerR * Math.sin(endAngle);
+        return `M ${x1} ${y1} L ${x2} ${y2} A ${outerR} ${outerR} 0 0 1 ${x3} ${y3} L ${x4} ${y4} A ${innerR} ${innerR} 0 0 0 ${x1} ${y1}`;
+      };
+
+      const segments = [];
+      for (let i = 0; i < 20; i++) {
+        const startAngle = (i * 18 - 99) * (Math.PI / 180);
+        const endAngle = ((i + 1) * 18 - 99) * (Math.PI / 180);
+        const baseColor = i % 2 === 0 ? '#0a0a0a' : '#f5f0e8';
+        const doubleTripleColor = i % 2 === 0 ? '#1B7340' : '#C41E3A';
+
+        segments.push(
+          <path key={`outer-${i}`} d={createArc(TRIPLE_OUTER, DOUBLE_INNER, startAngle, endAngle)} fill={baseColor} />,
+          <path key={`double-${i}`} d={createArc(DOUBLE_INNER, DOUBLE_OUTER, startAngle, endAngle)} fill={doubleTripleColor} />,
+          <path key={`inner-${i}`} d={createArc(OUTER_BULL, TRIPLE_INNER, startAngle, endAngle)} fill={baseColor} />,
+          <path key={`triple-${i}`} d={createArc(TRIPLE_INNER, TRIPLE_OUTER, startAngle, endAngle)} fill={doubleTripleColor} />
+        );
+      }
+
+      // Numbers
+      const numbers = SEGMENTS.map((num, i) => {
+        const angle = (i * 18 - 90) * (Math.PI / 180);
+        const x = CENTER + 232 * Math.cos(angle);
+        const y = CENTER + 232 * Math.sin(angle);
+        return <text key={`num-${i}`} x={x} y={y} fill="#f5f0e8" fontSize="22" fontWeight="bold" fontFamily="Arial, sans-serif" textAnchor="middle" dominantBaseline="middle">{num}</text>;
+      });
+
+      return (
+        <svg width={size} height={size} viewBox="0 0 500 500" aria-hidden="true" style={{ filter: 'drop-shadow(0 25px 50px rgba(0,0,0,0.5))' }}>
+          {/* Number ring background */}
+          <circle cx={CENTER} cy={CENTER} r={DOUBLE_OUTER + 24} fill="#1a1a1a" />
+          {/* Chrome outer ring */}
+          <circle cx={CENTER} cy={CENTER} r={DOUBLE_OUTER + 8} fill="#c0c0c0" />
+          <circle cx={CENTER} cy={CENTER} r={DOUBLE_OUTER + 2} fill="#0a0a0a" />
+          {/* Segments */}
+          {segments}
+          {/* Wire spider overlay */}
+          {[...Array(20)].map((_, i) => {
+            const angle = (i * 18 - 99) * (Math.PI / 180);
+            const x1 = CENTER + OUTER_BULL * Math.cos(angle);
+            const y1 = CENTER + OUTER_BULL * Math.sin(angle);
+            const x2 = CENTER + DOUBLE_OUTER * Math.cos(angle);
+            const y2 = CENTER + DOUBLE_OUTER * Math.sin(angle);
+            return <line key={`wire-${i}`} x1={x1} y1={y1} x2={x2} y2={y2} stroke="#888" strokeWidth="1.5" />;
+          })}
+          <circle cx={CENTER} cy={CENTER} r={TRIPLE_INNER} fill="none" stroke="#888" strokeWidth="1.5" />
+          <circle cx={CENTER} cy={CENTER} r={TRIPLE_OUTER} fill="none" stroke="#888" strokeWidth="1.5" />
+          <circle cx={CENTER} cy={CENTER} r={DOUBLE_INNER} fill="none" stroke="#888" strokeWidth="1.5" />
+          <circle cx={CENTER} cy={CENTER} r={DOUBLE_OUTER} fill="none" stroke="#888" strokeWidth="1.5" />
+          {/* Bulls */}
+          <circle cx={CENTER} cy={CENTER} r={OUTER_BULL} fill="#1B7340" stroke="#888" strokeWidth="1.5" />
+          <circle cx={CENTER} cy={CENTER} r={INNER_BULL} fill="#C41E3A" stroke="#888" strokeWidth="1.5" />
+          {/* Numbers */}
+          {numbers}
+        </svg>
+      );
+    };
+
     // Design System Colors (matching CSS variables)
     const COLORS = {
       primary: '#1B4332',
@@ -3369,20 +3442,9 @@
                   </div>
                 </div>
 
-                {/* Visual Preview - Mini Dartboard */}
+                {/* Visual Preview - Classic Dartboard */}
                 <div className="animate-fade-in animate-delay-2" style={{ display: 'flex', justifyContent: 'center' }}>
-                  <div style={{
-                    width: '320px',
-                    height: '320px',
-                    borderRadius: '50%',
-                    background: `conic-gradient(from 0deg, #1a1a1a 0deg 18deg, #f5f0e8 18deg 36deg, #1a1a1a 36deg 54deg, #f5f0e8 54deg 72deg, #1a1a1a 72deg 90deg, #f5f0e8 90deg 108deg, #1a1a1a 108deg 126deg, #f5f0e8 126deg 144deg, #1a1a1a 144deg 162deg, #f5f0e8 162deg 180deg, #1a1a1a 180deg 198deg, #f5f0e8 198deg 216deg, #1a1a1a 216deg 234deg, #f5f0e8 234deg 252deg, #1a1a1a 252deg 270deg, #f5f0e8 270deg 288deg, #1a1a1a 288deg 306deg, #f5f0e8 306deg 324deg, #1a1a1a 324deg 342deg, #f5f0e8 342deg 360deg)`,
-                    boxShadow: `0 0 0 15px ${COLORS.primary}, 0 0 0 20px ${COLORS.accent}, 0 25px 80px rgba(0,0,0,0.5)`,
-                    position: 'relative'
-                  }}>
-                    <div style={{ position: 'absolute', inset: '35%', borderRadius: '50%', background: COLORS.primary }} />
-                    <div style={{ position: 'absolute', inset: '42%', borderRadius: '50%', background: COLORS.error }} />
-                    <div style={{ position: 'absolute', inset: '46%', borderRadius: '50%', background: COLORS.primary }} />
-                  </div>
+                  <HeroDartboard size={340} />
                 </div>
               </div>
             </section>
