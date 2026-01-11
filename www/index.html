@@ -3230,11 +3230,11 @@
               QUIK DARTS
             </a>
             <ul className="nav-links">
-              <li><a className="nav-link" onClick={() => onNavigate('landing')}>Home</a></li>
-              <li><a className="nav-link" onClick={() => onNavigate('menu')}>Play</a></li>
-              <li><a className="nav-link" onClick={() => { onNavigate('menu'); setTimeout(() => enterPracticeMode(), 100); }}>Practice</a></li>
-              <li><a className="nav-link" onClick={() => setShowAchievements(true)}>Achievements</a></li>
-              <li><a className="nav-link" onClick={() => onNavigate('howToPlay')}>How to Play</a></li>
+              <li><a href="#" className="nav-link" onClick={(e) => { e.preventDefault(); onNavigate('landing'); }}>Home</a></li>
+              <li><a href="#" className="nav-link" onClick={(e) => { e.preventDefault(); onNavigate('menu'); }}>Play</a></li>
+              <li><a href="#" className="nav-link" onClick={(e) => { e.preventDefault(); enterPracticeMode(); }}>Practice</a></li>
+              <li><a href="#" className="nav-link" onClick={(e) => { e.preventDefault(); setShowAchievements(true); }}>Achievements</a></li>
+              <li><a href="#" className="nav-link" onClick={(e) => { e.preventDefault(); onNavigate('howToPlay'); }}>How to Play</a></li>
               <li><button className="nav-cta" onClick={() => onNavigate('menu')}>Play Now</button></li>
             </ul>
             <button className="nav-hamburger" onClick={() => setMobileMenuOpen(!mobileMenuOpen)} aria-label="Toggle menu" aria-expanded={mobileMenuOpen}>
@@ -3243,10 +3243,10 @@
           </div>
           <div className={`nav-mobile ${mobileMenuOpen ? 'open' : ''}`}>
             <ul className="nav-mobile-links">
-              <li><a className="nav-link" onClick={() => { onNavigate('landing'); setMobileMenuOpen(false); }}>Home</a></li>
-              <li><a className="nav-link" onClick={() => { onNavigate('menu'); setMobileMenuOpen(false); }}>Play</a></li>
-              <li><a className="nav-link" onClick={() => { onNavigate('howToPlay'); setMobileMenuOpen(false); }}>How to Play</a></li>
-              <li><a className="nav-link" onClick={() => { setShowAchievements(true); setMobileMenuOpen(false); }}>Achievements</a></li>
+              <li><a href="#" className="nav-link" onClick={(e) => { e.preventDefault(); onNavigate('landing'); setMobileMenuOpen(false); }}>Home</a></li>
+              <li><a href="#" className="nav-link" onClick={(e) => { e.preventDefault(); onNavigate('menu'); setMobileMenuOpen(false); }}>Play</a></li>
+              <li><a href="#" className="nav-link" onClick={(e) => { e.preventDefault(); onNavigate('howToPlay'); setMobileMenuOpen(false); }}>How to Play</a></li>
+              <li><a href="#" className="nav-link" onClick={(e) => { e.preventDefault(); setShowAchievements(true); setMobileMenuOpen(false); }}>Achievements</a></li>
               <li><button className="btn btn-primary" style={{ width: '100%', marginTop: '8px' }} onClick={() => { onNavigate('menu'); setMobileMenuOpen(false); }}>Play Now</button></li>
             </ul>
           </div>
@@ -3268,25 +3268,25 @@
                 <div className="footer-links-group">
                   <h4>Play</h4>
                   <ul>
-                    <li><a onClick={() => onNavigate('menu')}>Start Game</a></li>
-                    <li><a onClick={() => onNavigate('menu')}>Practice Mode</a></li>
-                    <li><a onClick={() => onNavigate('menu')}>Online Match</a></li>
+                    <li><a href="#" onClick={(e) => { e.preventDefault(); onNavigate('menu'); }}>Start Game</a></li>
+                    <li><a href="#" onClick={(e) => { e.preventDefault(); onNavigate('menu'); }}>Practice Mode</a></li>
+                    <li><a href="#" onClick={(e) => { e.preventDefault(); onNavigate('menu'); }}>Online Match</a></li>
                   </ul>
                 </div>
                 <div className="footer-links-group">
                   <h4>Learn</h4>
                   <ul>
-                    <li><a onClick={() => onNavigate('howToPlay')}>How to Play</a></li>
-                    <li><a onClick={() => onNavigate('howToPlay')}>Scoring Rules</a></li>
-                    <li><a onClick={() => onNavigate('howToPlay')}>Tips & Strategy</a></li>
+                    <li><a href="#" onClick={(e) => { e.preventDefault(); onNavigate('howToPlay'); }}>How to Play</a></li>
+                    <li><a href="#" onClick={(e) => { e.preventDefault(); onNavigate('howToPlay'); }}>Scoring Rules</a></li>
+                    <li><a href="#" onClick={(e) => { e.preventDefault(); onNavigate('howToPlay'); }}>Tips & Strategy</a></li>
                   </ul>
                 </div>
                 <div className="footer-links-group">
                   <h4>Legal</h4>
                   <ul>
-                    <li><a href="#">Privacy Policy</a></li>
-                    <li><a href="#">Terms of Service</a></li>
-                    <li><a href="#">Contact</a></li>
+                    <li><a href="#" onClick={(e) => e.preventDefault()}>Privacy Policy</a></li>
+                    <li><a href="#" onClick={(e) => e.preventDefault()}>Terms of Service</a></li>
+                    <li><a href="#" onClick={(e) => e.preventDefault()}>Contact</a></li>
                   </ul>
                 </div>
               </div>
