@@ -838,7 +838,7 @@
     ];
 
     const DartsGame = () => {
-      const [gameState, setGameState] = useState('menu');
+      const [gameState, setGameState] = useState('landing');
       const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
       const [players, setPlayers] = useState([]);
       const [currentPlayerIndex, setCurrentPlayerIndex] = useState(0);
@@ -3451,11 +3451,6 @@
                       <BookIcon /> How to Play
                     </button>
                   </div>
-                </div>
-
-                {/* Visual Preview - Classic Dartboard */}
-                <div className="animate-fade-in animate-delay-2" style={{ display: 'flex', justifyContent: 'center' }}>
-                  <HeroDartboard size={340} />
                 </div>
               </div>
             </section>
