@@ -424,7 +424,7 @@
         const startAngle = (i * 18 - 99) * (Math.PI / 180);
         const endAngle = ((i + 1) * 18 - 99) * (Math.PI / 180);
         const baseColor = i % 2 === 0 ? '#0a0a0a' : '#f5f0e8';
-        const doubleTripleColor = i % 2 === 0 ? '#1B7340' : '#C41E3A';
+        const doubleTripleColor = i % 2 === 0 ? '#b8232a' : '#0d6b2e';
 
         segments.push(
           <path key={`outer-${i}`} d={createArc(TRIPLE_OUTER, DOUBLE_INNER, startAngle, endAngle)} fill={baseColor} />,
@@ -465,8 +465,8 @@
           <circle cx={CENTER} cy={CENTER} r={DOUBLE_INNER} fill="none" stroke="#888" strokeWidth="1.5" />
           <circle cx={CENTER} cy={CENTER} r={DOUBLE_OUTER} fill="none" stroke="#888" strokeWidth="1.5" />
           {/* Bulls */}
-          <circle cx={CENTER} cy={CENTER} r={OUTER_BULL} fill="#1B7340" stroke="#888" strokeWidth="1.5" />
-          <circle cx={CENTER} cy={CENTER} r={INNER_BULL} fill="#C41E3A" stroke="#888" strokeWidth="1.5" />
+          <circle cx={CENTER} cy={CENTER} r={OUTER_BULL} fill="#0d6b2e" stroke="#888" strokeWidth="1.5" />
+          <circle cx={CENTER} cy={CENTER} r={INNER_BULL} fill="#b8232a" stroke="#888" strokeWidth="1.5" />
           {/* Numbers */}
           {numbers}
         </svg>
