@@ -299,6 +299,35 @@
       0%, 100% { box-shadow: 0 0 0 0 rgba(212, 160, 58, 0); }
       50% { box-shadow: 0 0 20px 2px rgba(212, 160, 58, 0.3); }
     }
+    @keyframes achievementUnlock {
+      0% { opacity: 0; transform: translate(-50%, -50%) scale(0.5); }
+      100% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+    }
+    @keyframes iconBounce {
+      0% { transform: scale(1); }
+      50% { transform: scale(1.2); }
+      100% { transform: scale(1); }
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+    @keyframes confetti0 {
+      0% { transform: translate(0, 0) scale(0); opacity: 1; }
+      100% { transform: translate(-80px, -100px) scale(1); opacity: 0; }
+    }
+    @keyframes confetti1 {
+      0% { transform: translate(0, 0) scale(0); opacity: 1; }
+      100% { transform: translate(80px, -90px) scale(1); opacity: 0; }
+    }
+    @keyframes confetti2 {
+      0% { transform: translate(0, 0) scale(0); opacity: 1; }
+      100% { transform: translate(-70px, 80px) scale(1); opacity: 0; }
+    }
+    @keyframes confetti3 {
+      0% { transform: translate(0, 0) scale(0); opacity: 1; }
+      100% { transform: translate(90px, 70px) scale(1); opacity: 0; }
+    }
     .animate-fade-in { animation: fadeInUp 0.6s ease forwards; }
     .animate-delay-1 { animation-delay: 0.1s; opacity: 0; }
     .animate-delay-2 { animation-delay: 0.2s; opacity: 0; }
@@ -4229,51 +4258,137 @@
                 )}
               </div>
 
-              {/* Achievement Unlock Popup */}
+              {/* Achievement Unlock Popup - Enhanced */}
               {achievementPopup && (
                 <div style={{
                   position: 'fixed',
-                  top: '20px',
-                  right: '20px',
-                  background: 'linear-gradient(135deg, rgba(0, 0, 0, 0.95), rgba(20, 20, 40, 0.95))',
+                  top: '50%',
+                  left: '50%',
+                  transform: 'translate(-50%, -50%)',
+                  background: 'linear-gradient(135deg, rgba(0, 0, 0, 0.98), rgba(20, 20, 40, 0.98))',
                   border: `3px solid ${getRarityColor(achievementPopup.rarity)}`,
-                  borderRadius: '15px',
-                  padding: '20px',
-                  minWidth: '300px',
-                  maxWidth: '400px',
-                  boxShadow: `0 10px 40px ${getRarityColor(achievementPopup.rarity)}80, 0 0 20px ${getRarityColor(achievementPopup.rarity)}40`,
-                  animation: 'slideInRight 0.5s ease-out',
+                  borderRadius: '20px',
+                  padding: '32px',
+                  minWidth: '340px',
+                  maxWidth: '420px',
+                  boxShadow: `0 20px 60px ${getRarityColor(achievementPopup.rarity)}60, 0 0 40px ${getRarityColor(achievementPopup.rarity)}30, inset 0 0 60px ${getRarityColor(achievementPopup.rarity)}10`,
+                  animation: 'achievementUnlock 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
                   zIndex: 1000,
-                  fontFamily: "'Oswald', sans-serif"
+                  textAlign: 'center'
                 }}>
-                  <div style={{ color: getRarityColor(achievementPopup.rarity), fontSize: '12px', fontWeight: '600', letterSpacing: '2px', marginBottom: '10px' }}>
-                    🏆 ACHIEVEMENT UNLOCKED
+                  {/* Confetti for legendary/mythic */}
+                  {(achievementPopup.rarity === 'legendary' || achievementPopup.rarity === 'mythic') && (
+                    <>
+                      {[...Array(12)].map((_, i) => (
+                        <div key={i} style={{
+                          position: 'absolute',
+                          width: '8px',
+                          height: '8px',
+                          background: getRarityColor(achievementPopup.rarity),
+                          borderRadius: '50%',
+                          top: '50%',
+                          left: '50%',
+                          animation: `confetti${i % 4} 1s ease-out forwards`,
+                          animationDelay: `${i * 0.05}s`
+                        }} />
+                      ))}
+                    </>
+                  )}
+
+                  {/* Header */}
+                  <div style={{
+                    color: getRarityColor(achievementPopup.rarity),
+                    fontSize: '0.75rem',
+                    fontWeight: '700',
+                    letterSpacing: '3px',
+                    marginBottom: '16px',
+                    textTransform: 'uppercase'
+                  }}>
+                    🏆 Achievement Unlocked
                   </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-                    <div style={{ fontSize: '48px' }}>{achievementPopup.icon}</div>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ color: '#fff', fontSize: '20px', fontWeight: '700', marginBottom: '5px' }}>
-                        {achievementPopup.name}
-                      </div>
-                      <div style={{ color: '#ccc', fontSize: '14px', marginBottom: '5px' }}>
-                        {achievementPopup.description}
-                      </div>
-                      <div style={{
-                        display: 'inline-block',
-                        color: getRarityColor(achievementPopup.rarity),
-                        fontSize: '11px',
-                        fontWeight: '600',
-                        letterSpacing: '1px',
-                        textTransform: 'uppercase',
-                        border: `1px solid ${getRarityColor(achievementPopup.rarity)}`,
-                        borderRadius: '10px',
-                        padding: '3px 10px'
-                      }}>
-                        {achievementPopup.rarity}
-                      </div>
-                    </div>
+
+                  {/* Icon with glow */}
+                  <div style={{
+                    fontSize: '64px',
+                    marginBottom: '16px',
+                    filter: `drop-shadow(0 0 20px ${getRarityColor(achievementPopup.rarity)})`,
+                    animation: 'iconBounce 0.5s ease-out 0.3s'
+                  }}>
+                    {achievementPopup.icon}
                   </div>
+
+                  {/* Name */}
+                  <div style={{
+                    color: '#fff',
+                    fontSize: '1.5rem',
+                    fontWeight: '700',
+                    marginBottom: '8px',
+                    textShadow: `0 0 20px ${getRarityColor(achievementPopup.rarity)}80`
+                  }}>
+                    {achievementPopup.name}
+                  </div>
+
+                  {/* Description */}
+                  <div style={{
+                    color: COLORS.textMuted,
+                    fontSize: '0.9rem',
+                    marginBottom: '16px',
+                    lineHeight: '1.4'
+                  }}>
+                    {achievementPopup.description}
+                  </div>
+
+                  {/* Rarity Badge */}
+                  <div style={{
+                    display: 'inline-block',
+                    color: getRarityColor(achievementPopup.rarity),
+                    fontSize: '0.7rem',
+                    fontWeight: '700',
+                    letterSpacing: '2px',
+                    textTransform: 'uppercase',
+                    background: `${getRarityColor(achievementPopup.rarity)}20`,
+                    border: `1px solid ${getRarityColor(achievementPopup.rarity)}`,
+                    borderRadius: '20px',
+                    padding: '6px 16px'
+                  }}>
+                    {achievementPopup.rarity}
+                  </div>
+
+                  {/* Next Achievement Teaser */}
+                  {(() => {
+                    // Find next achievement in same category
+                    const currentIndex = ACHIEVEMENTS_DATA.findIndex(a => a.id === achievementPopup.id);
+                    const nextAchievement = ACHIEVEMENTS_DATA[currentIndex + 1];
+                    if (nextAchievement && nextAchievement.statKey === achievementPopup.statKey) {
+                      return (
+                        <div style={{
+                          marginTop: '20px',
+                          padding: '12px',
+                          background: 'rgba(255, 255, 255, 0.05)',
+                          borderRadius: '10px',
+                          fontSize: '0.8rem'
+                        }}>
+                          <div style={{ color: COLORS.textMuted, marginBottom: '4px' }}>Next Target:</div>
+                          <div style={{ color: COLORS.text, fontWeight: '600' }}>
+                            {nextAchievement.icon} {nextAchievement.name}
+                          </div>
+                        </div>
+                      );
+                    }
+                    return null;
+                  })()}
                 </div>
+              )}
+
+              {/* Backdrop overlay for achievement popup */}
+              {achievementPopup && (
+                <div style={{
+                  position: 'fixed',
+                  inset: 0,
+                  background: 'rgba(0, 0, 0, 0.7)',
+                  zIndex: 999,
+                  animation: 'fadeIn 0.3s ease-out'
+                }} />
               )}
               
               <div style={{ width: `min(${BOARD_SIZE}px, 85vw)`, marginTop: '20px' }}>
