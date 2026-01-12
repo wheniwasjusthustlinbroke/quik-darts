@@ -295,6 +295,10 @@
       0%, 100% { opacity: 1; }
       50% { opacity: 0.7; }
     }
+    @keyframes almostTherePulse {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(212, 160, 58, 0); }
+      50% { box-shadow: 0 0 20px 2px rgba(212, 160, 58, 0.3); }
+    }
     .animate-fade-in { animation: fadeInUp 0.6s ease forwards; }
     .animate-delay-1 { animation-delay: 0.1s; opacity: 0; }
     .animate-delay-2 { animation-delay: 0.2s; opacity: 0; }
@@ -3127,6 +3131,73 @@
                   <div style={{ background: `linear-gradient(90deg, ${COLORS.accent}, ${COLORS.accentLight})`, height: '100%', width: `${(unlockedAchievements.length / ACHIEVEMENTS_DATA.length) * 100}%`, transition: 'width 0.5s', borderRadius: '8px' }}></div>
                 </div>
               </div>
+
+              {/* Almost There Section - Achievements at 70-95% */}
+              {(() => {
+                const almostThereAchievements = ACHIEVEMENTS_DATA.filter(achievement => {
+                  if (unlockedAchievements.includes(achievement.id)) return false;
+                  const progress = getAchievementProgress(achievement, achievementStats);
+                  return progress && progress.progress >= 0.7 && progress.progress < 1;
+                });
+
+                if (almostThereAchievements.length === 0) return null;
+
+                return (
+                  <div style={{ marginBottom: '32px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
+                      <span style={{ fontSize: '1.25rem' }}>🔥</span>
+                      <h2 style={{ color: COLORS.accent, fontSize: '1.1rem', fontWeight: '600', margin: 0 }}>Almost There!</h2>
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '12px' }}>
+                      {almostThereAchievements.map(achievement => {
+                        const progressData = getAchievementProgress(achievement, achievementStats);
+                        const remaining = progressData.target - progressData.current;
+                        return (
+                          <div key={`almost-${achievement.id}`} style={{
+                            background: `linear-gradient(135deg, ${COLORS.backgroundCard}, ${COLORS.accent}10)`,
+                            border: `1px solid ${COLORS.accent}40`,
+                            borderRadius: '12px',
+                            padding: '16px',
+                            animation: 'almostTherePulse 2s ease-in-out infinite'
+                          }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                              <div style={{ fontSize: '28px' }}>{achievement.icon}</div>
+                              <div style={{ flex: 1 }}>
+                                <div style={{ color: COLORS.text, fontSize: '0.95rem', fontWeight: '600', marginBottom: '4px' }}>
+                                  {achievement.name}
+                                </div>
+                                <div style={{ color: COLORS.accent, fontSize: '0.8rem', fontWeight: '500' }}>
+                                  {progressData.isThreshold
+                                    ? `Need ${progressData.target}+ (Current best: ${progressData.current})`
+                                    : `Only ${remaining} more to go!`}
+                                </div>
+                                {/* Mini progress bar */}
+                                <div style={{
+                                  background: 'rgba(255, 255, 255, 0.1)',
+                                  borderRadius: '3px',
+                                  height: '4px',
+                                  marginTop: '8px',
+                                  overflow: 'hidden'
+                                }}>
+                                  <div style={{
+                                    background: `linear-gradient(90deg, ${COLORS.accent}, ${COLORS.accentLight})`,
+                                    height: '100%',
+                                    width: `${progressData.progress * 100}%`,
+                                    borderRadius: '3px'
+                                  }} />
+                                </div>
+                              </div>
+                              <div style={{ color: COLORS.accent, fontSize: '1.1rem', fontWeight: '700' }}>
+                                {Math.round(progressData.progress * 100)}%
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })()}
 
               {/* Achievements Grid */}
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '16px' }}>
