@@ -869,6 +869,25 @@
       return TIME_LIMITED_ACHIEVEMENTS.find(a => a.week === currentWeek);
     };
 
+    // Create default weekly challenge data for a given week
+    const createDefaultWeeklyChallengeData = (weekNumber) => ({
+      weekNumber: weekNumber,
+      challengeId: TIME_LIMITED_ACHIEVEMENTS.find(a => a.week === weekNumber)?.id,
+      stats: { weekly180s: 0, weeklyBulls: 0, weeklyWins: 0, weeklyTriples: 0 },
+      completed: false,
+      completedChallenges: []
+    });
+
+    // Validate weekly challenge data structure from localStorage
+    const isValidWeeklyChallengeData = (data) => {
+      if (!data || typeof data !== 'object') return false;
+      if (typeof data.weekNumber !== 'number') return false;
+      if (!data.stats || typeof data.stats !== 'object') return false;
+      if (typeof data.completed !== 'boolean') return false;
+      if (!Array.isArray(data.completedChallenges)) return false;
+      return true;
+    };
+
     // Get time until next weekly reset (Sunday midnight)
     const getTimeUntilWeeklyReset = () => {
       const now = new Date();
@@ -1119,41 +1138,20 @@
 
       // Weekly time-limited challenge state - synced via Firebase, resets weekly
       const [weeklyChallenge, setWeeklyChallenge] = useState(() => {
+        const currentWeek = getCurrentWeekNumber();
         try {
           const saved = localStorage.getItem('quikdarts_weekly_challenge');
           if (saved) {
             const parsed = JSON.parse(saved);
-            // Check if it's from the current week
-            if (parsed.weekNumber === getCurrentWeekNumber()) {
+            // Validate data structure and check if it's from the current week
+            if (isValidWeeklyChallengeData(parsed) && parsed.weekNumber === currentWeek) {
               return parsed;
             }
           }
-          // New week, reset progress
-          const currentWeek = getCurrentWeekNumber();
-          const activeChallenge = getActiveTimeLimitedAchievement();
-          return {
-            weekNumber: currentWeek,
-            challengeId: activeChallenge?.id,
-            stats: {
-              weekly180s: 0,
-              weeklyBulls: 0,
-              weeklyWins: 0,
-              weeklyTriples: 0
-            },
-            completed: false,
-            completedChallenges: [] // Track historically completed weekly challenges
-          };
         } catch (error) {
           console.error('Failed to load weekly challenge:', error);
-          const currentWeek = getCurrentWeekNumber();
-          return {
-            weekNumber: currentWeek,
-            challengeId: getActiveTimeLimitedAchievement()?.id,
-            stats: { weekly180s: 0, weeklyBulls: 0, weeklyWins: 0, weeklyTriples: 0 },
-            completed: false,
-            completedChallenges: []
-          };
         }
+        return createDefaultWeeklyChallengeData(currentWeek);
       });
 
       // Time remaining until weekly reset
