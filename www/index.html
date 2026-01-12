@@ -2591,26 +2591,25 @@
             const perfectZoneRight = 50 + (perfectZoneWidth / 2);
             const isInPerfectZone = aiPower > perfectZoneLeft && aiPower < perfectZoneRight;
 
-            // Calculate final position with same logic as human players
+            // Calculate final position based on AI accuracy
             let finalPosition;
-            if (isInPerfectZone) {
-              // Perfect zone hit - 100% accuracy, no randomness
+            // AI uses its own accuracy to determine hit chance, not affected by human skill level
+            const hitChance = aiAccuracy / 100;
+            const isAccurateThrow = Math.random() < hitChance;
+
+            if (isAccurateThrow) {
+              // Accurate throw - hit near target with minimal deviation
+              const minorDeviation = (100 - aiAccuracy) * 0.3; // Small deviation based on accuracy
+              const angle = Math.random() * Math.PI * 2;
+              const offset = Math.random() * minorDeviation;
               finalPosition = {
-                x: target.x,
-                y: target.y
+                x: target.x + Math.cos(angle) * offset,
+                y: target.y + Math.sin(angle) * offset
               };
             } else {
-              // Not in perfect zone - apply randomness based on AI accuracy and power
-              const effectiveSkillLevel = aiAccuracy;
-              const skillFactor = (100 - effectiveSkillLevel) / 100;
-              const powerFactor = Math.abs(aiPower - 50) / 50;
-              const skillRandomness = skillFactor * 25;
-              const powerRandomness = powerFactor * 20;
-
-              const distanceFromPerfect = Math.abs(aiPower - 50);
-              const perfectZonePenalty = 80 + (distanceFromPerfect * 1.2);
-
-              const randomness = skillRandomness + powerRandomness + perfectZonePenalty;
+              // Inaccurate throw - apply randomness
+              const skillFactor = (100 - aiAccuracy) / 100;
+              const randomness = 30 + (skillFactor * 50); // 30-80 pixels of deviation
               const angle = Math.random() * Math.PI * 2;
               const offset = Math.random() * randomness;
 
@@ -2622,8 +2621,8 @@
 
             const result = calculateScore(finalPosition.x, finalPosition.y);
 
-            // Increase difficulty by shrinking perfect zone when perfect throw is hit
-            if (isInPerfectZone) {
+            // Increase difficulty by shrinking perfect zone when accurate throw is hit
+            if (isAccurateThrow) {
               setTriplesHit(prev => prev + 1);
             }
 
@@ -4540,7 +4539,7 @@
                           const newAiPlayers = [...playerSetup.aiPlayers];
                           newAiPlayers[i] = !newAiPlayers[i];
                           const newAiDifficulty = [...playerSetup.aiDifficulty];
-                          if (newAiPlayers[i] && !newAiDifficulty[i]) newAiDifficulty[i] = 'medium';
+                          if (newAiPlayers[i] && !newAiDifficulty[i]) newAiDifficulty[i] = 'intermediate';
                           setPlayerSetup(prev => ({ ...prev, aiPlayers: newAiPlayers, aiDifficulty: newAiDifficulty }));
                         }} style={{ padding: '5px 14px', background: playerSetup.aiPlayers[i] ? 'linear-gradient(180deg, #2d8a2d, #1f6b1f)' : 'rgba(255, 255, 255, 0.05)', color: playerSetup.aiPlayers[i] ? '#fff' : 'rgba(255, 255, 255, 0.4)', border: playerSetup.aiPlayers[i] ? 'none' : '1px solid rgba(255, 255, 255, 0.1)', borderRadius: '4px', cursor: 'pointer', fontFamily: "'Oswald', sans-serif", fontSize: '11px', fontWeight: '600', letterSpacing: '1px' }}>
                           {playerSetup.aiPlayers[i] ? 'ON' : 'OFF'}
