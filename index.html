@@ -328,6 +328,28 @@
       0% { transform: translate(0, 0) scale(0); opacity: 1; }
       100% { transform: translate(90px, 70px) scale(1); opacity: 0; }
     }
+    @keyframes rareShimmer {
+      0%, 100% { box-shadow: 0 0 15px rgba(52, 152, 219, 0.3); }
+      50% { box-shadow: 0 0 25px rgba(52, 152, 219, 0.5); }
+    }
+    @keyframes epicGlow {
+      0%, 100% { box-shadow: 0 0 20px rgba(155, 89, 182, 0.4), inset 0 0 30px rgba(155, 89, 182, 0.1); }
+      50% { box-shadow: 0 0 35px rgba(155, 89, 182, 0.6), inset 0 0 40px rgba(155, 89, 182, 0.15); }
+    }
+    @keyframes legendaryPulse {
+      0%, 100% { box-shadow: 0 0 25px rgba(243, 156, 18, 0.5), 0 0 50px rgba(243, 156, 18, 0.2); }
+      50% { box-shadow: 0 0 40px rgba(243, 156, 18, 0.7), 0 0 70px rgba(243, 156, 18, 0.3); }
+    }
+    @keyframes mythicGlow {
+      0%, 100% {
+        box-shadow: 0 0 30px rgba(231, 76, 60, 0.6), 0 0 60px rgba(231, 76, 60, 0.3), inset 0 0 40px rgba(231, 76, 60, 0.1);
+        border-color: rgba(231, 76, 60, 0.8);
+      }
+      50% {
+        box-shadow: 0 0 50px rgba(231, 76, 60, 0.8), 0 0 80px rgba(231, 76, 60, 0.4), inset 0 0 50px rgba(231, 76, 60, 0.15);
+        border-color: rgba(231, 76, 60, 1);
+      }
+    }
     .animate-fade-in { animation: fadeInUp 0.6s ease forwards; }
     .animate-delay-1 { animation-delay: 0.1s; opacity: 0; }
     .animate-delay-2 { animation-delay: 0.2s; opacity: 0; }
@@ -2648,6 +2670,53 @@
         }
       };
 
+      // Get rarity-based card styles for unlocked achievements
+      const getRarityCardStyle = (rarity, isUnlocked) => {
+        if (!isUnlocked) return {};
+        const color = getRarityColor(rarity);
+
+        switch (rarity) {
+          case 'common':
+            return {
+              border: `1px solid ${color}30`,
+              boxShadow: 'none'
+            };
+          case 'uncommon':
+            return {
+              border: `1px solid ${color}50`,
+              boxShadow: `0 0 10px ${color}20`
+            };
+          case 'rare':
+            return {
+              border: `2px solid ${color}60`,
+              boxShadow: `0 0 15px ${color}30`,
+              animation: 'rareShimmer 3s ease-in-out infinite'
+            };
+          case 'epic':
+            return {
+              border: `2px solid ${color}70`,
+              boxShadow: `0 0 20px ${color}40, inset 0 0 30px ${color}10`,
+              animation: 'epicGlow 2s ease-in-out infinite'
+            };
+          case 'legendary':
+            return {
+              border: `2px solid ${color}`,
+              boxShadow: `0 0 25px ${color}50, 0 0 50px ${color}20`,
+              animation: 'legendaryPulse 2s ease-in-out infinite',
+              background: `linear-gradient(135deg, ${COLORS.backgroundCard}, ${color}15)`
+            };
+          case 'mythic':
+            return {
+              border: `3px solid ${color}`,
+              boxShadow: `0 0 30px ${color}60, 0 0 60px ${color}30, inset 0 0 40px ${color}10`,
+              animation: 'mythicGlow 1.5s ease-in-out infinite',
+              background: `linear-gradient(135deg, ${COLORS.backgroundCard}, ${color}20)`
+            };
+          default:
+            return {};
+        }
+      };
+
       // Get achievement progress for trackable achievements
       const getAchievementProgress = (achievement, stats) => {
         if (!achievement.statKey || !achievement.target) {
@@ -3233,14 +3302,18 @@
                 {ACHIEVEMENTS_DATA.map(achievement => {
                   const isUnlocked = unlockedAchievements.includes(achievement.id);
                   const progressData = !isUnlocked ? getAchievementProgress(achievement, achievementStats) : null;
+                  const rarityStyle = getRarityCardStyle(achievement.rarity, isUnlocked);
                   return (
                     <div key={achievement.id} style={{
                       background: COLORS.backgroundCard,
-                      border: isUnlocked ? `1px solid ${getRarityColor(achievement.rarity)}40` : '1px solid rgba(255, 255, 255, 0.05)',
+                      border: '1px solid rgba(255, 255, 255, 0.05)',
                       borderRadius: '12px',
                       padding: '20px',
                       opacity: isUnlocked ? 1 : (progressData && progressData.progress > 0 ? 0.8 : 0.6),
-                      transition: 'all 0.2s ease'
+                      transition: 'all 0.3s ease',
+                      position: 'relative',
+                      overflow: 'hidden',
+                      ...rarityStyle
                     }}>
                       <div style={{ display: 'flex', alignItems: 'flex-start', gap: '16px' }}>
                         <div style={{
