@@ -2560,38 +2560,9 @@
           const aiThrowDelay = setTimeout(() => {
             const target = getAITarget(currentPlayer.aiDifficulty, currentPlayer.score);
             const aiAccuracy = getAIAccuracy(currentPlayer.aiDifficulty);
-            const aiPower = 45 + Math.random() * 10; // AI aims for ~50 power (perfect zone)
-
             playSound('throw');
 
-            // Check if AI is aiming at the winning double
-            const aimingAt = calculateScore(target.x, target.y);
-            const isAimingAtWinningDouble = isCheckoutPosition && aimingAt.multiplier === 2 && aimingAt.score === currentPlayer.score;
-
-            // Calculate if AI power is in perfect zone
-            // Beginner mode (40% or below): constant 10% zone, no shrinking
-            // Intermediate (41-80%): shrinks by 2.5% for each perfect hit
-            // Expert (81%+): shrinks by 3% for each perfect hit
-            // Aiming at winning double: ultra-small 2% zone
-            let perfectZoneWidth;
-            if (skillLevel <= 40) {
-              // Beginner mode - constant 10% zone, no shrinking
-              perfectZoneWidth = 10;
-            } else {
-              // Normal mode - shrinking zones
-              if (isAimingAtWinningDouble) {
-                perfectZoneWidth = 2; // Ultra-small zone for winning double
-              } else {
-                const baseZoneWidth = 10;
-                const shrinkRate = skillLevel >= 81 ? 3 : 2.5; // 2.5% for 41-80%, 3% for 81%+
-                perfectZoneWidth = Math.max(baseZoneWidth - (triplesHit * shrinkRate), 4);
-              }
-            }
-            const perfectZoneLeft = 50 - (perfectZoneWidth / 2);
-            const perfectZoneRight = 50 + (perfectZoneWidth / 2);
-            const isInPerfectZone = aiPower > perfectZoneLeft && aiPower < perfectZoneRight;
-
-            // Calculate final position based on AI accuracy
+            // Calculate final position based on AI accuracy percentage
             let finalPosition;
             // AI uses its own accuracy to determine hit chance, not affected by human skill level
             const hitChance = aiAccuracy / 100;
