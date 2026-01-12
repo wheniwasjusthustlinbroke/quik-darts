@@ -708,41 +708,41 @@
     // Achievements data - moved outside component to prevent recreation on every render
     const ACHIEVEMENTS_DATA = [
       // First Steps (one-time, no progress tracking)
-      { id: 'first_game', name: 'First Game', description: 'Complete your first game', icon: '🎯', rarity: 'common', mode: 'offline' },
-      { id: 'first_win', name: 'First Victory', description: 'Win your first game', icon: '🏆', rarity: 'common', mode: 'offline' },
+      { id: 'first_game', name: 'First Steps', description: 'Every champion starts somewhere. Complete your first game.', icon: '🎯', rarity: 'common', mode: 'offline' },
+      { id: 'first_win', name: 'First Victory', description: 'The taste of victory never gets old. Win your first game.', icon: '🏆', rarity: 'common', mode: 'offline' },
 
       // 180 Achievements
-      { id: 'first_180', name: 'Maximum!', description: 'Hit your first 180', icon: '💯', rarity: 'uncommon', mode: 'offline' },
-      { id: 'ten_180s', name: '180 Master', description: 'Hit 10 total 180s', icon: '⭐', rarity: 'rare', mode: 'offline', statKey: 'total180s', target: 10 },
-      { id: 'fifty_180s', name: 'Ton Machine', description: 'Hit 50 total 180s', icon: '🌟', rarity: 'epic', mode: 'offline', statKey: 'total180s', target: 50 },
+      { id: 'first_180', name: 'Maximum!', description: 'The crowd goes wild! Hit your first perfect 180.', icon: '💯', rarity: 'uncommon', mode: 'offline' },
+      { id: 'ten_180s', name: '180 Master', description: 'Consistency is key. Land 10 maximum scores.', icon: '⭐', rarity: 'rare', mode: 'offline', statKey: 'total180s', target: 10 },
+      { id: 'fifty_180s', name: 'Ton Machine', description: 'Only the elite reach this level. Hit 50 perfect 180s.', icon: '🌟', rarity: 'epic', mode: 'offline', statKey: 'total180s', target: 50 },
 
       // Nine Darter Achievements (one-time, legendary)
-      { id: 'nine_darter_offline', name: 'Perfect Game', description: 'Achieve a nine-dart finish in offline mode', icon: '👑', rarity: 'legendary', mode: 'offline' },
-      { id: 'nine_darter_online', name: 'Online Legend', description: 'Achieve a nine-dart finish in online mode', icon: '💎', rarity: 'mythic', mode: 'online' },
+      { id: 'nine_darter_offline', name: 'Perfect Game', description: 'The holy grail of darts. Achieve a legendary nine-dart finish.', icon: '👑', rarity: 'legendary', mode: 'offline' },
+      { id: 'nine_darter_online', name: 'Online Legend', description: 'Perfection under pressure. Nine-dart finish against a real opponent.', icon: '💎', rarity: 'mythic', mode: 'online' },
 
       // Bulls Achievements
-      { id: 'first_bull', name: 'Bullseye!', description: 'Hit your first bullseye', icon: '🎯', rarity: 'common', mode: 'offline' },
-      { id: 'fifty_bulls', name: 'Bull Master', description: 'Hit 50 bullseyes', icon: '🐂', rarity: 'rare', mode: 'offline', statKey: 'totalBulls', target: 50 },
-      { id: 'hundred_bulls', name: 'Bull Legend', description: 'Hit 100 bullseyes', icon: '🐃', rarity: 'epic', mode: 'offline', statKey: 'totalBulls', target: 100 },
+      { id: 'first_bull', name: 'Bullseye!', description: 'Right in the center! Hit your first bullseye.', icon: '🎯', rarity: 'common', mode: 'offline' },
+      { id: 'fifty_bulls', name: 'Bull Master', description: 'Precision personified. Find the bullseye 50 times.', icon: '🐂', rarity: 'rare', mode: 'offline', statKey: 'totalBulls', target: 50 },
+      { id: 'hundred_bulls', name: 'Bull Legend', description: 'The center is your home. 100 bullseyes and counting.', icon: '🐃', rarity: 'epic', mode: 'offline', statKey: 'totalBulls', target: 100 },
 
       // Winning Streaks
-      { id: 'five_wins', name: 'Hot Streak', description: 'Win 5 games', icon: '🔥', rarity: 'uncommon', mode: 'offline', statKey: 'totalGamesWon', target: 5 },
-      { id: 'twenty_wins', name: 'Dominator', description: 'Win 20 games', icon: '💪', rarity: 'rare', mode: 'offline', statKey: 'totalGamesWon', target: 20 },
-      { id: 'fifty_wins', name: 'Champion', description: 'Win 50 games', icon: '🥇', rarity: 'epic', mode: 'offline', statKey: 'totalGamesWon', target: 50 },
+      { id: 'five_wins', name: 'Hot Streak', description: 'You\'re heating up! Claim 5 victories.', icon: '🔥', rarity: 'uncommon', mode: 'offline', statKey: 'totalGamesWon', target: 5 },
+      { id: 'twenty_wins', name: 'Dominator', description: 'They fear your name. Dominate with 20 wins.', icon: '💪', rarity: 'rare', mode: 'offline', statKey: 'totalGamesWon', target: 20 },
+      { id: 'fifty_wins', name: 'Champion', description: 'A true champion emerges. Conquer 50 games.', icon: '🥇', rarity: 'epic', mode: 'offline', statKey: 'totalGamesWon', target: 50 },
 
       // Online Achievements
-      { id: 'first_online', name: 'Going Online', description: 'Play your first online match', icon: '🌍', rarity: 'common', mode: 'online' },
-      { id: 'first_online_win', name: 'Online Victor', description: 'Win your first online match', icon: '🏅', rarity: 'uncommon', mode: 'online' },
-      { id: 'ten_online_wins', name: 'Online Warrior', description: 'Win 10 online matches', icon: '⚔️', rarity: 'rare', mode: 'online', statKey: 'totalOnlineWins', target: 10 },
-      { id: 'fifty_online_wins', name: 'Online Champion', description: 'Win 50 online matches', icon: '👑', rarity: 'epic', mode: 'online', statKey: 'totalOnlineWins', target: 50 },
+      { id: 'first_online', name: 'Going Global', description: 'Step into the arena. Face your first online opponent.', icon: '🌍', rarity: 'common', mode: 'online' },
+      { id: 'first_online_win', name: 'Online Victor', description: 'Real opponents, real pressure, real victory.', icon: '🏅', rarity: 'uncommon', mode: 'online' },
+      { id: 'ten_online_wins', name: 'Online Warrior', description: 'Battle-tested. Defeat 10 online challengers.', icon: '⚔️', rarity: 'rare', mode: 'online', statKey: 'totalOnlineWins', target: 10 },
+      { id: 'fifty_online_wins', name: 'Online Champion', description: 'World-class competitor. 50 online victories.', icon: '👑', rarity: 'epic', mode: 'online', statKey: 'totalOnlineWins', target: 50 },
 
       // Checkout Achievements (threshold-based, not cumulative)
-      { id: 'big_checkout', name: 'Big Fish', description: 'Hit a checkout of 100 or more', icon: '🐋', rarity: 'uncommon', mode: 'offline', statKey: 'highestCheckout', target: 100, isThreshold: true },
-      { id: 'huge_checkout', name: 'Monster Checkout', description: 'Hit a checkout of 150 or more', icon: '🦈', rarity: 'rare', mode: 'offline', statKey: 'highestCheckout', target: 150, isThreshold: true },
+      { id: 'big_checkout', name: 'Big Fish', description: 'Nerves of steel. Checkout 100+ in one visit.', icon: '🐋', rarity: 'uncommon', mode: 'offline', statKey: 'highestCheckout', target: 100, isThreshold: true },
+      { id: 'huge_checkout', name: 'Monster Checkout', description: 'The impossible made possible. Checkout 150+ points.', icon: '🦈', rarity: 'rare', mode: 'offline', statKey: 'highestCheckout', target: 150, isThreshold: true },
 
       // Skill Achievements
-      { id: 'fifty_triples', name: 'Triple Threat', description: 'Hit 50 triples', icon: '3️⃣', rarity: 'uncommon', mode: 'offline', statKey: 'totalTriples', target: 50 },
-      { id: 'two_hundred_triples', name: 'Triple Master', description: 'Hit 200 triples', icon: '💫', rarity: 'rare', mode: 'offline', statKey: 'totalTriples', target: 200 }
+      { id: 'fifty_triples', name: 'Triple Threat', description: 'Treble trouble for opponents. Hit 50 triples.', icon: '3️⃣', rarity: 'uncommon', mode: 'offline', statKey: 'totalTriples', target: 50 },
+      { id: 'two_hundred_triples', name: 'Triple Master', description: 'The triple 20 is your playground. 200 triples.', icon: '💫', rarity: 'rare', mode: 'offline', statKey: 'totalTriples', target: 200 }
     ];
 
     // Country list for player nationality selection (static data, moved outside component for performance)
