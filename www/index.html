@@ -916,6 +916,13 @@
       { id: 'daily_score_3000', name: 'High Scorer', description: 'Score 3000 points', icon: '📊', statKey: 'dailyScore', target: 3000, difficulty: 'hard' }
     ];
 
+    // Difficulty level colors for challenge UI
+    const DIFFICULTY_COLORS = {
+      easy: '#27ae60',
+      medium: '#f39c12',
+      hard: '#e74c3c'
+    };
+
     // Generate daily challenges based on date seed
     const generateDailyChallenges = (dateString) => {
       const seed = dateString.split('-').reduce((acc, val) => acc + parseInt(val), 0);
@@ -3690,7 +3697,6 @@
                     const isCompleted = dailyChallengeData.completedChallenges.includes(challenge.id);
                     const current = dailyChallengeData.stats[challenge.statKey] || 0;
                     const progress = Math.min(current / challenge.target, 1);
-                    const difficultyColors = { easy: '#27ae60', medium: '#f39c12', hard: '#e74c3c' };
                     return (
                       <div key={challenge.id} style={{
                         background: isCompleted ? `${COLORS.success}15` : 'rgba(255, 255, 255, 0.03)',
@@ -3706,13 +3712,13 @@
                             <div style={{ color: COLORS.text, fontSize: '0.95rem', fontWeight: '600' }}>{challenge.name}</div>
                             <div style={{ color: COLORS.textMuted, fontSize: '0.8rem' }}>{challenge.description}</div>
                           </div>
-                          <span style={{ fontSize: '0.65rem', fontWeight: '600', textTransform: 'uppercase', color: difficultyColors[challenge.difficulty], background: `${difficultyColors[challenge.difficulty]}20`, padding: '4px 8px', borderRadius: '4px' }}>
+                          <span style={{ fontSize: '0.65rem', fontWeight: '600', textTransform: 'uppercase', color: DIFFICULTY_COLORS[challenge.difficulty], background: `${DIFFICULTY_COLORS[challenge.difficulty]}20`, padding: '4px 8px', borderRadius: '4px' }}>
                             {challenge.difficulty}
                           </span>
                         </div>
                         <div style={{ marginBottom: '8px' }}>
                           <div style={{ background: 'rgba(255, 255, 255, 0.1)', borderRadius: '4px', height: '6px', overflow: 'hidden' }}>
-                            <div style={{ background: isCompleted ? COLORS.success : `linear-gradient(90deg, ${difficultyColors[challenge.difficulty]}, ${difficultyColors[challenge.difficulty]}aa)`, height: '100%', width: `${progress * 100}%`, borderRadius: '4px' }} />
+                            <div style={{ background: isCompleted ? COLORS.success : `linear-gradient(90deg, ${DIFFICULTY_COLORS[challenge.difficulty]}, ${DIFFICULTY_COLORS[challenge.difficulty]}aa)`, height: '100%', width: `${progress * 100}%`, borderRadius: '4px' }} />
                           </div>
                         </div>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
