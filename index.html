@@ -2621,11 +2621,6 @@
 
             const result = calculateScore(finalPosition.x, finalPosition.y);
 
-            // Increase difficulty by shrinking perfect zone when accurate throw is hit
-            if (isAccurateThrow) {
-              setTriplesHit(prev => prev + 1);
-            }
-
             setAnimatingDart({ start: { x: CENTER, y: BOARD_SIZE + 50 }, end: finalPosition });
 
             setTimeout(() => {
