@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <circle cx="50" cy="50" r="48" fill="#0D1117"/>
+  <g transform="rotate(-45 50 50)">
+    <!-- Dart body -->
+    <ellipse cx="50" cy="50" rx="6" ry="30" fill="#D4A03A"/>
+    <!-- Dart tip -->
+    <polygon points="50,18 46,28 54,28" fill="#E8B94A"/>
+    <!-- Flight/feathers -->
+    <polygon points="50,80 40,95 60,95" fill="#1B4332"/>
+  </g>
+</svg>
