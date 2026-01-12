@@ -936,6 +936,30 @@
       return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
     };
 
+    // Create default daily challenge data for a given date
+    const createDefaultDailyChallengeData = (dateString) => ({
+      date: dateString,
+      challenges: generateDailyChallenges(dateString),
+      stats: { daily180s: 0, dailyBulls: 0, dailyWins: 0, dailyGames: 0, dailyTriples: 0, dailyScore: 0 },
+      completedChallenges: []
+    });
+
+    // Validate daily challenge data structure from localStorage
+    const isValidDailyChallengeData = (data) => {
+      if (!data || typeof data !== 'object') return false;
+      if (typeof data.date !== 'string') return false;
+      if (!Array.isArray(data.challenges)) return false;
+      if (!data.stats || typeof data.stats !== 'object') return false;
+      if (!Array.isArray(data.completedChallenges)) return false;
+      // Validate each challenge has required properties
+      for (const challenge of data.challenges) {
+        if (!challenge.id || !challenge.statKey || typeof challenge.target !== 'number') {
+          return false;
+        }
+      }
+      return true;
+    };
+
     // Country list for player nationality selection (static data, moved outside component for performance)
     const COUNTRIES = [
       { name: 'Afghanistan', flag: '🇦🇫' }, { name: 'Albania', flag: '🇦🇱' }, { name: 'Algeria', flag: '🇩🇿' },
@@ -1161,31 +1185,20 @@
 
       // Daily challenges state - resets at midnight each day
       const [dailyChallengeData, setDailyChallengeData] = useState(() => {
+        const today = getTodayString();
         try {
           const saved = localStorage.getItem('quikdarts_daily_challenges');
           if (saved) {
             const parsed = JSON.parse(saved);
-            if (parsed.date === getTodayString()) {
+            // Validate data structure and check if it's from today
+            if (isValidDailyChallengeData(parsed) && parsed.date === today) {
               return parsed;
             }
           }
-          const today = getTodayString();
-          return {
-            date: today,
-            challenges: generateDailyChallenges(today),
-            stats: { daily180s: 0, dailyBulls: 0, dailyWins: 0, dailyGames: 0, dailyTriples: 0, dailyScore: 0 },
-            completedChallenges: []
-          };
         } catch (error) {
           console.error('Failed to load daily challenges:', error);
-          const today = getTodayString();
-          return {
-            date: today,
-            challenges: generateDailyChallenges(today),
-            stats: { daily180s: 0, dailyBulls: 0, dailyWins: 0, dailyGames: 0, dailyTriples: 0, dailyScore: 0 },
-            completedChallenges: []
-          };
         }
+        return createDefaultDailyChallengeData(today);
       });
 
       // Dartboard theme customization state
@@ -2945,12 +2958,11 @@
         setDailyChallengeData(prev => {
           const today = getTodayString();
           if (prev.date !== today) {
-            const newData = {
-              date: today,
-              challenges: generateDailyChallenges(today),
-              stats: { ...update },
-              completedChallenges: []
-            };
+            // Reset for new day, then apply the update
+            const newData = createDefaultDailyChallengeData(today);
+            Object.keys(update).forEach(key => {
+              newData.stats[key] = (newData.stats[key] || 0) + (update[key] || 0);
+            });
             try {
               localStorage.setItem('quikdarts_daily_challenges', JSON.stringify(newData));
             } catch (error) {
