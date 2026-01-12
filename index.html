@@ -888,6 +888,54 @@
       return `${minutes}m`;
     };
 
+    // Daily Challenges - Rotating daily goals that reset at midnight
+    const DAILY_CHALLENGES_POOL = [
+      // 180s challenges
+      { id: 'daily_180_1', name: 'Maximum!', description: 'Hit 1 perfect 180', icon: '💯', statKey: 'daily180s', target: 1, difficulty: 'easy' },
+      { id: 'daily_180_3', name: 'Triple Maximum', description: 'Hit 3 perfect 180s', icon: '💯', statKey: 'daily180s', target: 3, difficulty: 'medium' },
+      { id: 'daily_180_5', name: '180 Machine', description: 'Hit 5 perfect 180s', icon: '💯', statKey: 'daily180s', target: 5, difficulty: 'hard' },
+      // Bulls challenges
+      { id: 'daily_bulls_5', name: 'Bullseye Starter', description: 'Hit 5 bullseyes', icon: '🎯', statKey: 'dailyBulls', target: 5, difficulty: 'easy' },
+      { id: 'daily_bulls_15', name: 'Bulls on Target', description: 'Hit 15 bullseyes', icon: '🎯', statKey: 'dailyBulls', target: 15, difficulty: 'medium' },
+      { id: 'daily_bulls_30', name: 'Bull Master', description: 'Hit 30 bullseyes', icon: '🎯', statKey: 'dailyBulls', target: 30, difficulty: 'hard' },
+      // Wins challenges
+      { id: 'daily_wins_1', name: 'First Win', description: 'Win 1 game', icon: '🏆', statKey: 'dailyWins', target: 1, difficulty: 'easy' },
+      { id: 'daily_wins_3', name: 'Winning Streak', description: 'Win 3 games', icon: '🏆', statKey: 'dailyWins', target: 3, difficulty: 'medium' },
+      { id: 'daily_wins_5', name: 'Dominant Day', description: 'Win 5 games', icon: '🏆', statKey: 'dailyWins', target: 5, difficulty: 'hard' },
+      // Games played challenges
+      { id: 'daily_games_3', name: 'Warm Up', description: 'Play 3 games', icon: '🎮', statKey: 'dailyGames', target: 3, difficulty: 'easy' },
+      { id: 'daily_games_5', name: 'Practice Run', description: 'Play 5 games', icon: '🎮', statKey: 'dailyGames', target: 5, difficulty: 'medium' },
+      { id: 'daily_games_10', name: 'Marathon', description: 'Play 10 games', icon: '🎮', statKey: 'dailyGames', target: 10, difficulty: 'hard' },
+      // Triples challenges
+      { id: 'daily_triples_10', name: 'Triple Starter', description: 'Hit 10 triples', icon: '3️⃣', statKey: 'dailyTriples', target: 10, difficulty: 'easy' },
+      { id: 'daily_triples_25', name: 'Triple Threat', description: 'Hit 25 triples', icon: '3️⃣', statKey: 'dailyTriples', target: 25, difficulty: 'medium' },
+      { id: 'daily_triples_50', name: 'Triple Master', description: 'Hit 50 triples', icon: '3️⃣', statKey: 'dailyTriples', target: 50, difficulty: 'hard' },
+      // Score challenges
+      { id: 'daily_score_500', name: 'Score Seeker', description: 'Score 500 points', icon: '📊', statKey: 'dailyScore', target: 500, difficulty: 'easy' },
+      { id: 'daily_score_1500', name: 'Point Collector', description: 'Score 1500 points', icon: '📊', statKey: 'dailyScore', target: 1500, difficulty: 'medium' },
+      { id: 'daily_score_3000', name: 'High Scorer', description: 'Score 3000 points', icon: '📊', statKey: 'dailyScore', target: 3000, difficulty: 'hard' }
+    ];
+
+    // Generate daily challenges based on date seed
+    const generateDailyChallenges = (dateString) => {
+      const seed = dateString.split('-').reduce((acc, val) => acc + parseInt(val), 0);
+      const shuffled = [...DAILY_CHALLENGES_POOL].sort((a, b) => {
+        const hashA = (seed * 31 + a.id.charCodeAt(0)) % 1000;
+        const hashB = (seed * 31 + b.id.charCodeAt(0)) % 1000;
+        return hashA - hashB;
+      });
+      const easy = shuffled.find(c => c.difficulty === 'easy');
+      const medium = shuffled.find(c => c.difficulty === 'medium');
+      const hard = shuffled.find(c => c.difficulty === 'hard');
+      return [easy, medium, hard].filter(Boolean);
+    };
+
+    // Get today's date string in YYYY-MM-DD format
+    const getTodayString = () => {
+      const today = new Date();
+      return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+    };
+
     // Country list for player nationality selection (static data, moved outside component for performance)
     const COUNTRIES = [
       { name: 'Afghanistan', flag: '🇦🇫' }, { name: 'Albania', flag: '🇦🇱' }, { name: 'Algeria', flag: '🇩🇿' },
@@ -1110,6 +1158,35 @@
 
       // Time remaining until weekly reset
       const [timeUntilReset, setTimeUntilReset] = useState(getTimeUntilWeeklyReset());
+
+      // Daily challenges state - resets at midnight each day
+      const [dailyChallengeData, setDailyChallengeData] = useState(() => {
+        try {
+          const saved = localStorage.getItem('quikdarts_daily_challenges');
+          if (saved) {
+            const parsed = JSON.parse(saved);
+            if (parsed.date === getTodayString()) {
+              return parsed;
+            }
+          }
+          const today = getTodayString();
+          return {
+            date: today,
+            challenges: generateDailyChallenges(today),
+            stats: { daily180s: 0, dailyBulls: 0, dailyWins: 0, dailyGames: 0, dailyTriples: 0, dailyScore: 0 },
+            completedChallenges: []
+          };
+        } catch (error) {
+          console.error('Failed to load daily challenges:', error);
+          const today = getTodayString();
+          return {
+            date: today,
+            challenges: generateDailyChallenges(today),
+            stats: { daily180s: 0, dailyBulls: 0, dailyWins: 0, dailyGames: 0, dailyTriples: 0, dailyScore: 0 },
+            completedChallenges: []
+          };
+        }
+      });
 
       // Dartboard theme customization state
       const [selectedThemeId, setSelectedThemeId] = useState(() => {
@@ -1877,6 +1954,7 @@
                   totalGamesWon: achievementStats.totalGamesWon + 1
                 });
                 updateWeeklyChallengeStats({ weeklyWins: 1 });
+                updateDailyChallengeStats({ dailyWins: 1, dailyGames: 1 });
               }
             } else if (!practiceMode) {
               // Track game played but not won (lost to AI or other player)
@@ -1884,6 +1962,7 @@
                 updateAchievementStats({ totalOnlineGames: achievementStats.totalOnlineGames + 1 });
               } else {
                 updateAchievementStats({ totalGamesPlayed: achievementStats.totalGamesPlayed + 1 });
+                updateDailyChallengeStats({ dailyGames: 1 });
               }
             }
             return;
@@ -2069,6 +2148,7 @@
             if (!onlineMode && !practiceMode) {
               updateAchievementStats({ total180s: achievementStats.total180s + 1 });
               updateWeeklyChallengeStats({ weekly180s: 1 });
+              updateDailyChallengeStats({ daily180s: 1 });
             }
           } else {
             // Play regular hit sounds only if NOT a 180
@@ -2078,6 +2158,7 @@
               if (!onlineMode && !practiceMode) {
                 updateAchievementStats({ totalBulls: achievementStats.totalBulls + 1 });
                 updateWeeklyChallengeStats({ weeklyBulls: 1 });
+                updateDailyChallengeStats({ dailyBulls: 1 });
               }
             } else if (result.score > 0) {
               playSound('hit');
@@ -2087,10 +2168,16 @@
             if (result.multiplier === 3 && !onlineMode && !practiceMode) {
               updateAchievementStats({ totalTriples: achievementStats.totalTriples + 1 });
               updateWeeklyChallengeStats({ weeklyTriples: 1 });
+              updateDailyChallengeStats({ dailyTriples: 1 });
             }
 
             setShowScorePopup({ ...result, position: finalPosition });
             setTimeout(() => setShowScorePopup(null), 1000);
+          }
+
+          // Track daily score for all throws
+          if (!onlineMode && !practiceMode && result.score > 0) {
+            updateDailyChallengeStats({ dailyScore: result.score });
           }
 
           if (newScore < 0 || newScore === 1 || (newScore === 0 && result.multiplier !== 2)) {
@@ -2853,6 +2940,50 @@
         });
       }, []);
 
+      // Update daily challenge stats and check for completions
+      const updateDailyChallengeStats = useCallback((update) => {
+        setDailyChallengeData(prev => {
+          const today = getTodayString();
+          if (prev.date !== today) {
+            const newData = {
+              date: today,
+              challenges: generateDailyChallenges(today),
+              stats: { ...update },
+              completedChallenges: []
+            };
+            try {
+              localStorage.setItem('quikdarts_daily_challenges', JSON.stringify(newData));
+            } catch (error) {
+              console.error('Failed to save daily challenges:', error);
+            }
+            return newData;
+          }
+
+          const newStats = { ...prev.stats };
+          Object.keys(update).forEach(key => {
+            newStats[key] = (newStats[key] || 0) + (update[key] || 0);
+          });
+
+          const newCompleted = [...prev.completedChallenges];
+          prev.challenges.forEach(challenge => {
+            if (!newCompleted.includes(challenge.id)) {
+              const current = newStats[challenge.statKey] || 0;
+              if (current >= challenge.target) {
+                newCompleted.push(challenge.id);
+              }
+            }
+          });
+
+          const newData = { ...prev, stats: newStats, completedChallenges: newCompleted };
+          try {
+            localStorage.setItem('quikdarts_daily_challenges', JSON.stringify(newData));
+          } catch (error) {
+            console.error('Failed to save daily challenges:', error);
+          }
+          return newData;
+        });
+      }, []);
+
       // Update countdown timer every minute
       useEffect(() => {
         const interval = setInterval(() => {
@@ -3524,6 +3655,63 @@
                   </div>
                 );
               })()}
+
+              {/* Daily Challenges Section */}
+              <div style={{
+                background: COLORS.backgroundCard,
+                borderRadius: '12px',
+                padding: '24px',
+                marginBottom: '32px',
+                border: `1px solid ${COLORS.accent}30`
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                  <div>
+                    <h2 style={{ color: COLORS.text, fontSize: '1.25rem', fontWeight: '600', margin: 0 }}>Daily Challenges</h2>
+                    <p style={{ color: COLORS.textMuted, fontSize: '0.85rem', margin: '4px 0 0 0' }}>Complete challenges to earn rewards. Resets at midnight.</p>
+                  </div>
+                  <div style={{ background: `${COLORS.accent}20`, borderRadius: '8px', padding: '8px 12px', color: COLORS.accent, fontSize: '0.85rem', fontWeight: '600' }}>
+                    {dailyChallengeData.completedChallenges.length} / {dailyChallengeData.challenges.length} Complete
+                  </div>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '12px' }}>
+                  {dailyChallengeData.challenges.map(challenge => {
+                    const isCompleted = dailyChallengeData.completedChallenges.includes(challenge.id);
+                    const current = dailyChallengeData.stats[challenge.statKey] || 0;
+                    const progress = Math.min(current / challenge.target, 1);
+                    const difficultyColors = { easy: '#27ae60', medium: '#f39c12', hard: '#e74c3c' };
+                    return (
+                      <div key={challenge.id} style={{
+                        background: isCompleted ? `${COLORS.success}15` : 'rgba(255, 255, 255, 0.03)',
+                        borderRadius: '10px',
+                        padding: '16px',
+                        border: isCompleted ? `1px solid ${COLORS.success}40` : '1px solid rgba(255, 255, 255, 0.05)'
+                      }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
+                          <div style={{ fontSize: '24px', background: isCompleted ? `${COLORS.success}20` : 'rgba(255, 255, 255, 0.05)', borderRadius: '8px', padding: '8px' }}>
+                            {isCompleted ? '✅' : challenge.icon}
+                          </div>
+                          <div style={{ flex: 1 }}>
+                            <div style={{ color: COLORS.text, fontSize: '0.95rem', fontWeight: '600' }}>{challenge.name}</div>
+                            <div style={{ color: COLORS.textMuted, fontSize: '0.8rem' }}>{challenge.description}</div>
+                          </div>
+                          <span style={{ fontSize: '0.65rem', fontWeight: '600', textTransform: 'uppercase', color: difficultyColors[challenge.difficulty], background: `${difficultyColors[challenge.difficulty]}20`, padding: '4px 8px', borderRadius: '4px' }}>
+                            {challenge.difficulty}
+                          </span>
+                        </div>
+                        <div style={{ marginBottom: '8px' }}>
+                          <div style={{ background: 'rgba(255, 255, 255, 0.1)', borderRadius: '4px', height: '6px', overflow: 'hidden' }}>
+                            <div style={{ background: isCompleted ? COLORS.success : `linear-gradient(90deg, ${difficultyColors[challenge.difficulty]}, ${difficultyColors[challenge.difficulty]}aa)`, height: '100%', width: `${progress * 100}%`, borderRadius: '4px' }} />
+                          </div>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <span style={{ color: COLORS.textMuted, fontSize: '0.75rem' }}>{current} / {challenge.target}</span>
+                          {isCompleted && <span style={{ color: COLORS.success, fontSize: '0.75rem', fontWeight: '600' }}>Complete!</span>}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
 
               {/* Almost There Section - Achievements at 70-95% */}
               {(() => {
