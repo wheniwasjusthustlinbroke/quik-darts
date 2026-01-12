@@ -295,6 +295,61 @@
       0%, 100% { opacity: 1; }
       50% { opacity: 0.7; }
     }
+    @keyframes almostTherePulse {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(212, 160, 58, 0); }
+      50% { box-shadow: 0 0 20px 2px rgba(212, 160, 58, 0.3); }
+    }
+    @keyframes achievementUnlock {
+      0% { opacity: 0; transform: translate(-50%, -50%) scale(0.5); }
+      100% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+    }
+    @keyframes iconBounce {
+      0% { transform: scale(1); }
+      50% { transform: scale(1.2); }
+      100% { transform: scale(1); }
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+    @keyframes confetti0 {
+      0% { transform: translate(0, 0) scale(0); opacity: 1; }
+      100% { transform: translate(-80px, -100px) scale(1); opacity: 0; }
+    }
+    @keyframes confetti1 {
+      0% { transform: translate(0, 0) scale(0); opacity: 1; }
+      100% { transform: translate(80px, -90px) scale(1); opacity: 0; }
+    }
+    @keyframes confetti2 {
+      0% { transform: translate(0, 0) scale(0); opacity: 1; }
+      100% { transform: translate(-70px, 80px) scale(1); opacity: 0; }
+    }
+    @keyframes confetti3 {
+      0% { transform: translate(0, 0) scale(0); opacity: 1; }
+      100% { transform: translate(90px, 70px) scale(1); opacity: 0; }
+    }
+    @keyframes rareShimmer {
+      0%, 100% { box-shadow: 0 0 15px rgba(52, 152, 219, 0.3); }
+      50% { box-shadow: 0 0 25px rgba(52, 152, 219, 0.5); }
+    }
+    @keyframes epicGlow {
+      0%, 100% { box-shadow: 0 0 20px rgba(155, 89, 182, 0.4), inset 0 0 30px rgba(155, 89, 182, 0.1); }
+      50% { box-shadow: 0 0 35px rgba(155, 89, 182, 0.6), inset 0 0 40px rgba(155, 89, 182, 0.15); }
+    }
+    @keyframes legendaryPulse {
+      0%, 100% { box-shadow: 0 0 25px rgba(243, 156, 18, 0.5), 0 0 50px rgba(243, 156, 18, 0.2); }
+      50% { box-shadow: 0 0 40px rgba(243, 156, 18, 0.7), 0 0 70px rgba(243, 156, 18, 0.3); }
+    }
+    @keyframes mythicGlow {
+      0%, 100% {
+        box-shadow: 0 0 30px rgba(231, 76, 60, 0.6), 0 0 60px rgba(231, 76, 60, 0.3), inset 0 0 40px rgba(231, 76, 60, 0.1);
+        border-color: rgba(231, 76, 60, 0.8);
+      }
+      50% {
+        box-shadow: 0 0 50px rgba(231, 76, 60, 0.8), 0 0 80px rgba(231, 76, 60, 0.4), inset 0 0 50px rgba(231, 76, 60, 0.15);
+        border-color: rgba(231, 76, 60, 1);
+      }
+    }
     .animate-fade-in { animation: fadeInUp 0.6s ease forwards; }
     .animate-delay-1 { animation-delay: 0.1s; opacity: 0; }
     .animate-delay-2 { animation-delay: 0.2s; opacity: 0; }
@@ -702,43 +757,49 @@
     // ============================================
 
     // Achievements data - moved outside component to prevent recreation on every render
+    // Achievements with chain property are part of tiered progression ladders
     const ACHIEVEMENTS_DATA = [
-      // First Steps (one-time, no progress tracking)
-      { id: 'first_game', name: 'First Game', description: 'Complete your first game', icon: '🎯', rarity: 'common', mode: 'offline' },
-      { id: 'first_win', name: 'First Victory', description: 'Win your first game', icon: '🏆', rarity: 'common', mode: 'offline' },
+      // First Steps (standalone)
+      { id: 'first_game', name: 'First Steps', description: 'Every champion starts somewhere. Complete your first game.', icon: '🎯', rarity: 'common', mode: 'offline' },
+      { id: 'first_win', name: 'First Victory', description: 'The taste of victory never gets old. Win your first game.', icon: '🏆', rarity: 'common', mode: 'offline' },
 
-      // 180 Achievements
-      { id: 'first_180', name: 'Maximum!', description: 'Hit your first 180', icon: '💯', rarity: 'uncommon', mode: 'offline' },
-      { id: 'ten_180s', name: '180 Master', description: 'Hit 10 total 180s', icon: '⭐', rarity: 'rare', mode: 'offline', statKey: 'total180s', target: 10 },
-      { id: 'fifty_180s', name: 'Ton Machine', description: 'Hit 50 total 180s', icon: '🌟', rarity: 'epic', mode: 'offline', statKey: 'total180s', target: 50 },
+      // Maximum! Chain - 180 progression
+      { id: 'first_180', name: 'Maximum! I', description: 'The crowd goes wild! Hit your first perfect 180.', icon: '💯', rarity: 'uncommon', mode: 'offline', chain: 'maximum', tier: 1 },
+      { id: 'ten_180s', name: 'Maximum! II', description: 'Consistency is key. Land 10 maximum scores.', icon: '💯', rarity: 'rare', mode: 'offline', statKey: 'total180s', target: 10, chain: 'maximum', tier: 2 },
+      { id: 'fifty_180s', name: 'Maximum! III', description: 'Only the elite reach this level. Hit 50 perfect 180s.', icon: '💯', rarity: 'epic', mode: 'offline', statKey: 'total180s', target: 50, chain: 'maximum', tier: 3 },
+      { id: 'hundred_180s', name: 'Maximum! IV', description: 'Legendary precision. 100 perfect 180s.', icon: '💯', rarity: 'legendary', mode: 'offline', statKey: 'total180s', target: 100, chain: 'maximum', tier: 4 },
 
-      // Nine Darter Achievements (one-time, legendary)
-      { id: 'nine_darter_offline', name: 'Perfect Game', description: 'Achieve a nine-dart finish in offline mode', icon: '👑', rarity: 'legendary', mode: 'offline' },
-      { id: 'nine_darter_online', name: 'Online Legend', description: 'Achieve a nine-dart finish in online mode', icon: '💎', rarity: 'mythic', mode: 'online' },
+      // Nine Darter (standalone legendary)
+      { id: 'nine_darter_offline', name: 'Perfect Game', description: 'The holy grail of darts. Achieve a legendary nine-dart finish.', icon: '👑', rarity: 'legendary', mode: 'offline' },
+      { id: 'nine_darter_online', name: 'Online Legend', description: 'Perfection under pressure. Nine-dart finish against a real opponent.', icon: '💎', rarity: 'mythic', mode: 'online' },
 
-      // Bulls Achievements
-      { id: 'first_bull', name: 'Bullseye!', description: 'Hit your first bullseye', icon: '🎯', rarity: 'common', mode: 'offline' },
-      { id: 'fifty_bulls', name: 'Bull Master', description: 'Hit 50 bullseyes', icon: '🐂', rarity: 'rare', mode: 'offline', statKey: 'totalBulls', target: 50 },
-      { id: 'hundred_bulls', name: 'Bull Legend', description: 'Hit 100 bullseyes', icon: '🐃', rarity: 'epic', mode: 'offline', statKey: 'totalBulls', target: 100 },
+      // Bullseye! Chain
+      { id: 'first_bull', name: 'Bullseye! I', description: 'Right in the center! Hit your first bullseye.', icon: '🎯', rarity: 'common', mode: 'offline', chain: 'bullseye', tier: 1 },
+      { id: 'fifty_bulls', name: 'Bullseye! II', description: 'Precision personified. Find the bullseye 50 times.', icon: '🎯', rarity: 'rare', mode: 'offline', statKey: 'totalBulls', target: 50, chain: 'bullseye', tier: 2 },
+      { id: 'hundred_bulls', name: 'Bullseye! III', description: 'The center is your home. 100 bullseyes and counting.', icon: '🎯', rarity: 'epic', mode: 'offline', statKey: 'totalBulls', target: 100, chain: 'bullseye', tier: 3 },
+      { id: 'twofifty_bulls', name: 'Bullseye! IV', description: 'Master of the center. 250 bullseyes.', icon: '🎯', rarity: 'legendary', mode: 'offline', statKey: 'totalBulls', target: 250, chain: 'bullseye', tier: 4 },
 
-      // Winning Streaks
-      { id: 'five_wins', name: 'Hot Streak', description: 'Win 5 games', icon: '🔥', rarity: 'uncommon', mode: 'offline', statKey: 'totalGamesWon', target: 5 },
-      { id: 'twenty_wins', name: 'Dominator', description: 'Win 20 games', icon: '💪', rarity: 'rare', mode: 'offline', statKey: 'totalGamesWon', target: 20 },
-      { id: 'fifty_wins', name: 'Champion', description: 'Win 50 games', icon: '🥇', rarity: 'epic', mode: 'offline', statKey: 'totalGamesWon', target: 50 },
+      // Victory Chain
+      { id: 'five_wins', name: 'Victory I', description: 'You\'re heating up! Claim 5 victories.', icon: '🏆', rarity: 'uncommon', mode: 'offline', statKey: 'totalGamesWon', target: 5, chain: 'victory', tier: 1 },
+      { id: 'twenty_wins', name: 'Victory II', description: 'They fear your name. Dominate with 20 wins.', icon: '🏆', rarity: 'rare', mode: 'offline', statKey: 'totalGamesWon', target: 20, chain: 'victory', tier: 2 },
+      { id: 'fifty_wins', name: 'Victory III', description: 'A true champion emerges. Conquer 50 games.', icon: '🏆', rarity: 'epic', mode: 'offline', statKey: 'totalGamesWon', target: 50, chain: 'victory', tier: 3 },
+      { id: 'hundred_wins', name: 'Victory IV', description: 'Unstoppable force. 100 victories.', icon: '🏆', rarity: 'legendary', mode: 'offline', statKey: 'totalGamesWon', target: 100, chain: 'victory', tier: 4 },
 
-      // Online Achievements
-      { id: 'first_online', name: 'Going Online', description: 'Play your first online match', icon: '🌍', rarity: 'common', mode: 'online' },
-      { id: 'first_online_win', name: 'Online Victor', description: 'Win your first online match', icon: '🏅', rarity: 'uncommon', mode: 'online' },
-      { id: 'ten_online_wins', name: 'Online Warrior', description: 'Win 10 online matches', icon: '⚔️', rarity: 'rare', mode: 'online', statKey: 'totalOnlineWins', target: 10 },
-      { id: 'fifty_online_wins', name: 'Online Champion', description: 'Win 50 online matches', icon: '👑', rarity: 'epic', mode: 'online', statKey: 'totalOnlineWins', target: 50 },
+      // Global Chain - Online progression
+      { id: 'first_online', name: 'Global I', description: 'Step into the arena. Face your first online opponent.', icon: '🌍', rarity: 'common', mode: 'online', chain: 'global', tier: 1 },
+      { id: 'first_online_win', name: 'Global II', description: 'Real opponents, real pressure, real victory.', icon: '🌍', rarity: 'uncommon', mode: 'online', chain: 'global', tier: 2 },
+      { id: 'ten_online_wins', name: 'Global III', description: 'Battle-tested. Defeat 10 online challengers.', icon: '🌍', rarity: 'rare', mode: 'online', statKey: 'totalOnlineWins', target: 10, chain: 'global', tier: 3 },
+      { id: 'fifty_online_wins', name: 'Global IV', description: 'World-class competitor. 50 online victories.', icon: '🌍', rarity: 'epic', mode: 'online', statKey: 'totalOnlineWins', target: 50, chain: 'global', tier: 4 },
 
-      // Checkout Achievements (threshold-based, not cumulative)
-      { id: 'big_checkout', name: 'Big Fish', description: 'Hit a checkout of 100 or more', icon: '🐋', rarity: 'uncommon', mode: 'offline', statKey: 'highestCheckout', target: 100, isThreshold: true },
-      { id: 'huge_checkout', name: 'Monster Checkout', description: 'Hit a checkout of 150 or more', icon: '🦈', rarity: 'rare', mode: 'offline', statKey: 'highestCheckout', target: 150, isThreshold: true },
+      // Checkout Chain
+      { id: 'big_checkout', name: 'Checkout I', description: 'Nerves of steel. Checkout 100+ in one visit.', icon: '🎯', rarity: 'uncommon', mode: 'offline', statKey: 'highestCheckout', target: 100, isThreshold: true, chain: 'checkout', tier: 1 },
+      { id: 'huge_checkout', name: 'Checkout II', description: 'The impossible made possible. Checkout 150+ points.', icon: '🎯', rarity: 'rare', mode: 'offline', statKey: 'highestCheckout', target: 150, isThreshold: true, chain: 'checkout', tier: 2 },
+      { id: 'max_checkout', name: 'Checkout III', description: 'The ultimate finish. Checkout 170 - the maximum.', icon: '🎯', rarity: 'legendary', mode: 'offline', statKey: 'highestCheckout', target: 170, isThreshold: true, chain: 'checkout', tier: 3 },
 
-      // Skill Achievements
-      { id: 'fifty_triples', name: 'Triple Threat', description: 'Hit 50 triples', icon: '3️⃣', rarity: 'uncommon', mode: 'offline', statKey: 'totalTriples', target: 50 },
-      { id: 'two_hundred_triples', name: 'Triple Master', description: 'Hit 200 triples', icon: '💫', rarity: 'rare', mode: 'offline', statKey: 'totalTriples', target: 200 }
+      // Triple Chain
+      { id: 'fifty_triples', name: 'Triple I', description: 'Treble trouble for opponents. Hit 50 triples.', icon: '3️⃣', rarity: 'uncommon', mode: 'offline', statKey: 'totalTriples', target: 50, chain: 'triple', tier: 1 },
+      { id: 'two_hundred_triples', name: 'Triple II', description: 'The triple 20 is your playground. 200 triples.', icon: '3️⃣', rarity: 'rare', mode: 'offline', statKey: 'totalTriples', target: 200, chain: 'triple', tier: 2 },
+      { id: 'five_hundred_triples', name: 'Triple III', description: 'Triple mastery achieved. 500 triples.', icon: '3️⃣', rarity: 'epic', mode: 'offline', statKey: 'totalTriples', target: 500, chain: 'triple', tier: 3 }
     ];
 
     // Country list for player nationality selection (static data, moved outside component for performance)
@@ -2615,6 +2676,53 @@
         }
       };
 
+      // Get rarity-based card styles for unlocked achievements
+      const getRarityCardStyle = (rarity, isUnlocked) => {
+        if (!isUnlocked) return {};
+        const color = getRarityColor(rarity);
+
+        switch (rarity) {
+          case 'common':
+            return {
+              border: `1px solid ${color}30`,
+              boxShadow: 'none'
+            };
+          case 'uncommon':
+            return {
+              border: `1px solid ${color}50`,
+              boxShadow: `0 0 10px ${color}20`
+            };
+          case 'rare':
+            return {
+              border: `2px solid ${color}60`,
+              boxShadow: `0 0 15px ${color}30`,
+              animation: 'rareShimmer 3s ease-in-out infinite'
+            };
+          case 'epic':
+            return {
+              border: `2px solid ${color}70`,
+              boxShadow: `0 0 20px ${color}40, inset 0 0 30px ${color}10`,
+              animation: 'epicGlow 2s ease-in-out infinite'
+            };
+          case 'legendary':
+            return {
+              border: `2px solid ${color}`,
+              boxShadow: `0 0 25px ${color}50, 0 0 50px ${color}20`,
+              animation: 'legendaryPulse 2s ease-in-out infinite',
+              background: `linear-gradient(135deg, ${COLORS.backgroundCard}, ${color}15)`
+            };
+          case 'mythic':
+            return {
+              border: `3px solid ${color}`,
+              boxShadow: `0 0 30px ${color}60, 0 0 60px ${color}30, inset 0 0 40px ${color}10`,
+              animation: 'mythicGlow 1.5s ease-in-out infinite',
+              background: `linear-gradient(135deg, ${COLORS.backgroundCard}, ${color}20)`
+            };
+          default:
+            return {};
+        }
+      };
+
       // Get achievement progress for trackable achievements
       const getAchievementProgress = (achievement, stats) => {
         if (!achievement.statKey || !achievement.target) {
@@ -3128,19 +3236,90 @@
                 </div>
               </div>
 
+              {/* Almost There Section - Achievements at 70-95% */}
+              {(() => {
+                const almostThereAchievements = ACHIEVEMENTS_DATA.filter(achievement => {
+                  if (unlockedAchievements.includes(achievement.id)) return false;
+                  const progress = getAchievementProgress(achievement, achievementStats);
+                  return progress && progress.progress >= 0.7 && progress.progress < 1;
+                });
+
+                if (almostThereAchievements.length === 0) return null;
+
+                return (
+                  <div style={{ marginBottom: '32px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
+                      <span style={{ fontSize: '1.25rem' }}>🔥</span>
+                      <h2 style={{ color: COLORS.accent, fontSize: '1.1rem', fontWeight: '600', margin: 0 }}>Almost There!</h2>
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '12px' }}>
+                      {almostThereAchievements.map(achievement => {
+                        const progressData = getAchievementProgress(achievement, achievementStats);
+                        const remaining = progressData.target - progressData.current;
+                        return (
+                          <div key={`almost-${achievement.id}`} style={{
+                            background: `linear-gradient(135deg, ${COLORS.backgroundCard}, ${COLORS.accent}10)`,
+                            border: `1px solid ${COLORS.accent}40`,
+                            borderRadius: '12px',
+                            padding: '16px',
+                            animation: 'almostTherePulse 2s ease-in-out infinite'
+                          }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                              <div style={{ fontSize: '28px' }}>{achievement.icon}</div>
+                              <div style={{ flex: 1 }}>
+                                <div style={{ color: COLORS.text, fontSize: '0.95rem', fontWeight: '600', marginBottom: '4px' }}>
+                                  {achievement.name}
+                                </div>
+                                <div style={{ color: COLORS.accent, fontSize: '0.8rem', fontWeight: '500' }}>
+                                  {progressData.isThreshold
+                                    ? `Need ${progressData.target}+ (Current best: ${progressData.current})`
+                                    : `Only ${remaining} more to go!`}
+                                </div>
+                                {/* Mini progress bar */}
+                                <div style={{
+                                  background: 'rgba(255, 255, 255, 0.1)',
+                                  borderRadius: '3px',
+                                  height: '4px',
+                                  marginTop: '8px',
+                                  overflow: 'hidden'
+                                }}>
+                                  <div style={{
+                                    background: `linear-gradient(90deg, ${COLORS.accent}, ${COLORS.accentLight})`,
+                                    height: '100%',
+                                    width: `${progressData.progress * 100}%`,
+                                    borderRadius: '3px'
+                                  }} />
+                                </div>
+                              </div>
+                              <div style={{ color: COLORS.accent, fontSize: '1.1rem', fontWeight: '700' }}>
+                                {Math.round(progressData.progress * 100)}%
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })()}
+
               {/* Achievements Grid */}
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '16px' }}>
                 {ACHIEVEMENTS_DATA.map(achievement => {
                   const isUnlocked = unlockedAchievements.includes(achievement.id);
                   const progressData = !isUnlocked ? getAchievementProgress(achievement, achievementStats) : null;
+                  const rarityStyle = getRarityCardStyle(achievement.rarity, isUnlocked);
                   return (
                     <div key={achievement.id} style={{
                       background: COLORS.backgroundCard,
-                      border: isUnlocked ? `1px solid ${getRarityColor(achievement.rarity)}40` : '1px solid rgba(255, 255, 255, 0.05)',
+                      border: '1px solid rgba(255, 255, 255, 0.05)',
                       borderRadius: '12px',
                       padding: '20px',
                       opacity: isUnlocked ? 1 : (progressData && progressData.progress > 0 ? 0.8 : 0.6),
-                      transition: 'all 0.2s ease'
+                      transition: 'all 0.3s ease',
+                      position: 'relative',
+                      overflow: 'hidden',
+                      ...rarityStyle
                     }}>
                       <div style={{ display: 'flex', alignItems: 'flex-start', gap: '16px' }}>
                         <div style={{
@@ -4158,51 +4337,137 @@
                 )}
               </div>
 
-              {/* Achievement Unlock Popup */}
+              {/* Achievement Unlock Popup - Enhanced */}
               {achievementPopup && (
                 <div style={{
                   position: 'fixed',
-                  top: '20px',
-                  right: '20px',
-                  background: 'linear-gradient(135deg, rgba(0, 0, 0, 0.95), rgba(20, 20, 40, 0.95))',
+                  top: '50%',
+                  left: '50%',
+                  transform: 'translate(-50%, -50%)',
+                  background: 'linear-gradient(135deg, rgba(0, 0, 0, 0.98), rgba(20, 20, 40, 0.98))',
                   border: `3px solid ${getRarityColor(achievementPopup.rarity)}`,
-                  borderRadius: '15px',
-                  padding: '20px',
-                  minWidth: '300px',
-                  maxWidth: '400px',
-                  boxShadow: `0 10px 40px ${getRarityColor(achievementPopup.rarity)}80, 0 0 20px ${getRarityColor(achievementPopup.rarity)}40`,
-                  animation: 'slideInRight 0.5s ease-out',
+                  borderRadius: '20px',
+                  padding: '32px',
+                  minWidth: '340px',
+                  maxWidth: '420px',
+                  boxShadow: `0 20px 60px ${getRarityColor(achievementPopup.rarity)}60, 0 0 40px ${getRarityColor(achievementPopup.rarity)}30, inset 0 0 60px ${getRarityColor(achievementPopup.rarity)}10`,
+                  animation: 'achievementUnlock 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
                   zIndex: 1000,
-                  fontFamily: "'Oswald', sans-serif"
+                  textAlign: 'center'
                 }}>
-                  <div style={{ color: getRarityColor(achievementPopup.rarity), fontSize: '12px', fontWeight: '600', letterSpacing: '2px', marginBottom: '10px' }}>
-                    🏆 ACHIEVEMENT UNLOCKED
+                  {/* Confetti for legendary/mythic */}
+                  {(achievementPopup.rarity === 'legendary' || achievementPopup.rarity === 'mythic') && (
+                    <>
+                      {[...Array(12)].map((_, i) => (
+                        <div key={i} style={{
+                          position: 'absolute',
+                          width: '8px',
+                          height: '8px',
+                          background: getRarityColor(achievementPopup.rarity),
+                          borderRadius: '50%',
+                          top: '50%',
+                          left: '50%',
+                          animation: `confetti${i % 4} 1s ease-out forwards`,
+                          animationDelay: `${i * 0.05}s`
+                        }} />
+                      ))}
+                    </>
+                  )}
+
+                  {/* Header */}
+                  <div style={{
+                    color: getRarityColor(achievementPopup.rarity),
+                    fontSize: '0.75rem',
+                    fontWeight: '700',
+                    letterSpacing: '3px',
+                    marginBottom: '16px',
+                    textTransform: 'uppercase'
+                  }}>
+                    🏆 Achievement Unlocked
                   </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-                    <div style={{ fontSize: '48px' }}>{achievementPopup.icon}</div>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ color: '#fff', fontSize: '20px', fontWeight: '700', marginBottom: '5px' }}>
-                        {achievementPopup.name}
-                      </div>
-                      <div style={{ color: '#ccc', fontSize: '14px', marginBottom: '5px' }}>
-                        {achievementPopup.description}
-                      </div>
-                      <div style={{
-                        display: 'inline-block',
-                        color: getRarityColor(achievementPopup.rarity),
-                        fontSize: '11px',
-                        fontWeight: '600',
-                        letterSpacing: '1px',
-                        textTransform: 'uppercase',
-                        border: `1px solid ${getRarityColor(achievementPopup.rarity)}`,
-                        borderRadius: '10px',
-                        padding: '3px 10px'
-                      }}>
-                        {achievementPopup.rarity}
-                      </div>
-                    </div>
+
+                  {/* Icon with glow */}
+                  <div style={{
+                    fontSize: '64px',
+                    marginBottom: '16px',
+                    filter: `drop-shadow(0 0 20px ${getRarityColor(achievementPopup.rarity)})`,
+                    animation: 'iconBounce 0.5s ease-out 0.3s'
+                  }}>
+                    {achievementPopup.icon}
                   </div>
+
+                  {/* Name */}
+                  <div style={{
+                    color: '#fff',
+                    fontSize: '1.5rem',
+                    fontWeight: '700',
+                    marginBottom: '8px',
+                    textShadow: `0 0 20px ${getRarityColor(achievementPopup.rarity)}80`
+                  }}>
+                    {achievementPopup.name}
+                  </div>
+
+                  {/* Description */}
+                  <div style={{
+                    color: COLORS.textMuted,
+                    fontSize: '0.9rem',
+                    marginBottom: '16px',
+                    lineHeight: '1.4'
+                  }}>
+                    {achievementPopup.description}
+                  </div>
+
+                  {/* Rarity Badge */}
+                  <div style={{
+                    display: 'inline-block',
+                    color: getRarityColor(achievementPopup.rarity),
+                    fontSize: '0.7rem',
+                    fontWeight: '700',
+                    letterSpacing: '2px',
+                    textTransform: 'uppercase',
+                    background: `${getRarityColor(achievementPopup.rarity)}20`,
+                    border: `1px solid ${getRarityColor(achievementPopup.rarity)}`,
+                    borderRadius: '20px',
+                    padding: '6px 16px'
+                  }}>
+                    {achievementPopup.rarity}
+                  </div>
+
+                  {/* Next Achievement Teaser */}
+                  {(() => {
+                    // Find next achievement in same category
+                    const currentIndex = ACHIEVEMENTS_DATA.findIndex(a => a.id === achievementPopup.id);
+                    const nextAchievement = ACHIEVEMENTS_DATA[currentIndex + 1];
+                    if (nextAchievement && nextAchievement.statKey === achievementPopup.statKey) {
+                      return (
+                        <div style={{
+                          marginTop: '20px',
+                          padding: '12px',
+                          background: 'rgba(255, 255, 255, 0.05)',
+                          borderRadius: '10px',
+                          fontSize: '0.8rem'
+                        }}>
+                          <div style={{ color: COLORS.textMuted, marginBottom: '4px' }}>Next Target:</div>
+                          <div style={{ color: COLORS.text, fontWeight: '600' }}>
+                            {nextAchievement.icon} {nextAchievement.name}
+                          </div>
+                        </div>
+                      );
+                    }
+                    return null;
+                  })()}
                 </div>
+              )}
+
+              {/* Backdrop overlay for achievement popup */}
+              {achievementPopup && (
+                <div style={{
+                  position: 'fixed',
+                  inset: 0,
+                  background: 'rgba(0, 0, 0, 0.7)',
+                  zIndex: 999,
+                  animation: 'fadeIn 0.3s ease-out'
+                }} />
               )}
               
               <div style={{ width: `min(${BOARD_SIZE}px, 85vw)`, marginTop: '20px' }}>
