@@ -2592,10 +2592,8 @@
 
             const result = calculateScore(finalPosition.x, finalPosition.y);
 
-            // Increase difficulty by shrinking perfect zone when accurate throw is hit
-            if (isAccurateThrow) {
-              setTriplesHit(prev => prev + 1);
-            }
+            // Note: AI throws do NOT increment triplesHit as that affects human player's
+            // perfect zone difficulty, and should only be affected by human throws
 
             setAnimatingDart({ start: { x: CENTER, y: BOARD_SIZE + 50 }, end: finalPosition });
 
