@@ -4590,7 +4590,7 @@
                                 newAiDifficulty[i] = diff;
                                 setPlayerSetup(prev => ({ ...prev, aiDifficulty: newAiDifficulty }));
                               }} style={{ padding: '7px 4px', fontSize: '10px', fontWeight: '600', background: playerSetup.aiDifficulty[i] === diff ? 'linear-gradient(180deg, #c9a227 0%, #a68b1f 100%)' : 'rgba(255, 255, 255, 0.03)', color: playerSetup.aiDifficulty[i] === diff ? '#0a0a0f' : 'rgba(255, 255, 255, 0.4)', border: playerSetup.aiDifficulty[i] === diff ? 'none' : '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '4px', cursor: 'pointer', fontFamily: "'Oswald', sans-serif", textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                                {diff}
+                                {diff.slice(0, 3).toUpperCase()}
                               </button>
                             ))}
                           </div>
