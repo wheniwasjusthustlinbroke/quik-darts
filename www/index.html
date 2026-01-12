@@ -802,6 +802,92 @@
       { id: 'five_hundred_triples', name: 'Triple III', description: 'Triple mastery achieved. 500 triples.', icon: '3️⃣', rarity: 'epic', mode: 'offline', statKey: 'totalTriples', target: 500, chain: 'triple', tier: 3 }
     ];
 
+    // Time-Limited Achievements - Weekly rotating challenges synced via Firebase
+    // These rotate on a 4-week cycle
+    const TIME_LIMITED_ACHIEVEMENTS = [
+      // Week 1 - 180 Focus
+      {
+        id: 'weekly_180_sprint',
+        name: 'Maximum Week',
+        description: 'Hit 10 perfect 180s this week',
+        icon: '💯',
+        rarity: 'rare',
+        statKey: 'weekly180s',
+        target: 10,
+        week: 1,
+        reward: '180 Master Badge'
+      },
+      // Week 2 - Bullseye Focus
+      {
+        id: 'weekly_bulls_blitz',
+        name: 'Bulls Week',
+        description: 'Hit 25 bullseyes this week',
+        icon: '🎯',
+        rarity: 'rare',
+        statKey: 'weeklyBulls',
+        target: 25,
+        week: 2,
+        reward: 'Bullseye Badge'
+      },
+      // Week 3 - Victory Focus
+      {
+        id: 'weekly_win_streak',
+        name: 'Victory Week',
+        description: 'Win 10 games this week',
+        icon: '🏆',
+        rarity: 'rare',
+        statKey: 'weeklyWins',
+        target: 10,
+        week: 3,
+        reward: 'Champion Badge'
+      },
+      // Week 4 - Triples Focus
+      {
+        id: 'weekly_triple_threat',
+        name: 'Triples Week',
+        description: 'Hit 50 triples this week',
+        icon: '3️⃣',
+        rarity: 'rare',
+        statKey: 'weeklyTriples',
+        target: 50,
+        week: 4,
+        reward: 'Triple Badge'
+      }
+    ];
+
+    // Get current week number (1-4 rotation)
+    const getCurrentWeekNumber = () => {
+      const now = new Date();
+      const startOfYear = new Date(now.getFullYear(), 0, 1);
+      const weekNumber = Math.ceil((((now - startOfYear) / 86400000) + startOfYear.getDay() + 1) / 7);
+      return ((weekNumber - 1) % 4) + 1; // Returns 1-4
+    };
+
+    // Get the current active time-limited achievement
+    const getActiveTimeLimitedAchievement = () => {
+      const currentWeek = getCurrentWeekNumber();
+      return TIME_LIMITED_ACHIEVEMENTS.find(a => a.week === currentWeek);
+    };
+
+    // Get time until next weekly reset (Sunday midnight)
+    const getTimeUntilWeeklyReset = () => {
+      const now = new Date();
+      const nextSunday = new Date(now);
+      nextSunday.setDate(now.getDate() + (7 - now.getDay()));
+      nextSunday.setHours(0, 0, 0, 0);
+      return nextSunday - now;
+    };
+
+    // Format time remaining
+    const formatTimeRemaining = (ms) => {
+      const days = Math.floor(ms / (1000 * 60 * 60 * 24));
+      const hours = Math.floor((ms % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+      const minutes = Math.floor((ms % (1000 * 60 * 60)) / (1000 * 60));
+      if (days > 0) return `${days}d ${hours}h`;
+      if (hours > 0) return `${hours}h ${minutes}m`;
+      return `${minutes}m`;
+    };
+
     // Country list for player nationality selection (static data, moved outside component for performance)
     const COUNTRIES = [
       { name: 'Afghanistan', flag: '🇦🇫' }, { name: 'Albania', flag: '🇦🇱' }, { name: 'Algeria', flag: '🇩🇿' },
@@ -982,6 +1068,48 @@
           };
         }
       });
+
+      // Weekly time-limited challenge state - synced via Firebase, resets weekly
+      const [weeklyChallenge, setWeeklyChallenge] = useState(() => {
+        try {
+          const saved = localStorage.getItem('quikdarts_weekly_challenge');
+          if (saved) {
+            const parsed = JSON.parse(saved);
+            // Check if it's from the current week
+            if (parsed.weekNumber === getCurrentWeekNumber()) {
+              return parsed;
+            }
+          }
+          // New week, reset progress
+          const currentWeek = getCurrentWeekNumber();
+          const activeChallenge = getActiveTimeLimitedAchievement();
+          return {
+            weekNumber: currentWeek,
+            challengeId: activeChallenge?.id,
+            stats: {
+              weekly180s: 0,
+              weeklyBulls: 0,
+              weeklyWins: 0,
+              weeklyTriples: 0
+            },
+            completed: false,
+            completedChallenges: [] // Track historically completed weekly challenges
+          };
+        } catch (error) {
+          console.error('Failed to load weekly challenge:', error);
+          const currentWeek = getCurrentWeekNumber();
+          return {
+            weekNumber: currentWeek,
+            challengeId: getActiveTimeLimitedAchievement()?.id,
+            stats: { weekly180s: 0, weeklyBulls: 0, weeklyWins: 0, weeklyTriples: 0 },
+            completed: false,
+            completedChallenges: []
+          };
+        }
+      });
+
+      // Time remaining until weekly reset
+      const [timeUntilReset, setTimeUntilReset] = useState(getTimeUntilWeeklyReset());
 
       // Dartboard theme customization state
       const [selectedThemeId, setSelectedThemeId] = useState(() => {
@@ -1748,6 +1876,7 @@
                   totalGamesPlayed: achievementStats.totalGamesPlayed + 1,
                   totalGamesWon: achievementStats.totalGamesWon + 1
                 });
+                updateWeeklyChallengeStats({ weeklyWins: 1 });
               }
             } else if (!practiceMode) {
               // Track game played but not won (lost to AI or other player)
@@ -1779,7 +1908,7 @@
           setWinner(null);
           setLegDartsThrown(new Array(players.length).fill(0));
         }, 2000);
-      }, [legScores, setScores, players, playerSetup, playSound, legDartsThrown, unlockAchievement, updateAchievementStats, achievementStats, onlineMode, practiceMode]);
+      }, [legScores, setScores, players, playerSetup, playSound, legDartsThrown, unlockAchievement, updateAchievementStats, achievementStats, onlineMode, practiceMode, updateWeeklyChallengeStats]);
 
       const throwDart = useCallback(() => {
         // Practice mode: unlimited throws with stat tracking
@@ -1939,6 +2068,7 @@
             // Track 180 for achievements (only in offline mode, not practice)
             if (!onlineMode && !practiceMode) {
               updateAchievementStats({ total180s: achievementStats.total180s + 1 });
+              updateWeeklyChallengeStats({ weekly180s: 1 });
             }
           } else {
             // Play regular hit sounds only if NOT a 180
@@ -1947,6 +2077,7 @@
               // Track bull for achievements (only in offline mode, not practice)
               if (!onlineMode && !practiceMode) {
                 updateAchievementStats({ totalBulls: achievementStats.totalBulls + 1 });
+                updateWeeklyChallengeStats({ weeklyBulls: 1 });
               }
             } else if (result.score > 0) {
               playSound('hit');
@@ -1955,6 +2086,7 @@
             // Track triples for achievements (only in offline mode, not practice)
             if (result.multiplier === 3 && !onlineMode && !practiceMode) {
               updateAchievementStats({ totalTriples: achievementStats.totalTriples + 1 });
+              updateWeeklyChallengeStats({ weeklyTriples: 1 });
             }
 
             setShowScorePopup({ ...result, position: finalPosition });
@@ -2057,7 +2189,7 @@
             }
           }
         }, 300);
-      }, [aimWobble, power, dartsThrown, players, currentPlayerIndex, winner, calculateScore, addRandomness, playSound, isCheckoutPosition, triplesHit, handleLegWin, updateStats, nextPlayer, onlineMode, playerId, syncThrowToFirebase, currentTurnScore, practiceMode, practiceSkillLevel, dartPositions, updateAchievementStats, achievementStats]);
+      }, [aimWobble, power, dartsThrown, players, currentPlayerIndex, winner, calculateScore, addRandomness, playSound, isCheckoutPosition, triplesHit, handleLegWin, updateStats, nextPlayer, onlineMode, playerId, syncThrowToFirebase, currentTurnScore, practiceMode, practiceSkillLevel, dartPositions, updateAchievementStats, achievementStats, updateWeeklyChallengeStats]);
 
       const updateStats = useCallback((playerIndex, result) => {
         setGameStats(prev => {
@@ -2652,6 +2784,83 @@
         });
       }, [checkAchievements]);
 
+      // Update weekly challenge stats and check for completion
+      const updateWeeklyChallengeStats = useCallback((update) => {
+        setWeeklyChallenge(prev => {
+          // Check if we need to reset for a new week
+          const currentWeek = getCurrentWeekNumber();
+          if (prev.weekNumber !== currentWeek) {
+            // New week, reset everything but keep completed challenges history
+            const activeChallenge = getActiveTimeLimitedAchievement();
+            const newData = {
+              weekNumber: currentWeek,
+              challengeId: activeChallenge?.id,
+              stats: { ...update },
+              completed: false,
+              completedChallenges: prev.completedChallenges || []
+            };
+            try {
+              localStorage.setItem('quikdarts_weekly_challenge', JSON.stringify(newData));
+            } catch (error) {
+              console.error('Failed to save weekly challenge:', error);
+            }
+            return newData;
+          }
+
+          // Same week, update stats
+          const newStats = { ...prev.stats };
+          Object.keys(update).forEach(key => {
+            newStats[key] = (newStats[key] || 0) + (update[key] || 0);
+          });
+
+          // Check if challenge is now completed
+          const activeChallenge = getActiveTimeLimitedAchievement();
+          let completed = prev.completed;
+          let completedChallenges = [...(prev.completedChallenges || [])];
+
+          if (activeChallenge && !completed) {
+            const current = newStats[activeChallenge.statKey] || 0;
+            if (current >= activeChallenge.target) {
+              completed = true;
+              if (!completedChallenges.includes(activeChallenge.id)) {
+                completedChallenges.push(activeChallenge.id);
+              }
+              // Sync completion to Firebase for global tracking
+              if (database) {
+                try {
+                  database.ref('weekly_completions/' + activeChallenge.id).transaction(count => (count || 0) + 1);
+                } catch (error) {
+                  console.error('Failed to sync weekly completion to Firebase:', error);
+                }
+              }
+            }
+          }
+
+          const newData = {
+            ...prev,
+            stats: newStats,
+            completed,
+            completedChallenges
+          };
+
+          try {
+            localStorage.setItem('quikdarts_weekly_challenge', JSON.stringify(newData));
+          } catch (error) {
+            console.error('Failed to save weekly challenge:', error);
+          }
+
+          return newData;
+        });
+      }, []);
+
+      // Update countdown timer every minute
+      useEffect(() => {
+        const interval = setInterval(() => {
+          setTimeUntilReset(getTimeUntilWeeklyReset());
+        }, 60000); // Update every minute
+        return () => clearInterval(interval);
+      }, []);
+
       // Auto-hide achievement popup after 4 seconds with proper cleanup
       useEffect(() => {
         if (achievementPopup) {
@@ -3235,6 +3444,86 @@
                   <div style={{ background: `linear-gradient(90deg, ${COLORS.accent}, ${COLORS.accentLight})`, height: '100%', width: `${(unlockedAchievements.length / ACHIEVEMENTS_DATA.length) * 100}%`, transition: 'width 0.5s', borderRadius: '8px' }}></div>
                 </div>
               </div>
+
+              {/* Weekly Challenge Section */}
+              {(() => {
+                const activeChallenge = getActiveTimeLimitedAchievement();
+                if (!activeChallenge) return null;
+                const current = weeklyChallenge.stats[activeChallenge.statKey] || 0;
+                const progress = Math.min(current / activeChallenge.target, 1);
+                const isCompleted = weeklyChallenge.completed;
+                return (
+                  <div style={{
+                    background: `linear-gradient(135deg, ${COLORS.backgroundCard}, rgba(155, 89, 182, 0.1))`,
+                    borderRadius: '12px',
+                    padding: '24px',
+                    marginBottom: '32px',
+                    border: `1px solid ${isCompleted ? '#27ae60' : '#9b59b6'}40`,
+                    position: 'relative',
+                    overflow: 'hidden'
+                  }}>
+                    {/* Time badge */}
+                    <div style={{
+                      position: 'absolute',
+                      top: '16px',
+                      right: '16px',
+                      background: 'rgba(155, 89, 182, 0.2)',
+                      borderRadius: '20px',
+                      padding: '6px 12px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px'
+                    }}>
+                      <span style={{ fontSize: '0.75rem', color: '#9b59b6' }}>Ends in</span>
+                      <span style={{ fontSize: '0.85rem', fontWeight: '600', color: COLORS.text }}>{formatTimeRemaining(timeUntilReset)}</span>
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                      <span style={{ fontSize: '0.7rem', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '1px', color: '#9b59b6' }}>Weekly Challenge</span>
+                      {isCompleted && <span style={{ fontSize: '0.7rem', fontWeight: '600', color: '#27ae60', background: 'rgba(39, 174, 96, 0.2)', padding: '2px 8px', borderRadius: '4px' }}>Completed!</span>}
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '16px' }}>
+                      <div style={{
+                        fontSize: '40px',
+                        background: isCompleted ? 'rgba(39, 174, 96, 0.2)' : 'rgba(155, 89, 182, 0.2)',
+                        borderRadius: '12px',
+                        padding: '12px',
+                        filter: isCompleted ? 'none' : 'none'
+                      }}>
+                        {isCompleted ? '✅' : activeChallenge.icon}
+                      </div>
+                      <div>
+                        <h3 style={{ color: COLORS.text, fontSize: '1.25rem', fontWeight: '600', margin: 0 }}>{activeChallenge.name}</h3>
+                        <p style={{ color: COLORS.textMuted, fontSize: '0.9rem', margin: '4px 0 0 0' }}>{activeChallenge.description}</p>
+                      </div>
+                    </div>
+
+                    {/* Progress bar */}
+                    <div style={{ marginBottom: '12px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                        <span style={{ color: COLORS.textMuted, fontSize: '0.85rem' }}>{current} / {activeChallenge.target}</span>
+                        <span style={{ color: isCompleted ? '#27ae60' : '#9b59b6', fontSize: '0.85rem', fontWeight: '600' }}>{Math.round(progress * 100)}%</span>
+                      </div>
+                      <div style={{ background: 'rgba(255, 255, 255, 0.1)', borderRadius: '6px', height: '10px', overflow: 'hidden' }}>
+                        <div style={{
+                          background: isCompleted ? 'linear-gradient(90deg, #27ae60, #2ecc71)' : 'linear-gradient(90deg, #9b59b6, #8e44ad)',
+                          height: '100%',
+                          width: `${progress * 100}%`,
+                          borderRadius: '6px',
+                          transition: 'width 0.5s ease'
+                        }} />
+                      </div>
+                    </div>
+
+                    {/* Reward info */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span style={{ color: COLORS.textMuted, fontSize: '0.8rem' }}>Reward:</span>
+                      <span style={{ color: '#f39c12', fontSize: '0.8rem', fontWeight: '600' }}>{activeChallenge.reward}</span>
+                    </div>
+                  </div>
+                );
+              })()}
 
               {/* Almost There Section - Achievements at 70-95% */}
               {(() => {
