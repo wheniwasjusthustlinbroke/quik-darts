@@ -703,42 +703,42 @@
 
     // Achievements data - moved outside component to prevent recreation on every render
     const ACHIEVEMENTS_DATA = [
-      // First Steps
+      // First Steps (one-time, no progress tracking)
       { id: 'first_game', name: 'First Game', description: 'Complete your first game', icon: '🎯', rarity: 'common', mode: 'offline' },
       { id: 'first_win', name: 'First Victory', description: 'Win your first game', icon: '🏆', rarity: 'common', mode: 'offline' },
 
       // 180 Achievements
       { id: 'first_180', name: 'Maximum!', description: 'Hit your first 180', icon: '💯', rarity: 'uncommon', mode: 'offline' },
-      { id: 'ten_180s', name: '180 Master', description: 'Hit 10 total 180s', icon: '⭐', rarity: 'rare', mode: 'offline' },
-      { id: 'fifty_180s', name: 'Ton Machine', description: 'Hit 50 total 180s', icon: '🌟', rarity: 'epic', mode: 'offline' },
+      { id: 'ten_180s', name: '180 Master', description: 'Hit 10 total 180s', icon: '⭐', rarity: 'rare', mode: 'offline', statKey: 'total180s', target: 10 },
+      { id: 'fifty_180s', name: 'Ton Machine', description: 'Hit 50 total 180s', icon: '🌟', rarity: 'epic', mode: 'offline', statKey: 'total180s', target: 50 },
 
-      // Nine Darter Achievements
+      // Nine Darter Achievements (one-time, legendary)
       { id: 'nine_darter_offline', name: 'Perfect Game', description: 'Achieve a nine-dart finish in offline mode', icon: '👑', rarity: 'legendary', mode: 'offline' },
       { id: 'nine_darter_online', name: 'Online Legend', description: 'Achieve a nine-dart finish in online mode', icon: '💎', rarity: 'mythic', mode: 'online' },
 
       // Bulls Achievements
       { id: 'first_bull', name: 'Bullseye!', description: 'Hit your first bullseye', icon: '🎯', rarity: 'common', mode: 'offline' },
-      { id: 'fifty_bulls', name: 'Bull Master', description: 'Hit 50 bullseyes', icon: '🐂', rarity: 'rare', mode: 'offline' },
-      { id: 'hundred_bulls', name: 'Bull Legend', description: 'Hit 100 bullseyes', icon: '🐃', rarity: 'epic', mode: 'offline' },
+      { id: 'fifty_bulls', name: 'Bull Master', description: 'Hit 50 bullseyes', icon: '🐂', rarity: 'rare', mode: 'offline', statKey: 'totalBulls', target: 50 },
+      { id: 'hundred_bulls', name: 'Bull Legend', description: 'Hit 100 bullseyes', icon: '🐃', rarity: 'epic', mode: 'offline', statKey: 'totalBulls', target: 100 },
 
       // Winning Streaks
-      { id: 'five_wins', name: 'Hot Streak', description: 'Win 5 games', icon: '🔥', rarity: 'uncommon', mode: 'offline' },
-      { id: 'twenty_wins', name: 'Dominator', description: 'Win 20 games', icon: '💪', rarity: 'rare', mode: 'offline' },
-      { id: 'fifty_wins', name: 'Champion', description: 'Win 50 games', icon: '🥇', rarity: 'epic', mode: 'offline' },
+      { id: 'five_wins', name: 'Hot Streak', description: 'Win 5 games', icon: '🔥', rarity: 'uncommon', mode: 'offline', statKey: 'totalGamesWon', target: 5 },
+      { id: 'twenty_wins', name: 'Dominator', description: 'Win 20 games', icon: '💪', rarity: 'rare', mode: 'offline', statKey: 'totalGamesWon', target: 20 },
+      { id: 'fifty_wins', name: 'Champion', description: 'Win 50 games', icon: '🥇', rarity: 'epic', mode: 'offline', statKey: 'totalGamesWon', target: 50 },
 
       // Online Achievements
       { id: 'first_online', name: 'Going Online', description: 'Play your first online match', icon: '🌍', rarity: 'common', mode: 'online' },
       { id: 'first_online_win', name: 'Online Victor', description: 'Win your first online match', icon: '🏅', rarity: 'uncommon', mode: 'online' },
-      { id: 'ten_online_wins', name: 'Online Warrior', description: 'Win 10 online matches', icon: '⚔️', rarity: 'rare', mode: 'online' },
-      { id: 'fifty_online_wins', name: 'Online Champion', description: 'Win 50 online matches', icon: '👑', rarity: 'epic', mode: 'online' },
+      { id: 'ten_online_wins', name: 'Online Warrior', description: 'Win 10 online matches', icon: '⚔️', rarity: 'rare', mode: 'online', statKey: 'totalOnlineWins', target: 10 },
+      { id: 'fifty_online_wins', name: 'Online Champion', description: 'Win 50 online matches', icon: '👑', rarity: 'epic', mode: 'online', statKey: 'totalOnlineWins', target: 50 },
 
-      // Checkout Achievements
-      { id: 'big_checkout', name: 'Big Fish', description: 'Hit a checkout of 100 or more', icon: '🐋', rarity: 'uncommon', mode: 'offline' },
-      { id: 'huge_checkout', name: 'Monster Checkout', description: 'Hit a checkout of 150 or more', icon: '🦈', rarity: 'rare', mode: 'offline' },
+      // Checkout Achievements (threshold-based, not cumulative)
+      { id: 'big_checkout', name: 'Big Fish', description: 'Hit a checkout of 100 or more', icon: '🐋', rarity: 'uncommon', mode: 'offline', statKey: 'highestCheckout', target: 100, isThreshold: true },
+      { id: 'huge_checkout', name: 'Monster Checkout', description: 'Hit a checkout of 150 or more', icon: '🦈', rarity: 'rare', mode: 'offline', statKey: 'highestCheckout', target: 150, isThreshold: true },
 
       // Skill Achievements
-      { id: 'fifty_triples', name: 'Triple Threat', description: 'Hit 50 triples', icon: '3️⃣', rarity: 'uncommon', mode: 'offline' },
-      { id: 'two_hundred_triples', name: 'Triple Master', description: 'Hit 200 triples', icon: '💫', rarity: 'rare', mode: 'offline' }
+      { id: 'fifty_triples', name: 'Triple Threat', description: 'Hit 50 triples', icon: '3️⃣', rarity: 'uncommon', mode: 'offline', statKey: 'totalTriples', target: 50 },
+      { id: 'two_hundred_triples', name: 'Triple Master', description: 'Hit 200 triples', icon: '💫', rarity: 'rare', mode: 'offline', statKey: 'totalTriples', target: 200 }
     ];
 
     // Country list for player nationality selection (static data, moved outside component for performance)
@@ -2615,6 +2615,23 @@
         }
       };
 
+      // Get achievement progress for trackable achievements
+      const getAchievementProgress = (achievement, stats) => {
+        if (!achievement.statKey || !achievement.target) {
+          return null; // One-time achievement, no progress tracking
+        }
+        const current = stats[achievement.statKey] || 0;
+        const target = achievement.target;
+        // For threshold achievements (like checkout), show as percentage toward goal
+        if (achievement.isThreshold) {
+          const progress = Math.min(current / target, 1);
+          return { current, target, progress, isThreshold: true };
+        }
+        // For cumulative achievements
+        const progress = Math.min(current / target, 1);
+        return { current, target, progress, isThreshold: false };
+      };
+
       const renderDartboard = () => {
         const segments = [];
         const theme = currentTheme;
@@ -3115,13 +3132,14 @@
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '16px' }}>
                 {ACHIEVEMENTS_DATA.map(achievement => {
                   const isUnlocked = unlockedAchievements.includes(achievement.id);
+                  const progressData = !isUnlocked ? getAchievementProgress(achievement, achievementStats) : null;
                   return (
                     <div key={achievement.id} style={{
                       background: COLORS.backgroundCard,
                       border: isUnlocked ? `1px solid ${getRarityColor(achievement.rarity)}40` : '1px solid rgba(255, 255, 255, 0.05)',
                       borderRadius: '12px',
                       padding: '20px',
-                      opacity: isUnlocked ? 1 : 0.6,
+                      opacity: isUnlocked ? 1 : (progressData && progressData.progress > 0 ? 0.8 : 0.6),
                       transition: 'all 0.2s ease'
                     }}>
                       <div style={{ display: 'flex', alignItems: 'flex-start', gap: '16px' }}>
@@ -3144,6 +3162,39 @@
                           <div style={{ color: isUnlocked ? COLORS.textMuted : 'rgba(139, 148, 158, 0.6)', fontSize: '0.85rem', marginBottom: '12px', lineHeight: '1.4' }}>
                             {achievement.description}
                           </div>
+
+                          {/* Progress Bar for locked trackable achievements */}
+                          {!isUnlocked && progressData && (
+                            <div style={{ marginBottom: '12px' }}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                                <span style={{ color: progressData.progress >= 0.7 ? COLORS.accent : COLORS.textMuted, fontSize: '0.75rem', fontWeight: '600' }}>
+                                  {progressData.isThreshold
+                                    ? `Best: ${progressData.current}`
+                                    : `${progressData.current} / ${progressData.target}`}
+                                </span>
+                                <span style={{ color: progressData.progress >= 0.7 ? COLORS.accent : COLORS.textMuted, fontSize: '0.75rem' }}>
+                                  {Math.round(progressData.progress * 100)}%
+                                </span>
+                              </div>
+                              <div style={{
+                                background: 'rgba(255, 255, 255, 0.1)',
+                                borderRadius: '4px',
+                                height: '6px',
+                                overflow: 'hidden'
+                              }}>
+                                <div style={{
+                                  background: progressData.progress >= 0.7
+                                    ? `linear-gradient(90deg, ${COLORS.accent}, ${COLORS.accentLight})`
+                                    : 'linear-gradient(90deg, #4a5568, #718096)',
+                                  height: '100%',
+                                  width: `${progressData.progress * 100}%`,
+                                  borderRadius: '4px',
+                                  transition: 'width 0.5s ease'
+                                }} />
+                              </div>
+                            </div>
+                          )}
+
                           <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
                             <span style={{
                               color: isUnlocked ? getRarityColor(achievement.rarity) : COLORS.textMuted,
