@@ -942,6 +942,15 @@
       hard: '#e74c3c'
     };
 
+    // AI opponent difficulty levels and accuracy percentages
+    const AI_DIFFICULTIES = {
+      BEGINNER: { key: 'beginner', accuracy: 35, label: 'Beginner' },
+      INTERMEDIATE: { key: 'intermediate', accuracy: 60, label: 'Intermediate' },
+      EXPERT: { key: 'expert', accuracy: 80, label: 'Expert' },
+      IMPOSSIBLE: { key: 'impossible', accuracy: 95, label: 'Impossible' }
+    };
+    const AI_DIFFICULTY_KEYS = Object.values(AI_DIFFICULTIES).map(d => d.key);
+
     // Generate daily challenges based on date seed
     const generateDailyChallenges = (dateString) => {
       const seed = dateString.split('-').reduce((acc, val) => acc + parseInt(val), 0);
@@ -1868,8 +1877,8 @@
           };
         };
 
-        // For checkout situations
-        if (CHECKOUT_SUGGESTIONS[currentScore] && (difficulty === 'hard' || difficulty === 'impossible')) {
+        // For checkout situations - expert and impossible use checkout suggestions
+        if (CHECKOUT_SUGGESTIONS[currentScore] && (difficulty === AI_DIFFICULTIES.EXPERT.key || difficulty === AI_DIFFICULTIES.IMPOSSIBLE.key)) {
           const suggestion = CHECKOUT_SUGGESTIONS[currentScore];
           if (suggestion.includes('T20')) return getSegmentPosition(20, 3);
           if (suggestion.includes('D20')) return getSegmentPosition(20, 2);
@@ -1877,25 +1886,25 @@
         }
 
         switch(difficulty) {
-          case 'easy':
+          case AI_DIFFICULTIES.BEGINNER.key:
             // Aim at random segments, single rings
             const randomSegment = SEGMENTS[Math.floor(Math.random() * SEGMENTS.length)];
             return getSegmentPosition(randomSegment, 1);
 
-          case 'medium':
+          case AI_DIFFICULTIES.INTERMEDIATE.key:
             // Aim at high-value segments (19, 20), sometimes triples
             const targetSegment = Math.random() > 0.5 ? 20 : 19;
             const useTriple = Math.random() > 0.6;
             return getSegmentPosition(targetSegment, useTriple ? 3 : 1);
 
-          case 'hard':
+          case AI_DIFFICULTIES.EXPERT.key:
             // Consistently aim for T20, T19, or doubles for checkout
             if (currentScore <= 40 && currentScore % 2 === 0) {
               return getSegmentPosition(20, 2);
             }
             return getSegmentPosition(20, 3);
 
-          case 'impossible':
+          case AI_DIFFICULTIES.IMPOSSIBLE.key:
             // Perfect strategy
             if (currentScore <= 170 && CHECKOUT_SUGGESTIONS[currentScore]) {
               return getSegmentPosition(20, 3);
@@ -1908,13 +1917,8 @@
       }, []);
 
       const getAIAccuracy = (difficulty) => {
-        switch(difficulty) {
-          case 'easy': return 35;
-          case 'medium': return 60;
-          case 'hard': return 80;
-          case 'impossible': return 95;
-          default: return 50;
-        }
+        const difficultyConfig = Object.values(AI_DIFFICULTIES).find(d => d.key === difficulty);
+        return difficultyConfig ? difficultyConfig.accuracy : 50;
       };
 
       const handleLegWin = useCallback((playerIndex, dartsInLeg = null) => {
@@ -4540,7 +4544,7 @@
                           const newAiPlayers = [...playerSetup.aiPlayers];
                           newAiPlayers[i] = !newAiPlayers[i];
                           const newAiDifficulty = [...playerSetup.aiDifficulty];
-                          if (newAiPlayers[i] && !newAiDifficulty[i]) newAiDifficulty[i] = 'medium';
+                          if (newAiPlayers[i] && !newAiDifficulty[i]) newAiDifficulty[i] = AI_DIFFICULTIES.INTERMEDIATE.key;
                           setPlayerSetup(prev => ({ ...prev, aiPlayers: newAiPlayers, aiDifficulty: newAiDifficulty }));
                         }} style={{ padding: '5px 14px', background: playerSetup.aiPlayers[i] ? 'linear-gradient(180deg, #2d8a2d, #1f6b1f)' : 'rgba(255, 255, 255, 0.05)', color: playerSetup.aiPlayers[i] ? '#fff' : 'rgba(255, 255, 255, 0.4)', border: playerSetup.aiPlayers[i] ? 'none' : '1px solid rgba(255, 255, 255, 0.1)', borderRadius: '4px', cursor: 'pointer', fontFamily: "'Oswald', sans-serif", fontSize: '11px', fontWeight: '600', letterSpacing: '1px' }}>
                           {playerSetup.aiPlayers[i] ? 'ON' : 'OFF'}
@@ -4551,7 +4555,7 @@
                         <div>
                           <label style={{ color: 'rgba(255, 255, 255, 0.4)', fontSize: '10px', letterSpacing: '2px', display: 'block', marginBottom: '6px' }}>DIFFICULTY</label>
                           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '5px' }}>
-                            {['easy', 'medium', 'hard', 'impossible'].map(diff => (
+                            {AI_DIFFICULTY_KEYS.map(diff => (
                               <button key={diff} onClick={() => {
                                 const newAiDifficulty = [...playerSetup.aiDifficulty];
                                 newAiDifficulty[i] = diff;
