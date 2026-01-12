@@ -1869,7 +1869,7 @@
         };
 
         // For checkout situations
-        if (CHECKOUT_SUGGESTIONS[currentScore] && (difficulty === 'hard' || difficulty === 'impossible')) {
+        if (CHECKOUT_SUGGESTIONS[currentScore] && (difficulty === 'expert' || difficulty === 'impossible')) {
           const suggestion = CHECKOUT_SUGGESTIONS[currentScore];
           if (suggestion.includes('T20')) return getSegmentPosition(20, 3);
           if (suggestion.includes('D20')) return getSegmentPosition(20, 2);
@@ -1877,18 +1877,18 @@
         }
 
         switch(difficulty) {
-          case 'easy':
+          case 'beginner':
             // Aim at random segments, single rings
             const randomSegment = SEGMENTS[Math.floor(Math.random() * SEGMENTS.length)];
             return getSegmentPosition(randomSegment, 1);
 
-          case 'medium':
+          case 'intermediate':
             // Aim at high-value segments (19, 20), sometimes triples
             const targetSegment = Math.random() > 0.5 ? 20 : 19;
             const useTriple = Math.random() > 0.6;
             return getSegmentPosition(targetSegment, useTriple ? 3 : 1);
 
-          case 'hard':
+          case 'expert':
             // Consistently aim for T20, T19, or doubles for checkout
             if (currentScore <= 40 && currentScore % 2 === 0) {
               return getSegmentPosition(20, 2);
@@ -1909,9 +1909,9 @@
 
       const getAIAccuracy = (difficulty) => {
         switch(difficulty) {
-          case 'easy': return 35;
-          case 'medium': return 60;
-          case 'hard': return 80;
+          case 'beginner': return 35;
+          case 'intermediate': return 60;
+          case 'expert': return 80;
           case 'impossible': return 95;
           default: return 50;
         }
@@ -4551,13 +4551,13 @@
                         <div>
                           <label style={{ color: 'rgba(255, 255, 255, 0.4)', fontSize: '10px', letterSpacing: '2px', display: 'block', marginBottom: '6px' }}>DIFFICULTY</label>
                           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '5px' }}>
-                            {['easy', 'medium', 'hard', 'impossible'].map(diff => (
+                            {['beginner', 'intermediate', 'expert', 'impossible'].map(diff => (
                               <button key={diff} onClick={() => {
                                 const newAiDifficulty = [...playerSetup.aiDifficulty];
                                 newAiDifficulty[i] = diff;
                                 setPlayerSetup(prev => ({ ...prev, aiDifficulty: newAiDifficulty }));
                               }} style={{ padding: '7px 4px', fontSize: '10px', fontWeight: '600', background: playerSetup.aiDifficulty[i] === diff ? 'linear-gradient(180deg, #c9a227 0%, #a68b1f 100%)' : 'rgba(255, 255, 255, 0.03)', color: playerSetup.aiDifficulty[i] === diff ? '#0a0a0f' : 'rgba(255, 255, 255, 0.4)', border: playerSetup.aiDifficulty[i] === diff ? 'none' : '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '4px', cursor: 'pointer', fontFamily: "'Oswald', sans-serif", textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                                {diff === 'impossible' ? 'IMPOS' : diff}
+                                {diff}
                               </button>
                             ))}
                           </div>
