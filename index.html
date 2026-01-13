@@ -1,9 +1,9 @@
 <!DOCTYPE html>
+<!-- Quik Darts v1.1 - January 2026 -->
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-
   <!-- Security Headers (meta tag equivalents) -->
   <meta http-equiv="X-Content-Type-Options" content="nosniff">
   <meta http-equiv="X-Frame-Options" content="DENY">
@@ -11,8 +11,23 @@
   <!-- CSP: Allow scripts from trusted CDNs only, no inline scripts except for babel-compiled code -->
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdnjs.cloudflare.com https://www.gstatic.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; connect-src 'self' https://*.firebaseio.com https://*.firebasedatabase.app wss://*.firebaseio.com; img-src 'self' data:; frame-ancestors 'none';">
 
+  <meta name="description" content="Quik Darts - Championship-style online darts. Play solo, challenge friends, or compete online. No download required.">
   <title>Quik Darts - Championship Edition</title>
-  <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;600;700&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+  <!-- Favicons - Google requires 48x48 minimum -->
+  <link rel="icon" type="image/png" sizes="96x96" href="favicon-96x96.png">
+  <link rel="icon" type="image/png" sizes="48x48" href="favicon-48x48.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png">
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <link rel="shortcut icon" href="favicon.ico">
+  <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
+  <link rel="manifest" href="site.webmanifest">
+  <meta name="theme-color" content="#0D1117">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
 
   <!-- External Scripts with Subresource Integrity (SRI) for supply chain protection -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js" integrity="sha512-8Q6Y9XnTbOE+JNvjBQwJ2H8S+UV4uA6hiRykhdtIyDYZ2TprdNmWOUaKdGzOhyr4dCyk287OejbPvwl7lrfqrQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
@@ -23,25 +38,354 @@
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js" crossorigin="anonymous"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js" crossorigin="anonymous"></script>
   <style>
+    /* CSS Custom Properties - Design System */
+    :root {
+      --color-primary: #1B4332;
+      --color-primary-light: #2D6A4F;
+      --color-primary-dark: #143728;
+      --color-accent: #D4A03A;
+      --color-accent-light: #E8B94A;
+      --color-accent-dark: #B8862E;
+      --color-background: #0D1117;
+      --color-background-light: #161B22;
+      --color-background-card: #1C2128;
+      --color-text: #F5F5F5;
+      --color-text-muted: #8B949E;
+      --color-text-dark: #0D1117;
+      --color-success: #2D8A2D;
+      --color-error: #C92A2A;
+      --font-primary: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      --font-mono: 'Roboto Mono', monospace;
+      --radius-sm: 6px;
+      --radius-md: 10px;
+      --radius-lg: 16px;
+      --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.3);
+      --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.4);
+      --shadow-lg: 0 16px 48px rgba(0, 0, 0, 0.5);
+      --transition-fast: 0.15s ease;
+      --transition-normal: 0.3s ease;
+    }
+
     * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    html { scroll-behavior: smooth; }
+
     body {
-      font-family: 'Oswald', sans-serif;
+      font-family: var(--font-primary);
+      background: var(--color-background);
+      color: var(--color-text);
       -webkit-tap-highlight-color: transparent;
       -webkit-touch-callout: none;
       -webkit-user-select: none;
+      user-select: none;
       touch-action: manipulation;
+      line-height: 1.5;
     }
-    /* Mobile: Reorder - Dartboard first, History second, Scoreboard last */
+
+    /* Typography */
+    h1, h2, h3, h4 { font-weight: 700; line-height: 1.2; }
+    h1 { font-size: clamp(2rem, 5vw, 3.5rem); }
+    h2 { font-size: clamp(1.5rem, 4vw, 2.5rem); }
+    h3 { font-size: clamp(1.25rem, 3vw, 1.75rem); }
+
+    /* Navigation */
+    .nav {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 1000;
+      background: rgba(13, 17, 23, 0.95);
+      backdrop-filter: blur(10px);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      transition: var(--transition-normal);
+    }
+    .nav-container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0 24px;
+      height: 64px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .nav-logo {
+      font-size: 1.25rem;
+      font-weight: 800;
+      color: var(--color-accent);
+      text-decoration: none;
+      letter-spacing: 1px;
+    }
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 32px;
+      list-style: none;
+    }
+    .nav-link {
+      color: var(--color-text-muted);
+      text-decoration: none;
+      font-size: 0.9rem;
+      font-weight: 500;
+      transition: var(--transition-fast);
+      cursor: pointer;
+    }
+    .nav-link:hover { color: var(--color-text); }
+    .nav-cta {
+      background: var(--color-accent);
+      color: var(--color-text-dark);
+      padding: 10px 20px;
+      border-radius: var(--radius-sm);
+      font-weight: 600;
+      font-size: 0.9rem;
+      cursor: pointer;
+      border: none;
+      transition: var(--transition-fast);
+    }
+    .nav-cta:hover {
+      background: var(--color-accent-light);
+      transform: translateY(-1px);
+    }
+    .nav-hamburger {
+      display: none;
+      flex-direction: column;
+      gap: 5px;
+      cursor: pointer;
+      padding: 8px;
+      background: none;
+      border: none;
+    }
+    .nav-hamburger span {
+      width: 24px;
+      height: 2px;
+      background: var(--color-text);
+      transition: var(--transition-fast);
+    }
+    .nav-mobile {
+      display: none;
+      position: fixed;
+      top: 64px;
+      left: 0;
+      right: 0;
+      background: var(--color-background);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      padding: 16px 24px;
+    }
+    .nav-mobile.open { display: block; }
+    .nav-mobile-links {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
     @media (max-width: 768px) {
-      .game-layout {
-        flex-direction: column !important;
-      }
+      .nav-links { display: none; }
+      .nav-hamburger { display: flex; }
+      .game-layout { flex-direction: column !important; }
       .game-dartboard { order: 1 !important; }
-      .game-history {
-        order: 2 !important;
-        max-height: 180px !important;  /* Show ~3 throws, scroll for more */
-      }
+      .game-history { order: 2 !important; max-height: 180px !important; }
       .game-scoreboard { order: 3 !important; }
+    }
+
+    /* Buttons */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 14px 28px;
+      font-family: var(--font-primary);
+      font-size: 1rem;
+      font-weight: 600;
+      border: none;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      transition: all var(--transition-normal);
+      text-decoration: none;
+      min-height: 48px;
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, var(--color-accent) 0%, var(--color-accent-dark) 100%);
+      color: var(--color-text-dark);
+      box-shadow: 0 4px 16px rgba(212, 160, 58, 0.3);
+    }
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px rgba(212, 160, 58, 0.4);
+    }
+    .btn-secondary {
+      background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark) 100%);
+      color: var(--color-text);
+      box-shadow: 0 4px 16px rgba(27, 67, 50, 0.3);
+    }
+    .btn-secondary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px rgba(27, 67, 50, 0.4);
+    }
+    .btn-ghost {
+      background: transparent;
+      color: var(--color-text);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+    .btn-ghost:hover {
+      background: rgba(255, 255, 255, 0.05);
+      border-color: rgba(255, 255, 255, 0.3);
+    }
+    .btn:active { transform: translateY(0) scale(0.98); }
+
+    /* Footer */
+    .footer {
+      background: var(--color-background);
+      border-top: 1px solid rgba(255, 255, 255, 0.1);
+      padding: 48px 24px 24px;
+    }
+    .footer-container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+    .footer-content {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      flex-wrap: wrap;
+      gap: 32px;
+      margin-bottom: 32px;
+    }
+    .footer-brand h3 {
+      color: var(--color-accent);
+      margin-bottom: 8px;
+    }
+    .footer-brand p {
+      color: var(--color-text-muted);
+      font-size: 0.9rem;
+    }
+    .footer-links {
+      display: flex;
+      gap: 48px;
+      flex-wrap: wrap;
+    }
+    .footer-links-group h4 {
+      color: var(--color-text);
+      font-size: 0.9rem;
+      margin-bottom: 12px;
+    }
+    .footer-links-group ul {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .footer-links-group a {
+      color: var(--color-text-muted);
+      text-decoration: none;
+      font-size: 0.85rem;
+      transition: var(--transition-fast);
+      cursor: pointer;
+    }
+    .footer-links-group a:hover { color: var(--color-text); }
+    .footer-bottom {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding-top: 24px;
+      border-top: 1px solid rgba(255, 255, 255, 0.1);
+      flex-wrap: wrap;
+      gap: 16px;
+    }
+    .footer-bottom p {
+      color: var(--color-text-muted);
+      font-size: 0.8rem;
+    }
+    .footer-social {
+      display: flex;
+      gap: 16px;
+    }
+    .footer-social a {
+      color: var(--color-text-muted);
+      transition: var(--transition-fast);
+    }
+    .footer-social a:hover { color: var(--color-accent); }
+
+    /* Animations */
+    @keyframes fadeInUp {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.7; }
+    }
+    @keyframes almostTherePulse {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(212, 160, 58, 0); }
+      50% { box-shadow: 0 0 20px 2px rgba(212, 160, 58, 0.3); }
+    }
+    @keyframes achievementUnlock {
+      0% { opacity: 0; transform: translate(-50%, -50%) scale(0.5); }
+      100% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+    }
+    @keyframes iconBounce {
+      0% { transform: scale(1); }
+      50% { transform: scale(1.2); }
+      100% { transform: scale(1); }
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+    @keyframes confetti0 {
+      0% { transform: translate(0, 0) scale(0); opacity: 1; }
+      100% { transform: translate(-80px, -100px) scale(1); opacity: 0; }
+    }
+    @keyframes confetti1 {
+      0% { transform: translate(0, 0) scale(0); opacity: 1; }
+      100% { transform: translate(80px, -90px) scale(1); opacity: 0; }
+    }
+    @keyframes confetti2 {
+      0% { transform: translate(0, 0) scale(0); opacity: 1; }
+      100% { transform: translate(-70px, 80px) scale(1); opacity: 0; }
+    }
+    @keyframes confetti3 {
+      0% { transform: translate(0, 0) scale(0); opacity: 1; }
+      100% { transform: translate(90px, 70px) scale(1); opacity: 0; }
+    }
+    @keyframes rareShimmer {
+      0%, 100% { box-shadow: 0 0 15px rgba(52, 152, 219, 0.3); }
+      50% { box-shadow: 0 0 25px rgba(52, 152, 219, 0.5); }
+    }
+    @keyframes epicGlow {
+      0%, 100% { box-shadow: 0 0 20px rgba(155, 89, 182, 0.4), inset 0 0 30px rgba(155, 89, 182, 0.1); }
+      50% { box-shadow: 0 0 35px rgba(155, 89, 182, 0.6), inset 0 0 40px rgba(155, 89, 182, 0.15); }
+    }
+    @keyframes legendaryPulse {
+      0%, 100% { box-shadow: 0 0 25px rgba(243, 156, 18, 0.5), 0 0 50px rgba(243, 156, 18, 0.2); }
+      50% { box-shadow: 0 0 40px rgba(243, 156, 18, 0.7), 0 0 70px rgba(243, 156, 18, 0.3); }
+    }
+    @keyframes mythicGlow {
+      0%, 100% {
+        box-shadow: 0 0 30px rgba(231, 76, 60, 0.6), 0 0 60px rgba(231, 76, 60, 0.3), inset 0 0 40px rgba(231, 76, 60, 0.1);
+        border-color: rgba(231, 76, 60, 0.8);
+      }
+      50% {
+        box-shadow: 0 0 50px rgba(231, 76, 60, 0.8), 0 0 80px rgba(231, 76, 60, 0.4), inset 0 0 50px rgba(231, 76, 60, 0.15);
+        border-color: rgba(231, 76, 60, 1);
+      }
+    }
+    .animate-fade-in { animation: fadeInUp 0.6s ease forwards; }
+    .animate-delay-1 { animation-delay: 0.1s; opacity: 0; }
+    .animate-delay-2 { animation-delay: 0.2s; opacity: 0; }
+    .animate-delay-3 { animation-delay: 0.3s; opacity: 0; }
+
+    /* Utility */
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      border: 0;
     }
   </style>
 </head>
@@ -72,6 +416,96 @@
     } catch (error) {
       console.warn('Firebase not configured. Online multiplayer disabled.', error);
     }
+
+    // Menu Icon Components (defined outside component to prevent recreation on each render)
+    const DartIcon = ({ size = 20, color = 'currentColor' }) => (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden="true" style={{ marginRight: '12px', flexShrink: 0 }}>
+        <path d="M22 2L13 11M22 2L18 22L13 11M22 2L2 7L13 11" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+      </svg>
+    );
+
+    const GlobeIcon = ({ size = 20, color = 'currentColor' }) => (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden="true" style={{ marginRight: '12px', flexShrink: 0 }}>
+        <circle cx="12" cy="12" r="10" stroke={color} strokeWidth="2"/>
+        <path d="M2 12H22M12 2C14.5 4.5 16 8 16 12C16 16 14.5 19.5 12 22C9.5 19.5 8 16 8 12C8 8 9.5 4.5 12 2Z" stroke={color} strokeWidth="2"/>
+      </svg>
+    );
+
+    const TargetIcon = ({ size = 20, color = 'currentColor' }) => (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden="true" style={{ marginRight: '12px', flexShrink: 0 }}>
+        <circle cx="12" cy="12" r="10" stroke={color} strokeWidth="2"/>
+        <circle cx="12" cy="12" r="6" stroke={color} strokeWidth="2"/>
+        <circle cx="12" cy="12" r="2" fill={color}/>
+      </svg>
+    );
+
+    const TrophyIcon = ({ size = 20, color = 'currentColor' }) => (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden="true" style={{ marginRight: '12px', flexShrink: 0 }}>
+        <path d="M8 21H16M12 17V21M6 4H18V8C18 11.3137 15.3137 14 12 14C8.68629 14 6 11.3137 6 8V4Z" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+        <path d="M6 4H4V6C4 7.10457 4.89543 8 6 8V4ZM18 4V8C19.1046 8 20 7.10457 20 6V4H18Z" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+      </svg>
+    );
+
+    // Additional icons for navigation and UI
+    const MenuIcon = ({ size = 24 }) => (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <path d="M3 12H21M3 6H21M3 18H21" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+      </svg>
+    );
+
+    const CloseIcon = ({ size = 24 }) => (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <path d="M18 6L6 18M6 6L18 18" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+      </svg>
+    );
+
+    const PlayIcon = ({ size = 20 }) => (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+        <path d="M8 5v14l11-7z"/>
+      </svg>
+    );
+
+    const BookIcon = ({ size = 20 }) => (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden="true" style={{ marginRight: '8px', flexShrink: 0 }}>
+        <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20M4 19.5A2.5 2.5 0 0 0 6.5 22H20V2H6.5A2.5 2.5 0 0 0 4 4.5v15z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+      </svg>
+    );
+
+    const UsersIcon = ({ size = 20 }) => (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden="true" style={{ marginRight: '8px', flexShrink: 0 }}>
+        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+      </svg>
+    );
+
+    // Design System Colors (matching CSS variables)
+    const COLORS = {
+      primary: '#1B4332',
+      primaryLight: '#2D6A4F',
+      primaryDark: '#143728',
+      accent: '#D4A03A',
+      accentLight: '#E8B94A',
+      accentDark: '#B8862E',
+      background: '#0D1117',
+      backgroundLight: '#161B22',
+      backgroundCard: '#1C2128',
+      text: '#F5F5F5',
+      textMuted: '#8B949E',
+      textDark: '#0D1117',
+      success: '#2D8A2D',
+      error: '#C92A2A'
+    };
+
+    // Pre-computed bokeh light sizes (deterministic, no Math.random in render)
+    const BOKEH_LIGHTS = [
+      { size: 45, left: 10, top: 5 },
+      { size: 65, left: 22, top: 15 },
+      { size: 38, left: 34, top: 25 },
+      { size: 72, left: 46, top: 35 },
+      { size: 50, left: 58, top: 45 },
+      { size: 58, left: 70, top: 55 },
+      { size: 42, left: 82, top: 65 },
+      { size: 68, left: 94, top: 75 }
+    ];
 
     const BOARD_SIZE = 500;
     const CENTER = BOARD_SIZE / 2;
@@ -344,47 +778,322 @@
     // ============================================
 
     // Achievements data - moved outside component to prevent recreation on every render
+    // Achievements with chain property are part of tiered progression ladders
     const ACHIEVEMENTS_DATA = [
-      // First Steps
-      { id: 'first_game', name: 'First Game', description: 'Complete your first game', icon: '🎯', rarity: 'common', mode: 'offline' },
-      { id: 'first_win', name: 'First Victory', description: 'Win your first game', icon: '🏆', rarity: 'common', mode: 'offline' },
+      // First Steps (standalone)
+      { id: 'first_game', name: 'First Steps', description: 'Every champion starts somewhere. Complete your first game.', icon: '🎯', rarity: 'common', mode: 'offline' },
+      { id: 'first_win', name: 'First Victory', description: 'The taste of victory never gets old. Win your first game.', icon: '🏆', rarity: 'common', mode: 'offline' },
 
-      // 180 Achievements
-      { id: 'first_180', name: 'Maximum!', description: 'Hit your first 180', icon: '💯', rarity: 'uncommon', mode: 'offline' },
-      { id: 'ten_180s', name: '180 Master', description: 'Hit 10 total 180s', icon: '⭐', rarity: 'rare', mode: 'offline' },
-      { id: 'fifty_180s', name: 'Ton Machine', description: 'Hit 50 total 180s', icon: '🌟', rarity: 'epic', mode: 'offline' },
+      // Maximum! Chain - 180 progression
+      { id: 'first_180', name: 'Maximum! I', description: 'The crowd goes wild! Hit your first perfect 180.', icon: '💯', rarity: 'uncommon', mode: 'offline', chain: 'maximum', tier: 1 },
+      { id: 'ten_180s', name: 'Maximum! II', description: 'Consistency is key. Land 10 maximum scores.', icon: '💯', rarity: 'rare', mode: 'offline', statKey: 'total180s', target: 10, chain: 'maximum', tier: 2 },
+      { id: 'fifty_180s', name: 'Maximum! III', description: 'Only the elite reach this level. Hit 50 perfect 180s.', icon: '💯', rarity: 'epic', mode: 'offline', statKey: 'total180s', target: 50, chain: 'maximum', tier: 3 },
+      { id: 'hundred_180s', name: 'Maximum! IV', description: 'Legendary precision. 100 perfect 180s.', icon: '💯', rarity: 'legendary', mode: 'offline', statKey: 'total180s', target: 100, chain: 'maximum', tier: 4 },
 
-      // Nine Darter Achievements
-      { id: 'nine_darter_offline', name: 'Perfect Game', description: 'Achieve a nine-dart finish in offline mode', icon: '👑', rarity: 'legendary', mode: 'offline' },
-      { id: 'nine_darter_online', name: 'Online Legend', description: 'Achieve a nine-dart finish in online mode', icon: '💎', rarity: 'mythic', mode: 'online' },
+      // Nine Darter (standalone legendary)
+      { id: 'nine_darter_offline', name: 'Perfect Game', description: 'The holy grail of darts. Achieve a legendary nine-dart finish.', icon: '👑', rarity: 'legendary', mode: 'offline' },
+      { id: 'nine_darter_online', name: 'Online Legend', description: 'Perfection under pressure. Nine-dart finish against a real opponent.', icon: '💎', rarity: 'mythic', mode: 'online' },
 
-      // Bulls Achievements
-      { id: 'first_bull', name: 'Bullseye!', description: 'Hit your first bullseye', icon: '🎯', rarity: 'common', mode: 'offline' },
-      { id: 'fifty_bulls', name: 'Bull Master', description: 'Hit 50 bullseyes', icon: '🐂', rarity: 'rare', mode: 'offline' },
-      { id: 'hundred_bulls', name: 'Bull Legend', description: 'Hit 100 bullseyes', icon: '🐃', rarity: 'epic', mode: 'offline' },
+      // Bullseye! Chain
+      { id: 'first_bull', name: 'Bullseye! I', description: 'Right in the center! Hit your first bullseye.', icon: '🎯', rarity: 'common', mode: 'offline', chain: 'bullseye', tier: 1 },
+      { id: 'fifty_bulls', name: 'Bullseye! II', description: 'Precision personified. Find the bullseye 50 times.', icon: '🎯', rarity: 'rare', mode: 'offline', statKey: 'totalBulls', target: 50, chain: 'bullseye', tier: 2 },
+      { id: 'hundred_bulls', name: 'Bullseye! III', description: 'The center is your home. 100 bullseyes and counting.', icon: '🎯', rarity: 'epic', mode: 'offline', statKey: 'totalBulls', target: 100, chain: 'bullseye', tier: 3 },
+      { id: 'twofifty_bulls', name: 'Bullseye! IV', description: 'Master of the center. 250 bullseyes.', icon: '🎯', rarity: 'legendary', mode: 'offline', statKey: 'totalBulls', target: 250, chain: 'bullseye', tier: 4 },
 
-      // Winning Streaks
-      { id: 'five_wins', name: 'Hot Streak', description: 'Win 5 games', icon: '🔥', rarity: 'uncommon', mode: 'offline' },
-      { id: 'twenty_wins', name: 'Dominator', description: 'Win 20 games', icon: '💪', rarity: 'rare', mode: 'offline' },
-      { id: 'fifty_wins', name: 'Champion', description: 'Win 50 games', icon: '🥇', rarity: 'epic', mode: 'offline' },
+      // Victory Chain
+      { id: 'five_wins', name: 'Victory I', description: 'You\'re heating up! Claim 5 victories.', icon: '🏆', rarity: 'uncommon', mode: 'offline', statKey: 'totalGamesWon', target: 5, chain: 'victory', tier: 1 },
+      { id: 'twenty_wins', name: 'Victory II', description: 'They fear your name. Dominate with 20 wins.', icon: '🏆', rarity: 'rare', mode: 'offline', statKey: 'totalGamesWon', target: 20, chain: 'victory', tier: 2 },
+      { id: 'fifty_wins', name: 'Victory III', description: 'A true champion emerges. Conquer 50 games.', icon: '🏆', rarity: 'epic', mode: 'offline', statKey: 'totalGamesWon', target: 50, chain: 'victory', tier: 3 },
+      { id: 'hundred_wins', name: 'Victory IV', description: 'Unstoppable force. 100 victories.', icon: '🏆', rarity: 'legendary', mode: 'offline', statKey: 'totalGamesWon', target: 100, chain: 'victory', tier: 4 },
 
-      // Online Achievements
-      { id: 'first_online', name: 'Going Online', description: 'Play your first online match', icon: '🌍', rarity: 'common', mode: 'online' },
-      { id: 'first_online_win', name: 'Online Victor', description: 'Win your first online match', icon: '🏅', rarity: 'uncommon', mode: 'online' },
-      { id: 'ten_online_wins', name: 'Online Warrior', description: 'Win 10 online matches', icon: '⚔️', rarity: 'rare', mode: 'online' },
-      { id: 'fifty_online_wins', name: 'Online Champion', description: 'Win 50 online matches', icon: '👑', rarity: 'epic', mode: 'online' },
+      // Global Chain - Online progression
+      { id: 'first_online', name: 'Global I', description: 'Step into the arena. Face your first online opponent.', icon: '🌍', rarity: 'common', mode: 'online', chain: 'global', tier: 1 },
+      { id: 'first_online_win', name: 'Global II', description: 'Real opponents, real pressure, real victory.', icon: '🌍', rarity: 'uncommon', mode: 'online', chain: 'global', tier: 2 },
+      { id: 'ten_online_wins', name: 'Global III', description: 'Battle-tested. Defeat 10 online challengers.', icon: '🌍', rarity: 'rare', mode: 'online', statKey: 'totalOnlineWins', target: 10, chain: 'global', tier: 3 },
+      { id: 'fifty_online_wins', name: 'Global IV', description: 'World-class competitor. 50 online victories.', icon: '🌍', rarity: 'epic', mode: 'online', statKey: 'totalOnlineWins', target: 50, chain: 'global', tier: 4 },
 
-      // Checkout Achievements
-      { id: 'big_checkout', name: 'Big Fish', description: 'Hit a checkout of 100 or more', icon: '🐋', rarity: 'uncommon', mode: 'offline' },
-      { id: 'huge_checkout', name: 'Monster Checkout', description: 'Hit a checkout of 150 or more', icon: '🦈', rarity: 'rare', mode: 'offline' },
+      // Checkout Chain
+      { id: 'big_checkout', name: 'Checkout I', description: 'Nerves of steel. Checkout 100+ in one visit.', icon: '🎯', rarity: 'uncommon', mode: 'offline', statKey: 'highestCheckout', target: 100, isThreshold: true, chain: 'checkout', tier: 1 },
+      { id: 'huge_checkout', name: 'Checkout II', description: 'The impossible made possible. Checkout 150+ points.', icon: '🎯', rarity: 'rare', mode: 'offline', statKey: 'highestCheckout', target: 150, isThreshold: true, chain: 'checkout', tier: 2 },
+      { id: 'max_checkout', name: 'Checkout III', description: 'The ultimate finish. Checkout 170 - the maximum.', icon: '🎯', rarity: 'legendary', mode: 'offline', statKey: 'highestCheckout', target: 170, isThreshold: true, chain: 'checkout', tier: 3 },
 
-      // Skill Achievements
-      { id: 'fifty_triples', name: 'Triple Threat', description: 'Hit 50 triples', icon: '3️⃣', rarity: 'uncommon', mode: 'offline' },
-      { id: 'two_hundred_triples', name: 'Triple Master', description: 'Hit 200 triples', icon: '💫', rarity: 'rare', mode: 'offline' }
+      // Triple Chain
+      { id: 'fifty_triples', name: 'Triple I', description: 'Treble trouble for opponents. Hit 50 triples.', icon: '3️⃣', rarity: 'uncommon', mode: 'offline', statKey: 'totalTriples', target: 50, chain: 'triple', tier: 1 },
+      { id: 'two_hundred_triples', name: 'Triple II', description: 'The triple 20 is your playground. 200 triples.', icon: '3️⃣', rarity: 'rare', mode: 'offline', statKey: 'totalTriples', target: 200, chain: 'triple', tier: 2 },
+      { id: 'five_hundred_triples', name: 'Triple III', description: 'Triple mastery achieved. 500 triples.', icon: '3️⃣', rarity: 'epic', mode: 'offline', statKey: 'totalTriples', target: 500, chain: 'triple', tier: 3 }
     ];
 
+    // Time-Limited Achievements - Weekly rotating challenges synced via Firebase
+    // These rotate on a 4-week cycle
+    const TIME_LIMITED_ACHIEVEMENTS = [
+      // Week 1 - 180 Focus
+      {
+        id: 'weekly_180_sprint',
+        name: 'Maximum Week',
+        description: 'Hit 10 perfect 180s this week',
+        icon: '💯',
+        rarity: 'rare',
+        statKey: 'weekly180s',
+        target: 10,
+        week: 1,
+        reward: '180 Master Badge'
+      },
+      // Week 2 - Bullseye Focus
+      {
+        id: 'weekly_bulls_blitz',
+        name: 'Bulls Week',
+        description: 'Hit 25 bullseyes this week',
+        icon: '🎯',
+        rarity: 'rare',
+        statKey: 'weeklyBulls',
+        target: 25,
+        week: 2,
+        reward: 'Bullseye Badge'
+      },
+      // Week 3 - Victory Focus
+      {
+        id: 'weekly_win_streak',
+        name: 'Victory Week',
+        description: 'Win 10 games this week',
+        icon: '🏆',
+        rarity: 'rare',
+        statKey: 'weeklyWins',
+        target: 10,
+        week: 3,
+        reward: 'Champion Badge'
+      },
+      // Week 4 - Triples Focus
+      {
+        id: 'weekly_triple_threat',
+        name: 'Triples Week',
+        description: 'Hit 50 triples this week',
+        icon: '3️⃣',
+        rarity: 'rare',
+        statKey: 'weeklyTriples',
+        target: 50,
+        week: 4,
+        reward: 'Triple Badge'
+      }
+    ];
+
+    // Get current week number (1-4 rotation)
+    const getCurrentWeekNumber = () => {
+      const now = new Date();
+      const startOfYear = new Date(now.getFullYear(), 0, 1);
+      const weekNumber = Math.ceil((((now - startOfYear) / 86400000) + startOfYear.getDay() + 1) / 7);
+      return ((weekNumber - 1) % 4) + 1; // Returns 1-4
+    };
+
+    // Get the current active time-limited achievement
+    const getActiveTimeLimitedAchievement = () => {
+      const currentWeek = getCurrentWeekNumber();
+      return TIME_LIMITED_ACHIEVEMENTS.find(a => a.week === currentWeek);
+    };
+
+    // Create default weekly challenge data for a given week
+    const createDefaultWeeklyChallengeData = (weekNumber) => ({
+      weekNumber: weekNumber,
+      challengeId: TIME_LIMITED_ACHIEVEMENTS.find(a => a.week === weekNumber)?.id,
+      stats: { weekly180s: 0, weeklyBulls: 0, weeklyWins: 0, weeklyTriples: 0 },
+      completed: false,
+      completedChallenges: []
+    });
+
+    // Validate weekly challenge data structure from localStorage
+    const isValidWeeklyChallengeData = (data) => {
+      if (!data || typeof data !== 'object') return false;
+      if (typeof data.weekNumber !== 'number') return false;
+      if (!data.stats || typeof data.stats !== 'object') return false;
+      if (typeof data.completed !== 'boolean') return false;
+      if (!Array.isArray(data.completedChallenges)) return false;
+      return true;
+    };
+
+    // Get time until next weekly reset (Sunday midnight)
+    const getTimeUntilWeeklyReset = () => {
+      const now = new Date();
+      const nextSunday = new Date(now);
+      nextSunday.setDate(now.getDate() + (7 - now.getDay()));
+      nextSunday.setHours(0, 0, 0, 0);
+      return nextSunday - now;
+    };
+
+    // Format time remaining
+    const formatTimeRemaining = (ms) => {
+      const days = Math.floor(ms / (1000 * 60 * 60 * 24));
+      const hours = Math.floor((ms % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+      const minutes = Math.floor((ms % (1000 * 60 * 60)) / (1000 * 60));
+      if (days > 0) return `${days}d ${hours}h`;
+      if (hours > 0) return `${hours}h ${minutes}m`;
+      return `${minutes}m`;
+    };
+
+    // Daily Challenges - Rotating daily goals that reset at midnight
+    const DAILY_CHALLENGES_POOL = [
+      // 180s challenges
+      { id: 'daily_180_1', name: 'Maximum!', description: 'Hit 1 perfect 180', icon: '💯', statKey: 'daily180s', target: 1, difficulty: 'easy' },
+      { id: 'daily_180_3', name: 'Triple Maximum', description: 'Hit 3 perfect 180s', icon: '💯', statKey: 'daily180s', target: 3, difficulty: 'medium' },
+      { id: 'daily_180_5', name: '180 Machine', description: 'Hit 5 perfect 180s', icon: '💯', statKey: 'daily180s', target: 5, difficulty: 'hard' },
+      // Bulls challenges
+      { id: 'daily_bulls_5', name: 'Bullseye Starter', description: 'Hit 5 bullseyes', icon: '🎯', statKey: 'dailyBulls', target: 5, difficulty: 'easy' },
+      { id: 'daily_bulls_15', name: 'Bulls on Target', description: 'Hit 15 bullseyes', icon: '🎯', statKey: 'dailyBulls', target: 15, difficulty: 'medium' },
+      { id: 'daily_bulls_30', name: 'Bull Master', description: 'Hit 30 bullseyes', icon: '🎯', statKey: 'dailyBulls', target: 30, difficulty: 'hard' },
+      // Wins challenges
+      { id: 'daily_wins_1', name: 'First Win', description: 'Win 1 game', icon: '🏆', statKey: 'dailyWins', target: 1, difficulty: 'easy' },
+      { id: 'daily_wins_3', name: 'Winning Streak', description: 'Win 3 games', icon: '🏆', statKey: 'dailyWins', target: 3, difficulty: 'medium' },
+      { id: 'daily_wins_5', name: 'Dominant Day', description: 'Win 5 games', icon: '🏆', statKey: 'dailyWins', target: 5, difficulty: 'hard' },
+      // Games played challenges
+      { id: 'daily_games_3', name: 'Warm Up', description: 'Play 3 games', icon: '🎮', statKey: 'dailyGames', target: 3, difficulty: 'easy' },
+      { id: 'daily_games_5', name: 'Practice Run', description: 'Play 5 games', icon: '🎮', statKey: 'dailyGames', target: 5, difficulty: 'medium' },
+      { id: 'daily_games_10', name: 'Marathon', description: 'Play 10 games', icon: '🎮', statKey: 'dailyGames', target: 10, difficulty: 'hard' },
+      // Triples challenges
+      { id: 'daily_triples_10', name: 'Triple Starter', description: 'Hit 10 triples', icon: '3️⃣', statKey: 'dailyTriples', target: 10, difficulty: 'easy' },
+      { id: 'daily_triples_25', name: 'Triple Threat', description: 'Hit 25 triples', icon: '3️⃣', statKey: 'dailyTriples', target: 25, difficulty: 'medium' },
+      { id: 'daily_triples_50', name: 'Triple Master', description: 'Hit 50 triples', icon: '3️⃣', statKey: 'dailyTriples', target: 50, difficulty: 'hard' },
+      // Score challenges
+      { id: 'daily_score_500', name: 'Score Seeker', description: 'Score 500 points', icon: '📊', statKey: 'dailyScore', target: 500, difficulty: 'easy' },
+      { id: 'daily_score_1500', name: 'Point Collector', description: 'Score 1500 points', icon: '📊', statKey: 'dailyScore', target: 1500, difficulty: 'medium' },
+      { id: 'daily_score_3000', name: 'High Scorer', description: 'Score 3000 points', icon: '📊', statKey: 'dailyScore', target: 3000, difficulty: 'hard' }
+    ];
+
+    // Difficulty level colors for challenge UI
+    const DIFFICULTY_COLORS = {
+      easy: '#27ae60',
+      medium: '#f39c12',
+      hard: '#e74c3c'
+    };
+
+    // AI opponent difficulty levels and accuracy percentages
+    const AI_DIFFICULTIES = {
+      BEGINNER: { key: 'beginner', accuracy: 35, label: 'Beginner' },
+      INTERMEDIATE: { key: 'intermediate', accuracy: 60, label: 'Intermediate' },
+      EXPERT: { key: 'expert', accuracy: 80, label: 'Expert' },
+      IMPOSSIBLE: { key: 'impossible', accuracy: 95, label: 'Impossible' }
+    };
+
+    // Generate daily challenges based on date seed
+    const generateDailyChallenges = (dateString) => {
+      const seed = dateString.split('-').reduce((acc, val) => acc + parseInt(val), 0);
+      const shuffled = [...DAILY_CHALLENGES_POOL].sort((a, b) => {
+        const hashA = (seed * 31 + a.id.charCodeAt(0)) % 1000;
+        const hashB = (seed * 31 + b.id.charCodeAt(0)) % 1000;
+        return hashA - hashB;
+      });
+      const easy = shuffled.find(c => c.difficulty === 'easy');
+      const medium = shuffled.find(c => c.difficulty === 'medium');
+      const hard = shuffled.find(c => c.difficulty === 'hard');
+      return [easy, medium, hard].filter(Boolean);
+    };
+
+    // Get today's date string in YYYY-MM-DD format
+    const getTodayString = () => {
+      const today = new Date();
+      return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+    };
+
+    // Create default daily challenge data for a given date
+    const createDefaultDailyChallengeData = (dateString) => ({
+      date: dateString,
+      challenges: generateDailyChallenges(dateString),
+      stats: { daily180s: 0, dailyBulls: 0, dailyWins: 0, dailyGames: 0, dailyTriples: 0, dailyScore: 0 },
+      completedChallenges: []
+    });
+
+    // Validate daily challenge data structure from localStorage
+    const isValidDailyChallengeData = (data) => {
+      if (!data || typeof data !== 'object') return false;
+      if (typeof data.date !== 'string') return false;
+      if (!Array.isArray(data.challenges)) return false;
+      if (!data.stats || typeof data.stats !== 'object') return false;
+      if (!Array.isArray(data.completedChallenges)) return false;
+      // Validate each challenge has required properties
+      for (const challenge of data.challenges) {
+        if (!challenge.id || !challenge.statKey || typeof challenge.target !== 'number') {
+          return false;
+        }
+      }
+      return true;
+    };
+
+    // Country list for player nationality selection (static data, moved outside component for performance)
+    const COUNTRIES = [
+      { name: 'Afghanistan', flag: '🇦🇫' }, { name: 'Albania', flag: '🇦🇱' }, { name: 'Algeria', flag: '🇩🇿' },
+      { name: 'Argentina', flag: '🇦🇷' }, { name: 'Armenia', flag: '🇦🇲' }, { name: 'Australia', flag: '🇦🇺' },
+      { name: 'Austria', flag: '🇦🇹' }, { name: 'Azerbaijan', flag: '🇦🇿' }, { name: 'Bahrain', flag: '🇧🇭' },
+      { name: 'Bangladesh', flag: '🇧🇩' }, { name: 'Belarus', flag: '🇧🇾' }, { name: 'Belgium', flag: '🇧🇪' },
+      { name: 'Bolivia', flag: '🇧🇴' }, { name: 'Bosnia', flag: '🇧🇦' }, { name: 'Brazil', flag: '🇧🇷' },
+      { name: 'Bulgaria', flag: '🇧🇬' }, { name: 'Cambodia', flag: '🇰🇭' }, { name: 'Canada', flag: '🇨🇦' },
+      { name: 'Chile', flag: '🇨🇱' }, { name: 'China', flag: '🇨🇳' }, { name: 'Colombia', flag: '🇨🇴' },
+      { name: 'Costa Rica', flag: '🇨🇷' }, { name: 'Croatia', flag: '🇭🇷' }, { name: 'Cuba', flag: '🇨🇺' },
+      { name: 'Cyprus', flag: '🇨🇾' }, { name: 'Czech Republic', flag: '🇨🇿' }, { name: 'Denmark', flag: '🇩🇰' },
+      { name: 'Ecuador', flag: '🇪🇨' }, { name: 'Egypt', flag: '🇪🇬' }, { name: 'England', flag: '🏴󠁧󠁢󠁥󠁮󠁧󠁿' },
+      { name: 'Estonia', flag: '🇪🇪' }, { name: 'Ethiopia', flag: '🇪🇹' }, { name: 'Finland', flag: '🇫🇮' },
+      { name: 'France', flag: '🇫🇷' }, { name: 'Georgia', flag: '🇬🇪' }, { name: 'Germany', flag: '🇩🇪' },
+      { name: 'Ghana', flag: '🇬🇭' }, { name: 'Greece', flag: '🇬🇷' }, { name: 'Hong Kong', flag: '🇭🇰' },
+      { name: 'Hungary', flag: '🇭🇺' }, { name: 'Iceland', flag: '🇮🇸' }, { name: 'India', flag: '🇮🇳' },
+      { name: 'Indonesia', flag: '🇮🇩' }, { name: 'Iran', flag: '🇮🇷' }, { name: 'Iraq', flag: '🇮🇶' },
+      { name: 'Ireland', flag: '🇮🇪' }, { name: 'Israel', flag: '🇮🇱' }, { name: 'Italy', flag: '🇮🇹' },
+      { name: 'Jamaica', flag: '🇯🇲' }, { name: 'Japan', flag: '🇯🇵' }, { name: 'Jordan', flag: '🇯🇴' },
+      { name: 'Kazakhstan', flag: '🇰🇿' }, { name: 'Kenya', flag: '🇰🇪' }, { name: 'Kuwait', flag: '🇰🇼' },
+      { name: 'Latvia', flag: '🇱🇻' }, { name: 'Lebanon', flag: '🇱🇧' }, { name: 'Libya', flag: '🇱🇾' },
+      { name: 'Lithuania', flag: '🇱🇹' }, { name: 'Luxembourg', flag: '🇱🇺' }, { name: 'Malaysia', flag: '🇲🇾' },
+      { name: 'Malta', flag: '🇲🇹' }, { name: 'Mexico', flag: '🇲🇽' }, { name: 'Morocco', flag: '🇲🇦' },
+      { name: 'Nepal', flag: '🇳🇵' }, { name: 'Netherlands', flag: '🇳🇱' }, { name: 'New Zealand', flag: '🇳🇿' },
+      { name: 'Nigeria', flag: '🇳🇬' }, { name: 'North Korea', flag: '🇰🇵' }, { name: 'Northern Ireland', flag: '🇬🇧' },
+      { name: 'Norway', flag: '🇳🇴' }, { name: 'Pakistan', flag: '🇵🇰' }, { name: 'Palestine', flag: '🇵🇸' },
+      { name: 'Panama', flag: '🇵🇦' }, { name: 'Peru', flag: '🇵🇪' }, { name: 'Philippines', flag: '🇵🇭' },
+      { name: 'Poland', flag: '🇵🇱' }, { name: 'Portugal', flag: '🇵🇹' }, { name: 'Qatar', flag: '🇶🇦' },
+      { name: 'Romania', flag: '🇷🇴' }, { name: 'Russia', flag: '🇷🇺' }, { name: 'Saudi Arabia', flag: '🇸🇦' },
+      { name: 'Scotland', flag: '🏴󠁧󠁢󠁳󠁣󠁴󠁿' }, { name: 'Senegal', flag: '🇸🇳' }, { name: 'Serbia', flag: '🇷🇸' },
+      { name: 'Singapore', flag: '🇸🇬' }, { name: 'Slovakia', flag: '🇸🇰' }, { name: 'Slovenia', flag: '🇸🇮' },
+      { name: 'South Africa', flag: '🇿🇦' }, { name: 'South Korea', flag: '🇰🇷' }, { name: 'Spain', flag: '🇪🇸' },
+      { name: 'Sri Lanka', flag: '🇱🇰' }, { name: 'Sweden', flag: '🇸🇪' }, { name: 'Switzerland', flag: '🇨🇭' },
+      { name: 'Syria', flag: '🇸🇾' }, { name: 'Taiwan', flag: '🇹🇼' }, { name: 'Thailand', flag: '🇹🇭' },
+      { name: 'Tunisia', flag: '🇹🇳' }, { name: 'Turkey', flag: '🇹🇷' }, { name: 'UAE', flag: '🇦🇪' },
+      { name: 'Uganda', flag: '🇺🇬' }, { name: 'Ukraine', flag: '🇺🇦' }, { name: 'United Kingdom', flag: '🇬🇧' },
+      { name: 'Uruguay', flag: '🇺🇾' }, { name: 'USA', flag: '🇺🇸' }, { name: 'Uzbekistan', flag: '🇺🇿' },
+      { name: 'Venezuela', flag: '🇻🇪' }, { name: 'Vietnam', flag: '🇻🇳' }, { name: 'Wales', flag: '🏴󠁧󠁢󠁷󠁬󠁳󠁿' },
+      { name: 'Yemen', flag: '🇾🇪' }, { name: 'Zimbabwe', flag: '🇿🇼' }
+    ];
+
+    // Checkout suggestions for darts (static data, moved outside component for performance)
+    const CHECKOUT_SUGGESTIONS = {
+      170: 'T20 T20 Bull', 167: 'T20 T19 Bull', 164: 'T20 T18 Bull', 161: 'T20 T17 Bull',
+      160: 'T20 T20 D20', 158: 'T20 T20 D19', 157: 'T20 T19 D20', 156: 'T20 T20 D18',
+      155: 'T20 T19 D19', 154: 'T20 T18 D20', 153: 'T20 T19 D18', 152: 'T20 T20 D16',
+      151: 'T20 T17 D20', 150: 'T20 T18 D18', 149: 'T20 T19 D16', 148: 'T20 T20 D14',
+      147: 'T20 T17 D18', 146: 'T20 T18 D16', 145: 'T20 T19 D14', 144: 'T20 T20 D12',
+      143: 'T20 T17 D16', 142: 'T20 T14 D20', 141: 'T20 T19 D12', 140: 'T20 T20 D10',
+      139: 'T20 T13 D20', 138: 'T20 T18 D12', 137: 'T20 T19 D10', 136: 'T20 T20 D8',
+      135: 'T20 T17 D12', 134: 'T20 T14 D16', 133: 'T20 T19 D8', 132: 'T20 T16 D12',
+      131: 'T20 T13 D16', 130: 'T20 T18 D8', 129: 'T19 T16 D12', 128: 'T18 T14 D16',
+      127: 'T20 T17 D8', 126: 'T19 T19 D6', 125: 'T20 T19 D4', 124: 'T20 T16 D8',
+      123: 'T19 T16 D9', 122: 'T18 T18 D7', 121: 'T20 T11 D14', 120: 'T20 S20 D20',
+      119: 'T19 T12 D13', 118: 'T20 S18 D20', 117: 'T20 S17 D20', 116: 'T20 S16 D20',
+      115: 'T20 S15 D20', 114: 'T20 S14 D20', 113: 'T20 S13 D20', 112: 'T20 S12 D20',
+      111: 'T20 S11 D20', 110: 'T20 S10 D20', 109: 'T20 S9 D20', 108: 'T20 S8 D20',
+      107: 'T19 S10 D20', 106: 'T20 S6 D20', 105: 'T20 S5 D20', 104: 'T20 S4 D20',
+      103: 'T20 S3 D20', 102: 'T20 S2 D20', 101: 'T20 S1 D20', 100: 'T20 D20',
+      99: 'T19 S10 D16', 98: 'T20 D19', 97: 'T19 D20', 96: 'T20 D18', 95: 'T19 D19',
+      94: 'T18 D20', 93: 'T19 D18', 92: 'T20 D16', 91: 'T17 D20', 90: 'T18 D18',
+      89: 'T19 D16', 88: 'T20 D14', 87: 'T17 D18', 86: 'T18 D16', 85: 'T19 D14',
+      84: 'T20 D12', 83: 'T17 D16', 82: 'T14 D20', 81: 'T19 D12', 80: 'T20 D10',
+      79: 'T13 D20', 78: 'T18 D12', 77: 'T19 D10', 76: 'T20 D8', 75: 'T17 D12',
+      74: 'T14 D16', 73: 'T19 D8', 72: 'T16 D12', 71: 'T13 D16', 70: 'T18 D8',
+      69: 'T19 D6', 68: 'T20 D4', 67: 'T17 D8', 66: 'T10 D18', 65: 'T19 D4',
+      64: 'T16 D8', 63: 'T13 D12', 62: 'T10 D16', 61: 'T15 D8', 60: 'S20 D20',
+      59: 'S19 D20', 58: 'S18 D20', 57: 'S17 D20', 56: 'S16 D20', 55: 'S15 D20',
+      54: 'S14 D20', 53: 'S13 D20', 52: 'S12 D20', 51: 'S11 D20', 50: 'S10 D20',
+      49: 'S9 D20', 48: 'S8 D20', 47: 'S7 D20', 46: 'S6 D20', 45: 'S5 D20',
+      44: 'S4 D20', 43: 'S3 D20', 42: 'S2 D20', 41: 'S1 D20', 40: 'D20',
+      38: 'D19', 36: 'D18', 34: 'D17', 32: 'D16', 30: 'D15', 28: 'D14',
+      26: 'D13', 24: 'D12', 22: 'D11', 20: 'D10', 18: 'D9', 16: 'D8',
+      14: 'D7', 12: 'D6', 10: 'D5', 8: 'D4', 6: 'D3', 4: 'D2', 2: 'D1'
+    };
+
     const DartsGame = () => {
-      const [gameState, setGameState] = useState('menu');
+      const [gameState, setGameState] = useState('landing');
+      const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
       const [players, setPlayers] = useState([]);
       const [currentPlayerIndex, setCurrentPlayerIndex] = useState(0);
       const [dartsThrown, setDartsThrown] = useState(0);
@@ -487,6 +1196,45 @@
         }
       });
 
+      // Weekly time-limited challenge state - synced via Firebase, resets weekly
+      const [weeklyChallenge, setWeeklyChallenge] = useState(() => {
+        const currentWeek = getCurrentWeekNumber();
+        try {
+          const saved = localStorage.getItem('quikdarts_weekly_challenge');
+          if (saved) {
+            const parsed = JSON.parse(saved);
+            // Validate data structure and check if it's from the current week
+            if (isValidWeeklyChallengeData(parsed) && parsed.weekNumber === currentWeek) {
+              return parsed;
+            }
+          }
+        } catch (error) {
+          console.error('Failed to load weekly challenge:', error);
+        }
+        return createDefaultWeeklyChallengeData(currentWeek);
+      });
+
+      // Time remaining until weekly reset
+      const [timeUntilReset, setTimeUntilReset] = useState(getTimeUntilWeeklyReset());
+
+      // Daily challenges state - resets at midnight each day
+      const [dailyChallengeData, setDailyChallengeData] = useState(() => {
+        const today = getTodayString();
+        try {
+          const saved = localStorage.getItem('quikdarts_daily_challenges');
+          if (saved) {
+            const parsed = JSON.parse(saved);
+            // Validate data structure and check if it's from today
+            if (isValidDailyChallengeData(parsed) && parsed.date === today) {
+              return parsed;
+            }
+          }
+        } catch (error) {
+          console.error('Failed to load daily challenges:', error);
+        }
+        return createDefaultDailyChallengeData(today);
+      });
+
       // Dartboard theme customization state
       const [selectedThemeId, setSelectedThemeId] = useState(() => {
         try {
@@ -585,153 +1333,6 @@
       const matchmakingIntervalRef = useRef(null);
       const audioContext = useRef(null);
       const aimPositionRef = useRef({ x: CENTER, y: CENTER });
-
-      const countries = [
-        { name: 'Afghanistan', flag: '🇦🇫' },
-        { name: 'Albania', flag: '🇦🇱' },
-        { name: 'Algeria', flag: '🇩🇿' },
-        { name: 'Argentina', flag: '🇦🇷' },
-        { name: 'Armenia', flag: '🇦🇲' },
-        { name: 'Australia', flag: '🇦🇺' },
-        { name: 'Austria', flag: '🇦🇹' },
-        { name: 'Azerbaijan', flag: '🇦🇿' },
-        { name: 'Bahrain', flag: '🇧🇭' },
-        { name: 'Bangladesh', flag: '🇧🇩' },
-        { name: 'Belarus', flag: '🇧🇾' },
-        { name: 'Belgium', flag: '🇧🇪' },
-        { name: 'Bolivia', flag: '🇧🇴' },
-        { name: 'Bosnia', flag: '🇧🇦' },
-        { name: 'Brazil', flag: '🇧🇷' },
-        { name: 'Bulgaria', flag: '🇧🇬' },
-        { name: 'Cambodia', flag: '🇰🇭' },
-        { name: 'Canada', flag: '🇨🇦' },
-        { name: 'Chile', flag: '🇨🇱' },
-        { name: 'China', flag: '🇨🇳' },
-        { name: 'Colombia', flag: '🇨🇴' },
-        { name: 'Costa Rica', flag: '🇨🇷' },
-        { name: 'Croatia', flag: '🇭🇷' },
-        { name: 'Cuba', flag: '🇨🇺' },
-        { name: 'Cyprus', flag: '🇨🇾' },
-        { name: 'Czech Republic', flag: '🇨🇿' },
-        { name: 'Denmark', flag: '🇩🇰' },
-        { name: 'Ecuador', flag: '🇪🇨' },
-        { name: 'Egypt', flag: '🇪🇬' },
-        { name: 'England', flag: '🏴󠁧󠁢󠁥󠁮󠁧󠁿' },
-        { name: 'Estonia', flag: '🇪🇪' },
-        { name: 'Ethiopia', flag: '🇪🇹' },
-        { name: 'Finland', flag: '🇫🇮' },
-        { name: 'France', flag: '🇫🇷' },
-        { name: 'Georgia', flag: '🇬🇪' },
-        { name: 'Germany', flag: '🇩🇪' },
-        { name: 'Ghana', flag: '🇬🇭' },
-        { name: 'Greece', flag: '🇬🇷' },
-        { name: 'Hong Kong', flag: '🇭🇰' },
-        { name: 'Hungary', flag: '🇭🇺' },
-        { name: 'Iceland', flag: '🇮🇸' },
-        { name: 'India', flag: '🇮🇳' },
-        { name: 'Indonesia', flag: '🇮🇩' },
-        { name: 'Iran', flag: '🇮🇷' },
-        { name: 'Iraq', flag: '🇮🇶' },
-        { name: 'Ireland', flag: '🇮🇪' },
-        { name: 'Israel', flag: '🇮🇱' },
-        { name: 'Italy', flag: '🇮🇹' },
-        { name: 'Jamaica', flag: '🇯🇲' },
-        { name: 'Japan', flag: '🇯🇵' },
-        { name: 'Jordan', flag: '🇯🇴' },
-        { name: 'Kazakhstan', flag: '🇰🇿' },
-        { name: 'Kenya', flag: '🇰🇪' },
-        { name: 'Kuwait', flag: '🇰🇼' },
-        { name: 'Latvia', flag: '🇱🇻' },
-        { name: 'Lebanon', flag: '🇱🇧' },
-        { name: 'Libya', flag: '🇱🇾' },
-        { name: 'Lithuania', flag: '🇱🇹' },
-        { name: 'Luxembourg', flag: '🇱🇺' },
-        { name: 'Malaysia', flag: '🇲🇾' },
-        { name: 'Malta', flag: '🇲🇹' },
-        { name: 'Mexico', flag: '🇲🇽' },
-        { name: 'Morocco', flag: '🇲🇦' },
-        { name: 'Nepal', flag: '🇳🇵' },
-        { name: 'Netherlands', flag: '🇳🇱' },
-        { name: 'New Zealand', flag: '🇳🇿' },
-        { name: 'Nigeria', flag: '🇳🇬' },
-        { name: 'North Korea', flag: '🇰🇵' },
-        { name: 'Northern Ireland', flag: '🇬🇧' },
-        { name: 'Norway', flag: '🇳🇴' },
-        { name: 'Pakistan', flag: '🇵🇰' },
-        { name: 'Palestine', flag: '🇵🇸' },
-        { name: 'Panama', flag: '🇵🇦' },
-        { name: 'Peru', flag: '🇵🇪' },
-        { name: 'Philippines', flag: '🇵🇭' },
-        { name: 'Poland', flag: '🇵🇱' },
-        { name: 'Portugal', flag: '🇵🇹' },
-        { name: 'Qatar', flag: '🇶🇦' },
-        { name: 'Romania', flag: '🇷🇴' },
-        { name: 'Russia', flag: '🇷🇺' },
-        { name: 'Saudi Arabia', flag: '🇸🇦' },
-        { name: 'Scotland', flag: '🏴󠁧󠁢󠁳󠁣󠁴󠁿' },
-        { name: 'Senegal', flag: '🇸🇳' },
-        { name: 'Serbia', flag: '🇷🇸' },
-        { name: 'Singapore', flag: '🇸🇬' },
-        { name: 'Slovakia', flag: '🇸🇰' },
-        { name: 'Slovenia', flag: '🇸🇮' },
-        { name: 'South Africa', flag: '🇿🇦' },
-        { name: 'South Korea', flag: '🇰🇷' },
-        { name: 'Spain', flag: '🇪🇸' },
-        { name: 'Sri Lanka', flag: '🇱🇰' },
-        { name: 'Sweden', flag: '🇸🇪' },
-        { name: 'Switzerland', flag: '🇨🇭' },
-        { name: 'Syria', flag: '🇸🇾' },
-        { name: 'Taiwan', flag: '🇹🇼' },
-        { name: 'Thailand', flag: '🇹🇭' },
-        { name: 'Tunisia', flag: '🇹🇳' },
-        { name: 'Turkey', flag: '🇹🇷' },
-        { name: 'UAE', flag: '🇦🇪' },
-        { name: 'Uganda', flag: '🇺🇬' },
-        { name: 'Ukraine', flag: '🇺🇦' },
-        { name: 'United Kingdom', flag: '🇬🇧' },
-        { name: 'Uruguay', flag: '🇺🇾' },
-        { name: 'USA', flag: '🇺🇸' },
-        { name: 'Uzbekistan', flag: '🇺🇿' },
-        { name: 'Venezuela', flag: '🇻🇪' },
-        { name: 'Vietnam', flag: '🇻🇳' },
-        { name: 'Wales', flag: '🏴󠁧󠁢󠁷󠁬󠁳󠁿' },
-        { name: 'Yemen', flag: '🇾🇪' },
-        { name: 'Zimbabwe', flag: '🇿🇼' }
-      ];
-
-      const checkoutSuggestions = {
-        170: 'T20 T20 Bull', 167: 'T20 T19 Bull', 164: 'T20 T18 Bull', 161: 'T20 T17 Bull',
-        160: 'T20 T20 D20', 158: 'T20 T20 D19', 157: 'T20 T19 D20', 156: 'T20 T20 D18',
-        155: 'T20 T19 D19', 154: 'T20 T18 D20', 153: 'T20 T19 D18', 152: 'T20 T20 D16',
-        151: 'T20 T17 D20', 150: 'T20 T18 D18', 149: 'T20 T19 D16', 148: 'T20 T20 D14',
-        147: 'T20 T17 D18', 146: 'T20 T18 D16', 145: 'T20 T19 D14', 144: 'T20 T20 D12',
-        143: 'T20 T17 D16', 142: 'T20 T14 D20', 141: 'T20 T19 D12', 140: 'T20 T20 D10',
-        139: 'T20 T13 D20', 138: 'T20 T18 D12', 137: 'T20 T19 D10', 136: 'T20 T20 D8',
-        135: 'T20 T17 D12', 134: 'T20 T14 D16', 133: 'T20 T19 D8', 132: 'T20 T16 D12',
-        131: 'T20 T13 D16', 130: 'T20 T18 D8', 129: 'T19 T16 D12', 128: 'T18 T14 D16',
-        127: 'T20 T17 D8', 126: 'T19 T19 D6', 125: 'T20 T19 D4', 124: 'T20 T16 D8',
-        123: 'T19 T16 D9', 122: 'T18 T18 D7', 121: 'T20 T11 D14', 120: 'T20 S20 D20',
-        119: 'T19 T12 D13', 118: 'T20 S18 D20', 117: 'T20 S17 D20', 116: 'T20 S16 D20',
-        115: 'T20 S15 D20', 114: 'T20 S14 D20', 113: 'T20 S13 D20', 112: 'T20 S12 D20',
-        111: 'T20 S11 D20', 110: 'T20 S10 D20', 109: 'T20 S9 D20', 108: 'T20 S8 D20',
-        107: 'T19 S10 D20', 106: 'T20 S6 D20', 105: 'T20 S5 D20', 104: 'T20 S4 D20',
-        103: 'T20 S3 D20', 102: 'T20 S2 D20', 101: 'T20 S1 D20', 100: 'T20 D20',
-        99: 'T19 S10 D16', 98: 'T20 D19', 97: 'T19 D20', 96: 'T20 D18', 95: 'T19 D19',
-        94: 'T18 D20', 93: 'T19 D18', 92: 'T20 D16', 91: 'T17 D20', 90: 'T18 D18',
-        89: 'T19 D16', 88: 'T20 D14', 87: 'T17 D18', 86: 'T18 D16', 85: 'T19 D14',
-        84: 'T20 D12', 83: 'T17 D16', 82: 'T14 D20', 81: 'T19 D12', 80: 'T20 D10',
-        79: 'T13 D20', 78: 'T18 D12', 77: 'T19 D10', 76: 'T20 D8', 75: 'T17 D12',
-        74: 'T14 D16', 73: 'T19 D8', 72: 'T16 D12', 71: 'T13 D16', 70: 'T18 D8',
-        69: 'T19 D6', 68: 'T20 D4', 67: 'T17 D8', 66: 'T10 D18', 65: 'T19 D4',
-        64: 'T16 D8', 63: 'T13 D12', 62: 'T10 D16', 61: 'T15 D8', 60: 'S20 D20',
-        59: 'S19 D20', 58: 'S18 D20', 57: 'S17 D20', 56: 'S16 D20', 55: 'S15 D20',
-        54: 'S14 D20', 53: 'S13 D20', 52: 'S12 D20', 51: 'S11 D20', 50: 'S10 D20',
-        49: 'S9 D20', 48: 'S8 D20', 47: 'S7 D20', 46: 'S6 D20', 45: 'S5 D20',
-        44: 'S4 D20', 43: 'S3 D20', 42: 'S2 D20', 41: 'S1 D20', 40: 'D20',
-        38: 'D19', 36: 'D18', 34: 'D17', 32: 'D16', 30: 'D15', 28: 'D14',
-        26: 'D13', 24: 'D12', 22: 'D11', 20: 'D10', 18: 'D9', 16: 'D8',
-        14: 'D7', 12: 'D6', 10: 'D5', 8: 'D4', 6: 'D3', 4: 'D2', 2: 'D1',
-      };
 
       const playSound = useCallback((type) => {
         if (!soundEnabled) return;
@@ -1305,36 +1906,36 @@
           };
         };
 
-        // For checkout situations
-        if (checkoutSuggestions[currentScore] && (difficulty === 'hard' || difficulty === 'impossible')) {
-          const suggestion = checkoutSuggestions[currentScore];
+        // For checkout situations - expert and impossible use checkout suggestions
+        if (CHECKOUT_SUGGESTIONS[currentScore] && (difficulty === AI_DIFFICULTIES.EXPERT.key || difficulty === AI_DIFFICULTIES.IMPOSSIBLE.key)) {
+          const suggestion = CHECKOUT_SUGGESTIONS[currentScore];
           if (suggestion.includes('T20')) return getSegmentPosition(20, 3);
           if (suggestion.includes('D20')) return getSegmentPosition(20, 2);
           if (suggestion.includes('Bull')) return { x: CENTER, y: CENTER };
         }
 
         switch(difficulty) {
-          case 'easy':
+          case AI_DIFFICULTIES.BEGINNER.key:
             // Aim at random segments, single rings
             const randomSegment = SEGMENTS[Math.floor(Math.random() * SEGMENTS.length)];
             return getSegmentPosition(randomSegment, 1);
 
-          case 'medium':
+          case AI_DIFFICULTIES.INTERMEDIATE.key:
             // Aim at high-value segments (19, 20), sometimes triples
             const targetSegment = Math.random() > 0.5 ? 20 : 19;
             const useTriple = Math.random() > 0.6;
             return getSegmentPosition(targetSegment, useTriple ? 3 : 1);
 
-          case 'hard':
+          case AI_DIFFICULTIES.EXPERT.key:
             // Consistently aim for T20, T19, or doubles for checkout
             if (currentScore <= 40 && currentScore % 2 === 0) {
               return getSegmentPosition(20, 2);
             }
             return getSegmentPosition(20, 3);
 
-          case 'impossible':
+          case AI_DIFFICULTIES.IMPOSSIBLE.key:
             // Perfect strategy
-            if (currentScore <= 170 && checkoutSuggestions[currentScore]) {
+            if (currentScore <= 170 && CHECKOUT_SUGGESTIONS[currentScore]) {
               return getSegmentPosition(20, 3);
             }
             return getSegmentPosition(20, 3);
@@ -1345,13 +1946,8 @@
       }, []);
 
       const getAIAccuracy = (difficulty) => {
-        switch(difficulty) {
-          case 'easy': return 35;
-          case 'medium': return 60;
-          case 'hard': return 80;
-          case 'impossible': return 95;
-          default: return 50;
-        }
+        const difficultyConfig = Object.values(AI_DIFFICULTIES).find(d => d.key === difficulty);
+        return difficultyConfig ? difficultyConfig.accuracy : 50;
       };
 
       const handleLegWin = useCallback((playerIndex, dartsInLeg = null) => {
@@ -1408,6 +2004,8 @@
                   totalGamesPlayed: achievementStats.totalGamesPlayed + 1,
                   totalGamesWon: achievementStats.totalGamesWon + 1
                 });
+                updateWeeklyChallengeStats({ weeklyWins: 1 });
+                updateDailyChallengeStats({ dailyWins: 1, dailyGames: 1 });
               }
             } else if (!practiceMode) {
               // Track game played but not won (lost to AI or other player)
@@ -1415,6 +2013,7 @@
                 updateAchievementStats({ totalOnlineGames: achievementStats.totalOnlineGames + 1 });
               } else {
                 updateAchievementStats({ totalGamesPlayed: achievementStats.totalGamesPlayed + 1 });
+                updateDailyChallengeStats({ dailyGames: 1 });
               }
             }
             return;
@@ -1439,7 +2038,7 @@
           setWinner(null);
           setLegDartsThrown(new Array(players.length).fill(0));
         }, 2000);
-      }, [legScores, setScores, players, playerSetup, playSound, legDartsThrown, unlockAchievement, updateAchievementStats, achievementStats, onlineMode, practiceMode]);
+      }, [legScores, setScores, players, playerSetup, playSound, legDartsThrown, unlockAchievement, updateAchievementStats, achievementStats, onlineMode, practiceMode, updateWeeklyChallengeStats]);
 
       const throwDart = useCallback(() => {
         // Practice mode: unlimited throws with stat tracking
@@ -1599,6 +2198,8 @@
             // Track 180 for achievements (only in offline mode, not practice)
             if (!onlineMode && !practiceMode) {
               updateAchievementStats({ total180s: achievementStats.total180s + 1 });
+              updateWeeklyChallengeStats({ weekly180s: 1 });
+              updateDailyChallengeStats({ daily180s: 1 });
             }
           } else {
             // Play regular hit sounds only if NOT a 180
@@ -1607,6 +2208,8 @@
               // Track bull for achievements (only in offline mode, not practice)
               if (!onlineMode && !practiceMode) {
                 updateAchievementStats({ totalBulls: achievementStats.totalBulls + 1 });
+                updateWeeklyChallengeStats({ weeklyBulls: 1 });
+                updateDailyChallengeStats({ dailyBulls: 1 });
               }
             } else if (result.score > 0) {
               playSound('hit');
@@ -1615,10 +2218,17 @@
             // Track triples for achievements (only in offline mode, not practice)
             if (result.multiplier === 3 && !onlineMode && !practiceMode) {
               updateAchievementStats({ totalTriples: achievementStats.totalTriples + 1 });
+              updateWeeklyChallengeStats({ weeklyTriples: 1 });
+              updateDailyChallengeStats({ dailyTriples: 1 });
             }
 
             setShowScorePopup({ ...result, position: finalPosition });
             setTimeout(() => setShowScorePopup(null), 1000);
+          }
+
+          // Track daily score for all throws
+          if (!onlineMode && !practiceMode && result.score > 0) {
+            updateDailyChallengeStats({ dailyScore: result.score });
           }
 
           if (newScore < 0 || newScore === 1 || (newScore === 0 && result.multiplier !== 2)) {
@@ -1717,7 +2327,7 @@
             }
           }
         }, 300);
-      }, [aimWobble, power, dartsThrown, players, currentPlayerIndex, winner, calculateScore, addRandomness, playSound, isCheckoutPosition, triplesHit, handleLegWin, updateStats, nextPlayer, onlineMode, playerId, syncThrowToFirebase, currentTurnScore, practiceMode, practiceSkillLevel, dartPositions, updateAchievementStats, achievementStats]);
+      }, [aimWobble, power, dartsThrown, players, currentPlayerIndex, winner, calculateScore, addRandomness, playSound, isCheckoutPosition, triplesHit, handleLegWin, updateStats, nextPlayer, onlineMode, playerId, syncThrowToFirebase, currentTurnScore, practiceMode, practiceSkillLevel, dartPositions, updateAchievementStats, achievementStats, updateWeeklyChallengeStats]);
 
       const updateStats = useCallback((playerIndex, result) => {
         setGameStats(prev => {
@@ -1916,8 +2526,8 @@
 
       useEffect(() => {
         const currentPlayer = players[currentPlayerIndex];
-        if (currentPlayer && checkoutSuggestions[currentPlayer.score]) {
-          setCheckout(checkoutSuggestions[currentPlayer.score]);
+        if (currentPlayer && CHECKOUT_SUGGESTIONS[currentPlayer.score]) {
+          setCheckout(CHECKOUT_SUGGESTIONS[currentPlayer.score]);
           setIsCheckoutPosition(true);
         } else {
           setCheckout(null);
@@ -1983,57 +2593,27 @@
           const aiThrowDelay = setTimeout(() => {
             const target = getAITarget(currentPlayer.aiDifficulty, currentPlayer.score);
             const aiAccuracy = getAIAccuracy(currentPlayer.aiDifficulty);
-            const aiPower = 45 + Math.random() * 10; // AI aims for ~50 power (perfect zone)
-
             playSound('throw');
 
-            // Check if AI is aiming at the winning double
-            const aimingAt = calculateScore(target.x, target.y);
-            const isAimingAtWinningDouble = isCheckoutPosition && aimingAt.multiplier === 2 && aimingAt.score === currentPlayer.score;
-
-            // Calculate if AI power is in perfect zone
-            // Beginner mode (40% or below): constant 10% zone, no shrinking
-            // Intermediate (41-80%): shrinks by 2.5% for each perfect hit
-            // Expert (81%+): shrinks by 3% for each perfect hit
-            // Aiming at winning double: ultra-small 2% zone
-            let perfectZoneWidth;
-            if (skillLevel <= 40) {
-              // Beginner mode - constant 10% zone, no shrinking
-              perfectZoneWidth = 10;
-            } else {
-              // Normal mode - shrinking zones
-              if (isAimingAtWinningDouble) {
-                perfectZoneWidth = 2; // Ultra-small zone for winning double
-              } else {
-                const baseZoneWidth = 10;
-                const shrinkRate = skillLevel >= 81 ? 3 : 2.5; // 2.5% for 41-80%, 3% for 81%+
-                perfectZoneWidth = Math.max(baseZoneWidth - (triplesHit * shrinkRate), 4);
-              }
-            }
-            const perfectZoneLeft = 50 - (perfectZoneWidth / 2);
-            const perfectZoneRight = 50 + (perfectZoneWidth / 2);
-            const isInPerfectZone = aiPower > perfectZoneLeft && aiPower < perfectZoneRight;
-
-            // Calculate final position with same logic as human players
+            // Calculate final position based on AI accuracy percentage
             let finalPosition;
-            if (isInPerfectZone) {
-              // Perfect zone hit - 100% accuracy, no randomness
+            // AI uses its own accuracy to determine hit chance, not affected by human skill level
+            const hitChance = aiAccuracy / 100;
+            const isAccurateThrow = Math.random() < hitChance;
+
+            if (isAccurateThrow) {
+              // Accurate throw - hit near target with minimal deviation
+              const minorDeviation = (100 - aiAccuracy) * 0.3; // Small deviation based on accuracy
+              const angle = Math.random() * Math.PI * 2;
+              const offset = Math.random() * minorDeviation;
               finalPosition = {
-                x: target.x,
-                y: target.y
+                x: target.x + Math.cos(angle) * offset,
+                y: target.y + Math.sin(angle) * offset
               };
             } else {
-              // Not in perfect zone - apply randomness based on AI accuracy and power
-              const effectiveSkillLevel = aiAccuracy;
-              const skillFactor = (100 - effectiveSkillLevel) / 100;
-              const powerFactor = Math.abs(aiPower - 50) / 50;
-              const skillRandomness = skillFactor * 25;
-              const powerRandomness = powerFactor * 20;
-
-              const distanceFromPerfect = Math.abs(aiPower - 50);
-              const perfectZonePenalty = 80 + (distanceFromPerfect * 1.2);
-
-              const randomness = skillRandomness + powerRandomness + perfectZonePenalty;
+              // Inaccurate throw - apply randomness
+              const skillFactor = (100 - aiAccuracy) / 100;
+              const randomness = 30 + (skillFactor * 50); // 30-80 pixels of deviation
               const angle = Math.random() * Math.PI * 2;
               const offset = Math.random() * randomness;
 
@@ -2045,10 +2625,8 @@
 
             const result = calculateScore(finalPosition.x, finalPosition.y);
 
-            // Increase difficulty by shrinking perfect zone when perfect throw is hit
-            if (isInPerfectZone) {
-              setTriplesHit(prev => prev + 1);
-            }
+            // Note: AI throws do NOT increment triplesHit as that affects human player's
+            // perfect zone difficulty, and should only be affected by human throws
 
             setAnimatingDart({ start: { x: CENTER, y: BOARD_SIZE + 50 }, end: finalPosition });
 
@@ -2310,6 +2888,126 @@
         });
       }, [checkAchievements]);
 
+      // Update weekly challenge stats and check for completion
+      const updateWeeklyChallengeStats = useCallback((update) => {
+        setWeeklyChallenge(prev => {
+          // Check if we need to reset for a new week
+          const currentWeek = getCurrentWeekNumber();
+          if (prev.weekNumber !== currentWeek) {
+            // New week, reset everything but keep completed challenges history
+            const activeChallenge = getActiveTimeLimitedAchievement();
+            const newData = {
+              weekNumber: currentWeek,
+              challengeId: activeChallenge?.id,
+              stats: { ...update },
+              completed: false,
+              completedChallenges: prev.completedChallenges || []
+            };
+            try {
+              localStorage.setItem('quikdarts_weekly_challenge', JSON.stringify(newData));
+            } catch (error) {
+              console.error('Failed to save weekly challenge:', error);
+            }
+            return newData;
+          }
+
+          // Same week, update stats
+          const newStats = { ...prev.stats };
+          Object.keys(update).forEach(key => {
+            newStats[key] = (newStats[key] || 0) + (update[key] || 0);
+          });
+
+          // Check if challenge is now completed
+          const activeChallenge = getActiveTimeLimitedAchievement();
+          let completed = prev.completed;
+          let completedChallenges = [...(prev.completedChallenges || [])];
+
+          if (activeChallenge && !completed) {
+            const current = newStats[activeChallenge.statKey] || 0;
+            if (current >= activeChallenge.target) {
+              completed = true;
+              if (!completedChallenges.includes(activeChallenge.id)) {
+                completedChallenges.push(activeChallenge.id);
+              }
+              // Sync completion to Firebase for global tracking
+              if (database) {
+                try {
+                  database.ref('weekly_completions/' + activeChallenge.id).transaction(count => (count || 0) + 1);
+                } catch (error) {
+                  console.error('Failed to sync weekly completion to Firebase:', error);
+                }
+              }
+            }
+          }
+
+          const newData = {
+            ...prev,
+            stats: newStats,
+            completed,
+            completedChallenges
+          };
+
+          try {
+            localStorage.setItem('quikdarts_weekly_challenge', JSON.stringify(newData));
+          } catch (error) {
+            console.error('Failed to save weekly challenge:', error);
+          }
+
+          return newData;
+        });
+      }, []);
+
+      // Update daily challenge stats and check for completions
+      const updateDailyChallengeStats = useCallback((update) => {
+        setDailyChallengeData(prev => {
+          const today = getTodayString();
+          if (prev.date !== today) {
+            // Reset for new day, then apply the update
+            const newData = createDefaultDailyChallengeData(today);
+            Object.keys(update).forEach(key => {
+              newData.stats[key] = (newData.stats[key] || 0) + (update[key] || 0);
+            });
+            try {
+              localStorage.setItem('quikdarts_daily_challenges', JSON.stringify(newData));
+            } catch (error) {
+              console.error('Failed to save daily challenges:', error);
+            }
+            return newData;
+          }
+
+          const newStats = { ...prev.stats };
+          Object.keys(update).forEach(key => {
+            newStats[key] = (newStats[key] || 0) + (update[key] || 0);
+          });
+
+          const newCompleted = [...prev.completedChallenges];
+          prev.challenges.forEach(challenge => {
+            if (!newCompleted.includes(challenge.id)) {
+              const current = newStats[challenge.statKey] || 0;
+              if (current >= challenge.target) {
+                newCompleted.push(challenge.id);
+              }
+            }
+          });
+
+          const newData = { ...prev, stats: newStats, completedChallenges: newCompleted };
+          try {
+            localStorage.setItem('quikdarts_daily_challenges', JSON.stringify(newData));
+          } catch (error) {
+            console.error('Failed to save daily challenges:', error);
+          }
+          return newData;
+        });
+      }, []);
+
+      // Update countdown timer every minute
+      useEffect(() => {
+        const interval = setInterval(() => {
+          setTimeUntilReset(getTimeUntilWeeklyReset());
+        }, 60000); // Update every minute
+        return () => clearInterval(interval);
+      }, []);
+
       // Auto-hide achievement popup after 4 seconds with proper cleanup
       useEffect(() => {
         if (achievementPopup) {
@@ -2332,6 +3030,70 @@
           case 'mythic': return '#e74c3c';
           default: return '#95a5a6';
         }
+      };
+
+      // Get rarity-based card styles for unlocked achievements
+      const getRarityCardStyle = (rarity, isUnlocked) => {
+        if (!isUnlocked) return {};
+        const color = getRarityColor(rarity);
+
+        switch (rarity) {
+          case 'common':
+            return {
+              border: `1px solid ${color}30`,
+              boxShadow: 'none'
+            };
+          case 'uncommon':
+            return {
+              border: `1px solid ${color}50`,
+              boxShadow: `0 0 10px ${color}20`
+            };
+          case 'rare':
+            return {
+              border: `2px solid ${color}60`,
+              boxShadow: `0 0 15px ${color}30`,
+              animation: 'rareShimmer 3s ease-in-out infinite'
+            };
+          case 'epic':
+            return {
+              border: `2px solid ${color}70`,
+              boxShadow: `0 0 20px ${color}40, inset 0 0 30px ${color}10`,
+              animation: 'epicGlow 2s ease-in-out infinite'
+            };
+          case 'legendary':
+            return {
+              border: `2px solid ${color}`,
+              boxShadow: `0 0 25px ${color}50, 0 0 50px ${color}20`,
+              animation: 'legendaryPulse 2s ease-in-out infinite',
+              background: `linear-gradient(135deg, ${COLORS.backgroundCard}, ${color}15)`
+            };
+          case 'mythic':
+            return {
+              border: `3px solid ${color}`,
+              boxShadow: `0 0 30px ${color}60, 0 0 60px ${color}30, inset 0 0 40px ${color}10`,
+              animation: 'mythicGlow 1.5s ease-in-out infinite',
+              background: `linear-gradient(135deg, ${COLORS.backgroundCard}, ${color}20)`
+            };
+          default:
+            return {};
+        }
+      };
+
+      // Get achievement progress for trackable achievements
+      const getAchievementProgress = (achievement, stats) => {
+        if (!achievement.statKey || !achievement.target) {
+          return null; // One-time achievement, no progress tracking
+        }
+        const current = stats[achievement.statKey] || 0;
+        const target = achievement.target;
+        // For threshold achievements (like checkout), show as percentage toward goal
+        if (achievement.isThreshold) {
+          const progress = Math.min(current / target, 1);
+          return { current, target, progress, isThreshold: true };
+        }
+        // For cumulative achievements
+        const progress = Math.min(current / target, 1);
+        return { current, target, progress, isThreshold: false };
       };
 
       const renderDartboard = () => {
@@ -2628,102 +3390,117 @@
       // Practice mode skill selection screen
       if (practiceMode === 'selecting') {
         return (
-          <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f0f23 100%)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '20px', fontFamily: "'Oswald', sans-serif" }}>
-            <div style={{ background: 'rgba(255, 255, 255, 0.05)', borderRadius: '20px', padding: '60px 40px', backdropFilter: 'blur(10px)', border: '1px solid rgba(155, 89, 182, 0.3)', maxWidth: '500px', textAlign: 'center', width: '100%' }}>
-              <div style={{ fontSize: '64px', marginBottom: '20px' }}>🎯</div>
-              <h2 style={{ color: '#9b59b6', fontSize: '32px', marginBottom: '10px', letterSpacing: '3px' }}>PRACTICE MODE</h2>
-              <p style={{ color: '#e8d5b7', fontSize: '16px', marginBottom: '40px' }}>Select your skill level</p>
+          <div style={{ minHeight: '100vh', background: COLORS.background, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+            {/* Background gradient */}
+            <div style={{
+              position: 'fixed',
+              inset: 0,
+              background: `radial-gradient(ellipse at 30% 20%, ${COLORS.primary}40 0%, transparent 50%), radial-gradient(ellipse at 70% 80%, ${COLORS.accent}20 0%, transparent 40%), linear-gradient(180deg, ${COLORS.background} 0%, ${COLORS.backgroundLight} 100%)`,
+              zIndex: 0
+            }} />
 
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '15px', marginBottom: '30px' }}>
+            <div style={{
+              background: COLORS.backgroundCard,
+              borderRadius: '16px',
+              padding: '48px 40px',
+              border: '1px solid rgba(255, 255, 255, 0.05)',
+              boxShadow: '0 25px 60px rgba(0, 0, 0, 0.5)',
+              maxWidth: '420px',
+              textAlign: 'center',
+              width: '100%',
+              position: 'relative',
+              zIndex: 1
+            }}>
+              <div style={{ marginBottom: '24px' }}>
+                <TargetIcon size={48} color={COLORS.accent} />
+              </div>
+              <h2 style={{ color: COLORS.text, fontSize: '1.75rem', marginBottom: '8px', fontWeight: '700' }}>Practice Mode</h2>
+              <p style={{ color: COLORS.textMuted, fontSize: '1rem', marginBottom: '32px' }}>Select your skill level to begin</p>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '24px' }}>
                 <button
+                  className="btn"
                   onClick={() => startPracticeSession(30)}
                   style={{
-                    padding: '20px',
-                    background: 'linear-gradient(135deg, #228b22, #32cd32)',
+                    width: '100%',
+                    padding: '16px 24px',
+                    background: 'linear-gradient(135deg, #2D8A2D, #1f6b1f)',
                     color: '#fff',
                     border: 'none',
                     borderRadius: '10px',
                     cursor: 'pointer',
-                    fontFamily: "'Oswald', sans-serif",
-                    fontSize: '20px',
+                    fontSize: '1rem',
                     fontWeight: '600',
-                    letterSpacing: '2px',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    gap: '10px',
-                    boxShadow: '0 4px 15px rgba(34, 139, 34, 0.4)'
+                    gap: '12px',
+                    transition: 'all 0.2s ease'
                   }}
                 >
-                  <span style={{ fontSize: '24px' }}>🟢</span>
-                  BEGINNER
+                  <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#4ade80' }} />
+                  Beginner
                 </button>
 
                 <button
+                  className="btn"
                   onClick={() => startPracticeSession(60)}
                   style={{
-                    padding: '20px',
-                    background: 'linear-gradient(135deg, #ffa500, #ffb732)',
-                    color: '#fff',
+                    width: '100%',
+                    padding: '16px 24px',
+                    background: 'linear-gradient(135deg, #D4A03A, #B8862E)',
+                    color: COLORS.textDark,
                     border: 'none',
                     borderRadius: '10px',
                     cursor: 'pointer',
-                    fontFamily: "'Oswald', sans-serif",
-                    fontSize: '20px',
+                    fontSize: '1rem',
                     fontWeight: '600',
-                    letterSpacing: '2px',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    gap: '10px',
-                    boxShadow: '0 4px 15px rgba(255, 165, 0, 0.4)'
+                    gap: '12px',
+                    transition: 'all 0.2s ease'
                   }}
                 >
-                  <span style={{ fontSize: '24px' }}>🟡</span>
-                  INTERMEDIATE
+                  <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#fcd34d' }} />
+                  Intermediate
                 </button>
 
                 <button
+                  className="btn"
                   onClick={() => startPracticeSession(90)}
                   style={{
-                    padding: '20px',
-                    background: 'linear-gradient(135deg, #c41e3a, #e74c3c)',
+                    width: '100%',
+                    padding: '16px 24px',
+                    background: 'linear-gradient(135deg, #C92A2A, #a82222)',
                     color: '#fff',
                     border: 'none',
                     borderRadius: '10px',
                     cursor: 'pointer',
-                    fontFamily: "'Oswald', sans-serif",
-                    fontSize: '20px',
+                    fontSize: '1rem',
                     fontWeight: '600',
-                    letterSpacing: '2px',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    gap: '10px',
-                    boxShadow: '0 4px 15px rgba(196, 30, 58, 0.4)'
+                    gap: '12px',
+                    transition: 'all 0.2s ease'
                   }}
                 >
-                  <span style={{ fontSize: '24px' }}>🔴</span>
-                  EXPERT
+                  <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#f87171' }} />
+                  Expert
                 </button>
               </div>
 
               <button
+                className="btn btn-ghost"
                 onClick={exitPracticeMode}
                 style={{
-                  padding: '15px 40px',
-                  background: 'rgba(255, 255, 255, 0.1)',
-                  color: '#e8d5b7',
-                  border: '1px solid rgba(155, 89, 182, 0.3)',
-                  borderRadius: '10px',
-                  fontSize: '16px',
-                  fontWeight: '600',
-                  cursor: 'pointer',
-                  fontFamily: "'Oswald', sans-serif",
-                  letterSpacing: '2px'
+                  width: '100%',
+                  padding: '14px 24px',
+                  fontSize: '0.9rem'
                 }}
               >
-                BACK TO MENU
+                Back to Menu
               </button>
             </div>
           </div>
@@ -2779,87 +3556,369 @@
       // Achievements Gallery - check BEFORE menu
       if (showAchievements) {
         return (
-          <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f0f23 100%)', display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '20px', fontFamily: "'Oswald', sans-serif" }}>
-            <div style={{ maxWidth: '1000px', width: '100%' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px' }}>
-                <h1 style={{ fontSize: '48px', fontWeight: '700', color: '#ffd700', textShadow: '0 0 20px rgba(255, 215, 0, 0.5)', margin: 0 }}>🏆 ACHIEVEMENTS</h1>
-                <button onClick={() => setShowAchievements(false)} style={{ padding: '12px 30px', background: 'rgba(196, 30, 58, 0.3)', color: '#e8d5b7', border: 'none', borderRadius: '10px', cursor: 'pointer', fontFamily: "'Oswald', sans-serif", fontSize: '16px', fontWeight: '600', letterSpacing: '1px' }}>BACK</button>
+          <div style={{ minHeight: '100vh', background: COLORS.background, display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '80px 20px 40px' }}>
+            {/* Background gradient */}
+            <div style={{
+              position: 'fixed',
+              inset: 0,
+              background: `radial-gradient(ellipse at 30% 20%, ${COLORS.primary}40 0%, transparent 50%), radial-gradient(ellipse at 70% 80%, ${COLORS.accent}20 0%, transparent 40%), linear-gradient(180deg, ${COLORS.background} 0%, ${COLORS.backgroundLight} 100%)`,
+              zIndex: 0
+            }} />
+
+            <div style={{ maxWidth: '1000px', width: '100%', position: 'relative', zIndex: 1 }}>
+              {/* Header */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' }}>
+                <div>
+                  <h1 style={{ fontSize: 'clamp(1.75rem, 4vw, 2.5rem)', fontWeight: '700', color: COLORS.text, margin: 0 }}>Achievements</h1>
+                  <p style={{ color: COLORS.textMuted, fontSize: '1rem', marginTop: '4px' }}>Track your progress and unlock rewards</p>
+                </div>
+                <button className="btn btn-ghost" onClick={() => setShowAchievements(false)} style={{ padding: '12px 24px' }}>Back</button>
               </div>
 
-              <div style={{ background: 'rgba(255, 255, 255, 0.05)', borderRadius: '20px', padding: '25px', marginBottom: '30px', backdropFilter: 'blur(10px)' }}>
-                <div style={{ color: '#e8d5b7', fontSize: '18px', marginBottom: '5px' }}>
-                  Unlocked: <span style={{ color: '#ffd700', fontWeight: '700' }}>{unlockedAchievements.length}</span> / {ACHIEVEMENTS_DATA.length}
+              {/* Progress Card */}
+              <div style={{
+                background: COLORS.backgroundCard,
+                borderRadius: '12px',
+                padding: '24px',
+                marginBottom: '32px',
+                border: '1px solid rgba(255, 255, 255, 0.05)'
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                  <span style={{ color: COLORS.textMuted, fontSize: '0.9rem' }}>Progress</span>
+                  <span style={{ color: COLORS.accent, fontSize: '1rem', fontWeight: '600' }}>{unlockedAchievements.length} / {ACHIEVEMENTS_DATA.length}</span>
                 </div>
-                <div style={{ background: 'rgba(255, 215, 0, 0.2)', borderRadius: '10px', height: '10px', overflow: 'hidden', marginTop: '10px' }}>
-                  <div style={{ background: 'linear-gradient(90deg, #ffd700, #ffed4a)', height: '100%', width: `${(unlockedAchievements.length / ACHIEVEMENTS_DATA.length) * 100}%`, transition: 'width 0.5s' }}></div>
+                <div style={{ background: 'rgba(255, 255, 255, 0.1)', borderRadius: '8px', height: '8px', overflow: 'hidden' }}>
+                  <div style={{ background: `linear-gradient(90deg, ${COLORS.accent}, ${COLORS.accentLight})`, height: '100%', width: `${(unlockedAchievements.length / ACHIEVEMENTS_DATA.length) * 100}%`, transition: 'width 0.5s', borderRadius: '8px' }}></div>
                 </div>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '20px' }}>
+              {/* Weekly Challenge Section */}
+              {(() => {
+                const activeChallenge = getActiveTimeLimitedAchievement();
+                if (!activeChallenge) return null;
+                const current = weeklyChallenge.stats[activeChallenge.statKey] || 0;
+                const progress = Math.min(current / activeChallenge.target, 1);
+                const isCompleted = weeklyChallenge.completed;
+                return (
+                  <div style={{
+                    background: `linear-gradient(135deg, ${COLORS.backgroundCard}, rgba(155, 89, 182, 0.1))`,
+                    borderRadius: '12px',
+                    padding: '24px',
+                    marginBottom: '32px',
+                    border: `1px solid ${isCompleted ? '#27ae60' : '#9b59b6'}40`,
+                    position: 'relative',
+                    overflow: 'hidden'
+                  }}>
+                    {/* Time badge */}
+                    <div style={{
+                      position: 'absolute',
+                      top: '16px',
+                      right: '16px',
+                      background: 'rgba(155, 89, 182, 0.2)',
+                      borderRadius: '20px',
+                      padding: '6px 12px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px'
+                    }}>
+                      <span style={{ fontSize: '0.75rem', color: '#9b59b6' }}>Ends in</span>
+                      <span style={{ fontSize: '0.85rem', fontWeight: '600', color: COLORS.text }}>{formatTimeRemaining(timeUntilReset)}</span>
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                      <span style={{ fontSize: '0.7rem', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '1px', color: '#9b59b6' }}>Weekly Challenge</span>
+                      {isCompleted && <span style={{ fontSize: '0.7rem', fontWeight: '600', color: '#27ae60', background: 'rgba(39, 174, 96, 0.2)', padding: '2px 8px', borderRadius: '4px' }}>Completed!</span>}
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '16px' }}>
+                      <div style={{
+                        fontSize: '40px',
+                        background: isCompleted ? 'rgba(39, 174, 96, 0.2)' : 'rgba(155, 89, 182, 0.2)',
+                        borderRadius: '12px',
+                        padding: '12px',
+                        filter: isCompleted ? 'none' : 'none'
+                      }}>
+                        {isCompleted ? '✅' : activeChallenge.icon}
+                      </div>
+                      <div>
+                        <h3 style={{ color: COLORS.text, fontSize: '1.25rem', fontWeight: '600', margin: 0 }}>{activeChallenge.name}</h3>
+                        <p style={{ color: COLORS.textMuted, fontSize: '0.9rem', margin: '4px 0 0 0' }}>{activeChallenge.description}</p>
+                      </div>
+                    </div>
+
+                    {/* Progress bar */}
+                    <div style={{ marginBottom: '12px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                        <span style={{ color: COLORS.textMuted, fontSize: '0.85rem' }}>{current} / {activeChallenge.target}</span>
+                        <span style={{ color: isCompleted ? '#27ae60' : '#9b59b6', fontSize: '0.85rem', fontWeight: '600' }}>{Math.round(progress * 100)}%</span>
+                      </div>
+                      <div style={{ background: 'rgba(255, 255, 255, 0.1)', borderRadius: '6px', height: '10px', overflow: 'hidden' }}>
+                        <div style={{
+                          background: isCompleted ? 'linear-gradient(90deg, #27ae60, #2ecc71)' : 'linear-gradient(90deg, #9b59b6, #8e44ad)',
+                          height: '100%',
+                          width: `${progress * 100}%`,
+                          borderRadius: '6px',
+                          transition: 'width 0.5s ease'
+                        }} />
+                      </div>
+                    </div>
+
+                    {/* Reward info */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span style={{ color: COLORS.textMuted, fontSize: '0.8rem' }}>Reward:</span>
+                      <span style={{ color: '#f39c12', fontSize: '0.8rem', fontWeight: '600' }}>{activeChallenge.reward}</span>
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* Daily Challenges Section */}
+              <div style={{
+                background: COLORS.backgroundCard,
+                borderRadius: '12px',
+                padding: '24px',
+                marginBottom: '32px',
+                border: `1px solid ${COLORS.accent}30`
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                  <div>
+                    <h2 style={{ color: COLORS.text, fontSize: '1.25rem', fontWeight: '600', margin: 0 }}>Daily Challenges</h2>
+                    <p style={{ color: COLORS.textMuted, fontSize: '0.85rem', margin: '4px 0 0 0' }}>Complete challenges to earn rewards. Resets at midnight.</p>
+                  </div>
+                  <div style={{ background: `${COLORS.accent}20`, borderRadius: '8px', padding: '8px 12px', color: COLORS.accent, fontSize: '0.85rem', fontWeight: '600' }}>
+                    {dailyChallengeData.completedChallenges.length} / {dailyChallengeData.challenges.length} Complete
+                  </div>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '12px' }}>
+                  {dailyChallengeData.challenges.map(challenge => {
+                    const isCompleted = dailyChallengeData.completedChallenges.includes(challenge.id);
+                    const current = dailyChallengeData.stats[challenge.statKey] || 0;
+                    const progress = Math.min(current / challenge.target, 1);
+                    return (
+                      <div key={challenge.id} style={{
+                        background: isCompleted ? `${COLORS.success}15` : 'rgba(255, 255, 255, 0.03)',
+                        borderRadius: '10px',
+                        padding: '16px',
+                        border: isCompleted ? `1px solid ${COLORS.success}40` : '1px solid rgba(255, 255, 255, 0.05)'
+                      }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
+                          <div style={{ fontSize: '24px', background: isCompleted ? `${COLORS.success}20` : 'rgba(255, 255, 255, 0.05)', borderRadius: '8px', padding: '8px' }}>
+                            {isCompleted ? '✅' : challenge.icon}
+                          </div>
+                          <div style={{ flex: 1 }}>
+                            <div style={{ color: COLORS.text, fontSize: '0.95rem', fontWeight: '600' }}>{challenge.name}</div>
+                            <div style={{ color: COLORS.textMuted, fontSize: '0.8rem' }}>{challenge.description}</div>
+                          </div>
+                          <span style={{ fontSize: '0.65rem', fontWeight: '600', textTransform: 'uppercase', color: DIFFICULTY_COLORS[challenge.difficulty], background: `${DIFFICULTY_COLORS[challenge.difficulty]}20`, padding: '4px 8px', borderRadius: '4px' }}>
+                            {challenge.difficulty}
+                          </span>
+                        </div>
+                        <div style={{ marginBottom: '8px' }}>
+                          <div style={{ background: 'rgba(255, 255, 255, 0.1)', borderRadius: '4px', height: '6px', overflow: 'hidden' }}>
+                            <div style={{ background: isCompleted ? COLORS.success : `linear-gradient(90deg, ${DIFFICULTY_COLORS[challenge.difficulty]}, ${DIFFICULTY_COLORS[challenge.difficulty]}aa)`, height: '100%', width: `${progress * 100}%`, borderRadius: '4px' }} />
+                          </div>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <span style={{ color: COLORS.textMuted, fontSize: '0.75rem' }}>{current} / {challenge.target}</span>
+                          {isCompleted && <span style={{ color: COLORS.success, fontSize: '0.75rem', fontWeight: '600' }}>Complete!</span>}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Almost There Section - Achievements at 70-95% */}
+              {(() => {
+                const almostThereAchievements = ACHIEVEMENTS_DATA.filter(achievement => {
+                  if (unlockedAchievements.includes(achievement.id)) return false;
+                  const progress = getAchievementProgress(achievement, achievementStats);
+                  return progress && progress.progress >= 0.7 && progress.progress < 1;
+                });
+
+                if (almostThereAchievements.length === 0) return null;
+
+                return (
+                  <div style={{ marginBottom: '32px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
+                      <span style={{ fontSize: '1.25rem' }}>🔥</span>
+                      <h2 style={{ color: COLORS.accent, fontSize: '1.1rem', fontWeight: '600', margin: 0 }}>Almost There!</h2>
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '12px' }}>
+                      {almostThereAchievements.map(achievement => {
+                        const progressData = getAchievementProgress(achievement, achievementStats);
+                        const remaining = progressData.target - progressData.current;
+                        return (
+                          <div key={`almost-${achievement.id}`} style={{
+                            background: `linear-gradient(135deg, ${COLORS.backgroundCard}, ${COLORS.accent}10)`,
+                            border: `1px solid ${COLORS.accent}40`,
+                            borderRadius: '12px',
+                            padding: '16px',
+                            animation: 'almostTherePulse 2s ease-in-out infinite'
+                          }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                              <div style={{ fontSize: '28px' }}>{achievement.icon}</div>
+                              <div style={{ flex: 1 }}>
+                                <div style={{ color: COLORS.text, fontSize: '0.95rem', fontWeight: '600', marginBottom: '4px' }}>
+                                  {achievement.name}
+                                </div>
+                                <div style={{ color: COLORS.accent, fontSize: '0.8rem', fontWeight: '500' }}>
+                                  {progressData.isThreshold
+                                    ? `Need ${progressData.target}+ (Current best: ${progressData.current})`
+                                    : `Only ${remaining} more to go!`}
+                                </div>
+                                {/* Mini progress bar */}
+                                <div style={{
+                                  background: 'rgba(255, 255, 255, 0.1)',
+                                  borderRadius: '3px',
+                                  height: '4px',
+                                  marginTop: '8px',
+                                  overflow: 'hidden'
+                                }}>
+                                  <div style={{
+                                    background: `linear-gradient(90deg, ${COLORS.accent}, ${COLORS.accentLight})`,
+                                    height: '100%',
+                                    width: `${progressData.progress * 100}%`,
+                                    borderRadius: '3px'
+                                  }} />
+                                </div>
+                              </div>
+                              <div style={{ color: COLORS.accent, fontSize: '1.1rem', fontWeight: '700' }}>
+                                {Math.round(progressData.progress * 100)}%
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* Achievements Grid */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '16px' }}>
                 {ACHIEVEMENTS_DATA.map(achievement => {
                   const isUnlocked = unlockedAchievements.includes(achievement.id);
+                  const progressData = !isUnlocked ? getAchievementProgress(achievement, achievementStats) : null;
+                  const rarityStyle = getRarityCardStyle(achievement.rarity, isUnlocked);
                   return (
                     <div key={achievement.id} style={{
-                      background: isUnlocked ? 'rgba(255, 255, 255, 0.1)' : 'rgba(255, 255, 255, 0.03)',
-                      border: `2px solid ${isUnlocked ? getRarityColor(achievement.rarity) : 'rgba(255, 255, 255, 0.1)'}`,
-                      borderRadius: '15px',
+                      background: COLORS.backgroundCard,
+                      border: '1px solid rgba(255, 255, 255, 0.05)',
+                      borderRadius: '12px',
                       padding: '20px',
-                      opacity: isUnlocked ? 1 : 0.5,
-                      transition: 'all 0.3s',
-                      cursor: isUnlocked ? 'pointer' : 'default',
-                      backdropFilter: 'blur(10px)'
+                      opacity: isUnlocked ? 1 : (progressData && progressData.progress > 0 ? 0.8 : 0.6),
+                      transition: 'all 0.3s ease',
+                      position: 'relative',
+                      overflow: 'hidden',
+                      ...rarityStyle
                     }}>
-                      <div style={{ display: 'flex', alignItems: 'flex-start', gap: '15px', marginBottom: '10px' }}>
-                        <div style={{ fontSize: '40px', filter: isUnlocked ? 'none' : 'grayscale(100%)' }}>
+                      <div style={{ display: 'flex', alignItems: 'flex-start', gap: '16px' }}>
+                        <div style={{
+                          fontSize: '32px',
+                          filter: isUnlocked ? 'none' : 'grayscale(100%)',
+                          background: isUnlocked ? `${getRarityColor(achievement.rarity)}20` : 'rgba(255, 255, 255, 0.05)',
+                          borderRadius: '10px',
+                          padding: '10px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center'
+                        }}>
                           {achievement.icon}
                         </div>
                         <div style={{ flex: 1 }}>
-                          <div style={{ color: isUnlocked ? '#fff' : '#666', fontSize: '18px', fontWeight: '700', marginBottom: '5px' }}>
+                          <div style={{ color: isUnlocked ? COLORS.text : COLORS.textMuted, fontSize: '1rem', fontWeight: '600', marginBottom: '4px' }}>
                             {achievement.name}
                           </div>
-                          <div style={{ color: isUnlocked ? '#ccc' : '#555', fontSize: '13px', marginBottom: '8px' }}>
+                          <div style={{ color: isUnlocked ? COLORS.textMuted : 'rgba(139, 148, 158, 0.6)', fontSize: '0.85rem', marginBottom: '12px', lineHeight: '1.4' }}>
                             {achievement.description}
                           </div>
-                          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                            <div style={{
-                              display: 'inline-block',
-                              color: isUnlocked ? getRarityColor(achievement.rarity) : '#555',
-                              fontSize: '10px',
+
+                          {/* Progress Bar for locked trackable achievements */}
+                          {!isUnlocked && progressData && (
+                            <div style={{ marginBottom: '12px' }}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                                <span style={{ color: progressData.progress >= 0.7 ? COLORS.accent : COLORS.textMuted, fontSize: '0.75rem', fontWeight: '600' }}>
+                                  {progressData.isThreshold
+                                    ? `Best: ${progressData.current}`
+                                    : `${progressData.current} / ${progressData.target}`}
+                                </span>
+                                <span style={{ color: progressData.progress >= 0.7 ? COLORS.accent : COLORS.textMuted, fontSize: '0.75rem' }}>
+                                  {Math.round(progressData.progress * 100)}%
+                                </span>
+                              </div>
+                              <div style={{
+                                background: 'rgba(255, 255, 255, 0.1)',
+                                borderRadius: '4px',
+                                height: '6px',
+                                overflow: 'hidden'
+                              }}>
+                                <div style={{
+                                  background: progressData.progress >= 0.7
+                                    ? `linear-gradient(90deg, ${COLORS.accent}, ${COLORS.accentLight})`
+                                    : 'linear-gradient(90deg, #4a5568, #718096)',
+                                  height: '100%',
+                                  width: `${progressData.progress * 100}%`,
+                                  borderRadius: '4px',
+                                  transition: 'width 0.5s ease'
+                                }} />
+                              </div>
+                            </div>
+                          )}
+
+                          <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+                            <span style={{
+                              color: isUnlocked ? getRarityColor(achievement.rarity) : COLORS.textMuted,
+                              fontSize: '0.7rem',
                               fontWeight: '600',
-                              letterSpacing: '1px',
                               textTransform: 'uppercase',
-                              border: `1px solid ${isUnlocked ? getRarityColor(achievement.rarity) : '#555'}`,
-                              borderRadius: '8px',
-                              padding: '3px 8px'
+                              letterSpacing: '0.5px',
+                              background: isUnlocked ? `${getRarityColor(achievement.rarity)}20` : 'rgba(255, 255, 255, 0.05)',
+                              borderRadius: '4px',
+                              padding: '4px 8px'
                             }}>
                               {achievement.rarity}
-                            </div>
-                            <div style={{
-                              display: 'inline-block',
-                              color: achievement.mode === 'online' ? '#4a90e2' : '#ffd700',
-                              fontSize: '10px',
+                            </span>
+                            <span style={{
+                              color: achievement.mode === 'online' ? '#60a5fa' : COLORS.accent,
+                              fontSize: '0.7rem',
                               fontWeight: '600',
-                              letterSpacing: '1px',
                               textTransform: 'uppercase',
-                              border: `1px solid ${achievement.mode === 'online' ? '#4a90e2' : '#ffd700'}`,
-                              borderRadius: '8px',
-                              padding: '3px 8px'
+                              letterSpacing: '0.5px',
+                              background: achievement.mode === 'online' ? 'rgba(96, 165, 250, 0.15)' : `${COLORS.accent}20`,
+                              borderRadius: '4px',
+                              padding: '4px 8px'
                             }}>
-                              {achievement.mode === 'online' ? '🌍 ONLINE' : '🎯 OFFLINE'}
-                            </div>
+                              {achievement.mode === 'online' ? 'Online' : 'Offline'}
+                            </span>
+                            {isUnlocked ? (
+                              <span style={{
+                                color: COLORS.success,
+                                fontSize: '0.7rem',
+                                fontWeight: '600',
+                                background: 'rgba(45, 138, 45, 0.15)',
+                                borderRadius: '4px',
+                                padding: '4px 8px',
+                                marginLeft: 'auto'
+                              }}>
+                                Unlocked
+                              </span>
+                            ) : (
+                              <span style={{
+                                color: COLORS.textMuted,
+                                fontSize: '0.7rem',
+                                fontWeight: '600',
+                                background: 'rgba(255, 255, 255, 0.05)',
+                                borderRadius: '4px',
+                                padding: '4px 8px',
+                                marginLeft: 'auto'
+                              }}>
+                                Locked
+                              </span>
+                            )}
                           </div>
                         </div>
                       </div>
-                      {isUnlocked && (
-                        <div style={{ color: '#32cd32', fontSize: '12px', fontWeight: '600', letterSpacing: '1px', marginTop: '10px' }}>
-                          ✓ UNLOCKED
-                        </div>
-                      )}
-                      {!isUnlocked && (
-                        <div style={{ color: '#555', fontSize: '12px', fontWeight: '600', letterSpacing: '1px', marginTop: '10px' }}>
-                          🔒 LOCKED
-                        </div>
-                      )}
                     </div>
                   );
                 })}
@@ -2869,81 +3928,637 @@
         );
       }
 
+      // ============================================
+      // NAVIGATION COMPONENT
+      // ============================================
+      const Navigation = ({ onNavigate, currentPage }) => (
+        <nav className="nav" role="navigation" aria-label="Main navigation">
+          <div className="nav-container">
+            <a href="#" className="nav-logo" onClick={(e) => { e.preventDefault(); onNavigate('landing'); }}>
+              QUIK DARTS
+            </a>
+            <ul className="nav-links">
+              <li><a href="#" className="nav-link" onClick={(e) => { e.preventDefault(); onNavigate('landing'); }}>Home</a></li>
+              <li><a href="#" className="nav-link" onClick={(e) => { e.preventDefault(); onNavigate('menu'); }}>Play</a></li>
+              <li><a href="#" className="nav-link" onClick={(e) => { e.preventDefault(); enterPracticeMode(); }}>Practice</a></li>
+              <li><a href="#" className="nav-link" onClick={(e) => { e.preventDefault(); setShowAchievements(true); }}>Achievements</a></li>
+              <li><a href="#" className="nav-link" onClick={(e) => { e.preventDefault(); onNavigate('howToPlay'); }}>How to Play</a></li>
+              <li><button className="nav-cta" onClick={() => onNavigate('menu')}>Play Now</button></li>
+            </ul>
+            <button className="nav-hamburger" onClick={() => setMobileMenuOpen(!mobileMenuOpen)} aria-label="Toggle menu" aria-expanded={mobileMenuOpen}>
+              {mobileMenuOpen ? <CloseIcon /> : <MenuIcon />}
+            </button>
+          </div>
+          <div className={`nav-mobile ${mobileMenuOpen ? 'open' : ''}`}>
+            <ul className="nav-mobile-links">
+              <li><a href="#" className="nav-link" onClick={(e) => { e.preventDefault(); onNavigate('landing'); setMobileMenuOpen(false); }}>Home</a></li>
+              <li><a href="#" className="nav-link" onClick={(e) => { e.preventDefault(); onNavigate('menu'); setMobileMenuOpen(false); }}>Play</a></li>
+              <li><a href="#" className="nav-link" onClick={(e) => { e.preventDefault(); onNavigate('howToPlay'); setMobileMenuOpen(false); }}>How to Play</a></li>
+              <li><a href="#" className="nav-link" onClick={(e) => { e.preventDefault(); setShowAchievements(true); setMobileMenuOpen(false); }}>Achievements</a></li>
+              <li><button className="btn btn-primary" style={{ width: '100%', marginTop: '8px' }} onClick={() => { onNavigate('menu'); setMobileMenuOpen(false); }}>Play Now</button></li>
+            </ul>
+          </div>
+        </nav>
+      );
+
+      // ============================================
+      // FOOTER COMPONENT
+      // ============================================
+      const Footer = ({ onNavigate }) => (
+        <footer className="footer" role="contentinfo">
+          <div className="footer-container">
+            <div className="footer-content">
+              <div className="footer-brand">
+                <h3>Quik Darts</h3>
+                <p>Championship-style online darts.<br />Play anywhere, anytime.</p>
+              </div>
+              <div className="footer-links">
+                <div className="footer-links-group">
+                  <h4>Play</h4>
+                  <ul>
+                    <li><a href="#" onClick={(e) => { e.preventDefault(); onNavigate('menu'); }}>Start Game</a></li>
+                    <li><a href="#" onClick={(e) => { e.preventDefault(); onNavigate('menu'); }}>Practice Mode</a></li>
+                    <li><a href="#" onClick={(e) => { e.preventDefault(); onNavigate('menu'); }}>Online Match</a></li>
+                  </ul>
+                </div>
+                <div className="footer-links-group">
+                  <h4>Learn</h4>
+                  <ul>
+                    <li><a href="#" onClick={(e) => { e.preventDefault(); onNavigate('howToPlay'); }}>How to Play</a></li>
+                    <li><a href="#" onClick={(e) => { e.preventDefault(); onNavigate('howToPlay'); }}>Scoring Rules</a></li>
+                    <li><a href="#" onClick={(e) => { e.preventDefault(); onNavigate('howToPlay'); }}>Tips & Strategy</a></li>
+                  </ul>
+                </div>
+                <div className="footer-links-group">
+                  <h4>Legal</h4>
+                  <ul>
+                    <li><a href="#" onClick={(e) => e.preventDefault()}>Privacy Policy</a></li>
+                    <li><a href="#" onClick={(e) => e.preventDefault()}>Terms of Service</a></li>
+                    <li><a href="#" onClick={(e) => e.preventDefault()}>Contact</a></li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+            <div className="footer-bottom">
+              <p>Made with <span role="img" aria-label="dart">🎯</span> | v1.0 Championship Edition</p>
+              <div className="footer-social">
+                <a href="#" aria-label="Twitter">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+                </a>
+                <a href="#" aria-label="GitHub">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+                </a>
+              </div>
+            </div>
+          </div>
+        </footer>
+      );
+
+      // ============================================
+      // LANDING PAGE
+      // ============================================
+      if (gameState === 'landing') {
+        return (
+          <div style={{ minHeight: '100vh', background: COLORS.background }}>
+            <Navigation onNavigate={setGameState} currentPage="landing" />
+
+            {/* Hero Section */}
+            <section style={{
+              minHeight: '100vh',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '100px 24px 60px',
+              position: 'relative',
+              overflow: 'hidden'
+            }}>
+              {/* Background gradient */}
+              <div style={{
+                position: 'absolute',
+                inset: 0,
+                background: `radial-gradient(ellipse at 30% 20%, ${COLORS.primary}40 0%, transparent 50%), radial-gradient(ellipse at 70% 80%, ${COLORS.accent}20 0%, transparent 40%), linear-gradient(180deg, ${COLORS.background} 0%, ${COLORS.backgroundLight} 100%)`,
+                zIndex: 0
+              }} />
+
+
+              <div style={{ maxWidth: '1200px', width: '100%', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '60px', alignItems: 'center', zIndex: 2, position: 'relative' }}>
+                {/* Text Content */}
+                <div className="animate-fade-in">
+                  <div style={{ display: 'inline-block', background: `${COLORS.accent}20`, color: COLORS.accent, padding: '8px 16px', borderRadius: '20px', fontSize: '0.85rem', fontWeight: '600', marginBottom: '24px' }}>
+                    No Download Required
+                  </div>
+                  <h1 style={{ color: COLORS.text, marginBottom: '16px', fontWeight: '800' }}>
+                    Quik Darts
+                    <span style={{ display: 'block', color: COLORS.accent, fontSize: '0.5em', fontWeight: '600', letterSpacing: '3px', marginTop: '8px' }}>CHAMPIONSHIP EDITION</span>
+                  </h1>
+                  <p style={{ color: COLORS.textMuted, fontSize: '1.25rem', marginBottom: '32px', maxWidth: '500px', lineHeight: '1.7' }}>
+                    Championship-style online darts. Play solo, challenge friends, or compete online. Experience realistic 501 gameplay right in your browser.
+                  </p>
+                </div>
+
+                {/* Game Setup Card */}
+                <div className="animate-fade-in animate-delay-2" style={{
+                  background: COLORS.backgroundCard,
+                  borderRadius: '16px',
+                  padding: '32px',
+                  border: '1px solid rgba(255, 255, 255, 0.05)',
+                  boxShadow: '0 25px 60px rgba(0, 0, 0, 0.5)',
+                  width: '100%',
+                  maxWidth: '420px'
+                }}>
+                  {/* Main action buttons */}
+                  <button className="btn btn-primary" onClick={startGame} style={{
+                    width: '100%',
+                    padding: '16px 24px',
+                    fontSize: '1rem',
+                    marginBottom: '12px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}><DartIcon size={20} color={COLORS.textDark} />Start Game</button>
+
+                  <button className="btn btn-secondary" onClick={startMatchmaking} style={{
+                    width: '100%',
+                    padding: '16px 24px',
+                    fontSize: '1rem',
+                    marginBottom: '12px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}><GlobeIcon size={20} color={COLORS.text} />Play Online</button>
+
+                  <button className="btn btn-ghost" onClick={enterPracticeMode} style={{
+                    width: '100%',
+                    padding: '16px 24px',
+                    fontSize: '1rem',
+                    marginBottom: '24px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}><TargetIcon size={20} color={COLORS.text} />Practice Mode</button>
+
+                  {/* Divider */}
+                  <div style={{ height: '1px', background: `linear-gradient(90deg, transparent, ${COLORS.accent}30, transparent)`, marginBottom: '24px' }} />
+
+                  {/* Game Mode */}
+                  <div style={{ marginBottom: '20px' }}>
+                    <label style={{ color: COLORS.textMuted, fontSize: '0.75rem', letterSpacing: '2px', display: 'block', marginBottom: '10px', fontWeight: '600', textTransform: 'uppercase' }}>Game Mode</label>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      {[301, 501].map(mode => (
+                        <button key={mode} onClick={() => setPlayerSetup(prev => ({ ...prev, gameMode: mode }))} style={{ flex: 1, padding: '12px', fontSize: '1rem', fontWeight: '600', background: playerSetup.gameMode === mode ? `linear-gradient(135deg, ${COLORS.accent}, ${COLORS.accentDark})` : 'rgba(255, 255, 255, 0.03)', color: playerSetup.gameMode === mode ? COLORS.textDark : COLORS.textMuted, border: playerSetup.gameMode === mode ? 'none' : '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '6px', cursor: 'pointer' }}>{mode}</button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Legs Per Set */}
+                  <div style={{ marginBottom: '20px' }}>
+                    <label style={{ color: COLORS.textMuted, fontSize: '0.75rem', letterSpacing: '2px', display: 'block', marginBottom: '10px', fontWeight: '600', textTransform: 'uppercase' }}>Legs Per Set</label>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      {[1, 3, 5, 7].map(legs => (
+                        <button key={legs} onClick={() => setPlayerSetup(prev => ({ ...prev, legsPerSet: legs }))} style={{ flex: 1, padding: '12px', fontSize: '1rem', fontWeight: '600', background: playerSetup.legsPerSet === legs ? `linear-gradient(135deg, ${COLORS.accent}, ${COLORS.accentDark})` : 'rgba(255, 255, 255, 0.03)', color: playerSetup.legsPerSet === legs ? COLORS.textDark : COLORS.textMuted, border: playerSetup.legsPerSet === legs ? 'none' : '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '6px', cursor: 'pointer' }}>{legs}</button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Sets To Win */}
+                  <div style={{ marginBottom: '20px' }}>
+                    <label style={{ color: COLORS.textMuted, fontSize: '0.75rem', letterSpacing: '2px', display: 'block', marginBottom: '10px', fontWeight: '600', textTransform: 'uppercase' }}>Sets To Win</label>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      {[1, 3, 5, 7].map(sets => (
+                        <button key={sets} onClick={() => setPlayerSetup(prev => ({ ...prev, setsToWin: sets }))} style={{ flex: 1, padding: '12px', fontSize: '1rem', fontWeight: '600', background: playerSetup.setsToWin === sets ? `linear-gradient(135deg, ${COLORS.accent}, ${COLORS.accentDark})` : 'rgba(255, 255, 255, 0.03)', color: playerSetup.setsToWin === sets ? COLORS.textDark : COLORS.textMuted, border: playerSetup.setsToWin === sets ? 'none' : '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '6px', cursor: 'pointer' }}>{sets}</button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Players */}
+                  <div style={{ marginBottom: '20px' }}>
+                    <label style={{ color: COLORS.textMuted, fontSize: '0.75rem', letterSpacing: '2px', display: 'block', marginBottom: '10px', fontWeight: '600', textTransform: 'uppercase' }}>Players</label>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      {[1, 2, 3, 4].map(num => (
+                        <button key={num} onClick={() => setPlayerSetup(prev => ({ ...prev, count: num }))} style={{ flex: 1, padding: '12px', fontSize: '1rem', fontWeight: '600', background: playerSetup.count === num ? `linear-gradient(135deg, ${COLORS.accent}, ${COLORS.accentDark})` : 'rgba(255, 255, 255, 0.03)', color: playerSetup.count === num ? COLORS.textDark : COLORS.textMuted, border: playerSetup.count === num ? 'none' : '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '6px', cursor: 'pointer' }}>{num}</button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Player Setup */}
+                  {Array.from({ length: playerSetup.count }).map((_, i) => (
+                    <div key={i} style={{ marginBottom: '12px', background: 'rgba(0, 0, 0, 0.3)', padding: '14px', borderRadius: '8px', border: '1px solid rgba(255, 255, 255, 0.05)' }}>
+                      <input
+                        type="text"
+                        value={playerSetup.names[i]}
+                        onChange={(e) => {
+                          const newNames = [...playerSetup.names];
+                          const sanitized = e.target.value.slice(0, 20).replace(/[<>]/g, '');
+                          newNames[i] = sanitized;
+                          setPlayerSetup(prev => ({ ...prev, names: newNames }));
+                        }}
+                        placeholder={`Player ${i + 1}`}
+                        maxLength={20}
+                        style={{ width: '100%', padding: '11px 14px', fontSize: '14px', background: 'rgba(255, 255, 255, 0.05)', border: '1px solid rgba(255, 255, 255, 0.1)', borderRadius: '6px', color: 'rgba(255, 255, 255, 0.9)', outline: 'none', boxSizing: 'border-box', marginBottom: '10px' }}
+                      />
+                      <div>
+                        <label style={{ color: 'rgba(255, 255, 255, 0.4)', fontSize: '10px', letterSpacing: '2px', display: 'block', marginBottom: '6px' }}>NATIONALITY</label>
+                        <select value={playerSetup.flags[i]} onChange={(e) => { const newFlags = [...playerSetup.flags]; newFlags[i] = e.target.value; setPlayerSetup(prev => ({ ...prev, flags: newFlags })); }} style={{ width: '100%', padding: '10px 12px', fontSize: '14px', background: 'rgba(255, 255, 255, 0.05)', border: '1px solid rgba(255, 255, 255, 0.1)', borderRadius: '6px', color: 'rgba(255, 255, 255, 0.9)', outline: 'none', cursor: 'pointer', boxSizing: 'border-box' }}>
+                          {COUNTRIES.map(country => (
+                            <option key={country.name} value={country.flag} style={{ background: '#1a1a1a', color: '#fff' }}>
+                              {country.flag} {country.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      {i > 0 && playerSetup.count > 1 && (
+                        <>
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '10px', marginBottom: playerSetup.aiPlayers[i] ? '10px' : '0' }}>
+                            <span style={{ color: 'rgba(255, 255, 255, 0.4)', fontSize: '10px', letterSpacing: '2px' }}>AI OPPONENT</span>
+                            <button onClick={() => {
+                              const newAiPlayers = [...playerSetup.aiPlayers];
+                              newAiPlayers[i] = !newAiPlayers[i];
+                              const newAiDifficulty = [...playerSetup.aiDifficulty];
+                              if (newAiPlayers[i] && !newAiDifficulty[i]) newAiDifficulty[i] = AI_DIFFICULTIES.INTERMEDIATE.key;
+                              setPlayerSetup(prev => ({ ...prev, aiPlayers: newAiPlayers, aiDifficulty: newAiDifficulty }));
+                            }} style={{ padding: '5px 14px', background: playerSetup.aiPlayers[i] ? 'linear-gradient(180deg, #2d8a2d, #1f6b1f)' : 'rgba(255, 255, 255, 0.05)', color: playerSetup.aiPlayers[i] ? '#fff' : 'rgba(255, 255, 255, 0.4)', border: playerSetup.aiPlayers[i] ? 'none' : '1px solid rgba(255, 255, 255, 0.1)', borderRadius: '4px', cursor: 'pointer', fontSize: '11px', fontWeight: '600', letterSpacing: '1px' }}>
+                              {playerSetup.aiPlayers[i] ? 'ON' : 'OFF'}
+                            </button>
+                          </div>
+
+                          {playerSetup.aiPlayers[i] && (
+                            <div>
+                              <label style={{ color: 'rgba(255, 255, 255, 0.4)', fontSize: '10px', letterSpacing: '2px', display: 'block', marginBottom: '6px' }}>DIFFICULTY</label>
+                              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '5px' }}>
+                                {Object.values(AI_DIFFICULTIES).map(d => (
+                                  <button key={d.key} onClick={() => {
+                                    const newAiDifficulty = [...playerSetup.aiDifficulty];
+                                    newAiDifficulty[i] = d.key;
+                                    setPlayerSetup(prev => ({ ...prev, aiDifficulty: newAiDifficulty }));
+                                  }} style={{ padding: '7px 4px', fontSize: '10px', fontWeight: '600', background: playerSetup.aiDifficulty[i] === d.key ? 'linear-gradient(180deg, #c9a227 0%, #a68b1f 100%)' : 'rgba(255, 255, 255, 0.03)', color: playerSetup.aiDifficulty[i] === d.key ? '#0a0a0f' : 'rgba(255, 255, 255, 0.4)', border: playerSetup.aiDifficulty[i] === d.key ? 'none' : '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '4px', cursor: 'pointer', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                                    {d.label.slice(0, 3).toUpperCase()}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  ))}
+
+                  {/* Divider */}
+                  <div style={{ height: '1px', background: `linear-gradient(90deg, transparent, ${COLORS.accent}30, transparent)`, margin: '20px 0' }} />
+
+                  {/* Skill Level */}
+                  <div style={{ marginBottom: '20px' }}>
+                    <label style={{ color: COLORS.textMuted, fontSize: '0.75rem', letterSpacing: '2px', display: 'block', marginBottom: '10px', fontWeight: '600', textTransform: 'uppercase' }}>Skill Level</label>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px' }}>
+                      <button onClick={() => setSkillLevel(30)} style={{ padding: '12px 8px', background: skillLevel <= 40 ? 'linear-gradient(135deg, #2d8a2d, #1f6b1f)' : 'rgba(255, 255, 255, 0.03)', color: skillLevel <= 40 ? '#fff' : COLORS.textMuted, border: skillLevel <= 40 ? 'none' : '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '6px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: '600' }}>
+                        <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: skillLevel <= 40 ? '#90EE90' : 'rgba(144, 238, 144, 0.4)', margin: '0 auto 6px' }} />
+                        BEGINNER
+                      </button>
+                      <button onClick={() => setSkillLevel(60)} style={{ padding: '12px 8px', background: skillLevel >= 41 && skillLevel <= 80 ? `linear-gradient(135deg, ${COLORS.accent}, ${COLORS.accentDark})` : 'rgba(255, 255, 255, 0.03)', color: skillLevel >= 41 && skillLevel <= 80 ? COLORS.textDark : COLORS.textMuted, border: skillLevel >= 41 && skillLevel <= 80 ? 'none' : '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '6px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: '600' }}>
+                        <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: skillLevel >= 41 && skillLevel <= 80 ? COLORS.textDark : 'rgba(255, 193, 7, 0.4)', margin: '0 auto 6px' }} />
+                        INTERMEDIATE
+                      </button>
+                      <button onClick={() => setSkillLevel(90)} style={{ padding: '12px 8px', background: skillLevel >= 81 ? 'linear-gradient(135deg, #a61c1c, #8a1717)' : 'rgba(255, 255, 255, 0.03)', color: skillLevel >= 81 ? '#fff' : COLORS.textMuted, border: skillLevel >= 81 ? 'none' : '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '6px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: '600' }}>
+                        <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: skillLevel >= 81 ? '#ff6b6b' : 'rgba(255, 107, 107, 0.4)', margin: '0 auto 6px' }} />
+                        EXPERT
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Sound */}
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 0' }}>
+                    <span style={{ color: COLORS.textMuted, fontSize: '0.75rem', letterSpacing: '2px', fontWeight: '600' }}>SOUND</span>
+                    <button onClick={() => setSoundEnabled(!soundEnabled)} style={{ padding: '6px 16px', background: soundEnabled ? 'linear-gradient(135deg, #2d8a2d, #1f6b1f)' : 'rgba(255, 255, 255, 0.05)', color: soundEnabled ? '#fff' : COLORS.textMuted, border: soundEnabled ? 'none' : '1px solid rgba(255, 255, 255, 0.1)', borderRadius: '4px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: '600' }}>{soundEnabled ? 'ON' : 'OFF'}</button>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            {/* Features Section */}
+            <section style={{ padding: '80px 24px', background: COLORS.backgroundLight }}>
+              <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
+                <h2 style={{ textAlign: 'center', color: COLORS.text, marginBottom: '16px' }}>Why Play Quik Darts?</h2>
+                <p style={{ textAlign: 'center', color: COLORS.textMuted, marginBottom: '48px', maxWidth: '600px', margin: '0 auto 48px' }}>
+                  Experience the thrill of competitive darts with features designed for players of all skill levels.
+                </p>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '24px' }}>
+                  {[
+                    { icon: <TargetIcon size={32} color={COLORS.accent} />, title: 'Realistic Gameplay', desc: 'Authentic 501 rules with double-out finish. Power meter and aim wobble simulate real darts.' },
+                    { icon: <GlobeIcon size={32} color={COLORS.accent} />, title: 'Play Online', desc: 'Challenge players worldwide in real-time matches. No account required to get started.' },
+                    { icon: <UsersIcon size={32} color={COLORS.accent} />, title: 'Local Multiplayer', desc: 'Play with up to 4 players on the same device. Perfect for game night with friends.' },
+                    { icon: <TrophyIcon size={32} color={COLORS.accent} />, title: 'Track Progress', desc: 'Earn achievements, track your stats, and climb the leaderboards.' }
+                  ].map((feature, i) => (
+                    <div key={i} style={{
+                      background: COLORS.backgroundCard,
+                      padding: '32px',
+                      borderRadius: '12px',
+                      border: `1px solid rgba(255,255,255,0.05)`
+                    }}>
+                      <div style={{ marginBottom: '16px' }}>{feature.icon}</div>
+                      <h3 style={{ color: COLORS.text, fontSize: '1.25rem', marginBottom: '8px' }}>{feature.title}</h3>
+                      <p style={{ color: COLORS.textMuted, fontSize: '0.95rem', lineHeight: '1.6' }}>{feature.desc}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </section>
+
+            {/* CTA Section */}
+            <section style={{ padding: '80px 24px', background: COLORS.background, textAlign: 'center' }}>
+              <h2 style={{ color: COLORS.text, marginBottom: '16px' }}>Ready to Play?</h2>
+              <p style={{ color: COLORS.textMuted, marginBottom: '32px', maxWidth: '500px', margin: '0 auto 32px' }}>
+                Jump into a game now. No downloads, no sign-ups, just darts.
+              </p>
+              <button className="btn btn-primary" onClick={() => setGameState('menu')} style={{ fontSize: '1.1rem', padding: '16px 40px' }}>
+                <PlayIcon /> Start Playing
+              </button>
+            </section>
+
+            <Footer onNavigate={setGameState} />
+          </div>
+        );
+      }
+
+      // ============================================
+      // HOW TO PLAY PAGE
+      // ============================================
+      if (gameState === 'howToPlay') {
+        return (
+          <div style={{ minHeight: '100vh', background: COLORS.background }}>
+            <Navigation onNavigate={setGameState} currentPage="howToPlay" />
+
+            <main style={{ paddingTop: '100px', paddingBottom: '80px' }}>
+              <div style={{ maxWidth: '800px', margin: '0 auto', padding: '0 24px' }}>
+                <h1 style={{ color: COLORS.text, marginBottom: '16px' }}>How to Play</h1>
+                <p style={{ color: COLORS.textMuted, fontSize: '1.1rem', marginBottom: '48px' }}>
+                  Learn the basics of Quik Darts and become a champion.
+                </p>
+
+                {/* Section: Basic Rules */}
+                <section style={{ marginBottom: '48px' }}>
+                  <h2 style={{ color: COLORS.accent, fontSize: '1.5rem', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <span style={{ background: COLORS.accent, color: COLORS.textDark, width: '32px', height: '32px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1rem', fontWeight: '700' }}>1</span>
+                    Basic 501 Rules
+                  </h2>
+                  <div style={{ background: COLORS.backgroundCard, padding: '24px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                    <ul style={{ color: COLORS.textMuted, lineHeight: '1.8', paddingLeft: '20px' }}>
+                      <li>Each player starts with <strong style={{ color: COLORS.text }}>501 points</strong></li>
+                      <li>Throw 3 darts per turn to reduce your score</li>
+                      <li>Score is subtracted from your total after each turn</li>
+                      <li>You must finish exactly on <strong style={{ color: COLORS.text }}>0 points</strong></li>
+                      <li>The final dart must land on a <strong style={{ color: COLORS.accent }}>double</strong> (outer ring) or the bullseye</li>
+                      <li>If you go below 0 or hit exactly 1, your turn is "bust" and your score resets</li>
+                    </ul>
+                  </div>
+                </section>
+
+                {/* Section: Scoring */}
+                <section style={{ marginBottom: '48px' }}>
+                  <h2 style={{ color: COLORS.accent, fontSize: '1.5rem', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <span style={{ background: COLORS.accent, color: COLORS.textDark, width: '32px', height: '32px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1rem', fontWeight: '700' }}>2</span>
+                    Dartboard Scoring
+                  </h2>
+                  <div style={{ background: COLORS.backgroundCard, padding: '24px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
+                      <div style={{ padding: '16px', background: 'rgba(0,0,0,0.2)', borderRadius: '8px' }}>
+                        <h4 style={{ color: COLORS.text, marginBottom: '8px' }}>Single (Main Bed)</h4>
+                        <p style={{ color: COLORS.textMuted, fontSize: '0.9rem' }}>Face value of the number (1-20)</p>
+                      </div>
+                      <div style={{ padding: '16px', background: 'rgba(0,0,0,0.2)', borderRadius: '8px' }}>
+                        <h4 style={{ color: COLORS.text, marginBottom: '8px' }}>Double (Outer Ring)</h4>
+                        <p style={{ color: COLORS.textMuted, fontSize: '0.9rem' }}>2x the number value</p>
+                      </div>
+                      <div style={{ padding: '16px', background: 'rgba(0,0,0,0.2)', borderRadius: '8px' }}>
+                        <h4 style={{ color: COLORS.text, marginBottom: '8px' }}>Triple (Inner Ring)</h4>
+                        <p style={{ color: COLORS.textMuted, fontSize: '0.9rem' }}>3x the number value</p>
+                      </div>
+                      <div style={{ padding: '16px', background: 'rgba(0,0,0,0.2)', borderRadius: '8px' }}>
+                        <h4 style={{ color: COLORS.text, marginBottom: '8px' }}>Bullseye</h4>
+                        <p style={{ color: COLORS.textMuted, fontSize: '0.9rem' }}>Outer: 25 | Inner: 50 (double)</p>
+                      </div>
+                    </div>
+                  </div>
+                </section>
+
+                {/* Section: Controls */}
+                <section style={{ marginBottom: '48px' }}>
+                  <h2 style={{ color: COLORS.accent, fontSize: '1.5rem', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <span style={{ background: COLORS.accent, color: COLORS.textDark, width: '32px', height: '32px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1rem', fontWeight: '700' }}>3</span>
+                    How to Throw
+                  </h2>
+                  <div style={{ background: COLORS.backgroundCard, padding: '24px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                    <ol style={{ color: COLORS.textMuted, lineHeight: '2', paddingLeft: '20px' }}>
+                      <li><strong style={{ color: COLORS.text }}>Aim:</strong> Move your mouse/finger to position your aim on the dartboard</li>
+                      <li><strong style={{ color: COLORS.text }}>Charge:</strong> Press and hold the mouse button or tap and hold to charge power</li>
+                      <li><strong style={{ color: COLORS.text }}>Release:</strong> Let go when the power meter is in the green zone (40-60%) for best accuracy</li>
+                      <li><strong style={{ color: COLORS.text }}>Wobble:</strong> Your aim naturally wobbles - this simulates real throwing variance</li>
+                    </ol>
+                    <div style={{ marginTop: '16px', padding: '16px', background: `${COLORS.accent}15`, borderRadius: '8px', borderLeft: `3px solid ${COLORS.accent}` }}>
+                      <p style={{ color: COLORS.text, fontSize: '0.9rem', margin: 0 }}>
+                        <strong>Pro Tip:</strong> Higher skill levels reduce wobble. Practice to improve your accuracy!
+                      </p>
+                    </div>
+                  </div>
+                </section>
+
+                {/* Section: Game Modes */}
+                <section style={{ marginBottom: '48px' }}>
+                  <h2 style={{ color: COLORS.accent, fontSize: '1.5rem', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <span style={{ background: COLORS.accent, color: COLORS.textDark, width: '32px', height: '32px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1rem', fontWeight: '700' }}>4</span>
+                    Game Modes
+                  </h2>
+                  <div style={{ display: 'grid', gap: '16px' }}>
+                    {[
+                      { title: 'Local Play', desc: '1-4 players on the same device. Add AI opponents for extra challenge.' },
+                      { title: 'Online Match', desc: 'Play against real opponents worldwide. Get matched instantly.' },
+                      { title: 'Practice Mode', desc: 'Hone your skills with unlimited throws. No pressure, just practice.' }
+                    ].map((mode, i) => (
+                      <div key={i} style={{ background: COLORS.backgroundCard, padding: '20px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                        <h4 style={{ color: COLORS.text, marginBottom: '8px' }}>{mode.title}</h4>
+                        <p style={{ color: COLORS.textMuted, fontSize: '0.95rem', margin: 0 }}>{mode.desc}</p>
+                      </div>
+                    ))}
+                  </div>
+                </section>
+
+                <div style={{ textAlign: 'center', marginTop: '48px' }}>
+                  <button className="btn btn-primary" onClick={() => setGameState('menu')} style={{ fontSize: '1.1rem', padding: '16px 40px' }}>
+                    <PlayIcon /> Start Playing
+                  </button>
+                </div>
+              </div>
+            </main>
+
+            <Footer onNavigate={setGameState} />
+          </div>
+        );
+      }
+
+      // ============================================
+      // GAME SETUP MENU
+      // ============================================
       if (gameState === 'menu') {
         return (
-          <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f0f23 100%)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '20px', fontFamily: "'Oswald', sans-serif" }}>
-            <div style={{ textAlign: 'center', marginBottom: '40px' }}>
-              <h1 style={{ fontSize: '72px', fontWeight: '700', color: '#ffd700', textShadow: '0 0 20px rgba(255, 215, 0, 0.5), 0 4px 8px rgba(0,0,0,0.5)', margin: '0 0 10px 0', letterSpacing: '4px' }}>QUIK DARTS</h1>
-              <p style={{ fontSize: '18px', color: '#e8d5b7', letterSpacing: '8px', textTransform: 'uppercase' }}>Championship Edition</p>
+          <div style={{ minHeight: '100vh', background: COLORS.background }}>
+            <Navigation onNavigate={setGameState} currentPage="menu" />
+
+            <main style={{
+              minHeight: '100vh',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '100px 20px 40px',
+              position: 'relative'
+            }}>
+              {/* Background accent */}
+              <div style={{
+                position: 'absolute',
+                inset: 0,
+                background: `radial-gradient(ellipse at 50% 0%, ${COLORS.primary}30 0%, transparent 50%), radial-gradient(ellipse at 80% 100%, ${COLORS.accent}15 0%, transparent 40%)`,
+                zIndex: 0
+              }} />
+
+            {/* Decorative dartboard silhouette */}
+            <div style={{
+              position: 'absolute',
+              right: '-150px',
+              top: '50%',
+              transform: 'translateY(-50%)',
+              width: '500px',
+              height: '500px',
+              opacity: 0.03,
+              zIndex: 1,
+              background: 'radial-gradient(circle, #fff 0%, #fff 8%, transparent 8%, transparent 15%, #fff 15%, #fff 20%, transparent 20%, transparent 45%, #fff 45%, #fff 48%, transparent 48%, transparent 85%, #fff 85%, #fff 90%, transparent 90%)',
+              borderRadius: '50%'
+            }} />
+
+            {/* Title section */}
+            <div style={{ textAlign: 'center', marginBottom: '40px', zIndex: 2, position: 'relative' }}>
+              <h1 style={{
+                fontSize: 'clamp(36px, 10vw, 56px)',
+                fontWeight: '800',
+                margin: '0',
+                color: COLORS.text
+              }}>Game Setup</h1>
+              <p style={{ color: COLORS.textMuted, marginTop: '8px' }}>Configure your match settings</p>
             </div>
-            
-            <div style={{ background: 'rgba(255, 255, 255, 0.05)', borderRadius: '20px', padding: '40px', backdropFilter: 'blur(10px)', border: '1px solid rgba(255, 215, 0, 0.2)', width: '100%', maxWidth: '450px' }}>
-              <button onClick={startGame} style={{ width: '100%', padding: '20px', fontSize: '24px', fontWeight: '700', background: 'linear-gradient(135deg, #c41e3a, #e74c3c)', color: '#fff', border: 'none', borderRadius: '15px', cursor: 'pointer', fontFamily: "'Oswald', sans-serif", letterSpacing: '4px', textTransform: 'uppercase', boxShadow: '0 4px 15px rgba(196, 30, 58, 0.4)', marginBottom: '15px' }}>🎯 Start Game</button>
 
-              <button onClick={startMatchmaking} style={{ width: '100%', padding: '20px', fontSize: '24px', fontWeight: '700', background: 'linear-gradient(135deg, #4a90e2, #357abd)', color: '#fff', border: 'none', borderRadius: '15px', cursor: 'pointer', fontFamily: "'Oswald', sans-serif", letterSpacing: '4px', textTransform: 'uppercase', boxShadow: '0 4px 15px rgba(74, 144, 226, 0.4)', marginBottom: '15px' }}>🌍 Play Online</button>
+            {/* Main content card */}
+            <div style={{
+              background: COLORS.backgroundCard,
+              borderRadius: '16px',
+              padding: '32px',
+              border: '1px solid rgba(255, 255, 255, 0.05)',
+              boxShadow: '0 25px 60px rgba(0, 0, 0, 0.5)',
+              width: '100%',
+              maxWidth: '480px',
+              zIndex: 2,
+              position: 'relative'
+            }}>
+              {/* Main action buttons */}
+              <button className="btn btn-primary" onClick={startGame} style={{
+                width: '100%',
+                padding: '16px 24px',
+                fontSize: '1rem',
+                marginBottom: '12px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}><DartIcon size={20} color={COLORS.textDark} />Start Game</button>
 
-              <button onClick={enterPracticeMode} style={{ width: '100%', padding: '20px', fontSize: '24px', fontWeight: '700', background: 'linear-gradient(135deg, #9b59b6, #8e44ad)', color: '#fff', border: 'none', borderRadius: '15px', cursor: 'pointer', fontFamily: "'Oswald', sans-serif", letterSpacing: '4px', textTransform: 'uppercase', boxShadow: '0 4px 15px rgba(155, 89, 182, 0.4)', marginBottom: '15px' }}>🎯 Practice Mode</button>
+              <button className="btn btn-secondary" onClick={startMatchmaking} style={{
+                width: '100%',
+                padding: '16px 24px',
+                fontSize: '1rem',
+                marginBottom: '12px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}><GlobeIcon size={20} color={COLORS.text} />Play Online</button>
 
-              <button onClick={() => setShowAchievements(true)} style={{ width: '100%', padding: '20px', fontSize: '24px', fontWeight: '700', background: 'linear-gradient(135deg, #f39c12, #e67e22)', color: '#fff', border: 'none', borderRadius: '15px', cursor: 'pointer', fontFamily: "'Oswald', sans-serif", letterSpacing: '4px', textTransform: 'uppercase', boxShadow: '0 4px 15px rgba(243, 156, 18, 0.4)', marginBottom: '30px' }}>🏆 Achievements</button>
+              <button className="btn btn-ghost" onClick={enterPracticeMode} style={{
+                width: '100%',
+                padding: '16px 24px',
+                fontSize: '1rem',
+                marginBottom: '12px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}><TargetIcon size={20} color={COLORS.text} />Practice Mode</button>
 
-              <div style={{ marginBottom: '30px' }}>
-                <label style={{ color: '#ffd700', fontSize: '14px', letterSpacing: '2px', display: 'block', marginBottom: '10px' }}>GAME MODE</label>
-                <div style={{ display: 'flex', gap: '10px' }}>
+              <button className="btn btn-ghost" onClick={() => setShowAchievements(true)} style={{
+                width: '100%',
+                padding: '16px 24px',
+                fontSize: '1rem',
+                marginBottom: '24px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: COLORS.accent,
+                borderColor: `${COLORS.accent}40`
+              }}><TrophyIcon size={20} color={COLORS.accent} />Achievements</button>
+
+              {/* Divider */}
+              <div style={{ height: '1px', background: `linear-gradient(90deg, transparent, ${COLORS.accent}30, transparent)`, marginBottom: '24px' }} />
+
+              <div style={{ marginBottom: '20px' }}>
+                <label style={{ color: COLORS.textMuted, fontSize: '0.75rem', letterSpacing: '2px', display: 'block', marginBottom: '10px', fontWeight: '600', textTransform: 'uppercase' }}>Game Mode</label>
+                <div style={{ display: 'flex', gap: '8px' }}>
                   {[301, 501].map(mode => (
-                    <button key={mode} onClick={() => setPlayerSetup(prev => ({ ...prev, gameMode: mode }))} style={{ flex: 1, padding: '15px', fontSize: '20px', fontWeight: '600', background: playerSetup.gameMode === mode ? 'linear-gradient(135deg, #ffd700, #ffed4a)' : 'rgba(255, 255, 255, 0.1)', color: playerSetup.gameMode === mode ? '#1a1a2e' : '#e8d5b7', border: 'none', borderRadius: '10px', cursor: 'pointer', fontFamily: "'Oswald', sans-serif" }}>{mode}</button>
+                    <button key={mode} onClick={() => setPlayerSetup(prev => ({ ...prev, gameMode: mode }))} style={{ flex: 1, padding: '12px', fontSize: '1rem', fontWeight: '600', background: playerSetup.gameMode === mode ? `linear-gradient(135deg, ${COLORS.accent}, ${COLORS.accentDark})` : 'rgba(255, 255, 255, 0.03)', color: playerSetup.gameMode === mode ? COLORS.textDark : COLORS.textMuted, border: playerSetup.gameMode === mode ? 'none' : '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '6px', cursor: 'pointer', fontFamily: 'var(--font-primary)' }}>{mode}</button>
                   ))}
                 </div>
               </div>
 
-              <div style={{ marginBottom: '30px' }}>
-                <label style={{ color: '#ffd700', fontSize: '14px', letterSpacing: '2px', display: 'block', marginBottom: '10px' }}>LEGS PER SET</label>
-                <div style={{ display: 'flex', gap: '10px' }}>
+              <div style={{ marginBottom: '22px' }}>
+                <label style={{ color: 'rgba(201, 162, 39, 0.8)', fontSize: '11px', letterSpacing: '3px', display: 'block', marginBottom: '10px', fontWeight: '500' }}>LEGS PER SET</label>
+                <div style={{ display: 'flex', gap: '8px' }}>
                   {[1, 3, 5, 7].map(legs => (
-                    <button key={legs} onClick={() => setPlayerSetup(prev => ({ ...prev, legsPerSet: legs }))} style={{ flex: 1, padding: '15px', fontSize: '20px', fontWeight: '600', background: playerSetup.legsPerSet === legs ? 'linear-gradient(135deg, #ffd700, #ffed4a)' : 'rgba(255, 255, 255, 0.1)', color: playerSetup.legsPerSet === legs ? '#1a1a2e' : '#e8d5b7', border: 'none', borderRadius: '10px', cursor: 'pointer', fontFamily: "'Oswald', sans-serif" }}>{legs}</button>
+                    <button key={legs} onClick={() => setPlayerSetup(prev => ({ ...prev, legsPerSet: legs }))} style={{ flex: 1, padding: '14px', fontSize: '18px', fontWeight: '600', background: playerSetup.legsPerSet === legs ? 'linear-gradient(180deg, #c9a227 0%, #a68b1f 100%)' : 'rgba(255, 255, 255, 0.03)', color: playerSetup.legsPerSet === legs ? '#0a0a0f' : 'rgba(255, 255, 255, 0.5)', border: playerSetup.legsPerSet === legs ? 'none' : '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '6px', cursor: 'pointer', fontFamily: "'Oswald', sans-serif", boxShadow: playerSetup.legsPerSet === legs ? 'inset 0 1px 0 rgba(255, 255, 255, 0.3)' : 'none' }}>{legs}</button>
                   ))}
                 </div>
               </div>
 
-              <div style={{ marginBottom: '30px' }}>
-                <label style={{ color: '#ffd700', fontSize: '14px', letterSpacing: '2px', display: 'block', marginBottom: '10px' }}>SETS TO WIN</label>
-                <div style={{ display: 'flex', gap: '10px' }}>
+              <div style={{ marginBottom: '22px' }}>
+                <label style={{ color: 'rgba(201, 162, 39, 0.8)', fontSize: '11px', letterSpacing: '3px', display: 'block', marginBottom: '10px', fontWeight: '500' }}>SETS TO WIN</label>
+                <div style={{ display: 'flex', gap: '8px' }}>
                   {[1, 3, 5, 7].map(sets => (
-                    <button key={sets} onClick={() => setPlayerSetup(prev => ({ ...prev, setsToWin: sets }))} style={{ flex: 1, padding: '15px', fontSize: '20px', fontWeight: '600', background: playerSetup.setsToWin === sets ? 'linear-gradient(135deg, #ffd700, #ffed4a)' : 'rgba(255, 255, 255, 0.1)', color: playerSetup.setsToWin === sets ? '#1a1a2e' : '#e8d5b7', border: 'none', borderRadius: '10px', cursor: 'pointer', fontFamily: "'Oswald', sans-serif" }}>{sets}</button>
+                    <button key={sets} onClick={() => setPlayerSetup(prev => ({ ...prev, setsToWin: sets }))} style={{ flex: 1, padding: '14px', fontSize: '18px', fontWeight: '600', background: playerSetup.setsToWin === sets ? 'linear-gradient(180deg, #c9a227 0%, #a68b1f 100%)' : 'rgba(255, 255, 255, 0.03)', color: playerSetup.setsToWin === sets ? '#0a0a0f' : 'rgba(255, 255, 255, 0.5)', border: playerSetup.setsToWin === sets ? 'none' : '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '6px', cursor: 'pointer', fontFamily: "'Oswald', sans-serif", boxShadow: playerSetup.setsToWin === sets ? 'inset 0 1px 0 rgba(255, 255, 255, 0.3)' : 'none' }}>{sets}</button>
                   ))}
                 </div>
               </div>
 
-              <div style={{ marginBottom: '30px' }}>
-                <label style={{ color: '#ffd700', fontSize: '14px', letterSpacing: '2px', display: 'block', marginBottom: '10px' }}>NUMBER OF PLAYERS</label>
-                <div style={{ display: 'flex', gap: '10px' }}>
+              <div style={{ marginBottom: '22px' }}>
+                <label style={{ color: 'rgba(201, 162, 39, 0.8)', fontSize: '11px', letterSpacing: '3px', display: 'block', marginBottom: '10px', fontWeight: '500' }}>PLAYERS</label>
+                <div style={{ display: 'flex', gap: '8px' }}>
                   {[1, 2, 3, 4].map(num => (
-                    <button key={num} onClick={() => setPlayerSetup(prev => ({ ...prev, count: num }))} style={{ flex: 1, padding: '15px', fontSize: '20px', fontWeight: '600', background: playerSetup.count === num ? 'linear-gradient(135deg, #ffd700, #ffed4a)' : 'rgba(255, 255, 255, 0.1)', color: playerSetup.count === num ? '#1a1a2e' : '#e8d5b7', border: 'none', borderRadius: '10px', cursor: 'pointer', fontFamily: "'Oswald', sans-serif" }}>{num}</button>
+                    <button key={num} onClick={() => setPlayerSetup(prev => ({ ...prev, count: num }))} style={{ flex: 1, padding: '14px', fontSize: '18px', fontWeight: '600', background: playerSetup.count === num ? 'linear-gradient(180deg, #c9a227 0%, #a68b1f 100%)' : 'rgba(255, 255, 255, 0.03)', color: playerSetup.count === num ? '#0a0a0f' : 'rgba(255, 255, 255, 0.5)', border: playerSetup.count === num ? 'none' : '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '6px', cursor: 'pointer', fontFamily: "'Oswald', sans-serif", boxShadow: playerSetup.count === num ? 'inset 0 1px 0 rgba(255, 255, 255, 0.3)' : 'none' }}>{num}</button>
                   ))}
                 </div>
               </div>
               
               {Array.from({ length: playerSetup.count }).map((_, i) => (
-                <div key={i} style={{ marginBottom: '20px', background: 'rgba(255, 255, 255, 0.05)', padding: '15px', borderRadius: '10px', border: '1px solid rgba(255, 215, 0, 0.2)' }}>
+                <div key={i} style={{ marginBottom: '12px', background: 'rgba(0, 0, 0, 0.3)', padding: '14px', borderRadius: '8px', border: '1px solid rgba(255, 255, 255, 0.05)' }}>
                   <input
                     type="text"
                     value={playerSetup.names[i]}
                     onChange={(e) => {
                       const newNames = [...playerSetup.names];
-                      // Limit to 20 characters and remove dangerous characters
                       const sanitized = e.target.value.slice(0, 20).replace(/[<>]/g, '');
                       newNames[i] = sanitized;
                       setPlayerSetup(prev => ({ ...prev, names: newNames }));
                     }}
                     placeholder={`Player ${i + 1}`}
                     maxLength={20}
-                    style={{ width: '100%', padding: '12px', fontSize: '16px', background: 'rgba(255, 255, 255, 0.1)', border: '1px solid rgba(255, 215, 0, 0.3)', borderRadius: '8px', color: '#e8d5b7', outline: 'none', fontFamily: "'Roboto Mono', monospace", boxSizing: 'border-box', marginBottom: '10px' }}
+                    style={{ width: '100%', padding: '11px 14px', fontSize: '14px', background: 'rgba(255, 255, 255, 0.05)', border: '1px solid rgba(255, 255, 255, 0.1)', borderRadius: '6px', color: 'rgba(255, 255, 255, 0.9)', outline: 'none', fontFamily: "'Roboto Mono', monospace", boxSizing: 'border-box', marginBottom: '10px' }}
                   />
 
                   <div style={{ marginBottom: '10px' }}>
-                    <label style={{ color: '#888', fontSize: '11px', letterSpacing: '1px', display: 'block', marginBottom: '8px' }}>NATIONALITY</label>
-                    <select value={playerSetup.flags[i]} onChange={(e) => { const newFlags = [...playerSetup.flags]; newFlags[i] = e.target.value; setPlayerSetup(prev => ({ ...prev, flags: newFlags })); }} style={{ width: '100%', padding: '10px', fontSize: '16px', background: 'rgba(255, 255, 255, 0.1)', border: '1px solid rgba(255, 215, 0, 0.3)', borderRadius: '8px', color: '#e8d5b7', outline: 'none', fontFamily: "'Roboto Mono', monospace", cursor: 'pointer', boxSizing: 'border-box' }}>
-                      {countries.map(country => (
-                        <option key={country.name} value={country.flag} style={{ background: '#1a1a2e', color: '#e8d5b7' }}>
+                    <label style={{ color: 'rgba(255, 255, 255, 0.4)', fontSize: '10px', letterSpacing: '2px', display: 'block', marginBottom: '6px' }}>NATIONALITY</label>
+                    <select value={playerSetup.flags[i]} onChange={(e) => { const newFlags = [...playerSetup.flags]; newFlags[i] = e.target.value; setPlayerSetup(prev => ({ ...prev, flags: newFlags })); }} style={{ width: '100%', padding: '10px 12px', fontSize: '14px', background: 'rgba(255, 255, 255, 0.05)', border: '1px solid rgba(255, 255, 255, 0.1)', borderRadius: '6px', color: 'rgba(255, 255, 255, 0.9)', outline: 'none', fontFamily: "'Roboto Mono', monospace", cursor: 'pointer', boxSizing: 'border-box' }}>
+                      {COUNTRIES.map(country => (
+                        <option key={country.name} value={country.flag} style={{ background: '#1a1a1a', color: '#fff' }}>
                           {country.flag} {country.name}
                         </option>
                       ))}
@@ -2953,29 +4568,29 @@
                   {i > 0 && playerSetup.count > 1 && (
                     <>
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: playerSetup.aiPlayers[i] ? '10px' : '0' }}>
-                        <span style={{ color: '#888', fontSize: '13px', letterSpacing: '1px' }}>AI OPPONENT</span>
+                        <span style={{ color: 'rgba(255, 255, 255, 0.4)', fontSize: '10px', letterSpacing: '2px' }}>AI OPPONENT</span>
                         <button onClick={() => {
                           const newAiPlayers = [...playerSetup.aiPlayers];
                           newAiPlayers[i] = !newAiPlayers[i];
                           const newAiDifficulty = [...playerSetup.aiDifficulty];
-                          if (newAiPlayers[i] && !newAiDifficulty[i]) newAiDifficulty[i] = 'medium';
+                          if (newAiPlayers[i] && !newAiDifficulty[i]) newAiDifficulty[i] = AI_DIFFICULTIES.INTERMEDIATE.key;
                           setPlayerSetup(prev => ({ ...prev, aiPlayers: newAiPlayers, aiDifficulty: newAiDifficulty }));
-                        }} style={{ padding: '6px 15px', background: playerSetup.aiPlayers[i] ? 'linear-gradient(135deg, #228b22, #32cd32)' : 'rgba(255, 255, 255, 0.1)', color: playerSetup.aiPlayers[i] ? '#fff' : '#888', border: 'none', borderRadius: '15px', cursor: 'pointer', fontFamily: "'Oswald', sans-serif", fontSize: '12px', fontWeight: '600' }}>
+                        }} style={{ padding: '5px 14px', background: playerSetup.aiPlayers[i] ? 'linear-gradient(180deg, #2d8a2d, #1f6b1f)' : 'rgba(255, 255, 255, 0.05)', color: playerSetup.aiPlayers[i] ? '#fff' : 'rgba(255, 255, 255, 0.4)', border: playerSetup.aiPlayers[i] ? 'none' : '1px solid rgba(255, 255, 255, 0.1)', borderRadius: '4px', cursor: 'pointer', fontFamily: "'Oswald', sans-serif", fontSize: '11px', fontWeight: '600', letterSpacing: '1px' }}>
                           {playerSetup.aiPlayers[i] ? 'ON' : 'OFF'}
                         </button>
                       </div>
 
                       {playerSetup.aiPlayers[i] && (
                         <div>
-                          <label style={{ color: '#888', fontSize: '11px', letterSpacing: '1px', display: 'block', marginBottom: '8px' }}>DIFFICULTY</label>
-                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '6px' }}>
-                            {['easy', 'medium', 'hard', 'impossible'].map(diff => (
-                              <button key={diff} onClick={() => {
+                          <label style={{ color: 'rgba(255, 255, 255, 0.4)', fontSize: '10px', letterSpacing: '2px', display: 'block', marginBottom: '6px' }}>DIFFICULTY</label>
+                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '5px' }}>
+                            {Object.values(AI_DIFFICULTIES).map(d => (
+                              <button key={d.key} onClick={() => {
                                 const newAiDifficulty = [...playerSetup.aiDifficulty];
-                                newAiDifficulty[i] = diff;
+                                newAiDifficulty[i] = d.key;
                                 setPlayerSetup(prev => ({ ...prev, aiDifficulty: newAiDifficulty }));
-                              }} style={{ padding: '8px 4px', fontSize: '11px', fontWeight: '600', background: playerSetup.aiDifficulty[i] === diff ? 'linear-gradient(135deg, #ffd700, #ffed4a)' : 'rgba(255, 255, 255, 0.1)', color: playerSetup.aiDifficulty[i] === diff ? '#1a1a2e' : '#888', border: 'none', borderRadius: '6px', cursor: 'pointer', fontFamily: "'Oswald', sans-serif", textTransform: 'uppercase' }}>
-                                {diff}
+                              }} style={{ padding: '7px 4px', fontSize: '10px', fontWeight: '600', background: playerSetup.aiDifficulty[i] === d.key ? 'linear-gradient(180deg, #c9a227 0%, #a68b1f 100%)' : 'rgba(255, 255, 255, 0.03)', color: playerSetup.aiDifficulty[i] === d.key ? '#0a0a0f' : 'rgba(255, 255, 255, 0.4)', border: playerSetup.aiDifficulty[i] === d.key ? 'none' : '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '4px', cursor: 'pointer', fontFamily: "'Oswald', sans-serif", textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                                {d.label.slice(0, 3).toUpperCase()}
                               </button>
                             ))}
                           </div>
@@ -2986,73 +4601,82 @@
                 </div>
               ))}
               
-              <div style={{ marginBottom: '30px', marginTop: '30px' }}>
-                <label style={{ color: '#ffd700', fontSize: '14px', letterSpacing: '2px', display: 'block', marginBottom: '15px' }}>SKILL LEVEL</label>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px' }}>
+              {/* Divider */}
+              <div style={{ height: '1px', background: 'linear-gradient(90deg, transparent, rgba(201, 162, 39, 0.2), transparent)', margin: '20px 0' }} />
+
+              <div style={{ marginBottom: '20px' }}>
+                <label style={{ color: 'rgba(201, 162, 39, 0.8)', fontSize: '11px', letterSpacing: '3px', display: 'block', marginBottom: '10px', fontWeight: '500' }}>SKILL LEVEL</label>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px' }}>
                   <button
                     onClick={() => setSkillLevel(30)}
                     style={{
-                      padding: '15px 10px',
-                      background: skillLevel <= 40 ? 'linear-gradient(135deg, #228b22, #32cd32)' : 'rgba(255, 255, 255, 0.1)',
-                      color: skillLevel <= 40 ? '#fff' : '#888',
-                      border: skillLevel <= 40 ? '2px solid #32cd32' : '2px solid transparent',
-                      borderRadius: '10px',
+                      padding: '14px 8px',
+                      background: skillLevel <= 40 ? 'linear-gradient(180deg, #2d8a2d, #1f6b1f)' : 'rgba(255, 255, 255, 0.03)',
+                      color: skillLevel <= 40 ? '#fff' : 'rgba(255, 255, 255, 0.5)',
+                      border: skillLevel <= 40 ? 'none' : '1px solid rgba(255, 255, 255, 0.08)',
+                      borderRadius: '6px',
                       cursor: 'pointer',
                       fontFamily: "'Oswald', sans-serif",
-                      fontSize: '14px',
+                      fontSize: '12px',
                       fontWeight: '600',
-                      transition: 'all 0.2s'
+                      letterSpacing: '1px',
+                      boxShadow: skillLevel <= 40 ? 'inset 0 1px 0 rgba(255, 255, 255, 0.2)' : 'none'
                     }}
                   >
-                    <div style={{ fontSize: '16px', marginBottom: '5px' }}>🟢</div>
+                    <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: skillLevel <= 40 ? '#90EE90' : 'rgba(144, 238, 144, 0.4)', margin: '0 auto 6px' }} />
                     BEGINNER
                   </button>
                   <button
                     onClick={() => setSkillLevel(60)}
                     style={{
-                      padding: '15px 10px',
-                      background: skillLevel >= 41 && skillLevel <= 80 ? 'linear-gradient(135deg, #ffa500, #ffb732)' : 'rgba(255, 255, 255, 0.1)',
-                      color: skillLevel >= 41 && skillLevel <= 80 ? '#fff' : '#888',
-                      border: skillLevel >= 41 && skillLevel <= 80 ? '2px solid #ffb732' : '2px solid transparent',
-                      borderRadius: '10px',
+                      padding: '14px 8px',
+                      background: skillLevel >= 41 && skillLevel <= 80 ? 'linear-gradient(180deg, #c9a227, #a68b1f)' : 'rgba(255, 255, 255, 0.03)',
+                      color: skillLevel >= 41 && skillLevel <= 80 ? '#0a0a0f' : 'rgba(255, 255, 255, 0.5)',
+                      border: skillLevel >= 41 && skillLevel <= 80 ? 'none' : '1px solid rgba(255, 255, 255, 0.08)',
+                      borderRadius: '6px',
                       cursor: 'pointer',
                       fontFamily: "'Oswald', sans-serif",
-                      fontSize: '14px',
+                      fontSize: '12px',
                       fontWeight: '600',
-                      transition: 'all 0.2s'
+                      letterSpacing: '1px',
+                      boxShadow: skillLevel >= 41 && skillLevel <= 80 ? 'inset 0 1px 0 rgba(255, 255, 255, 0.3)' : 'none'
                     }}
                   >
-                    <div style={{ fontSize: '16px', marginBottom: '5px' }}>🟡</div>
+                    <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: skillLevel >= 41 && skillLevel <= 80 ? '#0a0a0f' : 'rgba(255, 193, 7, 0.4)', margin: '0 auto 6px' }} />
                     INTERMEDIATE
                   </button>
                   <button
                     onClick={() => setSkillLevel(90)}
                     style={{
-                      padding: '15px 10px',
-                      background: skillLevel >= 81 ? 'linear-gradient(135deg, #c41e3a, #e74c3c)' : 'rgba(255, 255, 255, 0.1)',
-                      color: skillLevel >= 81 ? '#fff' : '#888',
-                      border: skillLevel >= 81 ? '2px solid #e74c3c' : '2px solid transparent',
-                      borderRadius: '10px',
+                      padding: '14px 8px',
+                      background: skillLevel >= 81 ? 'linear-gradient(180deg, #a61c1c, #8a1717)' : 'rgba(255, 255, 255, 0.03)',
+                      color: skillLevel >= 81 ? '#fff' : 'rgba(255, 255, 255, 0.5)',
+                      border: skillLevel >= 81 ? 'none' : '1px solid rgba(255, 255, 255, 0.08)',
+                      borderRadius: '6px',
                       cursor: 'pointer',
                       fontFamily: "'Oswald', sans-serif",
-                      fontSize: '14px',
+                      fontSize: '12px',
                       fontWeight: '600',
-                      transition: 'all 0.2s'
+                      letterSpacing: '1px',
+                      boxShadow: skillLevel >= 81 ? 'inset 0 1px 0 rgba(255, 255, 255, 0.2)' : 'none'
                     }}
                   >
-                    <div style={{ fontSize: '16px', marginBottom: '5px' }}>🔴</div>
+                    <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: skillLevel >= 81 ? '#ff6b6b' : 'rgba(255, 107, 107, 0.4)', margin: '0 auto 6px' }} />
                     EXPERT
                   </button>
                 </div>
               </div>
-              
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <span style={{ color: '#e8d5b7', fontSize: '14px', letterSpacing: '2px' }}>SOUND EFFECTS</span>
-                <button onClick={() => setSoundEnabled(!soundEnabled)} style={{ padding: '10px 20px', background: soundEnabled ? 'linear-gradient(135deg, #228b22, #32cd32)' : 'rgba(255, 255, 255, 0.1)', color: soundEnabled ? '#fff' : '#888', border: 'none', borderRadius: '20px', cursor: 'pointer', fontFamily: "'Oswald', sans-serif", fontSize: '14px' }}>{soundEnabled ? 'ON' : 'OFF'}</button>
+
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 0' }}>
+                <span style={{ color: 'rgba(255, 255, 255, 0.5)', fontSize: '12px', letterSpacing: '2px' }}>SOUND</span>
+                <button onClick={() => setSoundEnabled(!soundEnabled)} style={{ padding: '6px 16px', background: soundEnabled ? 'linear-gradient(180deg, #2d8a2d, #1f6b1f)' : 'rgba(255, 255, 255, 0.05)', color: soundEnabled ? '#fff' : 'rgba(255, 255, 255, 0.4)', border: soundEnabled ? 'none' : '1px solid rgba(255, 255, 255, 0.1)', borderRadius: '4px', cursor: 'pointer', fontFamily: "'Oswald', sans-serif", fontSize: '12px', fontWeight: '600', letterSpacing: '1px' }}>{soundEnabled ? 'ON' : 'OFF'}</button>
               </div>
             </div>
-            
-            <p style={{ color: '#666', marginTop: '30px', fontSize: '14px' }}>Hold mouse to charge power • Release to throw</p>
+
+            <p style={{ color: COLORS.textMuted, marginTop: '24px', fontSize: '0.85rem', zIndex: 2, position: 'relative' }}>Hold to charge power • Release to throw</p>
+            </main>
+
+            <Footer onNavigate={setGameState} />
           </div>
         );
       }
@@ -3239,51 +4863,137 @@
                 )}
               </div>
 
-              {/* Achievement Unlock Popup */}
+              {/* Achievement Unlock Popup - Enhanced */}
               {achievementPopup && (
                 <div style={{
                   position: 'fixed',
-                  top: '20px',
-                  right: '20px',
-                  background: 'linear-gradient(135deg, rgba(0, 0, 0, 0.95), rgba(20, 20, 40, 0.95))',
+                  top: '50%',
+                  left: '50%',
+                  transform: 'translate(-50%, -50%)',
+                  background: 'linear-gradient(135deg, rgba(0, 0, 0, 0.98), rgba(20, 20, 40, 0.98))',
                   border: `3px solid ${getRarityColor(achievementPopup.rarity)}`,
-                  borderRadius: '15px',
-                  padding: '20px',
-                  minWidth: '300px',
-                  maxWidth: '400px',
-                  boxShadow: `0 10px 40px ${getRarityColor(achievementPopup.rarity)}80, 0 0 20px ${getRarityColor(achievementPopup.rarity)}40`,
-                  animation: 'slideInRight 0.5s ease-out',
+                  borderRadius: '20px',
+                  padding: '32px',
+                  minWidth: '340px',
+                  maxWidth: '420px',
+                  boxShadow: `0 20px 60px ${getRarityColor(achievementPopup.rarity)}60, 0 0 40px ${getRarityColor(achievementPopup.rarity)}30, inset 0 0 60px ${getRarityColor(achievementPopup.rarity)}10`,
+                  animation: 'achievementUnlock 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
                   zIndex: 1000,
-                  fontFamily: "'Oswald', sans-serif"
+                  textAlign: 'center'
                 }}>
-                  <div style={{ color: getRarityColor(achievementPopup.rarity), fontSize: '12px', fontWeight: '600', letterSpacing: '2px', marginBottom: '10px' }}>
-                    🏆 ACHIEVEMENT UNLOCKED
+                  {/* Confetti for legendary/mythic */}
+                  {(achievementPopup.rarity === 'legendary' || achievementPopup.rarity === 'mythic') && (
+                    <>
+                      {[...Array(12)].map((_, i) => (
+                        <div key={i} style={{
+                          position: 'absolute',
+                          width: '8px',
+                          height: '8px',
+                          background: getRarityColor(achievementPopup.rarity),
+                          borderRadius: '50%',
+                          top: '50%',
+                          left: '50%',
+                          animation: `confetti${i % 4} 1s ease-out forwards`,
+                          animationDelay: `${i * 0.05}s`
+                        }} />
+                      ))}
+                    </>
+                  )}
+
+                  {/* Header */}
+                  <div style={{
+                    color: getRarityColor(achievementPopup.rarity),
+                    fontSize: '0.75rem',
+                    fontWeight: '700',
+                    letterSpacing: '3px',
+                    marginBottom: '16px',
+                    textTransform: 'uppercase'
+                  }}>
+                    🏆 Achievement Unlocked
                   </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-                    <div style={{ fontSize: '48px' }}>{achievementPopup.icon}</div>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ color: '#fff', fontSize: '20px', fontWeight: '700', marginBottom: '5px' }}>
-                        {achievementPopup.name}
-                      </div>
-                      <div style={{ color: '#ccc', fontSize: '14px', marginBottom: '5px' }}>
-                        {achievementPopup.description}
-                      </div>
-                      <div style={{
-                        display: 'inline-block',
-                        color: getRarityColor(achievementPopup.rarity),
-                        fontSize: '11px',
-                        fontWeight: '600',
-                        letterSpacing: '1px',
-                        textTransform: 'uppercase',
-                        border: `1px solid ${getRarityColor(achievementPopup.rarity)}`,
-                        borderRadius: '10px',
-                        padding: '3px 10px'
-                      }}>
-                        {achievementPopup.rarity}
-                      </div>
-                    </div>
+
+                  {/* Icon with glow */}
+                  <div style={{
+                    fontSize: '64px',
+                    marginBottom: '16px',
+                    filter: `drop-shadow(0 0 20px ${getRarityColor(achievementPopup.rarity)})`,
+                    animation: 'iconBounce 0.5s ease-out 0.3s'
+                  }}>
+                    {achievementPopup.icon}
                   </div>
+
+                  {/* Name */}
+                  <div style={{
+                    color: '#fff',
+                    fontSize: '1.5rem',
+                    fontWeight: '700',
+                    marginBottom: '8px',
+                    textShadow: `0 0 20px ${getRarityColor(achievementPopup.rarity)}80`
+                  }}>
+                    {achievementPopup.name}
+                  </div>
+
+                  {/* Description */}
+                  <div style={{
+                    color: COLORS.textMuted,
+                    fontSize: '0.9rem',
+                    marginBottom: '16px',
+                    lineHeight: '1.4'
+                  }}>
+                    {achievementPopup.description}
+                  </div>
+
+                  {/* Rarity Badge */}
+                  <div style={{
+                    display: 'inline-block',
+                    color: getRarityColor(achievementPopup.rarity),
+                    fontSize: '0.7rem',
+                    fontWeight: '700',
+                    letterSpacing: '2px',
+                    textTransform: 'uppercase',
+                    background: `${getRarityColor(achievementPopup.rarity)}20`,
+                    border: `1px solid ${getRarityColor(achievementPopup.rarity)}`,
+                    borderRadius: '20px',
+                    padding: '6px 16px'
+                  }}>
+                    {achievementPopup.rarity}
+                  </div>
+
+                  {/* Next Achievement Teaser */}
+                  {(() => {
+                    // Find next achievement in same category
+                    const currentIndex = ACHIEVEMENTS_DATA.findIndex(a => a.id === achievementPopup.id);
+                    const nextAchievement = ACHIEVEMENTS_DATA[currentIndex + 1];
+                    if (nextAchievement && nextAchievement.statKey === achievementPopup.statKey) {
+                      return (
+                        <div style={{
+                          marginTop: '20px',
+                          padding: '12px',
+                          background: 'rgba(255, 255, 255, 0.05)',
+                          borderRadius: '10px',
+                          fontSize: '0.8rem'
+                        }}>
+                          <div style={{ color: COLORS.textMuted, marginBottom: '4px' }}>Next Target:</div>
+                          <div style={{ color: COLORS.text, fontWeight: '600' }}>
+                            {nextAchievement.icon} {nextAchievement.name}
+                          </div>
+                        </div>
+                      );
+                    }
+                    return null;
+                  })()}
                 </div>
+              )}
+
+              {/* Backdrop overlay for achievement popup */}
+              {achievementPopup && (
+                <div style={{
+                  position: 'fixed',
+                  inset: 0,
+                  background: 'rgba(0, 0, 0, 0.7)',
+                  zIndex: 999,
+                  animation: 'fadeIn 0.3s ease-out'
+                }} />
               )}
               
               <div style={{ width: `min(${BOARD_SIZE}px, 85vw)`, marginTop: '20px' }}>
