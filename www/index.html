@@ -4159,7 +4159,7 @@
                               const newAiPlayers = [...playerSetup.aiPlayers];
                               newAiPlayers[i] = !newAiPlayers[i];
                               const newAiDifficulty = [...playerSetup.aiDifficulty];
-                              if (newAiPlayers[i] && !newAiDifficulty[i]) newAiDifficulty[i] = 'intermediate';
+                              if (newAiPlayers[i] && !newAiDifficulty[i]) newAiDifficulty[i] = AI_DIFFICULTIES.INTERMEDIATE.key;
                               setPlayerSetup(prev => ({ ...prev, aiPlayers: newAiPlayers, aiDifficulty: newAiDifficulty }));
                             }} style={{ padding: '5px 14px', background: playerSetup.aiPlayers[i] ? 'linear-gradient(180deg, #2d8a2d, #1f6b1f)' : 'rgba(255, 255, 255, 0.05)', color: playerSetup.aiPlayers[i] ? '#fff' : 'rgba(255, 255, 255, 0.4)', border: playerSetup.aiPlayers[i] ? 'none' : '1px solid rgba(255, 255, 255, 0.1)', borderRadius: '4px', cursor: 'pointer', fontSize: '11px', fontWeight: '600', letterSpacing: '1px' }}>
                               {playerSetup.aiPlayers[i] ? 'ON' : 'OFF'}
@@ -4170,13 +4170,13 @@
                             <div>
                               <label style={{ color: 'rgba(255, 255, 255, 0.4)', fontSize: '10px', letterSpacing: '2px', display: 'block', marginBottom: '6px' }}>DIFFICULTY</label>
                               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '5px' }}>
-                                {['beginner', 'intermediate', 'expert', 'impossible'].map(diff => (
-                                  <button key={diff} onClick={() => {
+                                {Object.values(AI_DIFFICULTIES).map(d => (
+                                  <button key={d.key} onClick={() => {
                                     const newAiDifficulty = [...playerSetup.aiDifficulty];
-                                    newAiDifficulty[i] = diff;
+                                    newAiDifficulty[i] = d.key;
                                     setPlayerSetup(prev => ({ ...prev, aiDifficulty: newAiDifficulty }));
-                                  }} style={{ padding: '7px 4px', fontSize: '10px', fontWeight: '600', background: playerSetup.aiDifficulty[i] === diff ? 'linear-gradient(180deg, #c9a227 0%, #a68b1f 100%)' : 'rgba(255, 255, 255, 0.03)', color: playerSetup.aiDifficulty[i] === diff ? '#0a0a0f' : 'rgba(255, 255, 255, 0.4)', border: playerSetup.aiDifficulty[i] === diff ? 'none' : '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '4px', cursor: 'pointer', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                                    {diff.slice(0, 3).toUpperCase()}
+                                  }} style={{ padding: '7px 4px', fontSize: '10px', fontWeight: '600', background: playerSetup.aiDifficulty[i] === d.key ? 'linear-gradient(180deg, #c9a227 0%, #a68b1f 100%)' : 'rgba(255, 255, 255, 0.03)', color: playerSetup.aiDifficulty[i] === d.key ? '#0a0a0f' : 'rgba(255, 255, 255, 0.4)', border: playerSetup.aiDifficulty[i] === d.key ? 'none' : '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '4px', cursor: 'pointer', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                                    {d.label.slice(0, 3).toUpperCase()}
                                   </button>
                                 ))}
                               </div>
@@ -4557,7 +4557,7 @@
                           const newAiPlayers = [...playerSetup.aiPlayers];
                           newAiPlayers[i] = !newAiPlayers[i];
                           const newAiDifficulty = [...playerSetup.aiDifficulty];
-                          if (newAiPlayers[i] && !newAiDifficulty[i]) newAiDifficulty[i] = 'intermediate';
+                          if (newAiPlayers[i] && !newAiDifficulty[i]) newAiDifficulty[i] = AI_DIFFICULTIES.INTERMEDIATE.key;
                           setPlayerSetup(prev => ({ ...prev, aiPlayers: newAiPlayers, aiDifficulty: newAiDifficulty }));
                         }} style={{ padding: '5px 14px', background: playerSetup.aiPlayers[i] ? 'linear-gradient(180deg, #2d8a2d, #1f6b1f)' : 'rgba(255, 255, 255, 0.05)', color: playerSetup.aiPlayers[i] ? '#fff' : 'rgba(255, 255, 255, 0.4)', border: playerSetup.aiPlayers[i] ? 'none' : '1px solid rgba(255, 255, 255, 0.1)', borderRadius: '4px', cursor: 'pointer', fontFamily: "'Oswald', sans-serif", fontSize: '11px', fontWeight: '600', letterSpacing: '1px' }}>
                           {playerSetup.aiPlayers[i] ? 'ON' : 'OFF'}
@@ -4568,13 +4568,13 @@
                         <div>
                           <label style={{ color: 'rgba(255, 255, 255, 0.4)', fontSize: '10px', letterSpacing: '2px', display: 'block', marginBottom: '6px' }}>DIFFICULTY</label>
                           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '5px' }}>
-                            {['beginner', 'intermediate', 'expert', 'impossible'].map(diff => (
-                              <button key={diff} onClick={() => {
+                            {Object.values(AI_DIFFICULTIES).map(d => (
+                              <button key={d.key} onClick={() => {
                                 const newAiDifficulty = [...playerSetup.aiDifficulty];
-                                newAiDifficulty[i] = diff;
+                                newAiDifficulty[i] = d.key;
                                 setPlayerSetup(prev => ({ ...prev, aiDifficulty: newAiDifficulty }));
-                              }} style={{ padding: '7px 4px', fontSize: '10px', fontWeight: '600', background: playerSetup.aiDifficulty[i] === diff ? 'linear-gradient(180deg, #c9a227 0%, #a68b1f 100%)' : 'rgba(255, 255, 255, 0.03)', color: playerSetup.aiDifficulty[i] === diff ? '#0a0a0f' : 'rgba(255, 255, 255, 0.4)', border: playerSetup.aiDifficulty[i] === diff ? 'none' : '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '4px', cursor: 'pointer', fontFamily: "'Oswald', sans-serif", textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                                {diff.slice(0, 3).toUpperCase()}
+                              }} style={{ padding: '7px 4px', fontSize: '10px', fontWeight: '600', background: playerSetup.aiDifficulty[i] === d.key ? 'linear-gradient(180deg, #c9a227 0%, #a68b1f 100%)' : 'rgba(255, 255, 255, 0.03)', color: playerSetup.aiDifficulty[i] === d.key ? '#0a0a0f' : 'rgba(255, 255, 255, 0.4)', border: playerSetup.aiDifficulty[i] === d.key ? 'none' : '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '4px', cursor: 'pointer', fontFamily: "'Oswald', sans-serif", textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                                {d.label.slice(0, 3).toUpperCase()}
                               </button>
                             ))}
                           </div>
