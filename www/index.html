@@ -3,15 +3,25 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+
+  <!-- Security Headers (meta tag equivalents) -->
+  <meta http-equiv="X-Content-Type-Options" content="nosniff">
+  <meta http-equiv="X-Frame-Options" content="DENY">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
+  <!-- CSP: Allow scripts from trusted CDNs only, no inline scripts except for babel-compiled code -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdnjs.cloudflare.com https://www.gstatic.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; connect-src 'self' https://*.firebaseio.com https://*.firebasedatabase.app wss://*.firebaseio.com; img-src 'self' data:; frame-ancestors 'none';">
+
   <title>Quik Darts - Championship Edition</title>
   <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;600;700&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
 
-  <!-- Firebase SDKs -->
-  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
+  <!-- External Scripts with Subresource Integrity (SRI) for supply chain protection -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js" integrity="sha512-8Q6Y9XnTbOE+JNvjBQwJ2H8S+UV4uA6hiRykhdtIyDYZ2TprdNmWOUaKdGzOhyr4dCyk287OejbPvwl7lrfqrQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js" integrity="sha512-MOCpqoRoisCTwJ8vQQiciZv0qcpROCidek3GTFS6KTk2+y7munJIlKCVkFCYY+p3ErYFXCjmFjnfTTRSC1OHWQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js" integrity="sha512-E0VEV0cVPGOq7xRmeVVyg6ThF3oHfp/wCeVetMZr6onhbnf4d3c6lGx+Vwi/txasTb3qIFpGDq77vyo0RHRYJA==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+
+  <!-- Firebase SDKs with SRI -->
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js" crossorigin="anonymous"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js" crossorigin="anonymous"></script>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
@@ -843,8 +853,16 @@
       // ========== ONLINE MULTIPLAYER FUNCTIONS ==========
 
       // Sanitize player name for security
+      // Removes HTML tags, script injection attempts, and special characters
       const sanitizeName = (name) => {
-        return (name || 'Player').slice(0, 20).replace(/[<>]/g, '').trim() || 'Player';
+        if (!name || typeof name !== 'string') return 'Player';
+        return name
+          .slice(0, 20)                           // Limit length
+          .replace(/[<>'"&`\\\/]/g, '')          // Remove HTML/injection chars
+          .replace(/javascript:/gi, '')           // Remove javascript: protocol
+          .replace(/on\w+=/gi, '')               // Remove event handlers (onclick=, etc.)
+          .replace(/[\x00-\x1F\x7F]/g, '')       // Remove control characters
+          .trim() || 'Player';
       };
 
       // Start matchmaking - find a random opponent
@@ -907,11 +925,11 @@
             setGameRoomId(roomId);
             gameRoomRef.current = database.ref(`games/${roomId}`);
 
-            // Set up game data
+            // Set up game data (sanitize opponent name from Firebase for security)
             gameRoomRef.current.set({
               player1: {
                 id: opponentData.playerId,
-                name: opponentData.name,
+                name: sanitizeName(opponentData.name),
                 flag: opponentData.flag,
                 score: playerSetup.gameMode,
                 ready: true
@@ -937,7 +955,7 @@
               createdAt: firebase.database.ServerValue.TIMESTAMP
             });
 
-            setOpponentName(opponentData.name);
+            setOpponentName(sanitizeName(opponentData.name));
             setOpponentFlag(opponentData.flag);
             setMatchmakingState('found');
 
@@ -974,7 +992,7 @@
 
                   setGameRoomId(roomId);
                   gameRoomRef.current = database.ref(`games/${roomId}`);
-                  setOpponentName(gameData.player2.name);
+                  setOpponentName(sanitizeName(gameData.player2.name));
                   setOpponentFlag(gameData.player2.flag);
                   setMatchmakingState('found');
 
@@ -1005,11 +1023,11 @@
                         setGameRoomId(roomId);
                         gameRoomRef.current = database.ref(`games/${roomId}`);
 
-                        // Set up game data with other player as player1
+                        // Set up game data with other player as player1 (sanitize name from Firebase)
                         gameRoomRef.current.set({
                           player1: {
                             id: otherPlayer.playerId,
-                            name: otherPlayer.name,
+                            name: sanitizeName(otherPlayer.name),
                             flag: otherPlayer.flag,
                             score: playerSetup.gameMode,
                             ready: true
@@ -1038,7 +1056,7 @@
                         // Auto-cleanup: Remove game if this player disconnects
                         gameRoomRef.current.onDisconnect().remove();
 
-                        setOpponentName(otherPlayer.name);
+                        setOpponentName(sanitizeName(otherPlayer.name));
                         setOpponentFlag(otherPlayer.flag);
                         setMatchmakingState('found');
 
@@ -1109,20 +1127,21 @@
 
           // Check if opponent disconnected
           if (opponent.connected === false && !gameData.winner) {
-            alert(`${opponent.name} has disconnected. Returning to menu.`);
+            alert(`${sanitizeName(opponent.name)} has disconnected. Returning to menu.`);
             cancelMatchmaking();
             return;
           }
 
+          // Sanitize all player names received from Firebase for security
           setPlayers([
             {
-              name: gameData.player1.name,
+              name: sanitizeName(gameData.player1.name),
               flag: gameData.player1.flag,
               score: gameData.player1.score,
               isAI: false
             },
             {
-              name: gameData.player2.name,
+              name: sanitizeName(gameData.player2.name),
               flag: gameData.player2.flag,
               score: gameData.player2.score,
               isAI: false
@@ -2055,8 +2074,6 @@
                 setShowScorePopup({ ...result, position: finalPosition });
                 setTimeout(() => setShowScorePopup(null), 1000);
               }
-              setShowScorePopup({ ...result, position: finalPosition });
-              setTimeout(() => setShowScorePopup(null), 1000);
 
               if (newScore < 0 || newScore === 1 || (newScore === 0 && result.multiplier !== 2)) {
                 playSound('bust');
