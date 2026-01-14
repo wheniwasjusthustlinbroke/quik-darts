@@ -4148,8 +4148,7 @@
                         value={playerSetup.names[i]}
                         onChange={(e) => {
                           const newNames = [...playerSetup.names];
-                          const sanitized = e.target.value.slice(0, 20).replace(/[<>]/g, '');
-                          newNames[i] = sanitized;
+                          newNames[i] = sanitizeName(e.target.value);
                           setPlayerSetup(prev => ({ ...prev, names: newNames }));
                         }}
                         placeholder={`Player ${i + 1}`}
@@ -4545,8 +4544,7 @@
                     value={playerSetup.names[i]}
                     onChange={(e) => {
                       const newNames = [...playerSetup.names];
-                      const sanitized = e.target.value.slice(0, 20).replace(/[<>]/g, '');
-                      newNames[i] = sanitized;
+                      newNames[i] = sanitizeName(e.target.value);
                       setPlayerSetup(prev => ({ ...prev, names: newNames }));
                     }}
                     placeholder={`Player ${i + 1}`}
