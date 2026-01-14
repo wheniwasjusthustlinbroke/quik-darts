@@ -1,0 +1,8 @@
+# Quik Darts - robots.txt
+# Allow all search engine crawlers
+
+User-agent: *
+Allow: /
+
+# Sitemap (optional - can be added later)
+# Sitemap: https://quikdarts.com/sitemap.xml
