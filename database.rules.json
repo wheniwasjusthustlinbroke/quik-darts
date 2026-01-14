@@ -1,0 +1,34 @@
+{
+  "rules": {
+    "matchmaking_queue": {
+      ".read": true,
+      ".indexOn": ["timestamp"],
+      "$playerId": {
+        ".write": true,
+        ".validate": "!newData.exists() || (newData.hasChildren(['playerId', 'name', 'flag', 'timestamp']) && newData.child('name').isString() && newData.child('name').val().length <= 20)"
+      }
+    },
+    "games": {
+      ".read": true,
+      ".indexOn": ["player1/id"],
+      "$roomId": {
+        ".write": true,
+        "player1": { "score": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 501" } },
+        "player2": { "score": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 501" } },
+        "currentPlayer": { ".validate": "newData.isNumber() && (newData.val() === 0 || newData.val() === 1)" },
+        "dartsThrown": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 3" }
+      }
+    },
+    "weekly_completions": {
+      "$challengeId": {
+        ".read": true,
+        ".write": true,
+        ".validate": "!newData.exists() || newData.isNumber()"
+      }
+    },
+    "$other": {
+      ".read": false,
+      ".write": false
+    }
+  }
+}
