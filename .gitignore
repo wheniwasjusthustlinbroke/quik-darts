@@ -5,10 +5,15 @@ node_modules/
 ios/App/Pods/
 ios/App/build/
 ios/App/App/public/
+DerivedData/
+
+# Xcode user-specific files (should never be committed)
 *.xcworkspace/xcuserdata/
 *.xcodeproj/xcuserdata/
-*.xcodeproj/project.xcworkspace/
-DerivedData/
+**/xcuserdata/
+**/*.xcuserstate
+**/project.xcworkspace/contents.xcworkspacedata
+**/xcshareddata/swiftpm/Package.resolved
 
 # macOS
 .DS_Store
