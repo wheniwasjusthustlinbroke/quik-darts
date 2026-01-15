@@ -1492,6 +1492,7 @@
 
       // Start matchmaking - find a random opponent
       const startMatchmaking = useCallback(async () => {
+        console.log('startMatchmaking called, matchmakingState:', matchmakingState);
         if (!database) {
           alert('Firebase not configured. Please add your Firebase credentials to play online.');
           return;
@@ -1499,16 +1500,20 @@
 
         // Rate limiting: Prevent spamming matchmaking button
         if (matchmakingState === 'searching') {
+          console.log('Already searching, returning early');
           return; // Already searching
         }
 
+        console.log('Starting matchmaking...');
         setMatchmakingState('searching');
         setOnlineMode(true);
         const queueRef = database.ref('matchmaking_queue');
         const gamesRef = database.ref('games');
 
         // Wait for authentication and use auth UID as player ID
+        console.log('Waiting for auth...');
         const authUser = await authReadyPromise;
+        console.log('Auth complete, user:', authUser?.uid);
         if (!authUser) {
           console.error('Authentication required for online play');
           setMatchmakingState('idle');
@@ -1519,6 +1524,30 @@
         // Use authenticated user ID (prevents spoofing/spam)
         const myPlayerId = authUser.uid;
         setMyAuthId(myPlayerId);
+
+        // Clean up ALL games where we're a player (ensures clean slate for new matchmaking)
+        console.log('Cleaning up any existing games...');
+        const gamesSnapshot = await database.ref('games').orderByChild('player1/id').equalTo(myPlayerId).once('value');
+        if (gamesSnapshot.exists()) {
+          const myGames = gamesSnapshot.val();
+          console.log('Found games where we are player1:', Object.keys(myGames));
+          for (const gameId of Object.keys(myGames)) {
+            console.log(`Deleting game ${gameId} (we are player1)`);
+            await database.ref(`games/${gameId}`).remove().catch(err => console.error('Failed to delete game:', err));
+          }
+        }
+        // Also check if we're player2 in any games
+        const gamesSnapshot2 = await database.ref('games').once('value');
+        if (gamesSnapshot2.exists()) {
+          const allGames = gamesSnapshot2.val();
+          for (const [gameId, gameData] of Object.entries(allGames)) {
+            if (gameData.player2 && gameData.player2.id === myPlayerId) {
+              console.log(`Deleting game ${gameId} (we are player2)`);
+              await database.ref(`games/${gameId}`).remove().catch(err => console.error('Failed to delete game:', err));
+            }
+          }
+        }
+        console.log('Game cleanup complete');
 
         // Small delay to avoid race condition where both players check queue at exact same time
         setTimeout(() => {
@@ -1565,8 +1594,8 @@
                 name: sanitizeName(playerSetup.names[0]) || 'Player 2',
                 flag: playerSetup.flags[0] || '🌍',
                 score: playerSetup.gameMode,
-                ready: true
-                // connected will be set below
+                ready: true,
+                connected: true  // Set immediately so player1 can find this game
               },
               currentPlayer: 0,
               gameMode: playerSetup.gameMode,
@@ -1606,22 +1635,55 @@
               // First check if someone created a game with us as player1
               database.ref(`games`).orderByChild('player1/id').equalTo(myPlayerId).once('value', (gameSnapshot) => {
                 if (gameSnapshot.exists()) {
+                  // Find a recent game where player2 is connected (not a stale game)
+                  const games = gameSnapshot.val();
+                  const now = Date.now();
+                  let activeRoomId = null;
+                  let activeGameData = null;
+
+                  for (const [roomId, gameData] of Object.entries(games)) {
+                    // Only join if:
+                    // 1. player2 is connected (active game waiting for us), AND
+                    // 2. game was created within the last 30 seconds (not stale)
+                    const gameAge = now - (gameData.createdAt || 0);
+                    const isRecent = gameAge < 30000; // 30 seconds
+                    const isPlayer2Connected = gameData.player2 && gameData.player2.connected === true;
+
+                    console.log(`Checking game ${roomId}: age=${gameAge}ms, recent=${isRecent}, p2Connected=${isPlayer2Connected}`);
+
+                    if (isRecent && isPlayer2Connected) {
+                      activeRoomId = roomId;
+                      activeGameData = gameData;
+                      break;
+                    } else {
+                      // Delete stale game (old or player2 disconnected)
+                      console.log(`Deleting stale game ${roomId} (age=${gameAge}ms, p2Connected=${isPlayer2Connected})`);
+                      database.ref(`games/${roomId}`).remove()
+                        .then(() => console.log(`Stale game ${roomId} deleted`))
+                        .catch(err => console.error(`Failed to delete stale game ${roomId}:`, err));
+                    }
+                  }
+
+                  // If no active game found, continue waiting (stale games were deleted)
+                  if (!activeRoomId) {
+                    console.log('No active recent game found, continuing to wait...');
+                    return;
+                  }
+
+                  console.log('Found active game:', activeRoomId);
                   if (matchmakingIntervalRef.current) {
                     clearInterval(matchmakingIntervalRef.current);
                     matchmakingIntervalRef.current = null;
                   }
                   queueRef.child(myPlayerId).remove();
 
-                  const roomId = Object.keys(gameSnapshot.val())[0];
-                  const gameData = gameSnapshot.val()[roomId];
-
-                  setGameRoomId(roomId);
-                  gameRoomRef.current = database.ref(`games/${roomId}`);
-                  setOpponentName(sanitizeName(gameData.player2.name));
-                  setOpponentFlag(gameData.player2.flag);
+                  setGameRoomId(activeRoomId);
+                  gameRoomRef.current = database.ref(`games/${activeRoomId}`);
+                  setOpponentName(sanitizeName(activeGameData.player2.name));
+                  setOpponentFlag(activeGameData.player2.flag);
                   setMatchmakingState('found');
 
-                  setTimeout(() => startOnlineGame(roomId, 0), 1500);
+                  setTimeout(() => startOnlineGame(activeRoomId, 0), 1500);
                 } else {
                   // Also check if there are OTHER players waiting in queue we can join
                   queueRef.orderByChild('timestamp').limitToFirst(2).once('value', (queueSnapshot) => {
@@ -1662,8 +1724,8 @@
                             name: sanitizeName(playerSetup.names[0]) || 'Player 2',
                             flag: playerSetup.flags[0] || '🌍',
                             score: playerSetup.gameMode,
-                            ready: true
-                            // connected will be set below
+                            ready: true,
+                            connected: true  // Set immediately so player1 can find this game
                           },
                           currentPlayer: 0,
                           gameMode: playerSetup.gameMode,
@@ -1755,10 +1817,26 @@
             opponentWasConnected.current = true;
           }
 
+          // Debug logging for disconnect detection
+          console.log('Game listener fired:', {
+            opponentConnected: opponent.connected,
+            opponentWasConnectedRef: opponentWasConnected.current,
+            hasWinner: gameData.winner !== undefined
+          });
+
           // Only alert about disconnection if opponent WAS connected before
           if (opponentWasConnected.current && opponent.connected === false && !gameData.winner) {
+            console.log('Opponent disconnected - cleaning up game');
             alert(`${sanitizeName(opponent.name)} has disconnected. Returning to menu.`);
             opponentWasConnected.current = false; // Reset for next game
+            // Delete the game since opponent already left - prevents stale games
+            const gameRefToDelete = gameRoomRef.current;
+            if (gameRefToDelete) {
+              console.log('Attempting to delete game:', gameRefToDelete.key);
+              gameRefToDelete.remove()
+                .then(() => console.log('Game deleted successfully'))
+                .catch(err => console.error('Failed to delete game:', err));
+            }
             cancelMatchmaking();
             return;
           }
@@ -1806,22 +1884,23 @@
       const syncThrowToFirebase = useCallback((throwData) => {
         if (!onlineMode || !gameRoomRef.current) return;
 
-        // Push the throw to history
-        gameRoomRef.current.child('throwHistory').push(throwData);
-
-        // Add dart position to array
-        gameRoomRef.current.child('dartPositions').push(throwData.position);
-
-        // Update game state
-        gameRoomRef.current.update({
-          dartsThrown: throwData.dartsThrown,
-          currentTurnScore: throwData.currentTurnScore,
-          currentPlayer: throwData.currentPlayer
-        });
-
-        // Update player score
+        // Generate keys for push operations
+        const throwKey = gameRoomRef.current.child('throwHistory').push().key;
+        const dartKey = gameRoomRef.current.child('dartPositions').push().key;
         const playerKey = playerId === 0 ? 'player1' : 'player2';
-        gameRoomRef.current.child(`${playerKey}/score`).set(throwData.newScore);
+
+        // Combine all updates into a single atomic operation
+        const updates = {
+          [`throwHistory/${throwKey}`]: throwData,
+          [`dartPositions/${dartKey}`]: throwData.position,
+          'dartsThrown': throwData.dartsThrown,
+          'currentTurnScore': throwData.currentTurnScore,
+          'currentPlayer': throwData.currentPlayer,
+          [`${playerKey}/score`]: throwData.newScore
+        };
+
+        gameRoomRef.current.update(updates)
+          .catch(err => console.error('Failed to sync throw to Firebase:', err));
       }, [onlineMode, playerId]);
 
       // Cancel matchmaking
@@ -2033,6 +2112,23 @@
             // Player won the match!
             setMatchWinner(players[playerIndex]);
             setWinner(players[playerIndex]);
+
+            // In online mode, sync winner to Firebase and schedule game deletion
+            if (onlineMode && gameRoomRef.current) {
+              // Update Firebase with winner so opponent sees it
+              gameRoomRef.current.update({
+                winner: playerIndex,
+                status: 'finished'
+              }).catch(err => console.error('Failed to update winner:', err));
+
+              // Delete the game after 10 seconds (enough time for both to see result)
+              setTimeout(() => {
+                if (gameRoomRef.current) {
+                  console.log('Deleting completed game');
+                  gameRoomRef.current.remove().catch(err => console.error('Failed to delete completed game:', err));
+                }
+              }, 10000);
+            }
 
             // Track game completion and win
             if (!players[playerIndex].isAI && !practiceMode) {
@@ -2340,7 +2436,7 @@
                     dartPositions: {},
                     dartsThrown: 0,
                     currentTurnScore: 0
-                  });
+                  }).catch(err => console.error('Failed to clear board in Firebase:', err));
                 }
                 // Reset turn tracking - same as offline mode
                 setCurrentTurnThrows([]);
@@ -2778,6 +2874,11 @@
       };
 
       const resetGame = () => {
+        // If in online mode, use leaveOnlineGame to properly clean up Firebase
+        if (onlineMode) {
+          leaveOnlineGame();
+          return;
+        }
         setGameState('menu');
         setWinner(null);
       };
@@ -4174,6 +4275,9 @@
                     <div key={i} style={{ marginBottom: '12px', background: 'rgba(0, 0, 0, 0.3)', padding: '14px', borderRadius: '8px', border: '1px solid rgba(255, 255, 255, 0.05)' }}>
                       <input
                         type="text"
+                        id={`local-player-name-${i}`}
+                        name={`local-player-name-${i}`}
+                        aria-label={`Player ${i + 1} name`}
                         value={playerSetup.names[i]}
                         onChange={(e) => {
                           const newNames = [...playerSetup.names];
@@ -4185,8 +4289,8 @@
                         style={{ width: '100%', padding: '11px 14px', fontSize: '14px', background: 'rgba(255, 255, 255, 0.05)', border: '1px solid rgba(255, 255, 255, 0.1)', borderRadius: '6px', color: 'rgba(255, 255, 255, 0.9)', outline: 'none', boxSizing: 'border-box', marginBottom: '10px' }}
                       />
                       <div>
-                        <label style={{ color: 'rgba(255, 255, 255, 0.4)', fontSize: '10px', letterSpacing: '2px', display: 'block', marginBottom: '6px' }}>NATIONALITY</label>
-                        <select value={playerSetup.flags[i]} onChange={(e) => { const newFlags = [...playerSetup.flags]; newFlags[i] = e.target.value; setPlayerSetup(prev => ({ ...prev, flags: newFlags })); }} style={{ width: '100%', padding: '10px 12px', fontSize: '14px', background: 'rgba(255, 255, 255, 0.05)', border: '1px solid rgba(255, 255, 255, 0.1)', borderRadius: '6px', color: 'rgba(255, 255, 255, 0.9)', outline: 'none', cursor: 'pointer', boxSizing: 'border-box' }}>
+                        <label htmlFor={`local-player-flag-${i}`} style={{ color: 'rgba(255, 255, 255, 0.4)', fontSize: '10px', letterSpacing: '2px', display: 'block', marginBottom: '6px' }}>NATIONALITY</label>
+                        <select id={`local-player-flag-${i}`} name={`local-player-flag-${i}`} value={playerSetup.flags[i]} onChange={(e) => { const newFlags = [...playerSetup.flags]; newFlags[i] = e.target.value; setPlayerSetup(prev => ({ ...prev, flags: newFlags })); }} style={{ width: '100%', padding: '10px 12px', fontSize: '14px', background: 'rgba(255, 255, 255, 0.05)', border: '1px solid rgba(255, 255, 255, 0.1)', borderRadius: '6px', color: 'rgba(255, 255, 255, 0.9)', outline: 'none', cursor: 'pointer', boxSizing: 'border-box' }}>
                           {COUNTRIES.map(country => (
                             <option key={country.name} value={country.flag} style={{ background: '#1a1a1a', color: '#fff' }}>
                               {country.flag} {country.name}
@@ -4570,6 +4674,9 @@
                 <div key={i} style={{ marginBottom: '12px', background: 'rgba(0, 0, 0, 0.3)', padding: '14px', borderRadius: '8px', border: '1px solid rgba(255, 255, 255, 0.05)' }}>
                   <input
                     type="text"
+                    id={`online-player-name-${i}`}
+                    name={`online-player-name-${i}`}
+                    aria-label={`Player ${i + 1} name`}
                     value={playerSetup.names[i]}
                     onChange={(e) => {
                       const newNames = [...playerSetup.names];
@@ -4582,8 +4689,8 @@
                   />
 
                   <div style={{ marginBottom: '10px' }}>
-                    <label style={{ color: 'rgba(255, 255, 255, 0.4)', fontSize: '10px', letterSpacing: '2px', display: 'block', marginBottom: '6px' }}>NATIONALITY</label>
-                    <select value={playerSetup.flags[i]} onChange={(e) => { const newFlags = [...playerSetup.flags]; newFlags[i] = e.target.value; setPlayerSetup(prev => ({ ...prev, flags: newFlags })); }} style={{ width: '100%', padding: '10px 12px', fontSize: '14px', background: 'rgba(255, 255, 255, 0.05)', border: '1px solid rgba(255, 255, 255, 0.1)', borderRadius: '6px', color: 'rgba(255, 255, 255, 0.9)', outline: 'none', fontFamily: "'Roboto Mono', monospace", cursor: 'pointer', boxSizing: 'border-box' }}>
+                    <label htmlFor={`online-player-flag-${i}`} style={{ color: 'rgba(255, 255, 255, 0.4)', fontSize: '10px', letterSpacing: '2px', display: 'block', marginBottom: '6px' }}>NATIONALITY</label>
+                    <select id={`online-player-flag-${i}`} name={`online-player-flag-${i}`} value={playerSetup.flags[i]} onChange={(e) => { const newFlags = [...playerSetup.flags]; newFlags[i] = e.target.value; setPlayerSetup(prev => ({ ...prev, flags: newFlags })); }} style={{ width: '100%', padding: '10px 12px', fontSize: '14px', background: 'rgba(255, 255, 255, 0.05)', border: '1px solid rgba(255, 255, 255, 0.1)', borderRadius: '6px', color: 'rgba(255, 255, 255, 0.9)', outline: 'none', fontFamily: "'Roboto Mono', monospace", cursor: 'pointer', boxSizing: 'border-box' }}>
                       {COUNTRIES.map(country => (
                         <option key={country.name} value={country.flag} style={{ background: '#1a1a1a', color: '#fff' }}>
                           {country.flag} {country.name}
