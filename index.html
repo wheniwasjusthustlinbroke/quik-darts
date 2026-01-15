@@ -1163,7 +1163,6 @@
       const [opponentFlag, setOpponentFlag] = useState('🌍');
       const gameRoomRef = useRef(null); // Firebase room reference
       const opponentWasConnected = useRef(false); // Track if opponent was ever connected
-      const disconnectGraceTimeout = useRef(null); // Grace period timer for reconnection
 
       // Practice mode states
       const [practiceMode, setPracticeMode] = useState(false); // true when in practice mode
@@ -1834,11 +1833,6 @@
         setGameStats({});
         setLegDartsThrown([0, 0]);
         opponentWasConnected.current = false; // Reset for new game
-        // Clear any pending disconnect timeout from previous game
-        if (disconnectGraceTimeout.current) {
-          clearTimeout(disconnectGraceTimeout.current);
-          disconnectGraceTimeout.current = null;
-        }
 
         // Listen for game state changes
         const roomRef = database.ref(`games/${roomId}`);
@@ -1862,31 +1856,20 @@
           // Track if opponent was ever connected
           if (opponent.connected === true) {
             opponentWasConnected.current = true;
-            // Clear any pending disconnect timeout if opponent reconnected
-            if (disconnectGraceTimeout.current) {
-              clearTimeout(disconnectGraceTimeout.current);
-              disconnectGraceTimeout.current = null;
-            }
           }
 
-          // Only handle disconnection if opponent WAS connected before
+          // Only alert about disconnection if opponent WAS connected before
           if (opponentWasConnected.current && opponent.connected === false && !gameData.winner) {
-            // Start grace period if not already started - gives opponent 10s to reconnect
-            if (!disconnectGraceTimeout.current) {
-              const opponentNameSanitized = sanitizeName(opponent.name);
-              disconnectGraceTimeout.current = setTimeout(() => {
-                alert(`${opponentNameSanitized} has disconnected. Returning to menu.`);
-                opponentWasConnected.current = false; // Reset for next game
-                disconnectGraceTimeout.current = null;
-                // Delete the game since opponent already left - prevents stale games
-                const gameRefToDelete = gameRoomRef.current;
-                if (gameRefToDelete) {
-                  gameRefToDelete.remove()
-                    .catch(err => console.error('Failed to delete game:', err));
-                }
-                cancelMatchmaking();
-              }, 10000); // 10 second grace period for reconnection
+            alert(`${sanitizeName(opponent.name)} has disconnected. Returning to menu.`);
+            opponentWasConnected.current = false; // Reset for next game
+            // Delete the game since opponent already left - prevents stale games
+            const gameRefToDelete = gameRoomRef.current;
+            if (gameRefToDelete) {
+              gameRefToDelete.remove()
+                .catch(err => console.error('Failed to delete game:', err));
             }
+            cancelMatchmaking();
+            return;
           }
 
           // Sanitize and validate all player data received from Firebase for security
@@ -1972,12 +1955,6 @@
         if (matchmakingIntervalRef.current) {
           clearInterval(matchmakingIntervalRef.current);
           matchmakingIntervalRef.current = null;
-        }
-
-        // Clear disconnect grace period timeout if running
-        if (disconnectGraceTimeout.current) {
-          clearTimeout(disconnectGraceTimeout.current);
-          disconnectGraceTimeout.current = null;
         }
 
         // Remove from queue if still in matchmaking (use auth ID, not player index)
