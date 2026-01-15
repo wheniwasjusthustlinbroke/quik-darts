@@ -1906,12 +1906,25 @@
           };
         };
 
+        // Parse a dart notation (e.g., "T20", "D12", "S19", "Bull") into target position
+        const parseDartNotation = (notation) => {
+          if (notation === 'Bull') {
+            return { x: CENTER, y: CENTER }; // Bullseye
+          }
+          const prefix = notation[0]; // T, D, or S
+          const segment = parseInt(notation.slice(1));
+          let multiplier = 1;
+          if (prefix === 'T') multiplier = 3;
+          else if (prefix === 'D') multiplier = 2;
+          return getSegmentPosition(segment, multiplier);
+        };
+
         // For checkout situations - expert and impossible use checkout suggestions
         if (CHECKOUT_SUGGESTIONS[currentScore] && (difficulty === AI_DIFFICULTIES.EXPERT.key || difficulty === AI_DIFFICULTIES.IMPOSSIBLE.key)) {
           const suggestion = CHECKOUT_SUGGESTIONS[currentScore];
-          if (suggestion.includes('T20')) return getSegmentPosition(20, 3);
-          if (suggestion.includes('D20')) return getSegmentPosition(20, 2);
-          if (suggestion.includes('Bull')) return { x: CENTER, y: CENTER };
+          // Get the first target from the suggestion (e.g., "T20 T19 D12" -> "T20")
+          const firstTarget = suggestion.split(' ')[0];
+          return parseDartNotation(firstTarget);
         }
 
         switch(difficulty) {
@@ -1929,15 +1942,12 @@
           case AI_DIFFICULTIES.EXPERT.key:
             // Consistently aim for T20, T19, or doubles for checkout
             if (currentScore <= 40 && currentScore % 2 === 0) {
-              return getSegmentPosition(20, 2);
+              return getSegmentPosition(currentScore / 2, 2);
             }
             return getSegmentPosition(20, 3);
 
           case AI_DIFFICULTIES.IMPOSSIBLE.key:
-            // Perfect strategy
-            if (currentScore <= 170 && CHECKOUT_SUGGESTIONS[currentScore]) {
-              return getSegmentPosition(20, 3);
-            }
+            // Perfect strategy - always aim T20 when not in checkout range
             return getSegmentPosition(20, 3);
 
           default:
@@ -2656,6 +2666,8 @@
               if (newScore < 0 || newScore === 1 || (newScore === 0 && result.multiplier !== 2)) {
                 playSound('bust');
                 setShowScorePopup({ score: 'BUST!', label: 'BUST!', position: finalPosition });
+                // Set dartsThrown to 3 to prevent AI useEffect from re-triggering before nextPlayer
+                setDartsThrown(3);
                 setTimeout(() => {
                   setShowScorePopup(null);
                   nextPlayer(true);
