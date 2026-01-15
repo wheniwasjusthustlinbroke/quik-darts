@@ -1531,6 +1531,24 @@
         });
       };
 
+      // Validate throw history item from Firebase
+      const validateThrowItem = (item) => {
+        if (!item || typeof item !== 'object') return null;
+        const score = typeof item.score === 'number' && item.score >= 0 && item.score <= 180 ? item.score : 0;
+        const label = typeof item.label === 'string' && item.label.length <= 20 ? item.label : 'MISS';
+        const player = (item.player === 0 || item.player === 1) ? item.player : 0;
+        const multiplier = typeof item.multiplier === 'number' && item.multiplier >= 0 && item.multiplier <= 3 ? item.multiplier : 1;
+        return { score, label, player, multiplier };
+      };
+
+      // Validate dart position from Firebase
+      const validateDartPosition = (pos) => {
+        if (!pos || typeof pos !== 'object') return null;
+        const x = typeof pos.x === 'number' && pos.x >= 0 && pos.x <= 500 ? pos.x : 250;
+        const y = typeof pos.y === 'number' && pos.y >= 0 && pos.y <= 500 ? pos.y : 250;
+        return { x, y };
+      };
+
       // Retry wrapper for Firebase operations with exponential backoff
       const retryFirebaseOperation = async (operation, maxRetries = 3) => {
         let lastError;
@@ -1893,12 +1911,16 @@
           setDartsThrown(validateDartsThrown(gameData.dartsThrown));
           setCurrentTurnScore(validateTurnScore(gameData.currentTurnScore));
 
-          // Convert throwHistory from Firebase object to array
-          const throwsArray = gameData.throwHistory ? Object.values(gameData.throwHistory) : [];
+          // Convert and validate throwHistory from Firebase object to array
+          const throwsArray = gameData.throwHistory
+            ? Object.values(gameData.throwHistory).map(validateThrowItem).filter(Boolean)
+            : [];
           setThrowHistory(throwsArray);
 
-          // Convert dartPositions from Firebase object to array
-          const dartsArray = gameData.dartPositions ? Object.values(gameData.dartPositions) : [];
+          // Convert and validate dartPositions from Firebase object to array
+          const dartsArray = gameData.dartPositions
+            ? Object.values(gameData.dartPositions).map(validateDartPosition).filter(Boolean)
+            : [];
           setDartPositions(dartsArray);
 
           setLegScores(validateScoreArray(gameData.legScores, 0));
