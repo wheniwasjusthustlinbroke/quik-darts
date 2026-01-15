@@ -1748,17 +1748,8 @@
           const myPlayer = playerIndex === 0 ? gameData.player1 : gameData.player2;
           const opponent = playerIndex === 0 ? gameData.player2 : gameData.player1;
 
-          // Check if opponent disconnected (only after grace period to let both players connect)
-          const gameAge = Date.now() - (gameData.createdAt || 0);
-          const pastGracePeriod = gameAge > 10000; // Wait 10 seconds before checking disconnects
-          const isRecentGame = gameAge < 3600000; // Less than 1 hour old
-          const opponentDisconnected = opponent.connected === false;
-
-          if (opponentDisconnected && pastGracePeriod && isRecentGame && !gameData.winner) {
-            alert(`${sanitizeName(opponent.name)} has disconnected. Returning to menu.`);
-            cancelMatchmaking();
-            return;
-          }
+          // Disconnect detection temporarily disabled - causing false positives
+          // Will re-enable once matchmaking is stable
 
           // Sanitize all player names received from Firebase for security
           setPlayers([
