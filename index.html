@@ -1855,7 +1855,7 @@
         setPlayerId(null);
         setMyAuthId(null);
         setGameState('menu');
-      }, [myAuthId, database]);
+      }, [myAuthId, database, playerId]);
 
       // Leave online game
       const leaveOnlineGame = useCallback(() => {
