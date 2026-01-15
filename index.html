@@ -1541,8 +1541,8 @@
               return;
             }
 
-            // Remove opponent from queue
-            queueRef.child(opponentId).remove();
+            // Note: Opponent will remove themselves from queue when they find the game
+            // (we can't remove their entry due to auth rules)
 
             // Create game room
             const roomId = database.ref().push().key;
@@ -1638,9 +1638,8 @@
                           matchmakingIntervalRef.current = null;
                         }
 
-                        // Remove both players from queue
+                        // Remove myself from queue (other player removes themselves when they find the game)
                         queueRef.child(myPlayerId).remove();
-                        queueRef.child(otherPlayerId).remove();
 
                         // Create game room
                         const roomId = database.ref().push().key;
