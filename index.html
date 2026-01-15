@@ -3522,31 +3522,32 @@
       // Matchmaking screen - check FIRST before menu
       if (matchmakingState === 'searching' || matchmakingState === 'found') {
         return (
-          <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f0f23 100%)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '20px', fontFamily: "'Oswald', sans-serif" }}>
-            <div style={{ background: 'rgba(255, 255, 255, 0.05)', borderRadius: '20px', padding: '60px 40px', backdropFilter: 'blur(10px)', border: '1px solid rgba(255, 215, 0, 0.2)', maxWidth: '500px', textAlign: 'center' }}>
+          <div style={{ minHeight: '100vh', background: COLORS.background, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '20px', fontFamily: "'Inter', sans-serif", position: 'relative' }}>
+            <div style={{ position: 'absolute', inset: 0, background: `radial-gradient(ellipse at 30% 20%, ${COLORS.primary}40 0%, transparent 50%), radial-gradient(ellipse at 70% 80%, ${COLORS.accent}20 0%, transparent 40%)`, zIndex: 0, pointerEvents: 'none' }} />
+            <div style={{ background: COLORS.backgroundCard, borderRadius: '16px', padding: '60px 40px', backdropFilter: 'blur(10px)', border: `1px solid ${COLORS.accent}30`, maxWidth: '500px', textAlign: 'center', position: 'relative', zIndex: 1 }}>
               {matchmakingState === 'searching' && (
                 <>
                   <div style={{ fontSize: '64px', marginBottom: '30px', animation: 'spin 2s linear infinite' }}>🌍</div>
-                  <h2 style={{ color: '#ffd700', fontSize: '32px', marginBottom: '20px', letterSpacing: '3px' }}>FINDING OPPONENT...</h2>
-                  <p style={{ color: '#e8d5b7', fontSize: '16px', marginBottom: '40px' }}>Searching for players worldwide</p>
+                  <h2 style={{ color: COLORS.accent, fontSize: '28px', marginBottom: '20px', letterSpacing: '2px', fontWeight: '700' }}>FINDING OPPONENT...</h2>
+                  <p style={{ color: COLORS.textMuted, fontSize: '15px', marginBottom: '40px' }}>Searching for players worldwide</p>
                   <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', marginBottom: '30px' }}>
-                    <div style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#4a90e2', animation: 'pulse 1.5s ease-in-out infinite' }}></div>
-                    <div style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#4a90e2', animation: 'pulse 1.5s ease-in-out infinite 0.2s' }}></div>
-                    <div style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#4a90e2', animation: 'pulse 1.5s ease-in-out infinite 0.4s' }}></div>
+                    <div style={{ width: '12px', height: '12px', borderRadius: '50%', background: COLORS.primaryLight, animation: 'pulse 1.5s ease-in-out infinite' }}></div>
+                    <div style={{ width: '12px', height: '12px', borderRadius: '50%', background: COLORS.primaryLight, animation: 'pulse 1.5s ease-in-out infinite 0.2s' }}></div>
+                    <div style={{ width: '12px', height: '12px', borderRadius: '50%', background: COLORS.primaryLight, animation: 'pulse 1.5s ease-in-out infinite 0.4s' }}></div>
                   </div>
-                  <button onClick={cancelMatchmaking} style={{ padding: '15px 40px', background: 'rgba(255, 255, 255, 0.1)', color: '#e8d5b7', border: '1px solid rgba(255, 215, 0, 0.3)', borderRadius: '10px', fontSize: '16px', fontWeight: '600', cursor: 'pointer', fontFamily: "'Oswald', sans-serif", letterSpacing: '2px' }}>CANCEL</button>
+                  <button onClick={cancelMatchmaking} style={{ padding: '15px 40px', background: 'rgba(255, 255, 255, 0.05)', color: COLORS.text, border: `1px solid ${COLORS.accent}40`, borderRadius: '10px', fontSize: '14px', fontWeight: '600', cursor: 'pointer', fontFamily: "'Inter', sans-serif", letterSpacing: '1px' }}>CANCEL</button>
                 </>
               )}
 
               {matchmakingState === 'found' && (
                 <>
                   <div style={{ fontSize: '64px', marginBottom: '30px' }}>✓</div>
-                  <h2 style={{ color: '#32cd32', fontSize: '32px', marginBottom: '20px', letterSpacing: '3px' }}>OPPONENT FOUND!</h2>
-                  <div style={{ background: 'rgba(255, 255, 255, 0.05)', padding: '20px', borderRadius: '10px', marginBottom: '20px' }}>
+                  <h2 style={{ color: COLORS.success, fontSize: '28px', marginBottom: '20px', letterSpacing: '2px', fontWeight: '700' }}>OPPONENT FOUND!</h2>
+                  <div style={{ background: 'rgba(255, 255, 255, 0.03)', padding: '20px', borderRadius: '10px', marginBottom: '20px', border: '1px solid rgba(255, 255, 255, 0.05)' }}>
                     <div style={{ fontSize: '40px', marginBottom: '10px' }}>{opponentFlag}</div>
-                    <div style={{ color: '#ffd700', fontSize: '24px', fontWeight: '600' }}>{opponentName}</div>
+                    <div style={{ color: COLORS.accent, fontSize: '22px', fontWeight: '600' }}>{opponentName}</div>
                   </div>
-                  <p style={{ color: '#e8d5b7', fontSize: '16px' }}>Starting game...</p>
+                  <p style={{ color: COLORS.textMuted, fontSize: '15px' }}>Starting game...</p>
                 </>
               )}
             </div>
@@ -4676,67 +4677,69 @@
       }
 
       return (
-        <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f0f23 100%)', padding: '20px', fontFamily: "'Oswald', sans-serif" }}>
-          <div className="game-layout" style={{ display: 'flex', flexWrap: 'wrap', gap: '30px', maxWidth: '1400px', margin: '0 auto', justifyContent: 'center' }}>
+        <div style={{ minHeight: '100vh', background: COLORS.background, padding: '20px', fontFamily: "'Inter', sans-serif", position: 'relative' }}>
+          {/* Background gradient matching home screen */}
+          <div style={{ position: 'absolute', inset: 0, background: `radial-gradient(ellipse at 30% 20%, ${COLORS.primary}40 0%, transparent 50%), radial-gradient(ellipse at 70% 80%, ${COLORS.accent}20 0%, transparent 40%)`, zIndex: 0, pointerEvents: 'none' }} />
+          <div className="game-layout" style={{ display: 'flex', flexWrap: 'wrap', gap: '30px', maxWidth: '1400px', margin: '0 auto', justifyContent: 'center', position: 'relative', zIndex: 1 }}>
             {/* Scoreboard or Practice Stats */}
-            <div className="game-scoreboard" style={{ background: 'rgba(255, 255, 255, 0.05)', borderRadius: '20px', padding: '25px', minWidth: '280px', backdropFilter: 'blur(10px)', border: practiceMode === 'active' ? '1px solid rgba(155, 89, 182, 0.3)' : '1px solid rgba(255, 215, 0, 0.2)' }}>
+            <div className="game-scoreboard" style={{ background: COLORS.backgroundCard, borderRadius: '16px', padding: '25px', minWidth: '280px', backdropFilter: 'blur(10px)', border: practiceMode === 'active' ? `1px solid ${COLORS.primary}50` : `1px solid ${COLORS.accent}30` }}>
               {practiceMode === 'active' ? (
                 <>
-                  <h2 style={{ color: '#9b59b6', margin: '0 0 20px 0', letterSpacing: '3px', fontSize: '18px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <h2 style={{ color: COLORS.primary, margin: '0 0 20px 0', letterSpacing: '2px', fontSize: '16px', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '10px' }}>
                     <span>🎯</span> PRACTICE MODE
                   </h2>
 
-                  <div style={{ background: 'rgba(155, 89, 182, 0.1)', borderRadius: '10px', padding: '15px', marginBottom: '20px' }}>
-                    <div style={{ color: '#9b59b6', fontSize: '12px', letterSpacing: '1px', marginBottom: '5px' }}>SKILL LEVEL</div>
-                    <div style={{ color: '#e8d5b7', fontSize: '16px', fontWeight: '600' }}>
+                  <div style={{ background: `${COLORS.primary}15`, borderRadius: '10px', padding: '15px', marginBottom: '20px', border: `1px solid ${COLORS.primary}30` }}>
+                    <div style={{ color: COLORS.textMuted, fontSize: '11px', letterSpacing: '1px', marginBottom: '5px' }}>SKILL LEVEL</div>
+                    <div style={{ color: COLORS.text, fontSize: '16px', fontWeight: '600' }}>
                       {practiceSkillLevel <= 40 && '🟢 BEGINNER'}
                       {practiceSkillLevel > 40 && practiceSkillLevel <= 80 && '🟡 INTERMEDIATE'}
                       {practiceSkillLevel > 80 && '🔴 EXPERT'}
                     </div>
                   </div>
 
-                  <div style={{ background: 'rgba(255, 255, 255, 0.05)', borderRadius: '10px', padding: '15px', marginBottom: '15px' }}>
-                    <div style={{ color: '#ffd700', fontSize: '12px', letterSpacing: '2px', marginBottom: '10px' }}>SESSION STATS</div>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', fontSize: '14px', color: '#e8d5b7' }}>
+                  <div style={{ background: 'rgba(255, 255, 255, 0.03)', borderRadius: '10px', padding: '15px', marginBottom: '15px', border: '1px solid rgba(255, 255, 255, 0.05)' }}>
+                    <div style={{ color: COLORS.accent, fontSize: '11px', letterSpacing: '2px', marginBottom: '10px', fontWeight: '600' }}>SESSION STATS</div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', fontSize: '14px' }}>
                       <div>
-                        <div style={{ color: '#888', fontSize: '11px' }}>Darts Thrown</div>
-                        <div style={{ fontSize: '20px', fontWeight: '600', color: '#fff' }}>{practiceStats.dartsThrown}</div>
+                        <div style={{ color: COLORS.textMuted, fontSize: '11px' }}>Darts Thrown</div>
+                        <div style={{ fontSize: '20px', fontWeight: '600', color: COLORS.text }}>{practiceStats.dartsThrown}</div>
                       </div>
                       <div>
-                        <div style={{ color: '#888', fontSize: '11px' }}>Total Score</div>
-                        <div style={{ fontSize: '20px', fontWeight: '600', color: '#fff' }}>{practiceStats.totalScore}</div>
+                        <div style={{ color: COLORS.textMuted, fontSize: '11px' }}>Total Score</div>
+                        <div style={{ fontSize: '20px', fontWeight: '600', color: COLORS.text }}>{practiceStats.totalScore}</div>
                       </div>
                       <div>
-                        <div style={{ color: '#888', fontSize: '11px' }}>Average</div>
-                        <div style={{ fontSize: '20px', fontWeight: '600', color: '#32cd32' }}>
+                        <div style={{ color: COLORS.textMuted, fontSize: '11px' }}>Average</div>
+                        <div style={{ fontSize: '20px', fontWeight: '600', color: COLORS.success }}>
                           {practiceStats.dartsThrown > 0 ? (practiceStats.totalScore / practiceStats.dartsThrown).toFixed(1) : '0.0'}
                         </div>
                       </div>
                       <div>
-                        <div style={{ color: '#888', fontSize: '11px' }}>Bulls</div>
-                        <div style={{ fontSize: '20px', fontWeight: '600', color: '#c41e3a' }}>{practiceStats.bulls}</div>
+                        <div style={{ color: COLORS.textMuted, fontSize: '11px' }}>Bulls</div>
+                        <div style={{ fontSize: '20px', fontWeight: '600', color: COLORS.error }}>{practiceStats.bulls}</div>
                       </div>
                     </div>
                   </div>
 
-                  <div style={{ background: 'rgba(255, 255, 255, 0.05)', borderRadius: '10px', padding: '15px', marginBottom: '20px' }}>
-                    <div style={{ color: '#ffd700', fontSize: '12px', letterSpacing: '2px', marginBottom: '10px' }}>ACCURACY</div>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', fontSize: '14px', color: '#e8d5b7' }}>
+                  <div style={{ background: 'rgba(255, 255, 255, 0.03)', borderRadius: '10px', padding: '15px', marginBottom: '20px', border: '1px solid rgba(255, 255, 255, 0.05)' }}>
+                    <div style={{ color: COLORS.accent, fontSize: '11px', letterSpacing: '2px', marginBottom: '10px', fontWeight: '600' }}>ACCURACY</div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', fontSize: '14px' }}>
                       <div>
-                        <div style={{ color: '#888', fontSize: '11px' }}>Triples</div>
-                        <div style={{ fontSize: '18px', fontWeight: '600' }}>{practiceStats.triples}</div>
+                        <div style={{ color: COLORS.textMuted, fontSize: '11px' }}>Triples</div>
+                        <div style={{ fontSize: '18px', fontWeight: '600', color: COLORS.text }}>{practiceStats.triples}</div>
                       </div>
                       <div>
-                        <div style={{ color: '#888', fontSize: '11px' }}>Doubles</div>
-                        <div style={{ fontSize: '18px', fontWeight: '600' }}>{practiceStats.doubles}</div>
+                        <div style={{ color: COLORS.textMuted, fontSize: '11px' }}>Doubles</div>
+                        <div style={{ fontSize: '18px', fontWeight: '600', color: COLORS.text }}>{practiceStats.doubles}</div>
                       </div>
                       <div>
-                        <div style={{ color: '#888', fontSize: '11px' }}>T20</div>
-                        <div style={{ fontSize: '18px', fontWeight: '600', color: '#32cd32' }}>{practiceStats.t20}</div>
+                        <div style={{ color: COLORS.textMuted, fontSize: '11px' }}>T20</div>
+                        <div style={{ fontSize: '18px', fontWeight: '600', color: COLORS.success }}>{practiceStats.t20}</div>
                       </div>
                       <div>
-                        <div style={{ color: '#888', fontSize: '11px' }}>T19</div>
-                        <div style={{ fontSize: '18px', fontWeight: '600' }}>{practiceStats.t19}</div>
+                        <div style={{ color: COLORS.textMuted, fontSize: '11px' }}>T19</div>
+                        <div style={{ fontSize: '18px', fontWeight: '600', color: COLORS.text }}>{practiceStats.t19}</div>
                       </div>
                     </div>
                   </div>
@@ -4746,15 +4749,15 @@
                     style={{
                       width: '100%',
                       padding: '15px',
-                      background: 'linear-gradient(135deg, #c41e3a, #e74c3c)',
-                      color: '#fff',
+                      background: `linear-gradient(135deg, ${COLORS.error}, #e74c3c)`,
+                      color: COLORS.text,
                       border: 'none',
                       borderRadius: '10px',
-                      fontSize: '16px',
+                      fontSize: '14px',
                       fontWeight: '600',
                       cursor: 'pointer',
-                      fontFamily: "'Oswald', sans-serif",
-                      letterSpacing: '2px',
+                      fontFamily: "'Inter', sans-serif",
+                      letterSpacing: '1px',
                       textTransform: 'uppercase'
                     }}
                   >
@@ -4763,23 +4766,23 @@
                 </>
               ) : (
                 <>
-                  <h2 style={{ color: '#ffd700', margin: '0 0 20px 0', letterSpacing: '3px', fontSize: '18px' }}>SCOREBOARD</h2>
+                  <h2 style={{ color: COLORS.accent, margin: '0 0 20px 0', letterSpacing: '2px', fontSize: '16px', fontWeight: '700' }}>SCOREBOARD</h2>
 
                   {players.map((player, index) => (
-                <div key={index} style={{ background: currentPlayerIndex === index ? 'linear-gradient(135deg, rgba(255, 215, 0, 0.2), rgba(255, 215, 0, 0.1))' : 'rgba(255, 255, 255, 0.05)', borderRadius: '15px', padding: '20px', marginBottom: '15px', border: currentPlayerIndex === index ? '2px solid #ffd700' : '1px solid rgba(255, 255, 255, 0.1)' }}>
+                <div key={index} style={{ background: currentPlayerIndex === index ? `linear-gradient(135deg, ${COLORS.accent}20, ${COLORS.accent}10)` : 'rgba(255, 255, 255, 0.03)', borderRadius: '12px', padding: '20px', marginBottom: '15px', border: currentPlayerIndex === index ? `2px solid ${COLORS.accent}` : '1px solid rgba(255, 255, 255, 0.08)' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '5px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                       <span style={{ fontSize: '20px' }}>{player.flag}</span>
-                      <span style={{ color: '#e8d5b7', fontSize: '16px' }}>{player.name}</span>
-                      {player.isAI && <span style={{ background: 'rgba(100, 149, 237, 0.3)', color: '#6495ed', padding: '2px 8px', borderRadius: '10px', fontSize: '10px', fontWeight: '600', letterSpacing: '1px' }}>AI</span>}
+                      <span style={{ color: COLORS.text, fontSize: '15px', fontWeight: '500' }}>{player.name}</span>
+                      {player.isAI && <span style={{ background: `${COLORS.primary}40`, color: COLORS.primaryLight, padding: '2px 8px', borderRadius: '10px', fontSize: '10px', fontWeight: '600', letterSpacing: '1px' }}>AI</span>}
                     </div>
-                    {currentPlayerIndex === index && <span style={{ color: '#ffd700', fontSize: '12px' }}>▶ THROWING</span>}
+                    {currentPlayerIndex === index && <span style={{ color: COLORS.accent, fontSize: '11px', fontWeight: '600' }}>▶ THROWING</span>}
                   </div>
-                  {player.isAI && <div style={{ fontSize: '10px', color: '#6495ed', marginBottom: '5px', textTransform: 'uppercase' }}>{player.aiDifficulty}</div>}
-                  <div style={{ fontSize: '48px', fontWeight: '700', color: player.score <= 170 ? '#32cd32' : '#fff', textAlign: 'center', margin: '10px 0', fontFamily: "'Roboto Mono', monospace" }}>{player.score}</div>
-                  {gameStats[index] && <div style={{ fontSize: '12px', color: '#888', textAlign: 'center' }}>Avg: {gameStats[index].averagePerDart} per dart</div>}
+                  {player.isAI && <div style={{ fontSize: '10px', color: COLORS.primaryLight, marginBottom: '5px', textTransform: 'uppercase', fontWeight: '500' }}>{player.aiDifficulty}</div>}
+                  <div style={{ fontSize: '48px', fontWeight: '700', color: player.score <= 170 ? COLORS.success : COLORS.text, textAlign: 'center', margin: '10px 0', fontFamily: "'Roboto Mono', monospace" }}>{player.score}</div>
+                  {gameStats[index] && <div style={{ fontSize: '12px', color: COLORS.textMuted, textAlign: 'center' }}>Avg: {gameStats[index].averagePerDart} per dart</div>}
                   {(playerSetup.legsPerSet > 1 || playerSetup.setsToWin > 1) && (
-                    <div style={{ fontSize: '11px', color: '#ffd700', textAlign: 'center', marginTop: '8px', letterSpacing: '1px' }}>
+                    <div style={{ fontSize: '11px', color: COLORS.accent, textAlign: 'center', marginTop: '8px', letterSpacing: '1px' }}>
                       Sets: {setScores[index] || 0} | Legs: {legScores[index] || 0}
                     </div>
                   )}
@@ -4787,30 +4790,30 @@
               ))}
               
               {checkout && (
-                <div style={{ background: 'linear-gradient(135deg, rgba(50, 205, 50, 0.2), rgba(34, 139, 34, 0.1))', borderRadius: '10px', padding: '15px', marginTop: '20px', border: '1px solid rgba(50, 205, 50, 0.3)' }}>
-                  <div style={{ color: '#32cd32', fontSize: '12px', letterSpacing: '2px', marginBottom: '5px' }}>CHECKOUT</div>
-                  <div style={{ color: '#fff', fontSize: '18px', fontWeight: '600' }}>{checkout}</div>
+                <div style={{ background: `linear-gradient(135deg, ${COLORS.success}20, ${COLORS.success}10)`, borderRadius: '10px', padding: '15px', marginTop: '20px', border: `1px solid ${COLORS.success}40` }}>
+                  <div style={{ color: COLORS.success, fontSize: '11px', letterSpacing: '2px', marginBottom: '5px', fontWeight: '600' }}>CHECKOUT</div>
+                  <div style={{ color: COLORS.text, fontSize: '18px', fontWeight: '600' }}>{checkout}</div>
                 </div>
               )}
-              
+
               {onlineMode && (
-                <div style={{ marginTop: '20px', padding: '15px', background: 'linear-gradient(135deg, rgba(74, 144, 226, 0.2), rgba(53, 122, 189, 0.2))', borderRadius: '10px', border: '2px solid #4a90e2' }}>
-                  <div style={{ color: '#4a90e2', fontSize: '12px', fontWeight: '600', letterSpacing: '2px', marginBottom: '8px' }}>🌍 ONLINE MATCH</div>
-                  <div style={{ color: currentPlayerIndex === playerId ? '#32cd32' : '#ffd700', fontSize: '16px', fontWeight: '700', letterSpacing: '1px' }}>
+                <div style={{ marginTop: '20px', padding: '15px', background: `linear-gradient(135deg, ${COLORS.primary}30, ${COLORS.primary}20)`, borderRadius: '10px', border: `2px solid ${COLORS.primaryLight}` }}>
+                  <div style={{ color: COLORS.primaryLight, fontSize: '11px', fontWeight: '600', letterSpacing: '2px', marginBottom: '8px' }}>🌍 ONLINE MATCH</div>
+                  <div style={{ color: currentPlayerIndex === playerId ? COLORS.success : COLORS.accent, fontSize: '15px', fontWeight: '700', letterSpacing: '1px' }}>
                     {currentPlayerIndex === playerId ? '▶ YOUR TURN' : '⏸ OPPONENT\'S TURN'}
                   </div>
                 </div>
               )}
 
-              <div style={{ marginTop: '20px', padding: '15px', background: 'rgba(255, 255, 255, 0.05)', borderRadius: '10px' }}>
-                <div style={{ color: '#888', fontSize: '12px', marginBottom: '5px' }}>TURN SCORE</div>
-                <div style={{ color: '#ffd700', fontSize: '32px', fontWeight: '700', fontFamily: "'Roboto Mono', monospace" }}>{currentTurnScore}</div>
-                <div style={{ color: '#888', fontSize: '14px', marginTop: '5px' }}>Darts: {'🎯'.repeat(dartsThrown)}{'○'.repeat(3 - dartsThrown)}</div>
+              <div style={{ marginTop: '20px', padding: '15px', background: 'rgba(255, 255, 255, 0.03)', borderRadius: '10px', border: '1px solid rgba(255, 255, 255, 0.05)' }}>
+                <div style={{ color: COLORS.textMuted, fontSize: '11px', marginBottom: '5px', letterSpacing: '1px' }}>TURN SCORE</div>
+                <div style={{ color: COLORS.accent, fontSize: '32px', fontWeight: '700', fontFamily: "'Roboto Mono', monospace" }}>{currentTurnScore}</div>
+                <div style={{ color: COLORS.textMuted, fontSize: '14px', marginTop: '5px' }}>Darts: {'🎯'.repeat(dartsThrown)}{'○'.repeat(3 - dartsThrown)}</div>
               </div>
 
               <div style={{ marginTop: '20px', display: 'flex', gap: '10px' }}>
-                <button onClick={() => setShowStats(true)} style={{ flex: 1, padding: '12px', background: 'rgba(255, 255, 255, 0.1)', color: '#e8d5b7', border: 'none', borderRadius: '10px', cursor: 'pointer', fontFamily: "'Oswald', sans-serif", fontSize: '14px' }}>STATS</button>
-                <button onClick={onlineMode ? leaveOnlineGame : resetGame} style={{ flex: 1, padding: '12px', background: 'rgba(196, 30, 58, 0.3)', color: '#e8d5b7', border: 'none', borderRadius: '10px', cursor: 'pointer', fontFamily: "'Oswald', sans-serif", fontSize: '14px' }}>{onlineMode ? 'LEAVE' : 'MENU'}</button>
+                <button onClick={() => setShowStats(true)} style={{ flex: 1, padding: '12px', background: 'rgba(255, 255, 255, 0.05)', color: COLORS.text, border: '1px solid rgba(255, 255, 255, 0.1)', borderRadius: '10px', cursor: 'pointer', fontFamily: "'Inter', sans-serif", fontSize: '13px', fontWeight: '500' }}>STATS</button>
+                <button onClick={onlineMode ? leaveOnlineGame : resetGame} style={{ flex: 1, padding: '12px', background: `${COLORS.error}30`, color: COLORS.text, border: 'none', borderRadius: '10px', cursor: 'pointer', fontFamily: "'Inter', sans-serif", fontSize: '13px', fontWeight: '500' }}>{onlineMode ? 'LEAVE' : 'MENU'}</button>
               </div>
                 </>
               )}
@@ -4820,16 +4823,16 @@
             <div className="game-dartboard" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
               <div ref={boardRef} onMouseMove={handleMouseMove} onMouseDown={handleMouseDown} onMouseUp={handleMouseUp} onMouseLeave={handleMouseUp} onTouchMove={handleTouchMove} onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd} onTouchCancel={handleTouchCancel} style={{ width: `min(${BOARD_SIZE}px, 85vw)`, height: `min(${BOARD_SIZE}px, 85vw)`, borderRadius: '50%', cursor: isPowerCharging ? 'grabbing' : 'crosshair', boxShadow: '0 0 60px rgba(0, 0, 0, 0.8), inset 0 0 30px rgba(0, 0, 0, 0.5)', position: 'relative', userSelect: 'none' }}>
                 <svg viewBox={`0 0 ${BOARD_SIZE} ${BOARD_SIZE}`} style={{ width: '100%', height: '100%', filter: 'drop-shadow(0 0 10px rgba(0,0,0,0.5))' }}>
-                  <defs><radialGradient id="boardGradient" cx="50%" cy="50%" r="50%"><stop offset="0%" stopColor="#2a2a4e" /><stop offset="100%" stopColor="#1a1a2e" /></radialGradient></defs>
+                  <defs><radialGradient id="boardGradient" cx="50%" cy="50%" r="50%"><stop offset="0%" stopColor={COLORS.backgroundCard} /><stop offset="100%" stopColor={COLORS.background} /></radialGradient></defs>
                   <circle cx={CENTER} cy={CENTER} r={CENTER - 5} fill="url(#boardGradient)" stroke="none" strokeWidth="0" />
                   {renderDartboard()}
                   
                   {!isPowerCharging && !animatingDart && (
                     <g>
                       {/* Apply wobble offset for expert mode 180 challenge */}
-                      <circle cx={aimPosition.x + aimWobble.x} cy={aimPosition.y + aimWobble.y} r="15" fill="none" stroke="rgba(255, 215, 0, 0.5)" strokeWidth="2" strokeDasharray="5,5" />
-                      <line x1={aimPosition.x + aimWobble.x - 20} y1={aimPosition.y + aimWobble.y} x2={aimPosition.x + aimWobble.x + 20} y2={aimPosition.y + aimWobble.y} stroke="rgba(255, 215, 0, 0.5)" strokeWidth="1" />
-                      <line x1={aimPosition.x + aimWobble.x} y1={aimPosition.y + aimWobble.y - 20} x2={aimPosition.x + aimWobble.x} y2={aimPosition.y + aimWobble.y + 20} stroke="rgba(255, 215, 0, 0.5)" strokeWidth="1" />
+                      <circle cx={aimPosition.x + aimWobble.x} cy={aimPosition.y + aimWobble.y} r="15" fill="none" stroke={`${COLORS.accent}80`} strokeWidth="2" strokeDasharray="5,5" />
+                      <line x1={aimPosition.x + aimWobble.x - 20} y1={aimPosition.y + aimWobble.y} x2={aimPosition.x + aimWobble.x + 20} y2={aimPosition.y + aimWobble.y} stroke={`${COLORS.accent}80`} strokeWidth="1" />
+                      <line x1={aimPosition.x + aimWobble.x} y1={aimPosition.y + aimWobble.y - 20} x2={aimPosition.x + aimWobble.x} y2={aimPosition.y + aimWobble.y + 20} stroke={`${COLORS.accent}80`} strokeWidth="1" />
                     </g>
                   )}
                   
@@ -4843,8 +4846,8 @@
                     left: showScorePopup.position.x,
                     top: showScorePopup.position.y - 40,
                     transform: 'translateX(-50%)',
-                    background: showScorePopup.label === '180!!!' ? 'linear-gradient(135deg, #ffd700, #ffed4a)' : showScorePopup.label === 'BUST!' ? '#c41e3a' : showScorePopup.score === 50 ? '#ffd700' : '#228b22',
-                    color: (showScorePopup.score === 50 || showScorePopup.label === '180!!!') ? '#1a1a2e' : '#fff',
+                    background: showScorePopup.label === '180!!!' ? `linear-gradient(135deg, ${COLORS.accent}, ${COLORS.accentLight})` : showScorePopup.label === 'BUST!' ? COLORS.error : showScorePopup.score === 50 ? COLORS.accent : COLORS.success,
+                    color: (showScorePopup.score === 50 || showScorePopup.label === '180!!!') ? COLORS.background : COLORS.text,
                     padding: showScorePopup.label === '180!!!' ? '12px 24px' : '8px 16px',
                     borderRadius: '20px',
                     fontSize: showScorePopup.label === '180!!!' ? '32px' : '20px',
@@ -4852,7 +4855,7 @@
                     animation: 'popUp 0.5s ease-out',
                     pointerEvents: 'none',
                     zIndex: 10,
-                    boxShadow: showScorePopup.label === '180!!!' ? '0 0 30px rgba(255, 215, 0, 0.8)' : 'none'
+                    boxShadow: showScorePopup.label === '180!!!' ? `0 0 30px ${COLORS.accent}CC` : 'none'
                   }}>{showScorePopup.label}</div>
                 )}
               </div>
@@ -4991,7 +4994,7 @@
               )}
               
               <div style={{ width: `min(${BOARD_SIZE}px, 85vw)`, marginTop: '20px' }}>
-                <div style={{ background: 'rgba(255, 255, 255, 0.1)', borderRadius: '10px', height: '30px', overflow: 'hidden', position: 'relative' }}>
+                <div style={{ background: 'rgba(255, 255, 255, 0.05)', borderRadius: '10px', height: '30px', overflow: 'hidden', position: 'relative', border: '1px solid rgba(255, 255, 255, 0.08)' }}>
                   {(() => {
                     // Check if player is aiming at the winning double
                     const currentPlayer = players[currentPlayerIndex];
@@ -5023,16 +5026,16 @@
                     const isInPerfectZone = power > perfectZoneLeft && power < perfectZoneRight;
                     return (
                       <>
-                        <div style={{ height: '100%', width: `${power}%`, background: isInPerfectZone ? 'linear-gradient(90deg, #228b22, #32cd32)' : 'linear-gradient(90deg, #c41e3a, #e74c3c)', transition: isPowerCharging ? 'none' : 'width 0.2s', borderRadius: '10px' }} />
-                        <div style={{ position: 'absolute', left: '50%', top: 0, bottom: 0, width: '4px', marginLeft: '-2px', background: '#ffd700', opacity: 0.5 }} />
-                        <div style={{ position: 'absolute', left: `${perfectZoneLeft}%`, top: 0, bottom: 0, width: `${perfectZoneWidth}%`, background: 'rgba(50, 205, 50, 0.2)', borderRadius: '5px' }} />
+                        <div style={{ height: '100%', width: `${power}%`, background: isInPerfectZone ? `linear-gradient(90deg, ${COLORS.primary}, ${COLORS.primaryLight})` : `linear-gradient(90deg, ${COLORS.error}, #e74c3c)`, transition: isPowerCharging ? 'none' : 'width 0.2s', borderRadius: '10px' }} />
+                        <div style={{ position: 'absolute', left: '50%', top: 0, bottom: 0, width: '4px', marginLeft: '-2px', background: COLORS.accent, opacity: 0.5 }} />
+                        <div style={{ position: 'absolute', left: `${perfectZoneLeft}%`, top: 0, bottom: 0, width: `${perfectZoneWidth}%`, background: `${COLORS.primary}30`, borderRadius: '5px' }} />
                       </>
                     );
                   })()}
                 </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', color: '#888', fontSize: '12px', marginTop: '5px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', color: COLORS.textMuted, fontSize: '11px', marginTop: '5px' }}>
                   <span>WEAK</span>
-                  <span style={{ color: isCheckoutPosition ? '#ffd700' : '#32cd32', fontWeight: isCheckoutPosition ? '700' : 'normal' }}>
+                  <span style={{ color: isCheckoutPosition ? COLORS.accent : COLORS.success, fontWeight: isCheckoutPosition ? '700' : 'normal' }}>
                     {(() => {
                       if (skillLevel <= 40) {
                         return isCheckoutPosition ? 'CHECKOUT!' : 'PERFECT';
@@ -5047,20 +5050,20 @@
                   <span>STRONG</span>
                 </div>
               </div>
-              
-              <p style={{ color: '#888', marginTop: '15px', fontSize: '14px', textAlign: 'center' }}>{isPowerCharging ? 'Release to throw!' : 'Click and hold to charge, release to throw'}</p>
+
+              <p style={{ color: COLORS.textMuted, marginTop: '15px', fontSize: '13px', textAlign: 'center' }}>{isPowerCharging ? 'Release to throw!' : 'Click and hold to charge, release to throw'}</p>
             </div>
             
             {/* History */}
-            <div className="game-history" style={{ background: 'rgba(255, 255, 255, 0.05)', borderRadius: '20px', padding: '25px', minWidth: '200px', maxHeight: '500px', overflowY: 'auto', backdropFilter: 'blur(10px)', border: '1px solid rgba(255, 215, 0, 0.2)' }}>
-              <h2 style={{ color: '#ffd700', margin: '0 0 20px 0', letterSpacing: '3px', fontSize: '18px' }}>HISTORY</h2>
+            <div className="game-history" style={{ background: COLORS.backgroundCard, borderRadius: '16px', padding: '25px', minWidth: '200px', maxHeight: '500px', overflowY: 'auto', backdropFilter: 'blur(10px)', border: `1px solid ${COLORS.accent}30` }}>
+              <h2 style={{ color: COLORS.accent, margin: '0 0 20px 0', letterSpacing: '2px', fontSize: '16px', fontWeight: '700' }}>HISTORY</h2>
               {throwHistory.slice(-15).reverse().map((throw_, index) => (
-                <div key={index} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px', background: 'rgba(255, 255, 255, 0.05)', borderRadius: '8px', marginBottom: '8px', fontSize: '14px' }}>
-                  <span style={{ color: '#888' }}>{players[throw_.player]?.name}</span>
-                  <span style={{ color: throw_.multiplier === 3 ? '#ffd700' : throw_.multiplier === 2 ? '#32cd32' : '#e8d5b7', fontWeight: '600' }}>{throw_.label}</span>
+                <div key={index} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px', background: 'rgba(255, 255, 255, 0.03)', borderRadius: '8px', marginBottom: '8px', fontSize: '13px', border: '1px solid rgba(255, 255, 255, 0.05)' }}>
+                  <span style={{ color: COLORS.textMuted }}>{players[throw_.player]?.name}</span>
+                  <span style={{ color: throw_.multiplier === 3 ? COLORS.accent : throw_.multiplier === 2 ? COLORS.success : COLORS.text, fontWeight: '600' }}>{throw_.label}</span>
                 </div>
               ))}
-              {throwHistory.length === 0 && <p style={{ color: '#666', textAlign: 'center', fontSize: '14px' }}>No throws yet</p>}
+              {throwHistory.length === 0 && <p style={{ color: COLORS.textMuted, textAlign: 'center', fontSize: '13px' }}>No throws yet</p>}
             </div>
           </div>
 
@@ -5195,39 +5198,39 @@
           {/* Stats Modal */}
           {showStats && (
             <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0, 0, 0, 0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }} onClick={() => setShowStats(false)}>
-              <div style={{ background: 'linear-gradient(135deg, #1a1a2e, #16213e)', borderRadius: '20px', padding: '30px', maxWidth: '600px', width: '90%', border: '1px solid rgba(255, 215, 0, 0.3)' }} onClick={e => e.stopPropagation()}>
-                <h2 style={{ color: '#ffd700', margin: '0 0 25px 0', letterSpacing: '3px' }}>GAME STATISTICS</h2>
+              <div style={{ background: COLORS.backgroundCard, borderRadius: '16px', padding: '30px', maxWidth: '600px', width: '90%', border: `1px solid ${COLORS.accent}30` }} onClick={e => e.stopPropagation()}>
+                <h2 style={{ color: COLORS.accent, margin: '0 0 25px 0', letterSpacing: '2px', fontSize: '18px', fontWeight: '700' }}>GAME STATISTICS</h2>
                 {players.map((player, index) => (
-                  <div key={index} style={{ background: 'rgba(255, 255, 255, 0.05)', borderRadius: '15px', padding: '20px', marginBottom: '15px' }}>
-                    <h3 style={{ color: '#e8d5b7', margin: '0 0 15px 0' }}>{player.name}</h3>
+                  <div key={index} style={{ background: 'rgba(255, 255, 255, 0.03)', borderRadius: '12px', padding: '20px', marginBottom: '15px', border: '1px solid rgba(255, 255, 255, 0.05)' }}>
+                    <h3 style={{ color: COLORS.text, margin: '0 0 15px 0', fontSize: '16px', fontWeight: '600' }}>{player.name}</h3>
                     {gameStats[index] ? (
                       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '15px' }}>
-                        <div style={{ textAlign: 'center' }}><div style={{ color: '#ffd700', fontSize: '24px', fontWeight: '700' }}>{gameStats[index].throws}</div><div style={{ color: '#888', fontSize: '12px' }}>Throws</div></div>
-                        <div style={{ textAlign: 'center' }}><div style={{ color: '#ffd700', fontSize: '24px', fontWeight: '700' }}>{gameStats[index].averagePerDart}</div><div style={{ color: '#888', fontSize: '12px' }}>Avg/Dart</div></div>
-                        <div style={{ textAlign: 'center' }}><div style={{ color: '#ffd700', fontSize: '24px', fontWeight: '700' }}>{gameStats[index].highestThrow}</div><div style={{ color: '#888', fontSize: '12px' }}>Best</div></div>
-                        <div style={{ textAlign: 'center' }}><div style={{ color: '#32cd32', fontSize: '24px', fontWeight: '700' }}>{gameStats[index].triples}</div><div style={{ color: '#888', fontSize: '12px' }}>Triples</div></div>
-                        <div style={{ textAlign: 'center' }}><div style={{ color: '#228b22', fontSize: '24px', fontWeight: '700' }}>{gameStats[index].doubles}</div><div style={{ color: '#888', fontSize: '12px' }}>Doubles</div></div>
-                        <div style={{ textAlign: 'center' }}><div style={{ color: '#c41e3a', fontSize: '24px', fontWeight: '700' }}>{gameStats[index].bullseyes}</div><div style={{ color: '#888', fontSize: '12px' }}>Bullseyes</div></div>
+                        <div style={{ textAlign: 'center' }}><div style={{ color: COLORS.accent, fontSize: '24px', fontWeight: '700' }}>{gameStats[index].throws}</div><div style={{ color: COLORS.textMuted, fontSize: '12px' }}>Throws</div></div>
+                        <div style={{ textAlign: 'center' }}><div style={{ color: COLORS.accent, fontSize: '24px', fontWeight: '700' }}>{gameStats[index].averagePerDart}</div><div style={{ color: COLORS.textMuted, fontSize: '12px' }}>Avg/Dart</div></div>
+                        <div style={{ textAlign: 'center' }}><div style={{ color: COLORS.accent, fontSize: '24px', fontWeight: '700' }}>{gameStats[index].highestThrow}</div><div style={{ color: COLORS.textMuted, fontSize: '12px' }}>Best</div></div>
+                        <div style={{ textAlign: 'center' }}><div style={{ color: COLORS.success, fontSize: '24px', fontWeight: '700' }}>{gameStats[index].triples}</div><div style={{ color: COLORS.textMuted, fontSize: '12px' }}>Triples</div></div>
+                        <div style={{ textAlign: 'center' }}><div style={{ color: COLORS.primaryLight, fontSize: '24px', fontWeight: '700' }}>{gameStats[index].doubles}</div><div style={{ color: COLORS.textMuted, fontSize: '12px' }}>Doubles</div></div>
+                        <div style={{ textAlign: 'center' }}><div style={{ color: COLORS.error, fontSize: '24px', fontWeight: '700' }}>{gameStats[index].bullseyes}</div><div style={{ color: COLORS.textMuted, fontSize: '12px' }}>Bullseyes</div></div>
                       </div>
-                    ) : <p style={{ color: '#666', margin: 0 }}>No stats yet</p>}
+                    ) : <p style={{ color: COLORS.textMuted, margin: 0 }}>No stats yet</p>}
                   </div>
                 ))}
-                <button onClick={() => setShowStats(false)} style={{ width: '100%', padding: '15px', background: 'linear-gradient(135deg, #ffd700, #ffed4a)', color: '#1a1a2e', border: 'none', borderRadius: '10px', fontSize: '16px', fontWeight: '600', cursor: 'pointer', fontFamily: "'Oswald', sans-serif" }}>CLOSE</button>
+                <button onClick={() => setShowStats(false)} style={{ width: '100%', padding: '15px', background: `linear-gradient(135deg, ${COLORS.accent}, ${COLORS.accentLight})`, color: COLORS.background, border: 'none', borderRadius: '10px', fontSize: '14px', fontWeight: '600', cursor: 'pointer', fontFamily: "'Inter', sans-serif" }}>CLOSE</button>
               </div>
             </div>
           )}
-          
+
           {/* Winner Modal */}
           {winner && (
             <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0, 0, 0, 0.9)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }}>
               <div style={{ textAlign: 'center', animation: 'fadeIn 0.5s ease-out' }}>
                 <div style={{ fontSize: '100px', marginBottom: '20px' }}>{matchWinner ? '🏆' : '✓'}</div>
-                <h1 style={{ fontSize: '48px', color: '#ffd700', margin: '0 0 10px 0', textShadow: '0 0 30px rgba(255, 215, 0, 0.5)' }}>{winner.name} {matchWinner ? 'WINS THE MATCH!' : 'WINS THE LEG!'}</h1>
-                <p style={{ color: '#e8d5b7', fontSize: '20px', marginBottom: '30px' }}>{matchWinner ? 'Match Complete - Champion Crowned!' : 'Next leg starting soon...'}</p>
+                <h1 style={{ fontSize: '42px', color: COLORS.accent, margin: '0 0 10px 0', textShadow: `0 0 30px ${COLORS.accent}80`, fontWeight: '700' }}>{winner.name} {matchWinner ? 'WINS THE MATCH!' : 'WINS THE LEG!'}</h1>
+                <p style={{ color: COLORS.textMuted, fontSize: '18px', marginBottom: '30px' }}>{matchWinner ? 'Match Complete - Champion Crowned!' : 'Next leg starting soon...'}</p>
                 {matchWinner && (
                   <div style={{ display: 'flex', gap: '15px', justifyContent: 'center' }}>
-                    <button onClick={startGame} style={{ padding: '15px 40px', background: 'linear-gradient(135deg, #228b22, #32cd32)', color: '#fff', border: 'none', borderRadius: '10px', fontSize: '18px', fontWeight: '600', cursor: 'pointer', fontFamily: "'Oswald', sans-serif" }}>PLAY AGAIN</button>
-                    <button onClick={resetGame} style={{ padding: '15px 40px', background: 'rgba(255, 255, 255, 0.1)', color: '#e8d5b7', border: 'none', borderRadius: '10px', fontSize: '18px', fontWeight: '600', cursor: 'pointer', fontFamily: "'Oswald', sans-serif" }}>MAIN MENU</button>
+                    <button onClick={startGame} style={{ padding: '15px 40px', background: `linear-gradient(135deg, ${COLORS.primary}, ${COLORS.primaryLight})`, color: COLORS.text, border: 'none', borderRadius: '10px', fontSize: '16px', fontWeight: '600', cursor: 'pointer', fontFamily: "'Inter', sans-serif" }}>PLAY AGAIN</button>
+                    <button onClick={resetGame} style={{ padding: '15px 40px', background: 'rgba(255, 255, 255, 0.05)', color: COLORS.text, border: '1px solid rgba(255, 255, 255, 0.1)', borderRadius: '10px', fontSize: '16px', fontWeight: '600', cursor: 'pointer', fontFamily: "'Inter', sans-serif" }}>MAIN MENU</button>
                   </div>
                 )}
               </div>
