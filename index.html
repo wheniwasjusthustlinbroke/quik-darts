@@ -1163,6 +1163,7 @@
       const [opponentName, setOpponentName] = useState('');
       const [opponentFlag, setOpponentFlag] = useState('🌍');
       const gameRoomRef = useRef(null); // Firebase room reference
+      const opponentWasConnected = useRef(false); // Track if opponent was ever connected
 
       // Practice mode states
       const [practiceMode, setPracticeMode] = useState(false); // true when in practice mode
@@ -1728,6 +1729,7 @@
         setCurrentTurnThrows([]);
         setGameStats({});
         setLegDartsThrown([0, 0]);
+        opponentWasConnected.current = false; // Reset for new game
 
         // Listen for game state changes
         const roomRef = database.ref(`games/${roomId}`);
@@ -1748,8 +1750,18 @@
           const myPlayer = playerIndex === 0 ? gameData.player1 : gameData.player2;
           const opponent = playerIndex === 0 ? gameData.player2 : gameData.player1;
 
-          // Disconnect detection temporarily disabled - causing false positives
-          // Will re-enable once matchmaking is stable
+          // Track if opponent was ever connected
+          if (opponent.connected === true) {
+            opponentWasConnected.current = true;
+          }
+
+          // Only alert about disconnection if opponent WAS connected before
+          if (opponentWasConnected.current && opponent.connected === false && !gameData.winner) {
+            alert(`${sanitizeName(opponent.name)} has disconnected. Returning to menu.`);
+            opponentWasConnected.current = false; // Reset for next game
+            cancelMatchmaking();
+            return;
+          }
 
           // Sanitize all player names received from Firebase for security
           setPlayers([
