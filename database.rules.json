@@ -5,7 +5,7 @@
       ".indexOn": ["timestamp"],
       "$playerId": {
         ".write": "auth != null && auth.uid === $playerId",
-        ".validate": "!newData.exists() || (newData.hasChildren(['playerId', 'name', 'flag', 'timestamp']) && newData.child('playerId').val() === $playerId && newData.child('name').isString() && newData.child('name').val().length >= 1 && newData.child('name').val().length <= 20 && newData.child('flag').isString() && newData.child('flag').val().length <= 10)"
+        ".validate": "!newData.exists() || (newData.hasChildren(['playerId', 'name', 'flag', 'timestamp']) && newData.child('playerId').val() === $playerId && newData.child('name').isString() && newData.child('name').val().length >= 1 && newData.child('name').val().length <= 20 && newData.child('flag').isString() && newData.child('flag').val().length <= 50)"
       }
     },
     "games": {
@@ -17,7 +17,7 @@
         "player1": {
           "id": { ".validate": "newData.isString() && newData.val().length >= 1 && newData.val().length <= 50" },
           "name": { ".validate": "newData.isString() && newData.val().length >= 1 && newData.val().length <= 20" },
-          "flag": { ".validate": "newData.isString() && newData.val().length <= 10" },
+          "flag": { ".validate": "newData.isString() && newData.val().length <= 50" },
           "score": {
             ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 501 && newData.val() != 1 && (!data.exists() || newData.val() <= data.val() || newData.val() == root.child('games').child($roomId).child('gameMode').val())"
           },
@@ -27,7 +27,7 @@
         "player2": {
           "id": { ".validate": "newData.isString() && newData.val().length >= 1 && newData.val().length <= 50" },
           "name": { ".validate": "newData.isString() && newData.val().length >= 1 && newData.val().length <= 20" },
-          "flag": { ".validate": "newData.isString() && newData.val().length <= 10" },
+          "flag": { ".validate": "newData.isString() && newData.val().length <= 50" },
           "score": {
             ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 501 && newData.val() != 1 && (!data.exists() || newData.val() <= data.val() || newData.val() == root.child('games').child($roomId).child('gameMode').val())"
           },
