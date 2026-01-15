@@ -1518,36 +1518,6 @@
         const myPlayerId = authUser.uid;
         setPlayerId(myPlayerId);
 
-        const now = Date.now();
-
-        // Clean up stale queue entries (older than 90 seconds)
-        queueRef.once('value', (snapshot) => {
-          if (snapshot.exists()) {
-            const queue = snapshot.val();
-            Object.keys(queue).forEach(playerId => {
-              const player = queue[playerId];
-              // Remove if older than 90 seconds
-              if (player.timestamp && (now - player.timestamp > 90000)) {
-                queueRef.child(playerId).remove();
-              }
-            });
-          }
-        });
-
-        // Clean up stale games (older than 1 hour) to prevent data accumulation
-        gamesRef.once('value', (snapshot) => {
-          if (snapshot.exists()) {
-            const games = snapshot.val();
-            Object.keys(games).forEach(roomId => {
-              const game = games[roomId];
-              // Remove games older than 1 hour (3600000ms)
-              if (game.createdAt && (now - game.createdAt > 3600000)) {
-                gamesRef.child(roomId).remove();
-              }
-            });
-          }
-        });
-
         // Small delay to avoid race condition where both players check queue at exact same time
         setTimeout(() => {
           // Look for available opponent in queue
