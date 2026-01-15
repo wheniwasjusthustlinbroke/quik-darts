@@ -1829,7 +1829,8 @@
         // If in an active game, set my connected status to false to notify opponent
         if (gameRoomRef.current && playerId !== null) {
           const myPlayerKey = playerId === 0 ? 'player1' : 'player2';
-          gameRoomRef.current.child(`${myPlayerKey}/connected`).set(false);
+          gameRoomRef.current.child(`${myPlayerKey}/connected`).set(false)
+            .catch(err => console.error('Failed to set disconnected:', err));
         }
 
         // Clear matchmaking interval if it's running
