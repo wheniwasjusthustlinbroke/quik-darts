@@ -5026,9 +5026,9 @@
                     const isInPerfectZone = power > perfectZoneLeft && power < perfectZoneRight;
                     return (
                       <>
-                        <div style={{ height: '100%', width: `${power}%`, background: isInPerfectZone ? `linear-gradient(90deg, ${COLORS.primary}, ${COLORS.primaryLight})` : `linear-gradient(90deg, ${COLORS.error}, #e74c3c)`, transition: isPowerCharging ? 'none' : 'width 0.2s', borderRadius: '10px' }} />
+                        <div style={{ height: '100%', width: `${power}%`, background: isInPerfectZone ? 'linear-gradient(90deg, #228b22, #32cd32)' : `linear-gradient(90deg, ${COLORS.error}, #e74c3c)`, transition: isPowerCharging ? 'none' : 'width 0.2s', borderRadius: '10px' }} />
                         <div style={{ position: 'absolute', left: '50%', top: 0, bottom: 0, width: '4px', marginLeft: '-2px', background: COLORS.accent, opacity: 0.5 }} />
-                        <div style={{ position: 'absolute', left: `${perfectZoneLeft}%`, top: 0, bottom: 0, width: `${perfectZoneWidth}%`, background: `${COLORS.primary}30`, borderRadius: '5px' }} />
+                        <div style={{ position: 'absolute', left: `${perfectZoneLeft}%`, top: 0, bottom: 0, width: `${perfectZoneWidth}%`, background: 'rgba(50, 205, 50, 0.25)', borderRadius: '5px' }} />
                       </>
                     );
                   })()}
