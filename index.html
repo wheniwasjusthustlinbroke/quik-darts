@@ -4282,11 +4282,23 @@
                     width: '100%',
                     padding: '16px 24px',
                     fontSize: '1rem',
-                    marginBottom: '24px',
+                    marginBottom: '12px',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center'
                   }}><TargetIcon size={20} color={COLORS.text} />Practice Mode</button>
+
+                  <button className="btn btn-ghost" onClick={() => setShowAchievements(true)} style={{
+                    width: '100%',
+                    padding: '16px 24px',
+                    fontSize: '1rem',
+                    marginBottom: '24px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: COLORS.accent,
+                    borderColor: `${COLORS.accent}40`
+                  }}><TrophyIcon size={20} color={COLORS.accent} />Achievements</button>
 
                   {/* Divider */}
                   <div style={{ height: '1px', background: `linear-gradient(90deg, transparent, ${COLORS.accent}30, transparent)`, marginBottom: '24px' }} />
