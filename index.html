@@ -1749,8 +1749,12 @@
           const myPlayer = playerIndex === 0 ? gameData.player1 : gameData.player2;
           const opponent = playerIndex === 0 ? gameData.player2 : gameData.player1;
 
-          // Check if opponent disconnected
-          if (opponent.connected === false && !gameData.winner) {
+          // Check if opponent disconnected (only for recent games where we've both connected)
+          const gameAge = Date.now() - (gameData.createdAt || 0);
+          const isRecentGame = gameAge < 3600000; // Less than 1 hour old
+          const bothWereConnected = myPlayer.connected === true && opponent.connected === false;
+
+          if (bothWereConnected && isRecentGame && !gameData.winner) {
             alert(`${sanitizeName(opponent.name)} has disconnected. Returning to menu.`);
             cancelMatchmaking();
             return;
