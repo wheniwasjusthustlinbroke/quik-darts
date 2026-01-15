@@ -1163,6 +1163,7 @@
       const [opponentFlag, setOpponentFlag] = useState('🌍');
       const gameRoomRef = useRef(null); // Firebase room reference
       const opponentWasConnected = useRef(false); // Track if opponent was ever connected
+      const disconnectGraceTimeout = useRef(null); // Grace period timer for reconnection
 
       // Practice mode states
       const [practiceMode, setPracticeMode] = useState(false); // true when in practice mode
@@ -1501,6 +1502,53 @@
         return hasEmoji ? trimmed : '🌍';
       };
 
+      // Validate numeric values from Firebase to prevent data tampering
+      const validateScore = (score, gameMode) => {
+        if (typeof score !== 'number' || !Number.isInteger(score)) return gameMode || 501;
+        if (score < 0 || score > 501 || score === 1) return gameMode || 501;
+        return score;
+      };
+
+      const validatePlayerIndex = (index) => {
+        if (typeof index !== 'number' || !Number.isInteger(index)) return 0;
+        return index === 0 || index === 1 ? index : 0;
+      };
+
+      const validateDartsThrown = (darts) => {
+        if (typeof darts !== 'number' || !Number.isInteger(darts)) return 0;
+        return darts >= 0 && darts <= 3 ? darts : 0;
+      };
+
+      const validateTurnScore = (score) => {
+        if (typeof score !== 'number' || !Number.isInteger(score)) return 0;
+        return score >= 0 && score <= 180 ? score : 0;
+      };
+
+      const validateScoreArray = (arr, defaultValue = 0) => {
+        if (!Array.isArray(arr) || arr.length !== 2) return [defaultValue, defaultValue];
+        return arr.map(val => {
+          if (typeof val !== 'number' || !Number.isInteger(val) || val < 0) return defaultValue;
+          return val;
+        });
+      };
+
+      // Retry wrapper for Firebase operations with exponential backoff
+      const retryFirebaseOperation = async (operation, maxRetries = 3) => {
+        let lastError;
+        for (let attempt = 0; attempt < maxRetries; attempt++) {
+          try {
+            return await operation();
+          } catch (error) {
+            lastError = error;
+            if (attempt < maxRetries - 1) {
+              // Exponential backoff: 100ms, 200ms, 400ms
+              await new Promise(resolve => setTimeout(resolve, 100 * Math.pow(2, attempt)));
+            }
+          }
+        }
+        throw lastError;
+      };
+
       // Start matchmaking - find a random opponent
       const startMatchmaking = useCallback(async () => {
         if (!database) {
@@ -1786,6 +1834,11 @@
         setGameStats({});
         setLegDartsThrown([0, 0]);
         opponentWasConnected.current = false; // Reset for new game
+        // Clear any pending disconnect timeout from previous game
+        if (disconnectGraceTimeout.current) {
+          clearTimeout(disconnectGraceTimeout.current);
+          disconnectGraceTimeout.current = null;
+        }
 
         // Listen for game state changes
         const roomRef = database.ref(`games/${roomId}`);
@@ -1809,41 +1862,53 @@
           // Track if opponent was ever connected
           if (opponent.connected === true) {
             opponentWasConnected.current = true;
-          }
-
-          // Only alert about disconnection if opponent WAS connected before
-          if (opponentWasConnected.current && opponent.connected === false && !gameData.winner) {
-            alert(`${sanitizeName(opponent.name)} has disconnected. Returning to menu.`);
-            opponentWasConnected.current = false; // Reset for next game
-            // Delete the game since opponent already left - prevents stale games
-            const gameRefToDelete = gameRoomRef.current;
-            if (gameRefToDelete) {
-              gameRefToDelete.remove()
-                .catch(err => console.error('Failed to delete game:', err));
+            // Clear any pending disconnect timeout if opponent reconnected
+            if (disconnectGraceTimeout.current) {
+              clearTimeout(disconnectGraceTimeout.current);
+              disconnectGraceTimeout.current = null;
             }
-            cancelMatchmaking();
-            return;
           }
 
-          // Sanitize all player data received from Firebase for security
+          // Only handle disconnection if opponent WAS connected before
+          if (opponentWasConnected.current && opponent.connected === false && !gameData.winner) {
+            // Start grace period if not already started - gives opponent 10s to reconnect
+            if (!disconnectGraceTimeout.current) {
+              const opponentNameSanitized = sanitizeName(opponent.name);
+              disconnectGraceTimeout.current = setTimeout(() => {
+                alert(`${opponentNameSanitized} has disconnected. Returning to menu.`);
+                opponentWasConnected.current = false; // Reset for next game
+                disconnectGraceTimeout.current = null;
+                // Delete the game since opponent already left - prevents stale games
+                const gameRefToDelete = gameRoomRef.current;
+                if (gameRefToDelete) {
+                  gameRefToDelete.remove()
+                    .catch(err => console.error('Failed to delete game:', err));
+                }
+                cancelMatchmaking();
+              }, 10000); // 10 second grace period for reconnection
+            }
+          }
+
+          // Sanitize and validate all player data received from Firebase for security
+          const validatedGameMode = gameData.gameMode === 301 || gameData.gameMode === 501 ? gameData.gameMode : 501;
           setPlayers([
             {
               name: sanitizeName(gameData.player1.name),
               flag: sanitizeFlag(gameData.player1.flag),
-              score: gameData.player1.score,
+              score: validateScore(gameData.player1.score, validatedGameMode),
               isAI: false
             },
             {
               name: sanitizeName(gameData.player2.name),
               flag: sanitizeFlag(gameData.player2.flag),
-              score: gameData.player2.score,
+              score: validateScore(gameData.player2.score, validatedGameMode),
               isAI: false
             }
           ]);
 
-          setCurrentPlayerIndex(gameData.currentPlayer);
-          setDartsThrown(gameData.dartsThrown || 0);
-          setCurrentTurnScore(gameData.currentTurnScore || 0);
+          setCurrentPlayerIndex(validatePlayerIndex(gameData.currentPlayer));
+          setDartsThrown(validateDartsThrown(gameData.dartsThrown));
+          setCurrentTurnScore(validateTurnScore(gameData.currentTurnScore));
 
           // Convert throwHistory from Firebase object to array
           const throwsArray = gameData.throwHistory ? Object.values(gameData.throwHistory) : [];
@@ -1853,12 +1918,12 @@
           const dartsArray = gameData.dartPositions ? Object.values(gameData.dartPositions) : [];
           setDartPositions(dartsArray);
 
-          setLegScores(gameData.legScores || [0, 0]);
-          setSetScores(gameData.setScores || [0, 0]);
+          setLegScores(validateScoreArray(gameData.legScores, 0));
+          setSetScores(validateScoreArray(gameData.setScores, 0));
 
           // Check for winner
           if (gameData.winner !== undefined) {
-            const winnerIndex = gameData.winner;
+            const winnerIndex = validatePlayerIndex(gameData.winner);
             setMatchWinner(winnerIndex === playerIndex ? myPlayer : opponent);
           }
         }, (error) => {
@@ -1869,7 +1934,7 @@
         });
       }, [database]);
 
-      // Sync throw to Firebase
+      // Sync throw to Firebase with retry logic
       const syncThrowToFirebase = useCallback((throwData) => {
         if (!onlineMode || !gameRoomRef.current) return;
 
@@ -1888,8 +1953,10 @@
           [`${playerKey}/score`]: throwData.newScore
         };
 
-        gameRoomRef.current.update(updates)
-          .catch(err => console.error('Failed to sync throw to Firebase:', err));
+        // Capture ref for retry closure
+        const roomRef = gameRoomRef.current;
+        retryFirebaseOperation(() => roomRef.update(updates))
+          .catch(err => console.error('Failed to sync throw to Firebase after retries:', err));
       }, [onlineMode, playerId]);
 
       // Cancel matchmaking
@@ -1905,6 +1972,12 @@
         if (matchmakingIntervalRef.current) {
           clearInterval(matchmakingIntervalRef.current);
           matchmakingIntervalRef.current = null;
+        }
+
+        // Clear disconnect grace period timeout if running
+        if (disconnectGraceTimeout.current) {
+          clearTimeout(disconnectGraceTimeout.current);
+          disconnectGraceTimeout.current = null;
         }
 
         // Remove from queue if still in matchmaking (use auth ID, not player index)
@@ -2104,11 +2177,12 @@
 
             // In online mode, sync winner to Firebase and schedule game deletion
             if (onlineMode && gameRoomRef.current) {
-              // Update Firebase with winner so opponent sees it
-              gameRoomRef.current.update({
+              // Update Firebase with winner so opponent sees it (with retry)
+              const roomRef = gameRoomRef.current;
+              retryFirebaseOperation(() => roomRef.update({
                 winner: playerIndex,
                 status: 'finished'
-              }).catch(err => console.error('Failed to update winner:', err));
+              })).catch(err => console.error('Failed to update winner after retries:', err));
 
               // Delete the game after 10 seconds (enough time for both to see result)
               setTimeout(() => {
