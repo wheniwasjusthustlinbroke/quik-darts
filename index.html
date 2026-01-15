@@ -9,7 +9,7 @@
   <meta http-equiv="X-Frame-Options" content="DENY">
   <meta name="referrer" content="strict-origin-when-cross-origin">
   <!-- CSP: Allow scripts from trusted CDNs only, no inline scripts except for babel-compiled code -->
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdnjs.cloudflare.com https://www.gstatic.com https://unpkg.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; connect-src 'self' https://*.firebaseio.com https://*.firebasedatabase.app wss://*.firebaseio.com; img-src 'self' data:; frame-ancestors 'none';">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdnjs.cloudflare.com https://www.gstatic.com https://unpkg.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; connect-src 'self' https://*.firebaseio.com https://*.firebasedatabase.app wss://*.firebaseio.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com; img-src 'self' data:; frame-ancestors 'none';">
 
   <meta name="description" content="Quik Darts - Championship-style online darts. Play solo, challenge friends, or compete online. No download required.">
   <title>Quik Darts - Championship Edition</title>
@@ -36,6 +36,7 @@
 
   <!-- Firebase SDKs with SRI -->
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js" integrity="sha384-yuGdyIzzYtOBlBG6JOWn+Ey9kpq7HocusNuxEGyyohr1eEyXpeEyehIIXC/hznw4" crossorigin="anonymous"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js" crossorigin="anonymous"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js" integrity="sha384-M6AmjBRXEjkdGzRN1Y94xtkmblFbYBSLkqzyZ8rPvpRM2c48nhjIRFXVvUM/VATL" crossorigin="anonymous"></script>
   <style>
     /* CSS Custom Properties - Design System */
@@ -408,14 +409,41 @@
 
     // Initialize Firebase
     let database = null;
+    let auth = null;
+    let currentAuthUser = null;
+
+    // Promise that resolves when auth is ready
+    let authReadyResolve;
+    const authReadyPromise = new Promise(resolve => { authReadyResolve = resolve; });
+
     try {
       if (!firebase.apps.length) {
         firebase.initializeApp(firebaseConfig);
       }
       database = firebase.database();
+      auth = firebase.auth();
+
+      // Listen for auth state changes
+      auth.onAuthStateChanged((user) => {
+        if (user) {
+          currentAuthUser = user;
+          console.log('Authenticated as:', user.uid);
+          authReadyResolve(user);
+        } else {
+          // Sign in anonymously if not authenticated
+          auth.signInAnonymously().catch((error) => {
+            console.warn('Anonymous auth failed:', error);
+            authReadyResolve(null);
+          });
+        }
+      });
     } catch (error) {
       console.warn('Firebase not configured. Online multiplayer disabled.', error);
+      authReadyResolve(null);
     }
+
+    // Helper function to get authenticated user ID (for matchmaking)
+    const getAuthUserId = () => currentAuthUser ? currentAuthUser.uid : null;
 
     // Menu Icon Components (defined outside component to prevent recreation on each render)
     const DartIcon = ({ size = 20, color = 'currentColor' }) => (
@@ -1465,7 +1493,7 @@
       };
 
       // Start matchmaking - find a random opponent
-      const startMatchmaking = useCallback(() => {
+      const startMatchmaking = useCallback(async () => {
         if (!database) {
           alert('Firebase not configured. Please add your Firebase credentials to play online.');
           return;
@@ -1481,8 +1509,17 @@
         const queueRef = database.ref('matchmaking_queue');
         const gamesRef = database.ref('games');
 
-        // Generate unique player ID
-        const myPlayerId = database.ref().push().key;
+        // Wait for authentication and use auth UID as player ID
+        const authUser = await authReadyPromise;
+        if (!authUser) {
+          console.error('Authentication required for online play');
+          setMatchmakingState('idle');
+          setOnlineMode(false);
+          return;
+        }
+
+        // Use authenticated user ID (prevents spoofing/spam)
+        const myPlayerId = authUser.uid;
         setPlayerId(myPlayerId);
 
         const now = Date.now();
@@ -2960,8 +2997,8 @@
               if (!completedChallenges.includes(activeChallenge.id)) {
                 completedChallenges.push(activeChallenge.id);
               }
-              // Sync completion to Firebase for global tracking
-              if (database) {
+              // Sync completion to Firebase for global tracking (requires auth)
+              if (database && currentAuthUser) {
                 try {
                   database.ref('weekly_completions/' + activeChallenge.id).transaction(count => (count || 0) + 1);
                 } catch (error) {
