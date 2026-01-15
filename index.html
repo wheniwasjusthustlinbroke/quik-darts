@@ -1473,16 +1473,23 @@
           return;
         }
 
+        // Rate limiting: Prevent spamming matchmaking button
+        if (matchmakingState === 'searching') {
+          return; // Already searching
+        }
+
         setMatchmakingState('searching');
         setOnlineMode(true);
         const queueRef = database.ref('matchmaking_queue');
+        const gamesRef = database.ref('games');
 
         // Generate unique player ID
         const myPlayerId = database.ref().push().key;
         setPlayerId(myPlayerId);
 
-        // Clean up stale queue entries (older than 90 seconds)
         const now = Date.now();
+
+        // Clean up stale queue entries (older than 90 seconds)
         queueRef.once('value', (snapshot) => {
           if (snapshot.exists()) {
             const queue = snapshot.val();
@@ -1491,6 +1498,20 @@
               // Remove if older than 90 seconds
               if (player.timestamp && (now - player.timestamp > 90000)) {
                 queueRef.child(playerId).remove();
+              }
+            });
+          }
+        });
+
+        // Clean up stale games (older than 1 hour) to prevent data accumulation
+        gamesRef.once('value', (snapshot) => {
+          if (snapshot.exists()) {
+            const games = snapshot.val();
+            Object.keys(games).forEach(roomId => {
+              const game = games[roomId];
+              // Remove games older than 1 hour (3600000ms)
+              if (game.createdAt && (now - game.createdAt > 3600000)) {
+                gamesRef.child(roomId).remove();
               }
             });
           }

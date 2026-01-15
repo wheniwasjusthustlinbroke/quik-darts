@@ -5,18 +5,26 @@
       ".indexOn": ["timestamp"],
       "$playerId": {
         ".write": true,
-        ".validate": "!newData.exists() || (newData.hasChildren(['playerId', 'name', 'flag', 'timestamp']) && newData.child('name').isString() && newData.child('name').val().length <= 20)"
+        ".validate": "!newData.exists() || (newData.hasChildren(['playerId', 'name', 'flag', 'timestamp']) && newData.child('playerId').val() === $playerId && newData.child('name').isString() && newData.child('name').val().length >= 1 && newData.child('name').val().length <= 20 && newData.child('flag').isString() && newData.child('flag').val().length <= 10)"
       }
     },
     "games": {
       ".read": true,
-      ".indexOn": ["player1/id"],
+      ".indexOn": ["player1/id", "createdAt"],
       "$roomId": {
         ".write": true,
-        "player1": { "score": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 501" } },
-        "player2": { "score": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 501" } },
+        ".validate": "newData.hasChildren(['player1', 'player2', 'currentPlayer', 'status', 'createdAt'])",
+        "player1": {
+          "score": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 501" },
+          "name": { ".validate": "newData.isString() && newData.val().length <= 20" }
+        },
+        "player2": {
+          "score": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 501" },
+          "name": { ".validate": "newData.isString() && newData.val().length <= 20" }
+        },
         "currentPlayer": { ".validate": "newData.isNumber() && (newData.val() === 0 || newData.val() === 1)" },
-        "dartsThrown": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 3" }
+        "dartsThrown": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 3" },
+        "status": { ".validate": "newData.isString() && (newData.val() === 'playing' || newData.val() === 'finished')" }
       }
     },
     "weekly_completions": {
