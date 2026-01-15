@@ -1158,7 +1158,8 @@
       const [onlineMode, setOnlineMode] = useState(false); // true when in online multiplayer
       const [matchmakingState, setMatchmakingState] = useState(null); // null, 'searching', 'found', 'playing'
       const [gameRoomId, setGameRoomId] = useState(null); // Firebase room ID
-      const [playerId, setPlayerId] = useState(null); // Player 1 or Player 2
+      const [playerId, setPlayerId] = useState(null); // Player index (0 or 1) in the game
+      const [myAuthId, setMyAuthId] = useState(null); // Auth UID for matchmaking queue
       const [opponentName, setOpponentName] = useState('');
       const [opponentFlag, setOpponentFlag] = useState('🌍');
       const gameRoomRef = useRef(null); // Firebase room reference
@@ -1516,7 +1517,7 @@
 
         // Use authenticated user ID (prevents spoofing/spam)
         const myPlayerId = authUser.uid;
-        setPlayerId(myPlayerId);
+        setMyAuthId(myPlayerId);
 
         // Small delay to avoid race condition where both players check queue at exact same time
         setTimeout(() => {
@@ -1830,9 +1831,9 @@
           matchmakingIntervalRef.current = null;
         }
 
-        // Remove from queue if still in matchmaking
-        if (playerId && database) {
-          database.ref('matchmaking_queue').child(playerId).remove();
+        // Remove from queue if still in matchmaking (use auth ID, not player index)
+        if (myAuthId && database) {
+          database.ref('matchmaking_queue').child(myAuthId).remove();
         }
 
         // Clean up game room listener
@@ -1845,8 +1846,9 @@
         setOnlineMode(false);
         setGameRoomId(null);
         setPlayerId(null);
+        setMyAuthId(null);
         setGameState('menu');
-      }, [playerId, database]);
+      }, [myAuthId, database]);
 
       // Leave online game
       const leaveOnlineGame = useCallback(() => {
@@ -2613,11 +2615,11 @@
           if (gameRoomRef.current) {
             gameRoomRef.current.off();
           }
-          if (playerId && database && onlineMode) {
-            database.ref('matchmaking_queue').child(playerId).remove();
+          if (myAuthId && database && onlineMode) {
+            database.ref('matchmaking_queue').child(myAuthId).remove();
           }
         };
-      }, [onlineMode, playerId, database]);
+      }, [onlineMode, myAuthId, database]);
 
       useEffect(() => {
         const currentPlayer = players[currentPlayerIndex];
