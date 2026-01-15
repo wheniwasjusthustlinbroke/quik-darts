@@ -15,23 +15,43 @@
         ".write": true,
         ".validate": "newData.hasChildren(['player1', 'player2', 'currentPlayer', 'status', 'createdAt'])",
         "player1": {
-          "score": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 501" },
-          "name": { ".validate": "newData.isString() && newData.val().length <= 20" }
+          "id": { ".validate": "newData.isString() && newData.val().length >= 1 && newData.val().length <= 50" },
+          "name": { ".validate": "newData.isString() && newData.val().length >= 1 && newData.val().length <= 20" },
+          "flag": { ".validate": "newData.isString() && newData.val().length <= 10" },
+          "score": {
+            ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 501 && newData.val() != 1 && (!data.exists() || newData.val() <= data.val() || newData.val() == root.child('games').child($roomId).child('gameMode').val())"
+          },
+          "ready": { ".validate": "newData.isBoolean()" },
+          "connected": { ".validate": "newData.isBoolean()" }
         },
         "player2": {
-          "score": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 501" },
-          "name": { ".validate": "newData.isString() && newData.val().length <= 20" }
+          "id": { ".validate": "newData.isString() && newData.val().length >= 1 && newData.val().length <= 50" },
+          "name": { ".validate": "newData.isString() && newData.val().length >= 1 && newData.val().length <= 20" },
+          "flag": { ".validate": "newData.isString() && newData.val().length <= 10" },
+          "score": {
+            ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 501 && newData.val() != 1 && (!data.exists() || newData.val() <= data.val() || newData.val() == root.child('games').child($roomId).child('gameMode').val())"
+          },
+          "ready": { ".validate": "newData.isBoolean()" },
+          "connected": { ".validate": "newData.isBoolean()" }
         },
         "currentPlayer": { ".validate": "newData.isNumber() && (newData.val() === 0 || newData.val() === 1)" },
         "dartsThrown": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 3" },
-        "status": { ".validate": "newData.isString() && (newData.val() === 'playing' || newData.val() === 'finished')" }
+        "currentTurnScore": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 180" },
+        "gameMode": { ".validate": "newData.isNumber() && (newData.val() === 301 || newData.val() === 501)" },
+        "status": { ".validate": "newData.isString() && (newData.val() === 'playing' || newData.val() === 'finished')" },
+        "legScores": { ".validate": "newData.hasChildren()" },
+        "setScores": { ".validate": "newData.hasChildren()" },
+        "throwHistory": { ".validate": true },
+        "dartPositions": { ".validate": true },
+        "createdAt": { ".validate": "newData.isNumber()" },
+        "winner": { ".validate": "newData.isNumber() && (newData.val() === 0 || newData.val() === 1)" }
       }
     },
     "weekly_completions": {
       "$challengeId": {
         ".read": true,
         ".write": true,
-        ".validate": "!newData.exists() || newData.isNumber()"
+        ".validate": "!newData.exists() || (newData.isNumber() && newData.val() >= 0 && newData.val() <= 100000 && (!data.exists() || newData.val() === data.val() + 1))"
       }
     },
     "$other": {

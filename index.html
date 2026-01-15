@@ -1453,16 +1453,14 @@
 
       // ========== ONLINE MULTIPLAYER FUNCTIONS ==========
 
-      // Sanitize player name for security
-      // Removes HTML tags, script injection attempts, and special characters
+      // Whitelist-based sanitization for player names
+      // Only allows safe characters - much more secure than blacklist approach
       const sanitizeName = (name) => {
         if (!name || typeof name !== 'string') return 'Player';
         return name
-          .slice(0, 20)                           // Limit length
-          .replace(/[<>'"&`\\\/]/g, '')          // Remove HTML/injection chars
-          .replace(/javascript:/gi, '')           // Remove javascript: protocol
-          .replace(/on\w+=/gi, '')               // Remove event handlers (onclick=, etc.)
-          .replace(/[\x00-\x1F\x7F]/g, '')       // Remove control characters
+          .slice(0, 20)                                    // Limit length first
+          .replace(/[^a-zA-Z0-9\s\-_.!?]/g, '')           // Whitelist: only letters, numbers, spaces, -_.!?
+          .replace(/\s+/g, ' ')                            // Collapse multiple spaces
           .trim() || 'Player';
       };
 
