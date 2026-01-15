@@ -2334,7 +2334,7 @@
             perfectZoneWidth = 2; // Ultra-small zone for winning double
           } else {
             const baseZoneWidth = 10;
-            const shrinkRate = skillLevel >= 81 ? 3 : 2.5; // 2.5% for 41-80%, 3% for 81%+
+            const shrinkRate = (onlineMode || skillLevel >= 81) ? 3 : 2.5; // 3% for online/expert, 2.5% for intermediate
             perfectZoneWidth = Math.max(baseZoneWidth - (triplesHit * shrinkRate), 4);
           }
         }
@@ -5194,7 +5194,7 @@
                         perfectZoneWidth = 2; // Ultra-small zone for winning double
                       } else {
                         const baseZoneWidth = 10;
-                        const shrinkRate = skillLevel >= 81 ? 3 : 2.5; // 2.5% for 41-80%, 3% for 81%+
+                        const shrinkRate = (onlineMode || skillLevel >= 81) ? 3 : 2.5; // 3% for online/expert, 2.5% for intermediate
                         perfectZoneWidth = Math.max(baseZoneWidth - (triplesHit * shrinkRate), 4);
                       }
                     }
@@ -5218,7 +5218,7 @@
                       if (skillLevel <= 40) {
                         return isCheckoutPosition ? 'CHECKOUT!' : 'PERFECT';
                       }
-                      const shrinkRate = skillLevel >= 81 ? 3 : 2.5;
+                      const shrinkRate = (onlineMode || skillLevel >= 81) ? 3 : 2.5;
                       const totalShrink = triplesHit > 0 ? triplesHit * shrinkRate : 0;
                       return isCheckoutPosition
                         ? `CHECKOUT! ${totalShrink > 0 ? `(-${totalShrink}%)` : ''}`
