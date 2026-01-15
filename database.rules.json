@@ -1,18 +1,18 @@
 {
   "rules": {
     "matchmaking_queue": {
-      ".read": true,
+      ".read": "auth != null",
       ".indexOn": ["timestamp"],
       "$playerId": {
-        ".write": true,
+        ".write": "auth != null && auth.uid === $playerId",
         ".validate": "!newData.exists() || (newData.hasChildren(['playerId', 'name', 'flag', 'timestamp']) && newData.child('playerId').val() === $playerId && newData.child('name').isString() && newData.child('name').val().length >= 1 && newData.child('name').val().length <= 20 && newData.child('flag').isString() && newData.child('flag').val().length <= 10)"
       }
     },
     "games": {
-      ".read": true,
+      ".read": "auth != null",
       ".indexOn": ["player1/id", "createdAt"],
       "$roomId": {
-        ".write": true,
+        ".write": "auth != null && (!data.exists() || data.child('player1/id').val() === auth.uid || data.child('player2/id').val() === auth.uid)",
         ".validate": "newData.hasChildren(['player1', 'player2', 'currentPlayer', 'status', 'createdAt'])",
         "player1": {
           "id": { ".validate": "newData.isString() && newData.val().length >= 1 && newData.val().length <= 50" },
@@ -49,8 +49,8 @@
     },
     "weekly_completions": {
       "$challengeId": {
-        ".read": true,
-        ".write": true,
+        ".read": "auth != null",
+        ".write": "auth != null",
         ".validate": "!newData.exists() || (newData.isNumber() && newData.val() >= 0 && newData.val() <= 100000 && (!data.exists() || newData.val() === data.val() + 1))"
       }
     },
