@@ -4383,26 +4383,31 @@
               <li><button className="nav-cta" onClick={() => onNavigate('menu')}>Play Now</button></li>
               <li>
                 {currentUser && !currentUser.isAnonymous ? (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', position: 'relative' }}>
-                    <button onClick={() => setShowLoginModal(true)} style={{
-                      display: 'flex',
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    {currentUser.photoURL ? (
+                      <img
+                        src={currentUser.photoURL}
+                        alt={currentUser.displayName || 'Profile'}
+                        style={{ width: '36px', height: '36px', borderRadius: '50%', border: `2px solid ${COLORS.accent}` }}
+                        referrerPolicy="no-referrer"
+                        onError={(e) => { e.target.style.display = 'none'; e.target.nextSibling.style.display = 'flex'; }}
+                      />
+                    ) : null}
+                    <div style={{
+                      width: '36px',
+                      height: '36px',
+                      borderRadius: '50%',
+                      background: `linear-gradient(135deg, ${COLORS.accent}, ${COLORS.accentDark})`,
+                      display: currentUser.photoURL ? 'none' : 'flex',
                       alignItems: 'center',
-                      gap: '8px',
-                      background: 'none',
-                      border: 'none',
-                      cursor: 'pointer',
-                      padding: '4px 8px',
-                      borderRadius: '20px',
-                      color: COLORS.text
+                      justifyContent: 'center',
+                      color: COLORS.textDark,
+                      fontWeight: '700',
+                      fontSize: '16px',
+                      border: `2px solid ${COLORS.accentLight}`
                     }}>
-                      {currentUser.photoURL ? (
-                        <img src={currentUser.photoURL} alt="" style={{ width: '32px', height: '32px', borderRadius: '50%' }} />
-                      ) : (
-                        <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: COLORS.accent, display: 'flex', alignItems: 'center', justifyContent: 'center', color: COLORS.textDark, fontWeight: '600', fontSize: '14px' }}>
-                          {(currentUser.displayName || currentUser.email || 'U')[0].toUpperCase()}
-                        </div>
-                      )}
-                    </button>
+                      {(currentUser.displayName || currentUser.email || 'U')[0].toUpperCase()}
+                    </div>
                     <button onClick={handleSignOut} style={{
                       background: 'none',
                       border: '1px solid rgba(255,255,255,0.2)',
