@@ -8,7 +8,7 @@
   <meta http-equiv="X-Content-Type-Options" content="nosniff">
   <meta name="referrer" content="strict-origin-when-cross-origin">
   <!-- CSP: Allow scripts from trusted CDNs only -->
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdnjs.cloudflare.com https://www.gstatic.com https://apis.google.com https://unpkg.com https://*.firebasedatabase.app; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; connect-src 'self' https://*.firebaseio.com https://*.firebasedatabase.app wss://*.firebaseio.com wss://*.firebasedatabase.app https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://unpkg.com https://www.gstatic.com; frame-src https://*.firebaseapp.com https://*.firebasedatabase.app; img-src 'self' data: https: blob:;">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdnjs.cloudflare.com https://www.gstatic.com https://apis.google.com https://unpkg.com https://*.firebasedatabase.app; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; connect-src 'self' https://*.firebaseio.com https://*.firebasedatabase.app wss://*.firebaseio.com wss://*.firebasedatabase.app https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://unpkg.com https://www.gstatic.com https://*.cloudfunctions.net; frame-src https://*.firebaseapp.com https://*.firebasedatabase.app; img-src 'self' data: https: blob:;">
 
   <meta name="description" content="Quik Darts - Championship-style online darts. Play solo, challenge friends, or compete online. No download required.">
   <title>Quik Darts - Championship Edition</title>
@@ -37,6 +37,7 @@
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js" integrity="sha384-yuGdyIzzYtOBlBG6JOWn+Ey9kpq7HocusNuxEGyyohr1eEyXpeEyehIIXC/hznw4" crossorigin="anonymous"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js" integrity="sha384-lI+CxEx/bCvWP1b0OK13j5HTrTZP7yf1xle8TVOFq2smz6KC1RChTarRV/RHP5PP" crossorigin="anonymous"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js" integrity="sha384-M6AmjBRXEjkdGzRN1Y94xtkmblFbYBSLkqzyZ8rPvpRM2c48nhjIRFXVvUM/VATL" crossorigin="anonymous"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-functions-compat.js" crossorigin="anonymous"></script>
   <style>
     /* CSS Custom Properties - Design System */
     :root {
@@ -409,6 +410,7 @@
     // Initialize Firebase
     let database = null;
     let auth = null;
+    let functions = null;
     let currentAuthUser = null;
 
     // Promise that resolves when auth is ready
@@ -421,6 +423,8 @@
       }
       database = firebase.database();
       auth = firebase.auth();
+      // Initialize Firebase Functions with europe-west1 region (matches deployed functions)
+      functions = firebase.app().functions('europe-west1');
 
       // Listen for auth state changes
       auth.onAuthStateChanged((user) => {
@@ -1632,7 +1636,7 @@
         // Small delay to avoid race condition where both players check queue at exact same time
         setTimeout(() => {
           // Look for available opponent in queue
-          queueRef.orderByChild('timestamp').limitToFirst(1).once('value', (snapshot) => {
+          queueRef.orderByChild('timestamp').limitToFirst(1).once('value', async (snapshot) => {
           if (snapshot.exists()) {
             // Found an opponent - join their game
             const opponentId = Object.keys(snapshot.val())[0];
@@ -1654,47 +1658,50 @@
             // Note: Opponent will remove themselves from queue when they find the game
             // (we can't remove their entry due to auth rules)
 
-            // Create game room
-            const roomId = database.ref().push().key;
-            setGameRoomId(roomId);
-            gameRoomRef.current = database.ref(`games/${roomId}`);
+            // Create game room via Cloud Function (server-authoritative)
+            if (!functions) {
+              console.error('Cloud Functions not available');
+              alert('Online play is temporarily unavailable. Please try again later.');
+              cancelMatchmaking();
+              return;
+            }
 
-            // Set up game data (sanitize opponent name from Firebase for security)
-            gameRoomRef.current.set({
-              player1: {
-                id: opponentData.playerId,
-                name: sanitizeName(opponentData.name),
-                flag: sanitizeFlag(opponentData.flag),
-                score: playerSetup.gameMode,
-                ready: true
-                // connected will be set when player1 joins
-              },
-              player2: {
-                id: myPlayerId,
-                name: sanitizeName(playerSetup.names[0]) || 'Player 2',
-                flag: sanitizeFlag(playerSetup.flags[0]) || '🌍',
-                score: playerSetup.gameMode,
-                ready: true,
-                connected: true  // Set immediately so player1 can find this game
-              },
-              currentPlayer: 0,
-              gameMode: playerSetup.gameMode,
-              dartsThrown: 0,
-              currentTurnScore: 0,
-              throwHistory: {},
-              dartPositions: {},
-              legScores: [0, 0],
-              setScores: [0, 0],
-              status: 'playing',
-              createdAt: firebase.database.ServerValue.TIMESTAMP
-            });
+            try {
+              const createGameFn = functions.httpsCallable('createGame');
+              const result = await createGameFn({
+                player1Id: opponentData.playerId,
+                player1Name: sanitizeName(opponentData.name),
+                player1Flag: sanitizeFlag(opponentData.flag),
+                player2Id: myPlayerId,
+                player2Name: sanitizeName(playerSetup.names[0]) || 'Player 2',
+                player2Flag: sanitizeFlag(playerSetup.flags[0]) || '🌍',
+                gameMode: playerSetup.gameMode,
+                isWagered: false
+              });
 
-            setOpponentName(sanitizeName(opponentData.name));
-            setOpponentFlag(sanitizeFlag(opponentData.flag));
-            setMatchmakingState('found');
+              if (!result.data.success || !result.data.gameId) {
+                console.error('Failed to create game:', result.data.error);
+                alert('Failed to create game. Please try again.');
+                cancelMatchmaking();
+                return;
+              }
 
-            // Start game as player 2
-            setTimeout(() => startOnlineGame(roomId, 1), 1500);
+              const roomId = result.data.gameId;
+              setGameRoomId(roomId);
+              gameRoomRef.current = database.ref(`games/${roomId}`);
+
+              setOpponentName(sanitizeName(opponentData.name));
+              setOpponentFlag(sanitizeFlag(opponentData.flag));
+              setMatchmakingState('found');
+
+              // Start game as player 2
+              setTimeout(() => startOnlineGame(roomId, 1), 1500);
+            } catch (error) {
+              console.error('Error creating game:', error);
+              alert('Failed to create game. Please try again.');
+              cancelMatchmaking();
+              return;
+            }
 
           } else {
             // No opponent found - add self to queue
@@ -1793,7 +1800,7 @@
                   });
                 } else {
                   // Also check if there are OTHER players waiting in queue we can join
-                  queueRef.orderByChild('timestamp').limitToFirst(2).once('value', (queueSnapshot) => {
+                  queueRef.orderByChild('timestamp').limitToFirst(2).once('value', async (queueSnapshot) => {
                     if (queueSnapshot.exists()) {
                       const queuePlayers = queueSnapshot.val();
                       // Find first player that isn't us
@@ -1811,60 +1818,53 @@
                         // Remove myself from queue (other player removes themselves when they find the game)
                         queueRef.child(myPlayerId).remove();
 
-                        // Create game room
-                        const roomId = database.ref().push().key;
-                        setGameRoomId(roomId);
-                        gameRoomRef.current = database.ref(`games/${roomId}`);
+                        // Create game room via Cloud Function (server-authoritative)
+                        if (!functions) {
+                          console.error('Cloud Functions not available');
+                          return;
+                        }
 
-                        // Set up game data with other player as player1 (sanitize name from Firebase)
-                        gameRoomRef.current.set({
-                          player1: {
-                            id: otherPlayer.playerId,
-                            name: sanitizeName(otherPlayer.name),
-                            flag: sanitizeFlag(otherPlayer.flag),
-                            score: playerSetup.gameMode,
-                            ready: true
-                            // connected will be set when player1 joins
-                          },
-                          player2: {
-                            id: myPlayerId,
-                            name: sanitizeName(playerSetup.names[0]) || 'Player 2',
-                            flag: sanitizeFlag(playerSetup.flags[0]) || '🌍',
-                            score: playerSetup.gameMode,
-                            ready: true,
-                            connected: true  // Set immediately so player1 can find this game
-                          },
-                          currentPlayer: 0,
-                          gameMode: playerSetup.gameMode,
-                          dartsThrown: 0,
-                          currentTurnScore: 0,
-                          throwHistory: {},
-                          dartPositions: {},
-                          legScores: [0, 0],
-                          setScores: [0, 0],
-                          status: 'playing',
-                          createdAt: firebase.database.ServerValue.TIMESTAMP
-                        });
-
-                        // IMPORTANT: Register onDisconnect FIRST and wait for it to complete
-                        // This ensures if Chrome closes immediately, Firebase will set connected=false
-                        gameRoomRef.current.child('player2/connected').onDisconnect().set(false).then(() => {
-                          // Start heartbeat for disconnect detection (I'm player2, opponent is player1)
-                          startHeartbeat(gameRoomRef.current, 'player2', 'player1', () => {
-                            stopHeartbeat();
-                            alert('Opponent disconnected. Returning to menu.');
-                            if (gameRoomRef.current) {
-                              gameRoomRef.current.remove().catch(() => {});
-                            }
-                            cancelMatchmaking();
+                        try {
+                          const createGameFn = functions.httpsCallable('createGame');
+                          const result = await createGameFn({
+                            player1Id: otherPlayer.playerId,
+                            player1Name: sanitizeName(otherPlayer.name),
+                            player1Flag: sanitizeFlag(otherPlayer.flag),
+                            player2Id: myPlayerId,
+                            player2Name: sanitizeName(playerSetup.names[0]) || 'Player 2',
+                            player2Flag: sanitizeFlag(playerSetup.flags[0]) || '🌍',
+                            gameMode: playerSetup.gameMode,
+                            isWagered: false
                           });
 
-                          setOpponentName(sanitizeName(otherPlayer.name));
-                          setOpponentFlag(sanitizeFlag(otherPlayer.flag));
-                          setMatchmakingState('found');
+                          if (!result.data.success || !result.data.gameId) {
+                            console.error('Failed to create game:', result.data.error);
+                            return;
+                          }
 
-                          setTimeout(() => startOnlineGame(roomId, 1), 1500);
-                        });
+                          const roomId = result.data.gameId;
+                          setGameRoomId(roomId);
+                          gameRoomRef.current = database.ref(`games/${roomId}`);
+
+                          // IMPORTANT: Register onDisconnect FIRST and wait for it to complete
+                          // This ensures if Chrome closes immediately, Firebase will set connected=false
+                          gameRoomRef.current.child('player2/connected').onDisconnect().set(false).then(() => {
+                            // Start heartbeat for disconnect detection (I'm player2, opponent is player1)
+                            startHeartbeat(gameRoomRef.current, 'player2', 'player1', () => {
+                              stopHeartbeat();
+                              alert('Opponent disconnected. Returning to menu.');
+                              cancelMatchmaking();
+                            });
+
+                            setOpponentName(sanitizeName(otherPlayer.name));
+                            setOpponentFlag(sanitizeFlag(otherPlayer.flag));
+                            setMatchmakingState('found');
+
+                            setTimeout(() => startOnlineGame(roomId, 1), 1500);
+                          });
+                        } catch (error) {
+                          console.error('Error creating game:', error);
+                        }
                       }
                     }
                   });
@@ -2053,30 +2053,42 @@
         });
       }, [database]);
 
-      // Sync throw to Firebase with retry logic
-      const syncThrowToFirebase = useCallback((throwData) => {
-        if (!onlineMode || !gameRoomRef.current) return;
+      // Sync throw to Firebase via Cloud Function (server-authoritative)
+      // SECURITY: No fallback to direct writes - all throws MUST go through Cloud Function
+      const syncThrowToFirebase = useCallback(async (throwData) => {
+        if (!onlineMode || !gameRoomId) return;
 
-        // Generate keys for push operations
-        const throwKey = gameRoomRef.current.child('throwHistory').push().key;
-        const dartKey = gameRoomRef.current.child('dartPositions').push().key;
-        const playerKey = playerId === 0 ? 'player1' : 'player2';
+        // SECURITY: Require Cloud Functions - no direct write fallback
+        if (!functions) {
+          console.error('Cloud Functions not available - online mode requires server validation');
+          alert('Online play is temporarily unavailable. Please try again later.');
+          return;
+        }
 
-        // Combine all updates into a single atomic operation
-        const updates = {
-          [`throwHistory/${throwKey}`]: throwData,
-          [`dartPositions/${dartKey}`]: throwData.position,
-          'dartsThrown': throwData.dartsThrown,
-          'currentTurnScore': throwData.currentTurnScore,
-          'currentPlayer': throwData.currentPlayer,
-          [`${playerKey}/score`]: throwData.newScore
-        };
+        // For server-authoritative gameplay, only send dart position
+        // The server will calculate score and update game state
+        try {
+          const submitThrow = functions.httpsCallable('submitThrow');
+          const result = await submitThrow({
+            gameId: gameRoomId,
+            dartPosition: throwData.position
+          });
 
-        // Capture ref for retry closure
-        const roomRef = gameRoomRef.current;
-        retryFirebaseOperation(() => roomRef.update(updates))
-          .catch(err => console.error('Failed to sync throw to Firebase after retries:', err));
-      }, [onlineMode, playerId]);
+          // Server returns: { success, score, label, isBust, newScore, isCheckout, isWinner }
+          if (!result.data.success) {
+            console.error('Throw rejected by server:', result.data.error);
+          }
+          // Game state is updated by the server, Firebase listener will sync UI
+        } catch (error) {
+          console.error('Failed to submit throw to server:', error);
+          // On error, notify user - do NOT fall back to direct writes
+          if (error.code === 'functions/failed-precondition') {
+            console.warn('Server rejected throw: precondition failed (not your turn or game ended)');
+          } else if (error.code === 'functions/permission-denied') {
+            console.warn('Server rejected throw: not a player in this game');
+          }
+        }
+      }, [onlineMode, gameRoomId]);
 
       // Cancel matchmaking
       const cancelMatchmaking = useCallback(() => {
@@ -2879,16 +2891,10 @@
               position: finalPosition
             });
 
-            // After 3 darts, clear the board in Firebase
+            // After 3 darts, reset local UI state
+            // Note: Server (submitThrow Cloud Function) handles clearing dartPositions/dartsThrown
             if (newDartsThrown >= 3) {
               setTimeout(() => {
-                if (gameRoomRef.current) {
-                  gameRoomRef.current.update({
-                    dartPositions: {},
-                    dartsThrown: 0,
-                    currentTurnScore: 0
-                  }).catch(err => console.error('Failed to clear board in Firebase:', err));
-                }
                 // Reset turn tracking - same as offline mode
                 setCurrentTurnThrows([]);
                 setTriplesHit(0); // Reset power bar shrinking
