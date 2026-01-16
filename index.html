@@ -1809,9 +1809,6 @@
                           createdAt: firebase.database.ServerValue.TIMESTAMP
                         });
 
-                        // Auto-cleanup: Remove game if this player disconnects
-                        gameRoomRef.current.onDisconnect().remove();
-
                         setOpponentName(sanitizeName(otherPlayer.name));
                         setOpponentFlag(sanitizeFlag(otherPlayer.flag));
                         setMatchmakingState('found');
