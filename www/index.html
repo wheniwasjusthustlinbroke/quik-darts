@@ -1725,14 +1725,27 @@
                     // 2. game was created within the last 30 seconds (not stale)
                     const gameAge = now - (gameData.createdAt || 0);
                     const isRecent = gameAge < 30000; // 30 seconds
+                    const isVeryRecent = gameAge < 10000; // 10 seconds
                     const isPlayer2Connected = gameData.player2 && gameData.player2.connected === true;
 
                     if (isRecent && isPlayer2Connected) {
                       activeRoomId = roomId;
                       activeGameData = gameData;
                       break;
+                    } else if (isVeryRecent && !isPlayer2Connected) {
+                      // Opponent JUST disconnected (within 10 seconds) - notify user
+                      database.ref(`games/${roomId}`).remove()
+                        .catch(err => console.error(`Failed to delete game ${roomId}:`, err));
+                      if (matchmakingIntervalRef.current) {
+                        clearInterval(matchmakingIntervalRef.current);
+                        matchmakingIntervalRef.current = null;
+                      }
+                      queueRef.child(myPlayerId).remove();
+                      alert('Opponent disconnected before match could start. Please try again.');
+                      cancelMatchmaking();
+                      return;
                     } else {
-                      // Delete stale game (old or player2 disconnected)
+                      // Delete stale game (old or player2 disconnected long ago)
                       database.ref(`games/${roomId}`).remove()
                         .catch(err => console.error(`Failed to delete stale game ${roomId}:`, err));
                     }
@@ -1761,17 +1774,20 @@
                     // This must be set BEFORE startOnlineGame runs to handle disconnect during transition
                     opponentWasConnected.current = true;
 
-                    // Listen for player2 disconnecting during 'found' transition
-                    earlyDisconnectListenerRef.current = gameRoomRef.current.child('player2/connected').on('value', (snapshot) => {
-                      const player2Connected = snapshot.val();
-                      // If player2 disconnected during transition, notify and return to menu
-                      if (player2Connected === false) {
-                        if (earlyDisconnectListenerRef.current) {
-                          gameRoomRef.current.child('player2/connected').off('value', earlyDisconnectListenerRef.current);
+                    // Listen to ENTIRE game room during 'found' transition
+                    // This catches: game deletion, opponent disconnect, any issues
+                    earlyDisconnectListenerRef.current = gameRoomRef.current.on('value', (snapshot) => {
+                      const gameData = snapshot.val();
+                      // If game room deleted or opponent disconnected, notify and return to menu
+                      if (!gameData || (gameData.player2 && gameData.player2.connected === false)) {
+                        if (earlyDisconnectListenerRef.current && gameRoomRef.current) {
+                          gameRoomRef.current.off('value', earlyDisconnectListenerRef.current);
                           earlyDisconnectListenerRef.current = null;
                         }
                         alert('Opponent disconnected. Returning to menu.');
-                        gameRoomRef.current.remove().catch(() => {});
+                        if (gameRoomRef.current) {
+                          gameRoomRef.current.remove().catch(() => {});
+                        }
                         cancelMatchmaking();
                       }
                     });
@@ -1840,21 +1856,26 @@
                         // IMPORTANT: Register onDisconnect and wait for it to complete
                         // This ensures the handler is on the server before we proceed
                         gameRoomRef.current.child('player2/connected').onDisconnect().set(false).then(() => {
-                          // Listen for player1 connection changes during 'found' transition
-                          earlyDisconnectListenerRef.current = gameRoomRef.current.child('player1/connected').on('value', (snapshot) => {
-                            const player1Connected = snapshot.val();
+                          // Listen to ENTIRE game room during 'found' transition
+                          // This catches: game deletion, opponent disconnect, any issues
+                          earlyDisconnectListenerRef.current = gameRoomRef.current.on('value', (snapshot) => {
+                            const gameData = snapshot.val();
                             // Track when player1 connects
-                            if (player1Connected === true) {
+                            if (gameData && gameData.player1 && gameData.player1.connected === true) {
                               opponentWasConnected.current = true;
                             }
-                            // If player1 connected then disconnected during transition, notify and return to menu
-                            if (opponentWasConnected.current && player1Connected === false) {
-                              if (earlyDisconnectListenerRef.current) {
-                                gameRoomRef.current.child('player1/connected').off('value', earlyDisconnectListenerRef.current);
+                            // If game room deleted OR player1 tried to join but disconnected, notify and return to menu
+                            // Note: if player1.connected exists and is false, they tried to join and left
+                            const player1Disconnected = gameData && gameData.player1 && gameData.player1.connected === false;
+                            if (!gameData || player1Disconnected) {
+                              if (earlyDisconnectListenerRef.current && gameRoomRef.current) {
+                                gameRoomRef.current.off('value', earlyDisconnectListenerRef.current);
                                 earlyDisconnectListenerRef.current = null;
                               }
                               alert('Opponent disconnected. Returning to menu.');
-                              gameRoomRef.current.remove().catch(() => {});
+                              if (gameRoomRef.current) {
+                                gameRoomRef.current.remove().catch(() => {});
+                              }
                               cancelMatchmaking();
                             }
                           });
