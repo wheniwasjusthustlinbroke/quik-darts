@@ -32,36 +32,33 @@ const COPYRIGHT_NOTICE = `
  */
 `;
 
-// Obfuscation options - balanced between protection and performance
+// Obfuscation options - React-safe "low" preset
+// Aggressive options like controlFlowFlattening and deadCodeInjection break React
 const OBFUSCATION_OPTIONS = {
   compact: true,
-  controlFlowFlattening: true,
-  controlFlowFlatteningThreshold: 0.5,
-  deadCodeInjection: true,
-  deadCodeInjectionThreshold: 0.3,
-  debugProtection: false, // Can cause issues, disabled
-  disableConsoleOutput: false, // Keep console for error reporting
+  controlFlowFlattening: false,        // DISABLED - breaks React state
+  deadCodeInjection: false,            // DISABLED - breaks React hooks
+  debugProtection: false,
+  disableConsoleOutput: false,
   identifierNamesGenerator: 'hexadecimal',
   log: false,
-  numbersToExpressions: true,
-  renameGlobals: false, // Keep React/firebase globals
-  selfDefending: false, // Can cause issues with some browsers
+  numbersToExpressions: false,         // DISABLED - can cause issues
+  renameGlobals: false,
+  selfDefending: false,
   simplify: true,
-  splitStrings: true,
-  splitStringsChunkLength: 10,
+  splitStrings: false,                 // DISABLED - breaks string comparisons
   stringArray: true,
-  stringArrayCallsTransform: true,
-  stringArrayCallsTransformThreshold: 0.5,
-  stringArrayEncoding: ['base64'],
+  stringArrayCallsTransform: false,    // DISABLED - breaks property access
+  stringArrayEncoding: [],             // No encoding - safer
   stringArrayIndexShift: true,
   stringArrayRotate: true,
   stringArrayShuffle: true,
-  stringArrayWrappersCount: 2,
-  stringArrayWrappersChainedCalls: true,
-  stringArrayWrappersParametersMaxCount: 4,
-  stringArrayWrappersType: 'function',
-  stringArrayThreshold: 0.75,
-  transformObjectKeys: true,
+  stringArrayWrappersCount: 1,
+  stringArrayWrappersChainedCalls: false,  // DISABLED - breaks chains
+  stringArrayWrappersParametersMaxCount: 2,
+  stringArrayWrappersType: 'variable',
+  stringArrayThreshold: 0.5,           // Lower threshold
+  transformObjectKeys: false,          // DISABLED - breaks React props
   unicodeEscapeSequence: false
 };
 
