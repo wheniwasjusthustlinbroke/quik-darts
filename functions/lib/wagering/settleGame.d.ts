@@ -1,0 +1,14 @@
+/**
+ * Settle Game
+ *
+ * Settles a wagered game by releasing escrow to the winner.
+ * Called automatically when a game ends or on forfeit.
+ *
+ * Security:
+ * - Only callable by players in the game
+ * - Verifies game is finished
+ * - Prevents double settlement
+ * - Uses atomic transaction for coin transfer
+ */
+import * as functions from 'firebase-functions';
+export declare const settleGame: functions.HttpsFunction & functions.Runnable<any>;
