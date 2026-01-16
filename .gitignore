@@ -1,7 +1,6 @@
 # Dependencies
 node_modules/
 .npm-cache/
-package-lock.json
 
 # iOS build artifacts
 ios/App/Pods/
