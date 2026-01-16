@@ -504,6 +504,19 @@
       </svg>
     );
 
+    // Coin icon for currency display
+    const CoinIcon = ({ size = 16 }) => (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <circle cx="12" cy="12" r="10" stroke="#D4A03A" strokeWidth="2" fill="rgba(212, 160, 58, 0.2)"/>
+        <text x="12" y="16" textAnchor="middle" fontSize="12" fontWeight="bold" fill="#D4A03A">$</text>
+      </svg>
+    );
+
+    // Format coin balance with commas
+    const formatCoins = (amount) => {
+      return amount.toLocaleString();
+    };
+
     // Design System Colors (matching CSS variables)
     const COLORS = {
       primary: '#1B4332',
@@ -1200,6 +1213,15 @@
       const [showAchievements, setShowAchievements] = useState(false); // Show achievements gallery
       const [showLoginModal, setShowLoginModal] = useState(false); // Show login modal
       const [currentUser, setCurrentUser] = useState(null); // Current signed-in user
+
+      // Coin system state
+      const [coinBalance, setCoinBalance] = useState(0); // User's coin balance
+      const [dailyBonusAvailable, setDailyBonusAvailable] = useState(false); // Daily bonus claimable
+      const [showStakeSelection, setShowStakeSelection] = useState(false); // Stake selection modal
+      const [selectedStake, setSelectedStake] = useState(50); // Selected stake amount
+      const [isClaimingBonus, setIsClaimingBonus] = useState(false); // Claiming daily bonus
+      const walletListenerRef = useRef(null); // Wallet listener cleanup
+
       const [achievementStats, setAchievementStats] = useState(() => {
         try {
           const saved = localStorage.getItem('quikdarts_stats');
@@ -3379,6 +3401,108 @@
         }
       }, []);
 
+      // Listen for wallet changes and initialize new users
+      useEffect(() => {
+        if (!database || !currentUser || currentUser.isAnonymous) {
+          // Clear wallet state for anonymous/logged out users
+          setCoinBalance(0);
+          setDailyBonusAvailable(false);
+          // Cleanup wallet listener
+          if (walletListenerRef.current) {
+            walletListenerRef.current();
+            walletListenerRef.current = null;
+          }
+          return;
+        }
+
+        // Signed-in user - listen for wallet changes
+        const walletRef = database.ref(`users/${currentUser.uid}/wallet`);
+
+        const walletListener = walletRef.on('value', async (snapshot) => {
+          const wallet = snapshot.val();
+
+          if (!wallet) {
+            // New user - initialize their wallet via Cloud Function
+            if (functions) {
+              try {
+                const initFn = functions.httpsCallable('initializeNewUser');
+                await initFn();
+                // Wallet will be created, listener will fire again
+              } catch (error) {
+                console.error('Failed to initialize user wallet:', error);
+              }
+            }
+          } else {
+            // Update coin balance
+            setCoinBalance(wallet.coins || 0);
+
+            // Check if daily bonus is available (24 hours since last claim)
+            const lastBonus = wallet.lastDailyBonus || 0;
+            const now = Date.now();
+            const twentyFourHours = 24 * 60 * 60 * 1000;
+            setDailyBonusAvailable(now - lastBonus >= twentyFourHours);
+          }
+        }, (error) => {
+          console.error('Wallet listener error:', error);
+        });
+
+        // Store cleanup function
+        walletListenerRef.current = () => walletRef.off('value', walletListener);
+
+        return () => {
+          if (walletListenerRef.current) {
+            walletListenerRef.current();
+            walletListenerRef.current = null;
+          }
+        };
+      }, [currentUser]);
+
+      // Claim daily bonus
+      const claimDailyBonus = async () => {
+        if (!functions || !currentUser || currentUser.isAnonymous || isClaimingBonus) return;
+
+        setIsClaimingBonus(true);
+        try {
+          const claimFn = functions.httpsCallable('claimDailyBonus');
+          const result = await claimFn();
+          if (result.data.success) {
+            // Wallet listener will update the balance
+            setDailyBonusAvailable(false);
+          }
+        } catch (error) {
+          console.error('Failed to claim daily bonus:', error);
+          alert('Failed to claim daily bonus. Please try again.');
+        } finally {
+          setIsClaimingBonus(false);
+        }
+      };
+
+      // Handle "Play Online" button click
+      // Shows stake selection for signed-in users, starts casual matchmaking for guests
+      const handlePlayOnlineClick = () => {
+        if (currentUser && !currentUser.isAnonymous) {
+          // Signed-in user: show stake selection
+          setShowStakeSelection(true);
+        } else {
+          // Guest/anonymous: start casual matchmaking directly
+          startMatchmaking();
+        }
+      };
+
+      // Start wagered matchmaking with selected stake
+      const startWageredMatchmaking = async () => {
+        // Check if user has enough coins
+        if (coinBalance < selectedStake) {
+          alert(`Not enough coins! You need ${selectedStake} coins to play this stake level.`);
+          return;
+        }
+
+        setShowStakeSelection(false);
+        // TODO: In Phase 2b, this will create escrow and use wagered queue
+        // For now, start regular matchmaking (casual mode even for signed-in users)
+        startMatchmaking();
+      };
+
       // Sign in with Google
       const signInWithGoogle = async () => {
         try {
@@ -4164,6 +4288,188 @@
         );
       }
 
+      // Stake Selection Modal
+      if (showStakeSelection) {
+        const stakeOptions = [
+          { amount: 50, label: 'Casual', description: 'Low stakes, perfect for warming up' },
+          { amount: 100, label: 'Standard', description: 'The most popular stake level' },
+          { amount: 500, label: 'High Roller', description: 'For confident players' },
+          { amount: 2500, label: 'Champion', description: 'Maximum risk, maximum reward' }
+        ];
+
+        return (
+          <div style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0, 0, 0, 0.85)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1000,
+            padding: '20px'
+          }} onClick={() => setShowStakeSelection(false)}>
+            <div style={{
+              background: COLORS.backgroundCard,
+              borderRadius: '16px',
+              padding: '32px',
+              maxWidth: '450px',
+              width: '100%',
+              position: 'relative',
+              border: '1px solid rgba(255, 255, 255, 0.1)'
+            }} onClick={(e) => e.stopPropagation()}>
+              {/* Close button */}
+              <button onClick={() => setShowStakeSelection(false)} style={{
+                position: 'absolute',
+                top: '16px',
+                right: '16px',
+                background: 'none',
+                border: 'none',
+                color: COLORS.textMuted,
+                cursor: 'pointer',
+                padding: '4px'
+              }}>
+                <CloseIcon size={24} />
+              </button>
+
+              {/* Header */}
+              <div style={{ textAlign: 'center', marginBottom: '24px' }}>
+                <h2 style={{ color: COLORS.text, fontSize: '1.5rem', fontWeight: '700', marginBottom: '8px' }}>
+                  Choose Your Stake
+                </h2>
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '8px',
+                  marginBottom: '8px'
+                }}>
+                  <CoinIcon size={20} />
+                  <span style={{ color: '#D4A03A', fontWeight: '600', fontSize: '1.1rem' }}>
+                    Your Balance: {formatCoins(coinBalance)}
+                  </span>
+                </div>
+                <p style={{ color: COLORS.textMuted, fontSize: '0.9rem' }}>
+                  Winner takes the entire pot!
+                </p>
+              </div>
+
+              {/* Stake options */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '24px' }}>
+                {stakeOptions.map((option) => {
+                  const isSelected = selectedStake === option.amount;
+                  const canAfford = coinBalance >= option.amount;
+                  const potAmount = option.amount * 2;
+
+                  return (
+                    <button
+                      key={option.amount}
+                      onClick={() => canAfford && setSelectedStake(option.amount)}
+                      disabled={!canAfford}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        padding: '16px 20px',
+                        borderRadius: '12px',
+                        border: isSelected
+                          ? '2px solid #D4A03A'
+                          : '1px solid rgba(255, 255, 255, 0.1)',
+                        background: isSelected
+                          ? 'rgba(212, 160, 58, 0.15)'
+                          : canAfford
+                          ? 'rgba(255, 255, 255, 0.03)'
+                          : 'rgba(255, 255, 255, 0.02)',
+                        cursor: canAfford ? 'pointer' : 'not-allowed',
+                        opacity: canAfford ? 1 : 0.5,
+                        transition: 'all 0.2s ease'
+                      }}
+                    >
+                      <div style={{ textAlign: 'left' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <span style={{ color: COLORS.text, fontWeight: '600', fontSize: '1rem' }}>
+                            {option.label}
+                          </span>
+                          {!canAfford && (
+                            <span style={{
+                              color: COLORS.error,
+                              fontSize: '0.7rem',
+                              fontWeight: '600',
+                              padding: '2px 6px',
+                              background: 'rgba(201, 42, 42, 0.2)',
+                              borderRadius: '4px'
+                            }}>
+                              Need {option.amount - coinBalance} more
+                            </span>
+                          )}
+                        </div>
+                        <p style={{ color: COLORS.textMuted, fontSize: '0.8rem', margin: '4px 0 0 0' }}>
+                          {option.description}
+                        </p>
+                      </div>
+                      <div style={{ textAlign: 'right' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', color: '#D4A03A', fontWeight: '700' }}>
+                          <CoinIcon size={14} />
+                          <span>{formatCoins(option.amount)}</span>
+                        </div>
+                        <p style={{ color: COLORS.success, fontSize: '0.75rem', margin: '4px 0 0 0' }}>
+                          Win {formatCoins(potAmount)}
+                        </p>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Play button */}
+              <button
+                onClick={startWageredMatchmaking}
+                disabled={coinBalance < selectedStake}
+                style={{
+                  width: '100%',
+                  padding: '16px 24px',
+                  borderRadius: '10px',
+                  border: 'none',
+                  background: coinBalance >= selectedStake
+                    ? 'linear-gradient(135deg, #D4A03A, #B8862E)'
+                    : 'rgba(255, 255, 255, 0.1)',
+                  color: coinBalance >= selectedStake ? COLORS.textDark : COLORS.textMuted,
+                  fontSize: '1rem',
+                  fontWeight: '700',
+                  cursor: coinBalance >= selectedStake ? 'pointer' : 'not-allowed',
+                  fontFamily: 'var(--font-primary)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '8px'
+                }}
+              >
+                <GlobeIcon size={20} color={coinBalance >= selectedStake ? COLORS.textDark : COLORS.textMuted} />
+                Play for {formatCoins(selectedStake)} Coins
+              </button>
+
+              {/* Play free option */}
+              <button
+                onClick={() => { setShowStakeSelection(false); startMatchmaking(); }}
+                style={{
+                  width: '100%',
+                  marginTop: '12px',
+                  padding: '12px',
+                  borderRadius: '8px',
+                  border: '1px solid rgba(255, 255, 255, 0.1)',
+                  background: 'transparent',
+                  color: COLORS.textMuted,
+                  fontSize: '0.9rem',
+                  cursor: 'pointer',
+                  fontFamily: 'var(--font-primary)'
+                }}
+              >
+                Play Free (No Stakes)
+              </button>
+            </div>
+          </div>
+        );
+      }
+
       // Achievements Gallery - check BEFORE menu
       if (showAchievements) {
         return (
@@ -4555,6 +4861,45 @@
               <li><a href="#" className="nav-link" onClick={(e) => { e.preventDefault(); setShowAchievements(true); }}>Achievements</a></li>
               <li><a href="#" className="nav-link" onClick={(e) => { e.preventDefault(); onNavigate('howToPlay'); }}>How to Play</a></li>
               <li><button className="nav-cta" onClick={() => onNavigate('menu')}>Play Now</button></li>
+              {/* Coin balance display for signed-in users */}
+              {currentUser && !currentUser.isAnonymous && (
+                <li style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    background: 'rgba(212, 160, 58, 0.15)',
+                    padding: '6px 12px',
+                    borderRadius: '20px',
+                    border: '1px solid rgba(212, 160, 58, 0.3)'
+                  }}>
+                    <CoinIcon size={16} />
+                    <span style={{ color: '#D4A03A', fontWeight: '600', fontSize: '14px' }}>
+                      {formatCoins(coinBalance)}
+                    </span>
+                  </div>
+                  {dailyBonusAvailable && (
+                    <button
+                      onClick={claimDailyBonus}
+                      disabled={isClaimingBonus}
+                      style={{
+                        background: 'linear-gradient(135deg, #2D8A2D, #1B6B1B)',
+                        border: 'none',
+                        color: 'white',
+                        padding: '6px 12px',
+                        borderRadius: '20px',
+                        cursor: isClaimingBonus ? 'wait' : 'pointer',
+                        fontSize: '12px',
+                        fontWeight: '600',
+                        opacity: isClaimingBonus ? 0.7 : 1,
+                        transition: 'all 0.2s ease'
+                      }}
+                    >
+                      {isClaimingBonus ? '...' : '+50 Free!'}
+                    </button>
+                  )}
+                </li>
+              )}
               <li>
                 {currentUser && !currentUser.isAnonymous ? (
                   <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -4760,7 +5105,7 @@
                       minHeight: '90px'
                     }}><DartIcon size={24} color={COLORS.textDark} />Start Game</button>
 
-                    <button className="btn btn-secondary" onClick={startMatchmaking} style={{
+                    <button className="btn btn-secondary" onClick={handlePlayOnlineClick} style={{
                       padding: '20px 16px',
                       fontSize: '0.95rem',
                       display: 'flex',
