@@ -1164,6 +1164,8 @@
       const gameRoomRef = useRef(null); // Firebase room reference
       const opponentWasConnected = useRef(false); // Track if opponent was ever connected
       const earlyDisconnectListenerRef = useRef(null); // Track listener during 'found' state
+      const heartbeatIntervalRef = useRef(null); // Heartbeat interval for disconnect detection
+      const myPlayerKeyRef = useRef(null); // Store player key (player1 or player2) for heartbeat
 
       // Practice mode states
       const [practiceMode, setPracticeMode] = useState(false); // true when in practice mode
@@ -1771,25 +1773,16 @@
                     gameRoomRef.current.child('player1/connected').set(true);
 
                     // Mark opponent as connected (we verified player2.connected === true to get here)
-                    // This must be set BEFORE startOnlineGame runs to handle disconnect during transition
                     opponentWasConnected.current = true;
 
-                    // Listen to ENTIRE game room during 'found' transition
-                    // This catches: game deletion, opponent disconnect, any issues
-                    earlyDisconnectListenerRef.current = gameRoomRef.current.on('value', (snapshot) => {
-                      const gameData = snapshot.val();
-                      // If game room deleted or opponent disconnected, notify and return to menu
-                      if (!gameData || (gameData.player2 && gameData.player2.connected === false)) {
-                        if (earlyDisconnectListenerRef.current && gameRoomRef.current) {
-                          gameRoomRef.current.off('value', earlyDisconnectListenerRef.current);
-                          earlyDisconnectListenerRef.current = null;
-                        }
-                        alert('Opponent disconnected. Returning to menu.');
-                        if (gameRoomRef.current) {
-                          gameRoomRef.current.remove().catch(() => {});
-                        }
-                        cancelMatchmaking();
+                    // Start heartbeat for disconnect detection (I'm player1, opponent is player2)
+                    startHeartbeat(gameRoomRef.current, 'player1', 'player2', () => {
+                      stopHeartbeat();
+                      alert('Opponent disconnected. Returning to menu.');
+                      if (gameRoomRef.current) {
+                        gameRoomRef.current.remove().catch(() => {});
                       }
+                      cancelMatchmaking();
                     });
 
                     setOpponentName(sanitizeName(activeGameData.player2.name));
@@ -1853,39 +1846,22 @@
                           createdAt: firebase.database.ServerValue.TIMESTAMP
                         });
 
-                        // IMPORTANT: Register onDisconnect and wait for it to complete
-                        // This ensures the handler is on the server before we proceed
-                        gameRoomRef.current.child('player2/connected').onDisconnect().set(false).then(() => {
-                          // Listen to ENTIRE game room during 'found' transition
-                          // This catches: game deletion, opponent disconnect, any issues
-                          earlyDisconnectListenerRef.current = gameRoomRef.current.on('value', (snapshot) => {
-                            const gameData = snapshot.val();
-                            // Track when player1 connects
-                            if (gameData && gameData.player1 && gameData.player1.connected === true) {
-                              opponentWasConnected.current = true;
-                            }
-                            // If game room deleted OR player1 tried to join but disconnected, notify and return to menu
-                            // Note: if player1.connected exists and is false, they tried to join and left
-                            const player1Disconnected = gameData && gameData.player1 && gameData.player1.connected === false;
-                            if (!gameData || player1Disconnected) {
-                              if (earlyDisconnectListenerRef.current && gameRoomRef.current) {
-                                gameRoomRef.current.off('value', earlyDisconnectListenerRef.current);
-                                earlyDisconnectListenerRef.current = null;
-                              }
-                              alert('Opponent disconnected. Returning to menu.');
-                              if (gameRoomRef.current) {
-                                gameRoomRef.current.remove().catch(() => {});
-                              }
-                              cancelMatchmaking();
-                            }
-                          });
-
-                          setOpponentName(sanitizeName(otherPlayer.name));
-                          setOpponentFlag(sanitizeFlag(otherPlayer.flag));
-                          setMatchmakingState('found');
-
-                          setTimeout(() => startOnlineGame(roomId, 1), 1500);
+                        // Start heartbeat for disconnect detection (I'm player2, opponent is player1)
+                        // This starts immediately so we detect if opponent never joins or leaves quickly
+                        startHeartbeat(gameRoomRef.current, 'player2', 'player1', () => {
+                          stopHeartbeat();
+                          alert('Opponent disconnected. Returning to menu.');
+                          if (gameRoomRef.current) {
+                            gameRoomRef.current.remove().catch(() => {});
+                          }
+                          cancelMatchmaking();
                         });
+
+                        setOpponentName(sanitizeName(otherPlayer.name));
+                        setOpponentFlag(sanitizeFlag(otherPlayer.flag));
+                        setMatchmakingState('found');
+
+                        setTimeout(() => startOnlineGame(roomId, 1), 1500);
                       }
                     }
                   });
@@ -1909,6 +1885,47 @@
         });
         }, 500); // 500ms delay to avoid race condition
       }, [database, playerSetup, matchmakingState]);
+
+      // Start heartbeat for disconnect detection
+      const startHeartbeat = useCallback((roomRef, myKey, opponentKey, onDisconnect) => {
+        // Clear any existing heartbeat
+        if (heartbeatIntervalRef.current) {
+          clearInterval(heartbeatIntervalRef.current);
+        }
+
+        myPlayerKeyRef.current = myKey;
+
+        // Send initial heartbeat
+        roomRef.child(`${myKey}/lastHeartbeat`).set(Date.now());
+
+        // Send heartbeat every 3 seconds and check opponent's heartbeat
+        heartbeatIntervalRef.current = setInterval(() => {
+          if (!roomRef) return;
+
+          // Update my heartbeat
+          roomRef.child(`${myKey}/lastHeartbeat`).set(Date.now()).catch(() => {});
+
+          // Check opponent's heartbeat
+          roomRef.child(`${opponentKey}/lastHeartbeat`).once('value', (snapshot) => {
+            const opponentHeartbeat = snapshot.val();
+            if (opponentHeartbeat) {
+              const timeSinceHeartbeat = Date.now() - opponentHeartbeat;
+              // If opponent's heartbeat is more than 8 seconds old, they're gone
+              if (timeSinceHeartbeat > 8000) {
+                onDisconnect();
+              }
+            }
+          });
+        }, 3000);
+      }, []);
+
+      // Stop heartbeat
+      const stopHeartbeat = useCallback(() => {
+        if (heartbeatIntervalRef.current) {
+          clearInterval(heartbeatIntervalRef.current);
+          heartbeatIntervalRef.current = null;
+        }
+      }, []);
 
       // Start the online game
       const startOnlineGame = useCallback((roomId, playerIndex) => {
@@ -2076,6 +2093,9 @@
 
         // Clear early disconnect listener ref
         earlyDisconnectListenerRef.current = null;
+
+        // Stop heartbeat
+        stopHeartbeat();
 
         // Reset opponent connected state for next game session
         opponentWasConnected.current = false;
