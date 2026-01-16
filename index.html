@@ -1757,6 +1757,10 @@
                     // Now set connected status
                     gameRoomRef.current.child('player1/connected').set(true);
 
+                    // Mark opponent as connected (we verified player2.connected === true to get here)
+                    // This must be set BEFORE startOnlineGame runs to handle disconnect during transition
+                    opponentWasConnected.current = true;
+
                     // Listen for player2 disconnecting during 'found' transition
                     earlyDisconnectListenerRef.current = gameRoomRef.current.child('player2/connected').on('value', (snapshot) => {
                       const player2Connected = snapshot.val();
@@ -1836,11 +1840,15 @@
                         // IMPORTANT: Register onDisconnect and wait for it to complete
                         // This ensures the handler is on the server before we proceed
                         gameRoomRef.current.child('player2/connected').onDisconnect().set(false).then(() => {
-                          // Listen for player1 disconnecting during 'found' transition
+                          // Listen for player1 connection changes during 'found' transition
                           earlyDisconnectListenerRef.current = gameRoomRef.current.child('player1/connected').on('value', (snapshot) => {
                             const player1Connected = snapshot.val();
+                            // Track when player1 connects
+                            if (player1Connected === true) {
+                              opponentWasConnected.current = true;
+                            }
                             // If player1 connected then disconnected during transition, notify and return to menu
-                            if (player1Connected === false) {
+                            if (opponentWasConnected.current && player1Connected === false) {
                               if (earlyDisconnectListenerRef.current) {
                                 gameRoomRef.current.child('player1/connected').off('value', earlyDisconnectListenerRef.current);
                                 earlyDisconnectListenerRef.current = null;
@@ -1904,7 +1912,8 @@
         setCurrentTurnThrows([]);
         setGameStats({});
         setLegDartsThrown([0, 0]);
-        opponentWasConnected.current = false; // Reset for new game
+        // NOTE: Don't reset opponentWasConnected here - it was set during matchmaking
+        // and needs to persist to detect disconnects that happen during the transition
 
         // Listen for game state changes
         const roomRef = database.ref(`games/${roomId}`);
@@ -2046,6 +2055,9 @@
 
         // Clear early disconnect listener ref
         earlyDisconnectListenerRef.current = null;
+
+        // Reset opponent connected state for next game session
+        opponentWasConnected.current = false;
 
         setMatchmakingState(null);
         setOnlineMode(false);
