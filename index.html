@@ -4257,48 +4257,63 @@
                   width: '100%',
                   maxWidth: '420px'
                 }}>
-                  {/* Main action buttons */}
-                  <button className="btn btn-primary" onClick={startGame} style={{
-                    width: '100%',
-                    padding: '16px 24px',
-                    fontSize: '1rem',
-                    marginBottom: '12px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center'
-                  }}><DartIcon size={20} color={COLORS.textDark} />Start Game</button>
+                  {/* Main action buttons - 2x2 Grid */}
+                  <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(2, 1fr)',
+                    gap: '12px',
+                    marginBottom: '24px'
+                  }}>
+                    <button className="btn btn-primary" onClick={startGame} style={{
+                      padding: '20px 16px',
+                      fontSize: '0.95rem',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '8px',
+                      borderRadius: '12px',
+                      minHeight: '90px'
+                    }}><DartIcon size={24} color={COLORS.textDark} />Start Game</button>
 
-                  <button className="btn btn-secondary" onClick={startMatchmaking} style={{
-                    width: '100%',
-                    padding: '16px 24px',
-                    fontSize: '1rem',
-                    marginBottom: '12px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center'
-                  }}><GlobeIcon size={20} color={COLORS.text} />Play Online</button>
+                    <button className="btn btn-secondary" onClick={startMatchmaking} style={{
+                      padding: '20px 16px',
+                      fontSize: '0.95rem',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '8px',
+                      borderRadius: '12px',
+                      minHeight: '90px'
+                    }}><GlobeIcon size={24} color={COLORS.text} />Play Online</button>
 
-                  <button className="btn btn-ghost" onClick={enterPracticeMode} style={{
-                    width: '100%',
-                    padding: '16px 24px',
-                    fontSize: '1rem',
-                    marginBottom: '12px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center'
-                  }}><TargetIcon size={20} color={COLORS.text} />Practice Mode</button>
+                    <button className="btn btn-ghost" onClick={enterPracticeMode} style={{
+                      padding: '20px 16px',
+                      fontSize: '0.95rem',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '8px',
+                      borderRadius: '12px',
+                      minHeight: '90px'
+                    }}><TargetIcon size={24} color={COLORS.text} />Practice Mode</button>
 
-                  <button className="btn btn-ghost" onClick={() => setShowAchievements(true)} style={{
-                    width: '100%',
-                    padding: '16px 24px',
-                    fontSize: '1rem',
-                    marginBottom: '24px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    color: COLORS.accent,
-                    borderColor: `${COLORS.accent}40`
-                  }}><TrophyIcon size={20} color={COLORS.accent} />Achievements</button>
+                    <button className="btn btn-ghost" onClick={() => setShowAchievements(true)} style={{
+                      padding: '20px 16px',
+                      fontSize: '0.95rem',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '8px',
+                      borderRadius: '12px',
+                      minHeight: '90px',
+                      color: COLORS.accent,
+                      borderColor: `${COLORS.accent}40`
+                    }}><TrophyIcon size={24} color={COLORS.accent} />Achievements</button>
+                  </div>
 
                   {/* Divider */}
                   <div style={{ height: '1px', background: `linear-gradient(90deg, transparent, ${COLORS.accent}30, transparent)`, marginBottom: '24px' }} />
@@ -4661,48 +4676,63 @@
               zIndex: 2,
               position: 'relative'
             }}>
-              {/* Main action buttons */}
-              <button className="btn btn-primary" onClick={startGame} style={{
-                width: '100%',
-                padding: '16px 24px',
-                fontSize: '1rem',
-                marginBottom: '12px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center'
-              }}><DartIcon size={20} color={COLORS.textDark} />Start Game</button>
+              {/* Main action buttons - 2x2 Grid */}
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(2, 1fr)',
+                gap: '12px',
+                marginBottom: '24px'
+              }}>
+                <button className="btn btn-primary" onClick={startGame} style={{
+                  padding: '20px 16px',
+                  fontSize: '0.95rem',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '8px',
+                  borderRadius: '12px',
+                  minHeight: '90px'
+                }}><DartIcon size={24} color={COLORS.textDark} />Start Game</button>
 
-              <button className="btn btn-secondary" onClick={startMatchmaking} style={{
-                width: '100%',
-                padding: '16px 24px',
-                fontSize: '1rem',
-                marginBottom: '12px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center'
-              }}><GlobeIcon size={20} color={COLORS.text} />Play Online</button>
+                <button className="btn btn-secondary" onClick={startMatchmaking} style={{
+                  padding: '20px 16px',
+                  fontSize: '0.95rem',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '8px',
+                  borderRadius: '12px',
+                  minHeight: '90px'
+                }}><GlobeIcon size={24} color={COLORS.text} />Play Online</button>
 
-              <button className="btn btn-ghost" onClick={enterPracticeMode} style={{
-                width: '100%',
-                padding: '16px 24px',
-                fontSize: '1rem',
-                marginBottom: '12px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center'
-              }}><TargetIcon size={20} color={COLORS.text} />Practice Mode</button>
+                <button className="btn btn-ghost" onClick={enterPracticeMode} style={{
+                  padding: '20px 16px',
+                  fontSize: '0.95rem',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '8px',
+                  borderRadius: '12px',
+                  minHeight: '90px'
+                }}><TargetIcon size={24} color={COLORS.text} />Practice Mode</button>
 
-              <button className="btn btn-ghost" onClick={() => setShowAchievements(true)} style={{
-                width: '100%',
-                padding: '16px 24px',
-                fontSize: '1rem',
-                marginBottom: '24px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                color: COLORS.accent,
-                borderColor: `${COLORS.accent}40`
-              }}><TrophyIcon size={20} color={COLORS.accent} />Achievements</button>
+                <button className="btn btn-ghost" onClick={() => setShowAchievements(true)} style={{
+                  padding: '20px 16px',
+                  fontSize: '0.95rem',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '8px',
+                  borderRadius: '12px',
+                  minHeight: '90px',
+                  color: COLORS.accent,
+                  borderColor: `${COLORS.accent}40`
+                }}><TrophyIcon size={24} color={COLORS.accent} />Achievements</button>
+              </div>
 
               {/* Divider */}
               <div style={{ height: '1px', background: `linear-gradient(90deg, transparent, ${COLORS.accent}30, transparent)`, marginBottom: '24px' }} />
