@@ -1751,30 +1751,33 @@
                   setGameRoomId(activeRoomId);
                   gameRoomRef.current = database.ref(`games/${activeRoomId}`);
 
-                  // Set connected status and disconnect handler immediately (don't wait for startOnlineGame)
-                  gameRoomRef.current.child('player1/connected').set(true);
-                  gameRoomRef.current.child('player1/connected').onDisconnect().set(false);
+                  // IMPORTANT: Register onDisconnect FIRST and wait for it to complete
+                  // This ensures the handler is on the server before we proceed
+                  gameRoomRef.current.child('player1/connected').onDisconnect().set(false).then(() => {
+                    // Now set connected status
+                    gameRoomRef.current.child('player1/connected').set(true);
 
-                  // Listen for player2 disconnecting during 'found' transition
-                  earlyDisconnectListenerRef.current = gameRoomRef.current.child('player2/connected').on('value', (snapshot) => {
-                    const player2Connected = snapshot.val();
-                    // If player2 disconnected during transition, notify and return to menu
-                    if (player2Connected === false) {
-                      if (earlyDisconnectListenerRef.current) {
-                        gameRoomRef.current.child('player2/connected').off('value', earlyDisconnectListenerRef.current);
-                        earlyDisconnectListenerRef.current = null;
+                    // Listen for player2 disconnecting during 'found' transition
+                    earlyDisconnectListenerRef.current = gameRoomRef.current.child('player2/connected').on('value', (snapshot) => {
+                      const player2Connected = snapshot.val();
+                      // If player2 disconnected during transition, notify and return to menu
+                      if (player2Connected === false) {
+                        if (earlyDisconnectListenerRef.current) {
+                          gameRoomRef.current.child('player2/connected').off('value', earlyDisconnectListenerRef.current);
+                          earlyDisconnectListenerRef.current = null;
+                        }
+                        alert('Opponent disconnected. Returning to menu.');
+                        gameRoomRef.current.remove().catch(() => {});
+                        cancelMatchmaking();
                       }
-                      alert('Opponent disconnected. Returning to menu.');
-                      gameRoomRef.current.remove().catch(() => {});
-                      cancelMatchmaking();
-                    }
+                    });
+
+                    setOpponentName(sanitizeName(activeGameData.player2.name));
+                    setOpponentFlag(sanitizeFlag(activeGameData.player2.flag));
+                    setMatchmakingState('found');
+
+                    setTimeout(() => startOnlineGame(activeRoomId, 0), 1500);
                   });
-
-                  setOpponentName(sanitizeName(activeGameData.player2.name));
-                  setOpponentFlag(sanitizeFlag(activeGameData.player2.flag));
-                  setMatchmakingState('found');
-
-                  setTimeout(() => startOnlineGame(activeRoomId, 0), 1500);
                 } else {
                   // Also check if there are OTHER players waiting in queue we can join
                   queueRef.orderByChild('timestamp').limitToFirst(2).once('value', (queueSnapshot) => {
@@ -1830,29 +1833,30 @@
                           createdAt: firebase.database.ServerValue.TIMESTAMP
                         });
 
-                        // Set up disconnect handler immediately (don't wait for startOnlineGame)
-                        gameRoomRef.current.child('player2/connected').onDisconnect().set(false);
-
-                        // Listen for player1 disconnecting during 'found' transition
-                        earlyDisconnectListenerRef.current = gameRoomRef.current.child('player1/connected').on('value', (snapshot) => {
-                          const player1Connected = snapshot.val();
-                          // If player1 connected then disconnected during transition, notify and return to menu
-                          if (player1Connected === false) {
-                            if (earlyDisconnectListenerRef.current) {
-                              gameRoomRef.current.child('player1/connected').off('value', earlyDisconnectListenerRef.current);
-                              earlyDisconnectListenerRef.current = null;
+                        // IMPORTANT: Register onDisconnect and wait for it to complete
+                        // This ensures the handler is on the server before we proceed
+                        gameRoomRef.current.child('player2/connected').onDisconnect().set(false).then(() => {
+                          // Listen for player1 disconnecting during 'found' transition
+                          earlyDisconnectListenerRef.current = gameRoomRef.current.child('player1/connected').on('value', (snapshot) => {
+                            const player1Connected = snapshot.val();
+                            // If player1 connected then disconnected during transition, notify and return to menu
+                            if (player1Connected === false) {
+                              if (earlyDisconnectListenerRef.current) {
+                                gameRoomRef.current.child('player1/connected').off('value', earlyDisconnectListenerRef.current);
+                                earlyDisconnectListenerRef.current = null;
+                              }
+                              alert('Opponent disconnected. Returning to menu.');
+                              gameRoomRef.current.remove().catch(() => {});
+                              cancelMatchmaking();
                             }
-                            alert('Opponent disconnected. Returning to menu.');
-                            gameRoomRef.current.remove().catch(() => {});
-                            cancelMatchmaking();
-                          }
+                          });
+
+                          setOpponentName(sanitizeName(otherPlayer.name));
+                          setOpponentFlag(sanitizeFlag(otherPlayer.flag));
+                          setMatchmakingState('found');
+
+                          setTimeout(() => startOnlineGame(roomId, 1), 1500);
                         });
-
-                        setOpponentName(sanitizeName(otherPlayer.name));
-                        setOpponentFlag(sanitizeFlag(otherPlayer.flag));
-                        setMatchmakingState('found');
-
-                        setTimeout(() => startOnlineGame(roomId, 1), 1500);
                       }
                     }
                   });
