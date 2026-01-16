@@ -1600,21 +1600,28 @@
         const myPlayerId = authUser.uid;
         setMyAuthId(myPlayerId);
 
-        // Clean up ALL games where we're a player (ensures clean slate for new matchmaking)
-        const gamesSnapshot = await database.ref('games').orderByChild('player1/id').equalTo(myPlayerId).once('value');
+        // Clean up only ABANDONED games where we're a player
+        // (Don't delete active games - allows multiple tabs to have separate games)
+        const thirtyMinutesAgo = Date.now() - (30 * 60 * 1000);
+        const gamesSnapshot = await database.ref('games').once('value');
         if (gamesSnapshot.exists()) {
-          const myGames = gamesSnapshot.val();
-          for (const gameId of Object.keys(myGames)) {
-            await database.ref(`games/${gameId}`).remove().catch(err => console.error('Failed to delete game:', err));
-          }
-        }
-        // Also check if we're player2 in any games
-        const gamesSnapshot2 = await database.ref('games').once('value');
-        if (gamesSnapshot2.exists()) {
-          const allGames = gamesSnapshot2.val();
+          const allGames = gamesSnapshot.val();
           for (const [gameId, gameData] of Object.entries(allGames)) {
-            if (gameData.player2 && gameData.player2.id === myPlayerId) {
-              await database.ref(`games/${gameId}`).remove().catch(err => console.error('Failed to delete game:', err));
+            const isMyGameAsPlayer1 = gameData.player1 && gameData.player1.id === myPlayerId;
+            const isMyGameAsPlayer2 = gameData.player2 && gameData.player2.id === myPlayerId;
+
+            if (isMyGameAsPlayer1 || isMyGameAsPlayer2) {
+              // Check if this game is abandoned (should be cleaned up)
+              const myPlayerData = isMyGameAsPlayer1 ? gameData.player1 : gameData.player2;
+              const isDisconnected = myPlayerData.connected === false;
+              const isStale = gameData.createdAt && gameData.createdAt < thirtyMinutesAgo;
+              const isFinished = gameData.status === 'finished';
+
+              // Only delete if abandoned: disconnected, stale, or finished
+              if (isDisconnected || isStale || isFinished) {
+                await database.ref(`games/${gameId}`).remove().catch(err => console.error('Failed to delete abandoned game:', err));
+              }
+              // Active games (connected: true, recent, playing) are kept intact
             }
           }
         }
