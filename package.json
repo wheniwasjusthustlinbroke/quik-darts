@@ -1,11 +1,13 @@
 {
   "name": "quik-darts",
-  "version": "1.0.0",
-  "description": "A fully-featured web-based darts game with realistic gameplay mechanics.",
+  "version": "1.1.0",
+  "description": "Championship-style online darts game",
+  "private": true,
   "main": "index.js",
   "scripts": {
-    "build": "cp index.html www/",
-    "sync": "npm run build && npx cap sync",
+    "build": "node build.js",
+    "build:dev": "cp index.html www/",
+    "sync": "npm run build && cp dist/index.html www/ && npx cap sync",
     "ios": "npm run sync && npx cap open ios",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
@@ -13,12 +15,17 @@
     "type": "git",
     "url": "https://github.com/wheniwasjusthustlinbroke/quik-darts.git"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
+  "keywords": ["darts", "game", "multiplayer"],
+  "author": "Quik Darts",
+  "license": "UNLICENSED",
   "dependencies": {
     "@capacitor/cli": "^8.0.0",
     "@capacitor/core": "^8.0.0",
     "@capacitor/ios": "^8.0.0"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.23.7",
+    "@babel/preset-react": "^7.23.3",
+    "javascript-obfuscator": "^4.1.0"
   }
 }
