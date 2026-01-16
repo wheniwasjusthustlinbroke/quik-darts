@@ -1537,7 +1537,9 @@
       const validateThrowItem = (item) => {
         if (!item || typeof item !== 'object') return null;
         const score = typeof item.score === 'number' && item.score >= 0 && item.score <= 180 ? item.score : 0;
-        const label = typeof item.label === 'string' && item.label.length <= 20 ? item.label : 'MISS';
+        // Sanitize label: only allow A-Z, 0-9, ! (valid labels are like "T20", "D19", "BULL", "MISS", "180!!!")
+        const rawLabel = typeof item.label === 'string' ? item.label : '';
+        const label = rawLabel.replace(/[^A-Z0-9!]/gi, '').slice(0, 10) || 'MISS';
         const player = (item.player === 0 || item.player === 1) ? item.player : 0;
         const multiplier = typeof item.multiplier === 'number' && item.multiplier >= 0 && item.multiplier <= 3 ? item.multiplier : 1;
         return { score, label, player, multiplier };
