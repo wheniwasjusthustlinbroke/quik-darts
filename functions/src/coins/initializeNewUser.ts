@@ -53,10 +53,11 @@ export const initializeNewUser = functions
     }
 
     // 3. Must be a valid provider (extra safety)
+    // Note: Use generic error to prevent provider enumeration
     if (!ALLOWED_PROVIDERS.includes(signInProvider || '')) {
       throw new functions.https.HttpsError(
         'permission-denied',
-        `Invalid auth provider: ${signInProvider}. Use Google, Facebook, or Apple.`
+        'Please sign in with Google, Facebook, or Apple to create a coin wallet.'
       );
     }
 

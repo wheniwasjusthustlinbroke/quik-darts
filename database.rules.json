@@ -59,7 +59,7 @@
       }
     },
     "games": {
-      ".read": "auth != null",
+      ".read": false,
       ".indexOn": ["player1/id", "createdAt"],
       "$roomId": {
         ".read": "auth != null && (data.child('player1/id').val() === auth.uid || data.child('player2/id').val() === auth.uid)",

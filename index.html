@@ -1629,31 +1629,10 @@
         const myPlayerId = authUser.uid;
         setMyAuthId(myPlayerId);
 
-        // Clean up only ABANDONED games where we're a player
-        // (Don't delete active games - allows multiple tabs to have separate games)
-        const thirtyMinutesAgo = Date.now() - (30 * 60 * 1000);
-        const gamesSnapshot = await database.ref('games').once('value');
-        if (gamesSnapshot.exists()) {
-          const allGames = gamesSnapshot.val();
-          for (const [gameId, gameData] of Object.entries(allGames)) {
-            const isMyGameAsPlayer1 = gameData.player1 && gameData.player1.id === myPlayerId;
-            const isMyGameAsPlayer2 = gameData.player2 && gameData.player2.id === myPlayerId;
-
-            if (isMyGameAsPlayer1 || isMyGameAsPlayer2) {
-              // Check if this game is abandoned (should be cleaned up)
-              const myPlayerData = isMyGameAsPlayer1 ? gameData.player1 : gameData.player2;
-              const isDisconnected = myPlayerData.connected === false;
-              const isStale = gameData.createdAt && gameData.createdAt < thirtyMinutesAgo;
-              const isFinished = gameData.status === 'finished';
-
-              // Only delete if abandoned: disconnected, stale, or finished
-              if (isDisconnected || isStale || isFinished) {
-                await database.ref(`games/${gameId}`).remove().catch(err => console.error('Failed to delete abandoned game:', err));
-              }
-              // Active games (connected: true, recent, playing) are kept intact
-            }
-          }
-        }
+        // SECURITY: Game cleanup is handled by onDisconnect handlers and server-side
+        // logic. We no longer enumerate all games to prevent data leakage.
+        // Stale games are cleaned up via the cleanupExpiredEscrows scheduled function
+        // and onDisconnect handlers set up when joining a game.
 
         // Small delay to avoid race condition where both players check queue at exact same time
         setTimeout(() => {
