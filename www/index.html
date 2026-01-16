@@ -1846,22 +1846,25 @@
                           createdAt: firebase.database.ServerValue.TIMESTAMP
                         });
 
-                        // Start heartbeat for disconnect detection (I'm player2, opponent is player1)
-                        // This starts immediately so we detect if opponent never joins or leaves quickly
-                        startHeartbeat(gameRoomRef.current, 'player2', 'player1', () => {
-                          stopHeartbeat();
-                          alert('Opponent disconnected. Returning to menu.');
-                          if (gameRoomRef.current) {
-                            gameRoomRef.current.remove().catch(() => {});
-                          }
-                          cancelMatchmaking();
+                        // IMPORTANT: Register onDisconnect FIRST and wait for it to complete
+                        // This ensures if Chrome closes immediately, Firebase will set connected=false
+                        gameRoomRef.current.child('player2/connected').onDisconnect().set(false).then(() => {
+                          // Start heartbeat for disconnect detection (I'm player2, opponent is player1)
+                          startHeartbeat(gameRoomRef.current, 'player2', 'player1', () => {
+                            stopHeartbeat();
+                            alert('Opponent disconnected. Returning to menu.');
+                            if (gameRoomRef.current) {
+                              gameRoomRef.current.remove().catch(() => {});
+                            }
+                            cancelMatchmaking();
+                          });
+
+                          setOpponentName(sanitizeName(otherPlayer.name));
+                          setOpponentFlag(sanitizeFlag(otherPlayer.flag));
+                          setMatchmakingState('found');
+
+                          setTimeout(() => startOnlineGame(roomId, 1), 1500);
                         });
-
-                        setOpponentName(sanitizeName(otherPlayer.name));
-                        setOpponentFlag(sanitizeFlag(otherPlayer.flag));
-                        setMatchmakingState('found');
-
-                        setTimeout(() => startOnlineGame(roomId, 1), 1500);
                       }
                     }
                   });
@@ -1894,6 +1897,7 @@
         }
 
         myPlayerKeyRef.current = myKey;
+        const heartbeatStartTime = Date.now();
 
         // Send initial heartbeat
         roomRef.child(`${myKey}/lastHeartbeat`).set(Date.now());
@@ -1908,10 +1912,19 @@
           // Check opponent's heartbeat
           roomRef.child(`${opponentKey}/lastHeartbeat`).once('value', (snapshot) => {
             const opponentHeartbeat = snapshot.val();
+            const now = Date.now();
+
             if (opponentHeartbeat) {
-              const timeSinceHeartbeat = Date.now() - opponentHeartbeat;
-              // If opponent's heartbeat is more than 8 seconds old, they're gone
+              // Opponent has sent heartbeats - check if recent
+              const timeSinceHeartbeat = now - opponentHeartbeat;
               if (timeSinceHeartbeat > 8000) {
+                onDisconnect();
+              }
+            } else {
+              // Opponent has NEVER sent a heartbeat
+              // If we've been waiting more than 10 seconds, they're not coming
+              const timeSinceStart = now - heartbeatStartTime;
+              if (timeSinceStart > 10000) {
                 onDisconnect();
               }
             }
