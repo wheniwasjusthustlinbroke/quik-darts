@@ -2950,6 +2950,38 @@
       // AUTH FUNCTIONS
       // ============================================
 
+      // Sanitize OAuth display name - limit length and remove potentially confusing characters
+      const sanitizeOAuthDisplayName = (name) => {
+        if (!name || typeof name !== 'string') return null;
+        return name
+          .slice(0, 50)                                    // Limit length
+          .replace(/[<>\"'&\\]/g, '')                      // Remove HTML-dangerous chars
+          .replace(/[\x00-\x1F\x7F]/g, '')                 // Remove control characters
+          .replace(/\s+/g, ' ')                            // Collapse whitespace
+          .trim() || null;
+      };
+
+      // Validate OAuth photo URL - only allow trusted domains
+      const validatePhotoURL = (url) => {
+        if (!url || typeof url !== 'string') return null;
+        try {
+          const parsed = new URL(url);
+          // Only allow HTTPS from trusted OAuth providers
+          const trustedDomains = [
+            'graph.facebook.com',
+            'platform-lookaside.fbsbx.com',
+            'lh3.googleusercontent.com',
+            'googleusercontent.com',
+            'fbcdn.net'
+          ];
+          const isTrusted = parsed.protocol === 'https:' &&
+            trustedDomains.some(domain => parsed.hostname === domain || parsed.hostname.endsWith('.' + domain));
+          return isTrusted ? url : null;
+        } catch {
+          return null;
+        }
+      };
+
       // Update currentUser when auth state changes
       useEffect(() => {
         if (auth) {
@@ -2965,7 +2997,11 @@
 
                 // For Facebook, use Graph API URL (more reliable)
                 if (provider.providerId === 'facebook.com' && provider.uid) {
-                  photoURL = `https://graph.facebook.com/${provider.uid}/picture?type=large`;
+                  // Validate Facebook UID is numeric before constructing URL
+                  const fbUid = String(provider.uid).replace(/[^0-9]/g, '');
+                  if (fbUid.length > 0 && fbUid.length <= 20) {
+                    photoURL = `https://graph.facebook.com/${fbUid}/picture?type=large`;
+                  }
                 } else if (!photoURL) {
                   photoURL = provider.photoURL;
                 }
@@ -2974,11 +3010,12 @@
                 if (!email) email = provider.email;
               }
 
+              // Sanitize and validate OAuth data before storing
               setCurrentUser({
                 uid: user.uid,
-                displayName: displayName,
-                email: email,
-                photoURL: photoURL,
+                displayName: sanitizeOAuthDisplayName(displayName),
+                email: email ? email.slice(0, 100) : null, // Limit email length
+                photoURL: validatePhotoURL(photoURL),
                 isAnonymous: user.isAnonymous
               });
             } else {

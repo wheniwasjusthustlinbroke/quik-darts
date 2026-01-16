@@ -41,8 +41,16 @@
         "status": { ".validate": "newData.isString() && (newData.val() === 'playing' || newData.val() === 'finished')" },
         "legScores": { ".validate": "newData.hasChildren()" },
         "setScores": { ".validate": "newData.hasChildren()" },
-        "throwHistory": { ".validate": true },
-        "dartPositions": { ".validate": true },
+        "throwHistory": {
+          "$throwId": {
+            ".validate": "newData.hasChildren(['score', 'label', 'player']) && newData.child('score').isNumber() && newData.child('score').val() >= 0 && newData.child('score').val() <= 180 && newData.child('label').isString() && newData.child('label').val().length <= 20 && newData.child('player').isNumber() && (newData.child('player').val() === 0 || newData.child('player').val() === 1)"
+          }
+        },
+        "dartPositions": {
+          "$dartId": {
+            ".validate": "newData.hasChildren(['x', 'y']) && newData.child('x').isNumber() && newData.child('x').val() >= 0 && newData.child('x').val() <= 500 && newData.child('y').isNumber() && newData.child('y').val() >= 0 && newData.child('y').val() <= 500"
+          }
+        },
         "createdAt": { ".validate": "newData.isNumber()" },
         "winner": { ".validate": "newData.isNumber() && (newData.val() === 0 || newData.val() === 1)" }
       }
@@ -51,7 +59,7 @@
       "$challengeId": {
         ".read": "auth != null",
         ".write": "auth != null",
-        ".validate": "!newData.exists() || (newData.isNumber() && newData.val() >= 0 && newData.val() <= 100000 && (!data.exists() || newData.val() === data.val() + 1))"
+        ".validate": "!newData.exists() || ($challengeId.matches(/^[a-zA-Z0-9_-]{1,50}$/) && newData.isNumber() && newData.val() >= 0 && newData.val() <= 100000 && (!data.exists() || newData.val() === data.val() + 1))"
       }
     },
     "$other": {
