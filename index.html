@@ -2955,23 +2955,17 @@
         if (auth) {
           const unsubscribe = auth.onAuthStateChanged((user) => {
             if (user) {
-              // Debug: Log user data
-              console.log('Auth user:', user);
-              console.log('Provider data:', user.providerData);
-
-              // Try to get photo from providerData (Facebook, Google, etc.)
+              // Get photo from providerData (Facebook, Google, etc.)
               let photoURL = user.photoURL;
               let displayName = user.displayName;
               let email = user.email;
 
               if (user.providerData && user.providerData.length > 0) {
                 const provider = user.providerData[0];
-                console.log('Provider:', provider.providerId, 'UID:', provider.uid);
 
-                // For Facebook, ALWAYS use Graph API URL (more reliable)
+                // For Facebook, use Graph API URL (more reliable)
                 if (provider.providerId === 'facebook.com' && provider.uid) {
                   photoURL = `https://graph.facebook.com/${provider.uid}/picture?type=large`;
-                  console.log('Facebook photo URL:', photoURL);
                 } else if (!photoURL) {
                   photoURL = provider.photoURL;
                 }
@@ -2980,15 +2974,13 @@
                 if (!email) email = provider.email;
               }
 
-              const userData = {
+              setCurrentUser({
                 uid: user.uid,
                 displayName: displayName,
                 email: email,
                 photoURL: photoURL,
                 isAnonymous: user.isAnonymous
-              };
-              console.log('Setting currentUser:', userData);
-              setCurrentUser(userData);
+              });
             } else {
               setCurrentUser(null);
             }
@@ -3001,12 +2993,10 @@
       const signInWithGoogle = async () => {
         try {
           const provider = new firebase.auth.GoogleAuthProvider();
-          const result = await auth.signInWithPopup(provider);
+          await auth.signInWithPopup(provider);
           setShowLoginModal(false);
-          console.log('Signed in with Google:', result.user.displayName);
         } catch (error) {
-          console.error('Google sign-in error:', error);
-          alert('Failed to sign in with Google. Please try again.');
+          alert('Unable to sign in. Please try again or use a different method.');
         }
       };
 
@@ -3014,16 +3004,11 @@
       const signInWithFacebook = async () => {
         try {
           const provider = new firebase.auth.FacebookAuthProvider();
-          const result = await auth.signInWithPopup(provider);
+          await auth.signInWithPopup(provider);
           setShowLoginModal(false);
-          console.log('Signed in with Facebook:', result.user.displayName);
         } catch (error) {
-          console.error('Facebook sign-in error:', error);
-          if (error.code === 'auth/account-exists-with-different-credential') {
-            alert('An account already exists with the same email. Please sign in with Google instead.');
-          } else {
-            alert('Failed to sign in with Facebook. Please try again.');
-          }
+          // Generic error message to prevent user enumeration
+          alert('Unable to sign in. Please try again or use a different method.');
         }
       };
 
@@ -3033,12 +3018,10 @@
           const provider = new firebase.auth.OAuthProvider('apple.com');
           provider.addScope('email');
           provider.addScope('name');
-          const result = await auth.signInWithPopup(provider);
+          await auth.signInWithPopup(provider);
           setShowLoginModal(false);
-          console.log('Signed in with Apple:', result.user.displayName);
         } catch (error) {
-          console.error('Apple sign-in error:', error);
-          alert('Failed to sign in with Apple. Please try again.');
+          alert('Unable to sign in. Please try again or use a different method.');
         }
       };
 
@@ -3048,9 +3031,8 @@
           await auth.signOut();
           // Sign back in anonymously
           await auth.signInAnonymously();
-          console.log('Signed out, now anonymous');
         } catch (error) {
-          console.error('Sign out error:', error);
+          // Silent fail - user will see login button
         }
       };
 
