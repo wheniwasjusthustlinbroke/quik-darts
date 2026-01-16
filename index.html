@@ -2134,6 +2134,231 @@
         return difficultyConfig ? difficultyConfig.accuracy : 50;
       };
 
+      // NOTE: Achievement callbacks must be defined BEFORE handleLegWin to avoid TDZ errors in production builds
+      const unlockAchievement = useCallback((achievementId) => {
+        // Check if already unlocked
+        if (unlockedAchievements.includes(achievementId)) return;
+
+        const achievement = ACHIEVEMENTS_DATA.find(a => a.id === achievementId);
+        if (!achievement) return;
+
+        // Add to unlocked list
+        const newUnlocked = [...unlockedAchievements, achievementId];
+        setUnlockedAchievements(newUnlocked);
+
+        try {
+          localStorage.setItem('quikdarts_achievements', JSON.stringify(newUnlocked));
+        } catch (error) {
+          console.error('Failed to save achievements to localStorage:', error);
+        }
+
+        // Show popup (timeout cleanup handled by useEffect)
+        setAchievementPopup(achievement);
+        setTimeout(() => setAchievementPopup(null), 4000);
+      }, [unlockedAchievements]);
+
+      const checkAchievements = useCallback((stats) => {
+        // First game
+        if (stats.totalGamesPlayed >= 1) {
+          unlockAchievement('first_game');
+        }
+
+        // First win
+        if (stats.totalGamesWon >= 1) {
+          unlockAchievement('first_win');
+        }
+
+        // 180 achievements
+        if (stats.total180s >= 1) {
+          unlockAchievement('first_180');
+        }
+        if (stats.total180s >= 10) {
+          unlockAchievement('ten_180s');
+        }
+        if (stats.total180s >= 50) {
+          unlockAchievement('fifty_180s');
+        }
+
+        // Bulls achievements
+        if (stats.totalBulls >= 1) {
+          unlockAchievement('first_bull');
+        }
+        if (stats.totalBulls >= 50) {
+          unlockAchievement('fifty_bulls');
+        }
+        if (stats.totalBulls >= 100) {
+          unlockAchievement('hundred_bulls');
+        }
+
+        // Winning streaks
+        if (stats.totalGamesWon >= 5) {
+          unlockAchievement('five_wins');
+        }
+        if (stats.totalGamesWon >= 20) {
+          unlockAchievement('twenty_wins');
+        }
+        if (stats.totalGamesWon >= 50) {
+          unlockAchievement('fifty_wins');
+        }
+
+        // Online achievements
+        if (stats.totalOnlineGames >= 1) {
+          unlockAchievement('first_online');
+        }
+        if (stats.totalOnlineWins >= 1) {
+          unlockAchievement('first_online_win');
+        }
+        if (stats.totalOnlineWins >= 10) {
+          unlockAchievement('ten_online_wins');
+        }
+        if (stats.totalOnlineWins >= 50) {
+          unlockAchievement('fifty_online_wins');
+        }
+
+        // Checkout achievements
+        if (stats.highestCheckout >= 100) {
+          unlockAchievement('big_checkout');
+        }
+        if (stats.highestCheckout >= 150) {
+          unlockAchievement('huge_checkout');
+        }
+
+        // Triples achievements
+        if (stats.totalTriples >= 50) {
+          unlockAchievement('fifty_triples');
+        }
+        if (stats.totalTriples >= 200) {
+          unlockAchievement('two_hundred_triples');
+        }
+      }, [unlockAchievement]);
+
+      const updateAchievementStats = useCallback((update) => {
+        setAchievementStats(prev => {
+          const newStats = { ...prev, ...update };
+
+          try {
+            localStorage.setItem('quikdarts_stats', JSON.stringify(newStats));
+          } catch (error) {
+            console.error('Failed to save achievement stats to localStorage:', error);
+          }
+
+          checkAchievements(newStats);
+          return newStats;
+        });
+      }, [checkAchievements]);
+
+      // Update weekly challenge stats and check for completion
+      const updateWeeklyChallengeStats = useCallback((update) => {
+        setWeeklyChallenge(prev => {
+          // Check if we need to reset for a new week
+          const currentWeek = getCurrentWeekNumber();
+          if (prev.weekNumber !== currentWeek) {
+            // New week, reset everything but keep completed challenges history
+            const activeChallenge = getActiveTimeLimitedAchievement();
+            const newData = {
+              weekNumber: currentWeek,
+              challengeId: activeChallenge?.id,
+              stats: { ...update },
+              completed: false,
+              completedChallenges: prev.completedChallenges || []
+            };
+            try {
+              localStorage.setItem('quikdarts_weekly_challenge', JSON.stringify(newData));
+            } catch (error) {
+              console.error('Failed to save weekly challenge:', error);
+            }
+            return newData;
+          }
+
+          // Same week, update stats
+          const newStats = { ...prev.stats };
+          Object.keys(update).forEach(key => {
+            newStats[key] = (newStats[key] || 0) + (update[key] || 0);
+          });
+
+          // Check if challenge is now completed
+          const activeChallenge = getActiveTimeLimitedAchievement();
+          let completed = prev.completed;
+          let completedChallenges = [...(prev.completedChallenges || [])];
+
+          if (activeChallenge && !completed) {
+            const current = newStats[activeChallenge.statKey] || 0;
+            if (current >= activeChallenge.target) {
+              completed = true;
+              if (!completedChallenges.includes(activeChallenge.id)) {
+                completedChallenges.push(activeChallenge.id);
+              }
+              // Sync completion to Firebase for global tracking (requires auth)
+              if (database && currentAuthUser) {
+                try {
+                  database.ref('weekly_completions/' + activeChallenge.id).transaction(count => (count || 0) + 1);
+                } catch (error) {
+                  console.error('Failed to sync weekly completion to Firebase:', error);
+                }
+              }
+            }
+          }
+
+          const newData = {
+            ...prev,
+            stats: newStats,
+            completed,
+            completedChallenges
+          };
+
+          try {
+            localStorage.setItem('quikdarts_weekly_challenge', JSON.stringify(newData));
+          } catch (error) {
+            console.error('Failed to save weekly challenge:', error);
+          }
+
+          return newData;
+        });
+      }, []);
+
+      // Update daily challenge stats and check for completions
+      const updateDailyChallengeStats = useCallback((update) => {
+        setDailyChallengeData(prev => {
+          const today = getTodayString();
+          if (prev.date !== today) {
+            // Reset for new day, then apply the update
+            const newData = createDefaultDailyChallengeData(today);
+            Object.keys(update).forEach(key => {
+              newData.stats[key] = (newData.stats[key] || 0) + (update[key] || 0);
+            });
+            try {
+              localStorage.setItem('quikdarts_daily_challenges', JSON.stringify(newData));
+            } catch (error) {
+              console.error('Failed to save daily challenges:', error);
+            }
+            return newData;
+          }
+
+          const newStats = { ...prev.stats };
+          Object.keys(update).forEach(key => {
+            newStats[key] = (newStats[key] || 0) + (update[key] || 0);
+          });
+
+          const newCompleted = [...prev.completedChallenges];
+          prev.challenges.forEach(challenge => {
+            if (!newCompleted.includes(challenge.id)) {
+              const current = newStats[challenge.statKey] || 0;
+              if (current >= challenge.target) {
+                newCompleted.push(challenge.id);
+              }
+            }
+          });
+
+          const newData = { ...prev, stats: newStats, completedChallenges: newCompleted };
+          try {
+            localStorage.setItem('quikdarts_daily_challenges', JSON.stringify(newData));
+          } catch (error) {
+            console.error('Failed to save daily challenges:', error);
+          }
+          return newData;
+        });
+      }, []);
+
       const handleLegWin = useCallback((playerIndex, dartsInLeg = null) => {
         // Check for nine-darter (only possible in 501)
         // Use passed dartsInLeg if provided, otherwise read from state
@@ -3110,231 +3335,6 @@
         setGameState('menu');
         setDartPositions([]);
       };
-
-      // Achievements Functions
-      const unlockAchievement = useCallback((achievementId) => {
-        // Check if already unlocked
-        if (unlockedAchievements.includes(achievementId)) return;
-
-        const achievement = ACHIEVEMENTS_DATA.find(a => a.id === achievementId);
-        if (!achievement) return;
-
-        // Add to unlocked list
-        const newUnlocked = [...unlockedAchievements, achievementId];
-        setUnlockedAchievements(newUnlocked);
-
-        try {
-          localStorage.setItem('quikdarts_achievements', JSON.stringify(newUnlocked));
-        } catch (error) {
-          console.error('Failed to save achievements to localStorage:', error);
-        }
-
-        // Show popup (timeout cleanup handled by useEffect)
-        setAchievementPopup(achievement);
-        setTimeout(() => setAchievementPopup(null), 4000);
-      }, [unlockedAchievements]);
-
-      const checkAchievements = useCallback((stats) => {
-        // First game
-        if (stats.totalGamesPlayed >= 1) {
-          unlockAchievement('first_game');
-        }
-
-        // First win
-        if (stats.totalGamesWon >= 1) {
-          unlockAchievement('first_win');
-        }
-
-        // 180 achievements
-        if (stats.total180s >= 1) {
-          unlockAchievement('first_180');
-        }
-        if (stats.total180s >= 10) {
-          unlockAchievement('ten_180s');
-        }
-        if (stats.total180s >= 50) {
-          unlockAchievement('fifty_180s');
-        }
-
-        // Bulls achievements
-        if (stats.totalBulls >= 1) {
-          unlockAchievement('first_bull');
-        }
-        if (stats.totalBulls >= 50) {
-          unlockAchievement('fifty_bulls');
-        }
-        if (stats.totalBulls >= 100) {
-          unlockAchievement('hundred_bulls');
-        }
-
-        // Winning streaks
-        if (stats.totalGamesWon >= 5) {
-          unlockAchievement('five_wins');
-        }
-        if (stats.totalGamesWon >= 20) {
-          unlockAchievement('twenty_wins');
-        }
-        if (stats.totalGamesWon >= 50) {
-          unlockAchievement('fifty_wins');
-        }
-
-        // Online achievements
-        if (stats.totalOnlineGames >= 1) {
-          unlockAchievement('first_online');
-        }
-        if (stats.totalOnlineWins >= 1) {
-          unlockAchievement('first_online_win');
-        }
-        if (stats.totalOnlineWins >= 10) {
-          unlockAchievement('ten_online_wins');
-        }
-        if (stats.totalOnlineWins >= 50) {
-          unlockAchievement('fifty_online_wins');
-        }
-
-        // Checkout achievements
-        if (stats.highestCheckout >= 100) {
-          unlockAchievement('big_checkout');
-        }
-        if (stats.highestCheckout >= 150) {
-          unlockAchievement('huge_checkout');
-        }
-
-        // Triples achievements
-        if (stats.totalTriples >= 50) {
-          unlockAchievement('fifty_triples');
-        }
-        if (stats.totalTriples >= 200) {
-          unlockAchievement('two_hundred_triples');
-        }
-      }, [unlockAchievement]);
-
-      const updateAchievementStats = useCallback((update) => {
-        setAchievementStats(prev => {
-          const newStats = { ...prev, ...update };
-
-          try {
-            localStorage.setItem('quikdarts_stats', JSON.stringify(newStats));
-          } catch (error) {
-            console.error('Failed to save achievement stats to localStorage:', error);
-          }
-
-          checkAchievements(newStats);
-          return newStats;
-        });
-      }, [checkAchievements]);
-
-      // Update weekly challenge stats and check for completion
-      const updateWeeklyChallengeStats = useCallback((update) => {
-        setWeeklyChallenge(prev => {
-          // Check if we need to reset for a new week
-          const currentWeek = getCurrentWeekNumber();
-          if (prev.weekNumber !== currentWeek) {
-            // New week, reset everything but keep completed challenges history
-            const activeChallenge = getActiveTimeLimitedAchievement();
-            const newData = {
-              weekNumber: currentWeek,
-              challengeId: activeChallenge?.id,
-              stats: { ...update },
-              completed: false,
-              completedChallenges: prev.completedChallenges || []
-            };
-            try {
-              localStorage.setItem('quikdarts_weekly_challenge', JSON.stringify(newData));
-            } catch (error) {
-              console.error('Failed to save weekly challenge:', error);
-            }
-            return newData;
-          }
-
-          // Same week, update stats
-          const newStats = { ...prev.stats };
-          Object.keys(update).forEach(key => {
-            newStats[key] = (newStats[key] || 0) + (update[key] || 0);
-          });
-
-          // Check if challenge is now completed
-          const activeChallenge = getActiveTimeLimitedAchievement();
-          let completed = prev.completed;
-          let completedChallenges = [...(prev.completedChallenges || [])];
-
-          if (activeChallenge && !completed) {
-            const current = newStats[activeChallenge.statKey] || 0;
-            if (current >= activeChallenge.target) {
-              completed = true;
-              if (!completedChallenges.includes(activeChallenge.id)) {
-                completedChallenges.push(activeChallenge.id);
-              }
-              // Sync completion to Firebase for global tracking (requires auth)
-              if (database && currentAuthUser) {
-                try {
-                  database.ref('weekly_completions/' + activeChallenge.id).transaction(count => (count || 0) + 1);
-                } catch (error) {
-                  console.error('Failed to sync weekly completion to Firebase:', error);
-                }
-              }
-            }
-          }
-
-          const newData = {
-            ...prev,
-            stats: newStats,
-            completed,
-            completedChallenges
-          };
-
-          try {
-            localStorage.setItem('quikdarts_weekly_challenge', JSON.stringify(newData));
-          } catch (error) {
-            console.error('Failed to save weekly challenge:', error);
-          }
-
-          return newData;
-        });
-      }, []);
-
-      // Update daily challenge stats and check for completions
-      const updateDailyChallengeStats = useCallback((update) => {
-        setDailyChallengeData(prev => {
-          const today = getTodayString();
-          if (prev.date !== today) {
-            // Reset for new day, then apply the update
-            const newData = createDefaultDailyChallengeData(today);
-            Object.keys(update).forEach(key => {
-              newData.stats[key] = (newData.stats[key] || 0) + (update[key] || 0);
-            });
-            try {
-              localStorage.setItem('quikdarts_daily_challenges', JSON.stringify(newData));
-            } catch (error) {
-              console.error('Failed to save daily challenges:', error);
-            }
-            return newData;
-          }
-
-          const newStats = { ...prev.stats };
-          Object.keys(update).forEach(key => {
-            newStats[key] = (newStats[key] || 0) + (update[key] || 0);
-          });
-
-          const newCompleted = [...prev.completedChallenges];
-          prev.challenges.forEach(challenge => {
-            if (!newCompleted.includes(challenge.id)) {
-              const current = newStats[challenge.statKey] || 0;
-              if (current >= challenge.target) {
-                newCompleted.push(challenge.id);
-              }
-            }
-          });
-
-          const newData = { ...prev, stats: newStats, completedChallenges: newCompleted };
-          try {
-            localStorage.setItem('quikdarts_daily_challenges', JSON.stringify(newData));
-          } catch (error) {
-            console.error('Failed to save daily challenges:', error);
-          }
-          return newData;
-        });
-      }, []);
 
       // Update countdown timer every minute
       useEffect(() => {
