@@ -1163,6 +1163,7 @@
       const [opponentFlag, setOpponentFlag] = useState('🌍');
       const gameRoomRef = useRef(null); // Firebase room reference
       const opponentWasConnected = useRef(false); // Track if opponent was ever connected
+      const earlyDisconnectListenerRef = useRef(null); // Track listener during 'found' state
 
       // Practice mode states
       const [practiceMode, setPracticeMode] = useState(false); // true when in practice mode
@@ -1749,6 +1750,26 @@
 
                   setGameRoomId(activeRoomId);
                   gameRoomRef.current = database.ref(`games/${activeRoomId}`);
+
+                  // Set connected status and disconnect handler immediately (don't wait for startOnlineGame)
+                  gameRoomRef.current.child('player1/connected').set(true);
+                  gameRoomRef.current.child('player1/connected').onDisconnect().set(false);
+
+                  // Listen for player2 disconnecting during 'found' transition
+                  earlyDisconnectListenerRef.current = gameRoomRef.current.child('player2/connected').on('value', (snapshot) => {
+                    const player2Connected = snapshot.val();
+                    // If player2 disconnected during transition, notify and return to menu
+                    if (player2Connected === false) {
+                      if (earlyDisconnectListenerRef.current) {
+                        gameRoomRef.current.child('player2/connected').off('value', earlyDisconnectListenerRef.current);
+                        earlyDisconnectListenerRef.current = null;
+                      }
+                      alert('Opponent disconnected. Returning to menu.');
+                      gameRoomRef.current.remove().catch(() => {});
+                      cancelMatchmaking();
+                    }
+                  });
+
                   setOpponentName(sanitizeName(activeGameData.player2.name));
                   setOpponentFlag(sanitizeFlag(activeGameData.player2.flag));
                   setMatchmakingState('found');
@@ -1809,6 +1830,24 @@
                           createdAt: firebase.database.ServerValue.TIMESTAMP
                         });
 
+                        // Set up disconnect handler immediately (don't wait for startOnlineGame)
+                        gameRoomRef.current.child('player2/connected').onDisconnect().set(false);
+
+                        // Listen for player1 disconnecting during 'found' transition
+                        earlyDisconnectListenerRef.current = gameRoomRef.current.child('player1/connected').on('value', (snapshot) => {
+                          const player1Connected = snapshot.val();
+                          // If player1 connected then disconnected during transition, notify and return to menu
+                          if (player1Connected === false) {
+                            if (earlyDisconnectListenerRef.current) {
+                              gameRoomRef.current.child('player1/connected').off('value', earlyDisconnectListenerRef.current);
+                              earlyDisconnectListenerRef.current = null;
+                            }
+                            alert('Opponent disconnected. Returning to menu.');
+                            gameRoomRef.current.remove().catch(() => {});
+                            cancelMatchmaking();
+                          }
+                        });
+
                         setOpponentName(sanitizeName(otherPlayer.name));
                         setOpponentFlag(sanitizeFlag(otherPlayer.flag));
                         setMatchmakingState('found');
@@ -1849,6 +1888,9 @@
           gameRoomRef.current.off();
           gameRoomRef.current = null;
         }
+
+        // Clear early disconnect listener ref (listener already cleaned up by .off() above)
+        earlyDisconnectListenerRef.current = null;
 
         // Initialize game state for online mode
         setWinner(null);
@@ -1997,6 +2039,9 @@
           gameRoomRef.current.off();
           gameRoomRef.current = null;
         }
+
+        // Clear early disconnect listener ref
+        earlyDisconnectListenerRef.current = null;
 
         setMatchmakingState(null);
         setOnlineMode(false);
