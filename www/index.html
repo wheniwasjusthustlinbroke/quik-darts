@@ -2955,23 +2955,40 @@
         if (auth) {
           const unsubscribe = auth.onAuthStateChanged((user) => {
             if (user) {
+              // Debug: Log user data
+              console.log('Auth user:', user);
+              console.log('Provider data:', user.providerData);
+
               // Try to get photo from providerData (Facebook, Google, etc.)
               let photoURL = user.photoURL;
-              if (!photoURL && user.providerData && user.providerData.length > 0) {
+              let displayName = user.displayName;
+              let email = user.email;
+
+              if (user.providerData && user.providerData.length > 0) {
                 const provider = user.providerData[0];
-                photoURL = provider.photoURL;
-                // For Facebook, construct a reliable photo URL using the provider UID
+                console.log('Provider:', provider.providerId, 'UID:', provider.uid);
+
+                // For Facebook, ALWAYS use Graph API URL (more reliable)
                 if (provider.providerId === 'facebook.com' && provider.uid) {
                   photoURL = `https://graph.facebook.com/${provider.uid}/picture?type=large`;
+                  console.log('Facebook photo URL:', photoURL);
+                } else if (!photoURL) {
+                  photoURL = provider.photoURL;
                 }
+
+                if (!displayName) displayName = provider.displayName;
+                if (!email) email = provider.email;
               }
-              setCurrentUser({
+
+              const userData = {
                 uid: user.uid,
-                displayName: user.displayName || (user.providerData && user.providerData[0]?.displayName),
-                email: user.email || (user.providerData && user.providerData[0]?.email),
+                displayName: displayName,
+                email: email,
                 photoURL: photoURL,
                 isAnonymous: user.isAnonymous
-              });
+              };
+              console.log('Setting currentUser:', userData);
+              setCurrentUser(userData);
             } else {
               setCurrentUser(null);
             }
