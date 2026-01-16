@@ -22,7 +22,8 @@
             ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 501 && newData.val() != 1 && (!data.exists() || newData.val() <= data.val() || newData.val() == root.child('games').child($roomId).child('gameMode').val())"
           },
           "ready": { ".validate": "newData.isBoolean()" },
-          "connected": { ".validate": "newData.isBoolean()" }
+          "connected": { ".validate": "newData.isBoolean()" },
+          "lastHeartbeat": { ".validate": "newData.isNumber() && newData.val() > 0" }
         },
         "player2": {
           "id": { ".validate": "newData.isString() && newData.val().length >= 1 && newData.val().length <= 50" },
@@ -32,7 +33,8 @@
             ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 501 && newData.val() != 1 && (!data.exists() || newData.val() <= data.val() || newData.val() == root.child('games').child($roomId).child('gameMode').val())"
           },
           "ready": { ".validate": "newData.isBoolean()" },
-          "connected": { ".validate": "newData.isBoolean()" }
+          "connected": { ".validate": "newData.isBoolean()" },
+          "lastHeartbeat": { ".validate": "newData.isNumber() && newData.val() > 0" }
         },
         "currentPlayer": { ".validate": "newData.isNumber() && (newData.val() === 0 || newData.val() === 1)" },
         "dartsThrown": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 3" },
@@ -43,7 +45,7 @@
         "setScores": { ".validate": "newData.hasChildren()" },
         "throwHistory": {
           "$throwId": {
-            ".validate": "newData.hasChildren(['score', 'label', 'player']) && newData.child('score').isNumber() && newData.child('score').val() >= 0 && newData.child('score').val() <= 180 && newData.child('label').isString() && newData.child('label').val().length <= 20 && newData.child('player').isNumber() && (newData.child('player').val() === 0 || newData.child('player').val() === 1)"
+            ".validate": "newData.hasChildren(['score', 'label', 'player']) && newData.child('score').isNumber() && newData.child('score').val() >= 0 && newData.child('score').val() <= 180 && newData.child('label').isString() && newData.child('label').val().length <= 20 && newData.child('player').isNumber() && (newData.child('player').val() === 0 || newData.child('player').val() === 1) && (!newData.hasChild('multiplier') || (newData.child('multiplier').isNumber() && newData.child('multiplier').val() >= 0 && newData.child('multiplier').val() <= 3))"
           }
         },
         "dartPositions": {
