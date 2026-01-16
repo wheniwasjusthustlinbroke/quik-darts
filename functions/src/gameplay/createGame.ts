@@ -126,7 +126,7 @@ export const createGame = functions
         flag: sanitizeFlag(player1Flag),
         score: gameMode,
         ready: true,
-        connected: true,
+        connected: false, // Will be set when player1 joins
         lastHeartbeat: now,
       },
       player2: {
@@ -135,7 +135,7 @@ export const createGame = functions
         flag: sanitizeFlag(player2Flag),
         score: gameMode,
         ready: true,
-        connected: true,
+        connected: true, // Player2 creates the game, so they're connected
         lastHeartbeat: now,
       },
       currentPlayer: 0, // Player 1 starts
