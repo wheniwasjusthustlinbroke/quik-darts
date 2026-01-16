@@ -1,60 +1,91 @@
 {
   "rules": {
-    "matchmaking_queue": {
+    "users": {
+      "$userId": {
+        "profile": {
+          ".read": "auth != null",
+          ".write": "auth != null && auth.uid === $userId",
+          ".validate": "newData.hasChildren(['displayName']) && newData.child('displayName').isString() && newData.child('displayName').val().length >= 1 && newData.child('displayName').val().length <= 20"
+        },
+        "wallet": {
+          ".read": "auth != null && auth.uid === $userId",
+          ".write": false
+        },
+        "transactions": {
+          ".read": "auth != null && auth.uid === $userId",
+          ".write": false
+        },
+        "progression": {
+          ".read": "auth != null",
+          ".write": "auth != null && auth.uid === $userId",
+          ".validate": "newData.child('xp').isNumber() && newData.child('xp').val() >= 0 && newData.child('level').isNumber() && newData.child('level').val() >= 1 && newData.child('level').val() <= 100"
+        },
+        "streaks": {
+          ".read": "auth != null",
+          ".write": "auth != null && auth.uid === $userId",
+          ".validate": "newData.child('currentWinStreak').isNumber() && newData.child('currentWinStreak').val() >= 0 && newData.child('bestWinStreak').isNumber() && newData.child('bestWinStreak').val() >= 0"
+        }
+      }
+    },
+    "escrow": {
       ".read": "auth != null",
-      ".indexOn": ["timestamp"],
-      "$playerId": {
-        ".write": "auth != null && auth.uid === $playerId",
-        ".validate": "!newData.exists() || (newData.hasChildren(['playerId', 'name', 'flag', 'timestamp']) && newData.child('playerId').val() === $playerId && newData.child('name').isString() && newData.child('name').val().length >= 1 && newData.child('name').val().length <= 20 && newData.child('flag').isString() && newData.child('flag').val().length <= 50)"
+      ".write": false,
+      "$escrowId": {
+        ".read": "auth != null"
+      }
+    },
+    "usedAdRewards": {
+      ".read": false,
+      ".write": false
+    },
+    "matchmaking_queue": {
+      "casual": {
+        ".read": "auth != null",
+        ".indexOn": ["timestamp"],
+        "$playerId": {
+          ".write": "auth != null && auth.uid === $playerId",
+          ".validate": "!newData.exists() || (newData.hasChildren(['playerId', 'name', 'flag', 'timestamp']) && newData.child('playerId').val() === $playerId && newData.child('name').isString() && newData.child('name').val().length >= 1 && newData.child('name').val().length <= 20 && newData.child('flag').isString() && newData.child('flag').val().length <= 50)"
+        }
+      },
+      "wagered": {
+        "$stakeLevel": {
+          ".read": "auth != null",
+          ".indexOn": ["timestamp"],
+          "$playerId": {
+            ".write": "auth != null && auth.uid === $playerId && auth.token.firebase.sign_in_provider != 'anonymous'",
+            ".validate": "!newData.exists() || (newData.hasChildren(['playerId', 'name', 'flag', 'timestamp']) && newData.child('playerId').val() === $playerId && newData.child('name').isString() && newData.child('name').val().length >= 1 && newData.child('name').val().length <= 20 && ($stakeLevel === '50' || $stakeLevel === '100' || $stakeLevel === '500' || $stakeLevel === '2500'))"
+          }
+        }
       }
     },
     "games": {
       ".read": "auth != null",
       ".indexOn": ["player1/id", "createdAt"],
       "$roomId": {
-        ".write": "auth != null && (!data.exists() || data.child('player1/id').val() === auth.uid || data.child('player2/id').val() === auth.uid)",
-        ".validate": "newData.hasChildren(['player1', 'player2', 'currentPlayer', 'status', 'createdAt'])",
+        ".read": "auth != null && (data.child('player1/id').val() === auth.uid || data.child('player2/id').val() === auth.uid)",
+        ".write": false,
         "player1": {
-          "id": { ".validate": "newData.isString() && newData.val().length >= 1 && newData.val().length <= 50" },
-          "name": { ".validate": "newData.isString() && newData.val().length >= 1 && newData.val().length <= 20" },
-          "flag": { ".validate": "newData.isString() && newData.val().length <= 50" },
-          "score": {
-            ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 501 && newData.val() != 1 && (!data.exists() || newData.val() <= data.val() || newData.val() == root.child('games').child($roomId).child('gameMode').val())"
+          "connected": {
+            ".write": "auth != null && auth.uid === data.parent().child('id').val()"
           },
-          "ready": { ".validate": "newData.isBoolean()" },
-          "connected": { ".validate": "newData.isBoolean()" },
-          "lastHeartbeat": { ".validate": "newData.isNumber() && newData.val() > 0" }
+          "lastHeartbeat": {
+            ".write": "auth != null && auth.uid === data.parent().child('id').val()",
+            ".validate": "newData.isNumber() && newData.val() > 0"
+          }
         },
         "player2": {
-          "id": { ".validate": "newData.isString() && newData.val().length >= 1 && newData.val().length <= 50" },
-          "name": { ".validate": "newData.isString() && newData.val().length >= 1 && newData.val().length <= 20" },
-          "flag": { ".validate": "newData.isString() && newData.val().length <= 50" },
-          "score": {
-            ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 501 && newData.val() != 1 && (!data.exists() || newData.val() <= data.val() || newData.val() == root.child('games').child($roomId).child('gameMode').val())"
+          "connected": {
+            ".write": "auth != null && auth.uid === data.parent().child('id').val()"
           },
-          "ready": { ".validate": "newData.isBoolean()" },
-          "connected": { ".validate": "newData.isBoolean()" },
-          "lastHeartbeat": { ".validate": "newData.isNumber() && newData.val() > 0" }
-        },
-        "currentPlayer": { ".validate": "newData.isNumber() && (newData.val() === 0 || newData.val() === 1)" },
-        "dartsThrown": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 3" },
-        "currentTurnScore": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 180" },
-        "gameMode": { ".validate": "newData.isNumber() && (newData.val() === 301 || newData.val() === 501)" },
-        "status": { ".validate": "newData.isString() && (newData.val() === 'playing' || newData.val() === 'finished')" },
-        "legScores": { ".validate": "newData.hasChildren()" },
-        "setScores": { ".validate": "newData.hasChildren()" },
-        "throwHistory": {
-          "$throwId": {
-            ".validate": "newData.hasChildren(['score', 'label', 'player']) && newData.child('score').isNumber() && newData.child('score').val() >= 0 && newData.child('score').val() <= 180 && newData.child('label').isString() && newData.child('label').val().length <= 20 && newData.child('player').isNumber() && (newData.child('player').val() === 0 || newData.child('player').val() === 1) && (!newData.hasChild('multiplier') || (newData.child('multiplier').isNumber() && newData.child('multiplier').val() >= 0 && newData.child('multiplier').val() <= 3))"
+          "lastHeartbeat": {
+            ".write": "auth != null && auth.uid === data.parent().child('id').val()",
+            ".validate": "newData.isNumber() && newData.val() > 0"
           }
         },
-        "dartPositions": {
-          "$dartId": {
-            ".validate": "newData.hasChildren(['x', 'y']) && newData.child('x').isNumber() && newData.child('x').val() >= 0 && newData.child('x').val() <= 500 && newData.child('y').isNumber() && newData.child('y').val() >= 0 && newData.child('y').val() <= 500"
-          }
-        },
-        "createdAt": { ".validate": "newData.isNumber()" },
-        "winner": { ".validate": "newData.isNumber() && (newData.val() === 0 || newData.val() === 1)" }
+        "wager": {
+          ".read": "auth != null",
+          ".write": false
+        }
       }
     },
     "weekly_completions": {
