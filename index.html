@@ -2955,11 +2955,21 @@
         if (auth) {
           const unsubscribe = auth.onAuthStateChanged((user) => {
             if (user) {
+              // Try to get photo from providerData (Facebook, Google, etc.)
+              let photoURL = user.photoURL;
+              if (!photoURL && user.providerData && user.providerData.length > 0) {
+                const provider = user.providerData[0];
+                photoURL = provider.photoURL;
+                // For Facebook, construct a reliable photo URL using the provider UID
+                if (provider.providerId === 'facebook.com' && provider.uid) {
+                  photoURL = `https://graph.facebook.com/${provider.uid}/picture?type=large`;
+                }
+              }
               setCurrentUser({
                 uid: user.uid,
-                displayName: user.displayName,
-                email: user.email,
-                photoURL: user.photoURL,
+                displayName: user.displayName || (user.providerData && user.providerData[0]?.displayName),
+                email: user.email || (user.providerData && user.providerData[0]?.email),
+                photoURL: photoURL,
                 isAnonymous: user.isAnonymous
               });
             } else {
