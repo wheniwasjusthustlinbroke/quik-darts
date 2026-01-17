@@ -12,7 +12,9 @@
     "test": "cd functions && npm test",
     "test:e2e": "npx playwright test",
     "test:e2e:ui": "npx playwright test --ui",
-    "test:e2e:report": "npx playwright show-report"
+    "test:e2e:report": "npx playwright show-report",
+    "deploy": "npm run build && cp dist/index.html www/ && firebase deploy --only hosting && git add www/index.html && git commit -m 'Update www for GitHub Pages' && git push origin main",
+    "deploy:all": "npm run build && cp dist/index.html www/ && firebase deploy && git add www/index.html && git commit -m 'Update www for GitHub Pages' && git push origin main"
   },
   "repository": {
     "type": "git",
