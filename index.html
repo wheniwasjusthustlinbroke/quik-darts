@@ -3792,10 +3792,15 @@
                   throw new Error(result.data.error || 'Failed to create game');
                 }
 
-                // Step 3: Remove opponent from queue
-                await wageredQueueRef.child(opponentData.playerId).remove();
-
                 const roomId = result.data.gameId;
+
+                // Step 3: Notify opponent by updating their queue entry with matchedGameId
+                // (Don't remove yet - they need to see this update to find the game)
+                await wageredQueueRef.child(opponentData.playerId).update({
+                  matchedGameId: roomId,
+                  matchedByName: sanitizeName(playerSetup.names[0]) || 'Player 2',
+                  matchedByFlag: sanitizeFlag(playerSetup.flags[0]) || '🌍'
+                });
                 setGameRoomId(roomId);
                 gameRoomRef.current = database.ref(`games/${roomId}`);
 
@@ -3879,69 +3884,76 @@
       // Listen for wagered match opponent
       const listenForWageredMatch = (myPlayerId, wageredQueueRef, escrowId) => {
         let isProcessingMatch = false; // Prevent concurrent match attempts
+        const myQueueEntryRef = wageredQueueRef.child(myPlayerId);
 
-        matchmakingIntervalRef.current = setInterval(async () => {
-          if (isProcessingMatch) return; // Skip if already processing
+        // Use Firebase .on() listener for real-time updates to our queue entry
+        // This is more reliable than polling and detects matchedGameId immediately
+        const queueEntryListener = myQueueEntryRef.on('value', async (snapshot) => {
+          if (isProcessingMatch) return;
+          if (!snapshot.exists()) return;
 
-          // Check 1: See if someone created a game with us
-          database.ref('games').orderByChild('player1/id').equalTo(myPlayerId).once('value', (gameSnapshot) => {
-            if (gameSnapshot.exists()) {
-              const games = gameSnapshot.val();
-              const now = Date.now();
+          const myEntry = snapshot.val();
 
-              for (const [roomId, gameData] of Object.entries(games)) {
-                const gameAge = now - (gameData.createdAt || 0);
-                const isRecent = gameAge < 30000;
-                const isWagered = gameData.wager && gameData.wager.escrowId;
-                const isPlayer2Connected = gameData.player2 && gameData.player2.connected === true;
+          // Check 1: See if someone matched with us (they wrote matchedGameId to our queue entry)
+          if (myEntry.matchedGameId) {
+            console.log('[wageredMatchmaking] Found matchedGameId in queue entry:', myEntry.matchedGameId);
+            isProcessingMatch = true;
 
-                if (isRecent && isWagered && isPlayer2Connected) {
-                  // Found our wagered game
-                  clearInterval(matchmakingIntervalRef.current);
-                  wageredQueueRef.child(myPlayerId).remove();
+            const roomId = myEntry.matchedGameId;
+            const opponentName = myEntry.matchedByName || 'Opponent';
+            const opponentFlag = myEntry.matchedByFlag || '🌍';
 
-                  setGameRoomId(roomId);
-                  setCurrentEscrowId(gameData.wager.escrowId);
-                  gameRoomRef.current = database.ref(`games/${roomId}`);
+            // Clean up listener and queue entry
+            myQueueEntryRef.off('value', queueEntryListener);
+            clearInterval(matchmakingIntervalRef.current);
+            await myQueueEntryRef.remove();
 
-                  // IMPORTANT: Register onDisconnect FIRST to protect against early browser close
-                  // For wagered games, this is critical to ensure opponent disconnect triggers forfeit
-                  gameRoomRef.current.child('player1/connected').onDisconnect().set(false).then(() => {
-                    // Set connected status
-                    gameRoomRef.current.child('player1/connected').set(true);
-                    opponentWasConnected.current = true;
+            setGameRoomId(roomId);
+            gameRoomRef.current = database.ref(`games/${roomId}`);
 
-                    // Start heartbeat for disconnect detection (I'm player1, opponent is player2)
-                    startHeartbeat(gameRoomRef.current, 'player1', 'player2', () => {
-                      stopHeartbeat();
-                      alert('Opponent disconnected. Returning to menu.');
-                      if (gameRoomRef.current) {
-                        gameRoomRef.current.remove().catch(() => {});
-                      }
-                      cancelMatchmaking();
-                    });
+            // Access the game directly by ID (allowed by database rules)
+            const gameSnap = await gameRoomRef.current.once('value');
+            const gameData = gameSnap.val();
 
-                    setOpponentName(sanitizeName(gameData.player2.name));
-                    setOpponentFlag(sanitizeFlag(gameData.player2.flag));
-                    setMatchmakingState('found');
-
-                    setTimeout(() => startOnlineGame(roomId, 0), 1500);
-                  }).catch((err) => {
-                    console.error('[wageredMatchmaking] Failed to register onDisconnect:', err);
-                    // Still proceed - better than blocking entirely
-                    setOpponentName(sanitizeName(gameData.player2.name));
-                    setOpponentFlag(sanitizeFlag(gameData.player2.flag));
-                    setMatchmakingState('found');
-                    setTimeout(() => startOnlineGame(roomId, 0), 1500);
-                  });
-                  return;
-                }
-              }
+            if (gameData && gameData.wager) {
+              setCurrentEscrowId(gameData.wager.escrowId);
             }
-          });
 
-          // Check 2: Look for opponents in queue (handles race condition where both players joined queue simultaneously)
-          // Use UID comparison to determine who initiates the match (lower UID initiates)
+            // IMPORTANT: Register onDisconnect FIRST to protect against early browser close
+            gameRoomRef.current.child('player1/connected').onDisconnect().set(false).then(() => {
+              gameRoomRef.current.child('player1/connected').set(true);
+              opponentWasConnected.current = true;
+
+              startHeartbeat(gameRoomRef.current, 'player1', 'player2', () => {
+                stopHeartbeat();
+                alert('Opponent disconnected. Returning to menu.');
+                if (gameRoomRef.current) {
+                  gameRoomRef.current.remove().catch(() => {});
+                }
+                cancelMatchmaking();
+              });
+
+              setOpponentName(sanitizeName(opponentName));
+              setOpponentFlag(sanitizeFlag(opponentFlag));
+              setMatchmakingState('found');
+
+              setTimeout(() => startOnlineGame(roomId, 0), 1500);
+            }).catch((err) => {
+              console.error('[wageredMatchmaking] Failed to register onDisconnect:', err);
+              setOpponentName(sanitizeName(opponentName));
+              setOpponentFlag(sanitizeFlag(opponentFlag));
+              setMatchmakingState('found');
+              setTimeout(() => startOnlineGame(roomId, 0), 1500);
+            });
+            return;
+          }
+        });
+
+        // Check 2: Poll for opponents in queue (handles race condition where both players joined queue simultaneously)
+        // Use UID comparison to determine who initiates the match (lower UID initiates)
+        matchmakingIntervalRef.current = setInterval(async () => {
+          if (isProcessingMatch) return;
+
           wageredQueueRef.once('value', async (queueSnapshot) => {
             if (isProcessingMatch) return;
             if (!queueSnapshot.exists()) return;
@@ -3949,6 +3961,7 @@
             const queueEntries = queueSnapshot.val();
             const opponents = Object.entries(queueEntries)
               .filter(([id]) => id !== myPlayerId)
+              .filter(([, data]) => !data.matchedGameId) // Only match with unmatched players
               .map(([id, data]) => ({ id, ...data }));
 
             if (opponents.length === 0) return;
@@ -3959,7 +3972,6 @@
             );
 
             // Use UID comparison to decide who initiates: LOWER UID initiates
-            // This prevents both players from trying to join each other simultaneously
             if (myPlayerId < opponent.playerId) {
               console.log('[wageredMatchmaking] I have lower UID, I will initiate match with', opponent.playerId);
               isProcessingMatch = true;
@@ -4003,12 +4015,20 @@
                   throw new Error(result.data.error || 'Failed to create game');
                 }
 
-                // Success - clean up and start game
-                clearInterval(matchmakingIntervalRef.current);
-                wageredQueueRef.child(myPlayerId).remove();
-                wageredQueueRef.child(opponent.playerId).remove();
-
                 const roomId = result.data.gameId;
+
+                // Notify opponent by updating their queue entry with matchedGameId
+                await wageredQueueRef.child(opponent.playerId).update({
+                  matchedGameId: roomId,
+                  matchedByName: sanitizeName(playerSetup.names[0]) || 'Player 2',
+                  matchedByFlag: sanitizeFlag(playerSetup.flags[0]) || '🌍'
+                });
+
+                // Clean up our entry and listener
+                myQueueEntryRef.off('value', queueEntryListener);
+                clearInterval(matchmakingIntervalRef.current);
+                await myQueueEntryRef.remove();
+
                 setGameRoomId(roomId);
                 gameRoomRef.current = database.ref(`games/${roomId}`);
 
@@ -4033,12 +4053,10 @@
               } catch (error) {
                 console.error('[wageredMatchmaking] Error matching from queue:', error);
                 isProcessingMatch = false;
-                // Don't cancel matchmaking - let the other player try, or wait for someone else
               }
             }
-            // If myPlayerId > opponent.playerId, do nothing - let the other player initiate
           });
-        }, 1000);
+        }, 2000); // Check every 2 seconds for race condition handling
       };
 
       // Sign in with Google
