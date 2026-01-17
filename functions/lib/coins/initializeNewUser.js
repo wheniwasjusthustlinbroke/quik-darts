@@ -56,14 +56,18 @@ const ALLOWED_PROVIDERS = ['google.com', 'facebook.com', 'apple.com'];
 exports.initializeNewUser = functions
     .region('europe-west1') // Same region as database
     .https.onCall(async (data, context) => {
+    console.log('[initializeNewUser] Function called');
     // 1. Must be authenticated
     if (!context.auth) {
+        console.log('[initializeNewUser] No auth context');
         throw new functions.https.HttpsError('unauthenticated', 'Must be logged in to initialize account');
     }
     const userId = context.auth.uid;
     const token = context.auth.token;
-    // 2. Must NOT be anonymous - only signed-in users get coins
     const signInProvider = token.firebase?.sign_in_provider;
+    console.log('[initializeNewUser] User:', userId);
+    console.log('[initializeNewUser] Provider:', signInProvider);
+    // 2. Must NOT be anonymous - only signed-in users get coins
     if (signInProvider === 'anonymous') {
         throw new functions.https.HttpsError('permission-denied', 'Guest accounts do not have coin wallets. Sign in with Google, Facebook, or Apple to earn coins.');
     }
@@ -73,10 +77,13 @@ exports.initializeNewUser = functions
         throw new functions.https.HttpsError('permission-denied', 'Please sign in with Google, Facebook, or Apple to create a coin wallet.');
     }
     // 4. Use transaction to prevent race conditions
+    console.log('[initializeNewUser] Starting transaction for user', userId);
     const userRef = db.ref(`users/${userId}`);
     const result = await userRef.transaction((currentData) => {
+        console.log('[initializeNewUser] Transaction callback, data exists:', currentData !== null);
         // If user data doesn't exist, create it
         if (currentData === null) {
+            console.log('[initializeNewUser] Creating new user data');
             return {
                 profile: {
                     displayName: token.name || 'Player',
@@ -116,9 +123,11 @@ exports.initializeNewUser = functions
         }
         // User already exists - check if wallet exists
         if (currentData.wallet) {
+            console.log('[initializeNewUser] Wallet already exists, aborting');
             // Wallet exists, abort transaction (return undefined)
             return; // This aborts the transaction
         }
+        console.log('[initializeNewUser] User exists but no wallet, adding wallet');
         // User exists but no wallet (edge case) - add wallet
         return {
             ...currentData,
@@ -143,6 +152,7 @@ exports.initializeNewUser = functions
             },
         };
     });
+    console.log('[initializeNewUser] Transaction committed:', result.committed);
     // Check transaction result
     if (!result.committed) {
         // Transaction was aborted - wallet already exists

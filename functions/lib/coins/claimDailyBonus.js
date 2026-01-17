@@ -56,12 +56,15 @@ const COOLDOWN_MS = 24 * 60 * 60 * 1000;
 exports.claimDailyBonus = functions
     .region('europe-west1')
     .https.onCall(async (data, context) => {
+    console.log('[claimDailyBonus] Function called');
+    console.log('[claimDailyBonus] Auth:', context.auth ? `uid=${context.auth.uid}` : 'null');
     // 1. Must be authenticated
     if (!context.auth) {
         throw new functions.https.HttpsError('unauthenticated', 'Must be logged in');
     }
     const userId = context.auth.uid;
     const token = context.auth.token;
+    console.log('[claimDailyBonus] Provider:', token.firebase?.sign_in_provider);
     // 2. Must NOT be anonymous
     if (token.firebase?.sign_in_provider === 'anonymous') {
         throw new functions.https.HttpsError('permission-denied', 'Daily bonus is only available for signed-in accounts');
@@ -69,20 +72,52 @@ exports.claimDailyBonus = functions
     const now = Date.now();
     const walletRef = db.ref(`users/${userId}/wallet`);
     const transactionsRef = db.ref(`users/${userId}/transactions`);
-    // 3. Atomic transaction for claiming
+    console.log(`[claimDailyBonus] Starting claim for user ${userId}`);
+    // 3. Read wallet to check existence and cooldown BEFORE transaction
+    const walletSnap = await walletRef.once('value');
+    const currentWallet = walletSnap.val();
+    if (!currentWallet) {
+        console.log(`[claimDailyBonus] No wallet found for user ${userId}`);
+        throw new functions.https.HttpsError('failed-precondition', 'Account not initialized. Call initializeNewUser first.');
+    }
+    console.log(`[claimDailyBonus] Current wallet:`, JSON.stringify(currentWallet));
+    // 4. Check cooldown BEFORE transaction
+    const lastClaim = currentWallet.lastDailyBonus || 0;
+    const timeSinceLastClaim = now - lastClaim;
+    console.log(`[claimDailyBonus] lastDailyBonus: ${lastClaim}, timeSince: ${timeSinceLastClaim}ms, cooldown: ${COOLDOWN_MS}ms`);
+    if (timeSinceLastClaim < COOLDOWN_MS) {
+        const nextClaimTime = lastClaim + COOLDOWN_MS;
+        console.log(`[claimDailyBonus] On cooldown until ${new Date(nextClaimTime).toISOString()}`);
+        return {
+            success: false,
+            nextClaimTime,
+            error: 'Already claimed today',
+        };
+    }
+    console.log(`[claimDailyBonus] Cooldown passed, awarding ${DAILY_BONUS} coins via transaction`);
+    // 5. Atomic transaction for awarding coins (only handles the write, not the check)
     const result = await walletRef.transaction((wallet) => {
+        console.log(`[claimDailyBonus] Transaction callback, wallet:`, wallet ? 'exists' : 'null');
         if (wallet === null) {
-            // No wallet exists - user needs to initialize first
+            // This shouldn't happen since we checked above, but handle it
+            console.log(`[claimDailyBonus] Unexpected null wallet in transaction`);
+            return {
+                coins: DAILY_BONUS,
+                lifetimeEarnings: DAILY_BONUS,
+                lifetimeSpent: 0,
+                lastDailyBonus: now,
+                lastAdReward: 0,
+                adRewardsToday: 0,
+                version: 1,
+            };
+        }
+        // Double-check cooldown in transaction (in case of race condition)
+        const txLastClaim = wallet.lastDailyBonus || 0;
+        if (now - txLastClaim < COOLDOWN_MS) {
+            console.log(`[claimDailyBonus] Race condition - already claimed in another request`);
             return; // Abort
         }
-        const lastClaim = wallet.lastDailyBonus || 0;
-        const timeSinceLastClaim = now - lastClaim;
-        // 4. Check cooldown (server-side)
-        if (timeSinceLastClaim < COOLDOWN_MS) {
-            // Still on cooldown - abort
-            return; // Abort - will check committed status
-        }
-        // 5. Award bonus
+        console.log(`[claimDailyBonus] Updating wallet: ${wallet.coins} + ${DAILY_BONUS} = ${(wallet.coins || 0) + DAILY_BONUS}`);
         return {
             ...wallet,
             coins: (wallet.coins || 0) + DAILY_BONUS,
@@ -91,19 +126,15 @@ exports.claimDailyBonus = functions
             version: (wallet.version || 0) + 1,
         };
     });
-    // Check if transaction was aborted
+    console.log(`[claimDailyBonus] Transaction committed: ${result.committed}`);
     if (!result.committed) {
-        // Need to check why - either no wallet or on cooldown
-        const walletSnap = await walletRef.once('value');
-        const wallet = walletSnap.val();
-        if (!wallet) {
-            throw new functions.https.HttpsError('failed-precondition', 'Account not initialized. Call initializeNewUser first.');
-        }
-        const lastClaim = wallet.lastDailyBonus || 0;
-        const nextClaimTime = lastClaim + COOLDOWN_MS;
+        // Race condition - another request claimed first
+        console.log(`[claimDailyBonus] Transaction aborted - race condition`);
+        const updatedWallet = await walletRef.once('value');
+        const lastBonus = updatedWallet.val()?.lastDailyBonus || 0;
         return {
             success: false,
-            nextClaimTime,
+            nextClaimTime: lastBonus + COOLDOWN_MS,
             error: 'Already claimed today',
         };
     }
