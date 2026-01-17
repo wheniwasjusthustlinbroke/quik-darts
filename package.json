@@ -6,15 +6,15 @@
   "main": "index.js",
   "scripts": {
     "build": "node build.js",
-    "build:dev": "cp index.html www/",
-    "sync": "npm run build && cp dist/index.html www/ && npx cap sync",
+    "build:dev": "cp index.html dist/",
+    "sync": "npm run build && npx cap sync",
     "ios": "npm run sync && npx cap open ios",
     "test": "cd functions && npm test",
     "test:e2e": "npx playwright test",
     "test:e2e:ui": "npx playwright test --ui",
     "test:e2e:report": "npx playwright show-report",
-    "deploy": "npm run build && cp dist/index.html www/ && firebase deploy --only hosting && git add www/index.html && git commit -m 'Update www for GitHub Pages' && git push origin main",
-    "deploy:all": "npm run build && cp dist/index.html www/ && firebase deploy && git add www/index.html && git commit -m 'Update www for GitHub Pages' && git push origin main"
+    "deploy": "npm run build && firebase deploy --only hosting",
+    "deploy:all": "npm run build && firebase deploy"
   },
   "repository": {
     "type": "git",
