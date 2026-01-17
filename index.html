@@ -3869,20 +3869,34 @@
           return;
         }
 
-        const userRef = database.ref(`users/${currentUser.uid}`);
+        // Listen to each path separately (database rules only allow reading specific children)
+        const profileRef = database.ref(`users/${currentUser.uid}/profile`);
+        const progressionRef = database.ref(`users/${currentUser.uid}/progression`);
+        const streaksRef = database.ref(`users/${currentUser.uid}/streaks`);
 
-        const profileListener = userRef.on('value', (snapshot) => {
-          const userData = snapshot.val();
-          if (userData) {
-            setUserProfile(userData.profile || null);
-            setUserProgression(userData.progression || null);
-            setUserStreaks(userData.streaks || null);
-          }
+        const profileListener = profileRef.on('value', (snapshot) => {
+          setUserProfile(snapshot.val() || null);
         }, (error) => {
           console.error('Profile listener error:', error);
         });
 
-        profileListenerRef.current = () => userRef.off('value', profileListener);
+        const progressionListener = progressionRef.on('value', (snapshot) => {
+          setUserProgression(snapshot.val() || null);
+        }, (error) => {
+          console.error('Progression listener error:', error);
+        });
+
+        const streaksListener = streaksRef.on('value', (snapshot) => {
+          setUserStreaks(snapshot.val() || null);
+        }, (error) => {
+          console.error('Streaks listener error:', error);
+        });
+
+        profileListenerRef.current = () => {
+          profileRef.off('value', profileListener);
+          progressionRef.off('value', progressionListener);
+          streaksRef.off('value', streaksListener);
+        };
 
         return () => {
           if (profileListenerRef.current) {
