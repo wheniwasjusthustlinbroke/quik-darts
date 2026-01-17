@@ -1403,6 +1403,7 @@
       const powerIntervalRef = useRef(null);
       const powerResetTimeoutRef = useRef(null);
       const matchmakingIntervalRef = useRef(null);
+      const wageredListenerRef = useRef(null); // Stores wagered matchmaking listener for cleanup
       const audioContext = useRef(null);
       const aimPositionRef = useRef({ x: CENTER, y: CENTER });
 
@@ -2138,6 +2139,15 @@
         if (matchmakingIntervalRef.current) {
           clearInterval(matchmakingIntervalRef.current);
           matchmakingIntervalRef.current = null;
+        }
+
+        // Clean up wagered matchmaking listener and timeout
+        if (wageredListenerRef.current) {
+          wageredListenerRef.current.ref.off('value', wageredListenerRef.current.callback);
+          if (wageredListenerRef.current.timeoutId) {
+            clearTimeout(wageredListenerRef.current.timeoutId);
+          }
+          wageredListenerRef.current = null;
         }
 
         // Remove from queue if still in matchmaking (use auth ID, not player index)
@@ -3947,9 +3957,13 @@
             const opponentName = myEntry.matchedByName || 'Opponent';
             const opponentFlag = myEntry.matchedByFlag || '🌍';
 
-            // Clean up listener and queue entry
+            // Clean up listener, interval, timeout, and queue entry
             myQueueEntryRef.off('value', queueEntryListener);
             clearInterval(matchmakingIntervalRef.current);
+            if (wageredListenerRef.current && wageredListenerRef.current.timeoutId) {
+              clearTimeout(wageredListenerRef.current.timeoutId);
+            }
+            wageredListenerRef.current = null;
             await myQueueEntryRef.remove();
 
             setGameRoomId(roomId);
@@ -4068,9 +4082,13 @@
                   matchedByFlag: sanitizeFlag(playerSetup.flags[0]) || '🌍'
                 });
 
-                // Clean up our entry and listener
+                // Clean up our entry, listener, interval, and timeout
                 myQueueEntryRef.off('value', queueEntryListener);
                 clearInterval(matchmakingIntervalRef.current);
+                if (wageredListenerRef.current && wageredListenerRef.current.timeoutId) {
+                  clearTimeout(wageredListenerRef.current.timeoutId);
+                }
+                wageredListenerRef.current = null;
                 await myQueueEntryRef.remove();
 
                 setGameRoomId(roomId);
@@ -4101,6 +4119,53 @@
             }
           });
         }, 2000); // Check every 2 seconds for race condition handling
+
+        // Timeout after 60 seconds - refund escrow and notify user
+        const timeoutId = setTimeout(() => {
+          console.log('[wageredMatchmaking] Timeout - no opponent found');
+
+          // Clean up listener
+          myQueueEntryRef.off('value', queueEntryListener);
+
+          // Clean up interval
+          if (matchmakingIntervalRef.current) {
+            clearInterval(matchmakingIntervalRef.current);
+            matchmakingIntervalRef.current = null;
+          }
+
+          // Remove from queue
+          myQueueEntryRef.remove();
+
+          // Clear wagered listener ref
+          wageredListenerRef.current = null;
+
+          // Refund escrow
+          if (functions && escrowId) {
+            const refundFn = functions.httpsCallable('refundEscrow');
+            refundFn({ escrowId, reason: 'cancelled' })
+              .then(result => {
+                console.log('[wageredMatchmaking] Escrow refunded on timeout:', result.data);
+                if (result.data.refundedAmounts && result.data.refundedAmounts[0]) {
+                  setCoinBalance(prev => prev + result.data.refundedAmounts[0]);
+                }
+              })
+              .catch(err => console.error('[wageredMatchmaking] Refund failed:', err));
+          }
+
+          // Reset state and notify user
+          setMatchmakingState('idle');
+          setOnlineMode(false);
+          setIsWageredMatch(false);
+          setCurrentEscrowId(null);
+          alert('No opponent found. Your coins have been refunded. Please try again.');
+        }, 60000);
+
+        // Store listener info for cleanup in cancelMatchmaking
+        wageredListenerRef.current = {
+          ref: myQueueEntryRef,
+          callback: queueEntryListener,
+          timeoutId: timeoutId
+        };
       };
 
       // Sign in with Google
