@@ -56,10 +56,20 @@ const functions = __importStar(require("firebase-functions"));
 const admin = __importStar(require("firebase-admin"));
 const stripe_1 = __importDefault(require("stripe"));
 const db = admin.database();
-// Initialize Stripe
-const stripe = new stripe_1.default(process.env.STRIPE_SECRET_KEY || '', {
-    apiVersion: '2025-12-15.clover',
-});
+// Lazy initialization - Stripe is created on first use
+let stripe = null;
+function getStripe() {
+    if (!stripe) {
+        const secretKey = process.env.STRIPE_SECRET_KEY;
+        if (!secretKey) {
+            throw new Error('STRIPE_SECRET_KEY not configured');
+        }
+        stripe = new stripe_1.default(secretKey, {
+            apiVersion: '2025-12-15.clover',
+        });
+    }
+    return stripe;
+}
 // Coin packages (must match createStripeCheckout.ts)
 const COIN_PACKAGES = {
     'starter': { coins: 500 },
@@ -96,7 +106,7 @@ exports.stripeWebhook = functions
     let event;
     try {
         // Verify the webhook signature
-        event = stripe.webhooks.constructEvent(req.rawBody, signature, webhookSecret);
+        event = getStripe().webhooks.constructEvent(req.rawBody, signature, webhookSecret);
     }
     catch (error) {
         console.error('[stripeWebhook] Signature verification failed:', error);
