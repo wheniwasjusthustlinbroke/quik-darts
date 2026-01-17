@@ -2017,6 +2017,15 @@
           const gameData = snapshot.val();
           if (!gameData) return;
 
+          // Log game state updates for debugging
+          console.log('[gameListener] Update received:', {
+            p1Score: gameData.player1?.score,
+            p2Score: gameData.player2?.score,
+            currentPlayer: gameData.currentPlayer,
+            dartsThrown: gameData.dartsThrown,
+            status: gameData.status
+          });
+
           // Update local game state from Firebase
           const myPlayer = playerIndex === 0 ? gameData.player1 : gameData.player2;
           const opponent = playerIndex === 0 ? gameData.player2 : gameData.player1;
@@ -2103,27 +2112,51 @@
 
         // For server-authoritative gameplay, only send dart position
         // The server will calculate score and update game state
-        try {
-          const submitThrow = functions.httpsCallable('submitThrow');
-          const result = await submitThrow({
-            gameId: gameRoomId,
-            dartPosition: throwData.position
-          });
+        const maxRetries = 3;
+        let lastError = null;
 
-          // Server returns: { success, score, label, isBust, newScore, isCheckout, isWinner }
-          if (!result.data.success) {
-            console.error('Throw rejected by server:', result.data.error);
-          }
-          // Game state is updated by the server, Firebase listener will sync UI
-        } catch (error) {
-          console.error('Failed to submit throw to server:', error);
-          // On error, notify user - do NOT fall back to direct writes
-          if (error.code === 'functions/failed-precondition') {
-            console.warn('Server rejected throw: precondition failed (not your turn or game ended)');
-          } else if (error.code === 'functions/permission-denied') {
-            console.warn('Server rejected throw: not a player in this game');
+        for (let attempt = 0; attempt < maxRetries; attempt++) {
+          try {
+            console.log(`[syncThrow] Attempt ${attempt + 1}: Sending dart at`, throwData.position);
+            const submitThrow = functions.httpsCallable('submitThrow');
+            const result = await submitThrow({
+              gameId: gameRoomId,
+              dartPosition: throwData.position
+            });
+
+            // Server returns: { success, score, label, isBust, newScore, isCheckout, isWinner }
+            if (!result.data.success) {
+              console.error('[syncThrow] Throw rejected by server:', result.data.error);
+              // Don't retry on server rejection (it's not a transient error)
+              return;
+            }
+
+            console.log('[syncThrow] Throw accepted:', result.data.label, result.data.score, 'pts');
+            // Game state is updated by the server, Firebase listener will sync UI
+            return;
+          } catch (error) {
+            lastError = error;
+            console.error(`[syncThrow] Attempt ${attempt + 1} failed:`, error.message || error);
+
+            // Don't retry on permission/precondition errors - they won't succeed
+            if (error.code === 'functions/failed-precondition') {
+              console.warn('[syncThrow] Server rejected: not your turn or game ended');
+              return;
+            } else if (error.code === 'functions/permission-denied') {
+              console.warn('[syncThrow] Server rejected: not a player in this game');
+              return;
+            }
+
+            // Retry with backoff for network errors
+            if (attempt < maxRetries - 1) {
+              await new Promise(r => setTimeout(r, 200 * (attempt + 1)));
+            }
           }
         }
+
+        // All retries failed
+        console.error('[syncThrow] All retries failed:', lastError);
+        alert('Failed to register throw. Please check your connection and try again.');
       }, [onlineMode, gameRoomId]);
 
       // Cancel matchmaking
@@ -3795,18 +3828,14 @@
         const wageredQueueRef = database.ref(`matchmaking_queue/wagered/${selectedStake}`);
 
         try {
-          // CLEANUP: First, try to refund any stale pending escrows from previous failed attempts
-          // This prevents "You already have a pending match" errors
-          console.log('[wageredMatchmaking] Checking for stale escrows to cleanup...');
-          try {
-            const refundFn = functions.httpsCallable('refundEscrow');
-            // Try to refund with a special flag that tells the server to find and refund any pending escrow
-            await refundFn({ escrowId: 'cleanup_pending', reason: 'cleanup_before_new_match' });
-            console.log('[wageredMatchmaking] Stale escrow cleanup completed');
-          } catch (cleanupErr) {
-            // Ignore cleanup errors - user might not have any pending escrows
-            console.log('[wageredMatchmaking] No stale escrows to cleanup or cleanup skipped');
-          }
+          // CLEANUP: Fire-and-forget cleanup of any stale pending escrows
+          // This prevents "You already have a pending match" errors without blocking matchmaking
+          // Don't await - let it run in background
+          console.log('[wageredMatchmaking] Starting stale escrow cleanup (non-blocking)...');
+          const refundFn = functions.httpsCallable('refundEscrow');
+          refundFn({ escrowId: 'cleanup_pending', reason: 'cleanup_before_new_match' })
+            .then(() => console.log('[wageredMatchmaking] Stale escrow cleanup completed'))
+            .catch(() => console.log('[wageredMatchmaking] No stale escrows to cleanup'));
 
           // IMPORTANT: Check queue FIRST before creating any escrow
           // This prevents both players from creating separate escrows
