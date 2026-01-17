@@ -3940,6 +3940,14 @@
         let isProcessingMatch = false; // Prevent concurrent match attempts
         const myQueueEntryRef = wageredQueueRef.child(myPlayerId);
 
+        // IMPORTANT: Initialize wageredListenerRef early so cleanup works even during setup
+        // Will be updated with timeoutId after timeout is created
+        wageredListenerRef.current = {
+          ref: myQueueEntryRef,
+          callback: null, // Will be set after listener is created
+          timeoutId: null // Will be set after timeout is created
+        };
+
         // Use Firebase .on() listener for real-time updates to our queue entry
         // This is more reliable than polling and detects matchedGameId immediately
         const queueEntryListener = myQueueEntryRef.on('value', async (snapshot) => {
@@ -3969,11 +3977,27 @@
             setGameRoomId(roomId);
             gameRoomRef.current = database.ref(`games/${roomId}`);
 
-            // Access the game directly by ID (allowed by database rules)
-            const gameSnap = await gameRoomRef.current.once('value');
-            const gameData = gameSnap.val();
+            // SECURITY: Validate game exists and we're actually a player in it
+            // This prevents spoofed matchedGameId attacks
+            let gameData;
+            try {
+              const gameSnap = await gameRoomRef.current.once('value');
+              gameData = gameSnap.val();
+            } catch (readErr) {
+              // Permission denied = we're not a player in this game (spoofed matchedGameId)
+              console.error('[wageredMatchmaking] Failed to read game - possible spoofed matchedGameId:', readErr);
+              isProcessingMatch = false;
+              return; // Ignore this matchedGameId and keep waiting
+            }
 
-            if (gameData && gameData.wager) {
+            // Validate game data exists and we're player1 (since we're waiting for matchedGameId)
+            if (!gameData || gameData.player1?.id !== myPlayerId) {
+              console.error('[wageredMatchmaking] Invalid game data or not player1 - ignoring matchedGameId');
+              isProcessingMatch = false;
+              return;
+            }
+
+            if (gameData.wager) {
               setCurrentEscrowId(gameData.wager.escrowId);
             }
 
@@ -4006,6 +4030,11 @@
             return;
           }
         });
+
+        // Store callback in ref now that listener is created
+        if (wageredListenerRef.current) {
+          wageredListenerRef.current.callback = queueEntryListener;
+        }
 
         // Check 2: Poll for opponents in queue (handles race condition where both players joined queue simultaneously)
         // Use UID comparison to determine who initiates the match (lower UID initiates)
@@ -4137,7 +4166,17 @@
                 });
               } catch (error) {
                 console.error('[wageredMatchmaking] Error matching from queue:', error);
-                // Create a new escrow since ours was refunded
+
+                // Check if error is "Cannot refund locked escrow" - means someone joined our escrow
+                const errorMsg = error.message || error.toString();
+                if (errorMsg.includes('locked escrow') || errorMsg.includes('Cannot refund')) {
+                  // Our escrow is locked = someone joined us! Wait for matchedGameId notification
+                  console.log('[wageredMatchmaking] Our escrow is locked - opponent joined us. Waiting for matchedGameId...');
+                  isProcessingMatch = false;
+                  return; // Don't create new escrow, just wait
+                }
+
+                // For other errors, try to create a new escrow to stay in queue
                 try {
                   console.log('[wageredMatchmaking] Match failed, creating new escrow to stay in queue');
                   const newEscrowId = database.ref('escrow').push().key;
@@ -4202,12 +4241,10 @@
           alert('No opponent found. Your coins have been refunded. Please try again.');
         }, 60000);
 
-        // Store listener info for cleanup in cancelMatchmaking
-        wageredListenerRef.current = {
-          ref: myQueueEntryRef,
-          callback: queueEntryListener,
-          timeoutId: timeoutId
-        };
+        // Update ref with timeoutId now that timeout is created
+        if (wageredListenerRef.current) {
+          wageredListenerRef.current.timeoutId = timeoutId;
+        }
       };
 
       // Sign in with Google
