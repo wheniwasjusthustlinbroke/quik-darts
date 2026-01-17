@@ -4604,19 +4604,6 @@
         }
       };
 
-      // Sign in with Apple
-      const signInWithApple = async () => {
-        try {
-          const provider = new firebase.auth.OAuthProvider('apple.com');
-          provider.addScope('email');
-          provider.addScope('name');
-          await auth.signInWithPopup(provider);
-          setShowLoginModal(false);
-        } catch (error) {
-          alert('Unable to sign in. Please try again or use a different method.');
-        }
-      };
-
       // Sign out
       const handleSignOut = async () => {
         try {

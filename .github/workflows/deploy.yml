@@ -54,7 +54,7 @@ jobs:
         with:
           path: './dist'
 
-  deploy:
+  deploy-github-pages:
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
@@ -64,3 +64,42 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
+
+  deploy-firebase:
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci || npm install
+
+      - name: Build obfuscated version
+        run: npm run build
+
+      - name: Copy static assets to dist
+        run: |
+          cp -r favicon*.png dist/ 2>/dev/null || true
+          cp -r favicon*.svg dist/ 2>/dev/null || true
+          cp -r favicon.ico dist/ 2>/dev/null || true
+          cp -r apple-touch-icon.png dist/ 2>/dev/null || true
+          cp -r site.webmanifest dist/ 2>/dev/null || true
+          cp -r robots.txt dist/ 2>/dev/null || true
+          cp -r assets dist/ 2>/dev/null || true
+          cp -r images dist/ 2>/dev/null || true
+          cp -r sounds dist/ 2>/dev/null || true
+
+      - name: Deploy to Firebase Hosting
+        uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          repoToken: ${{ secrets.GITHUB_TOKEN }}
+          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_QUIKDARTS }}
+          channelId: live
+          projectId: quikdarts
