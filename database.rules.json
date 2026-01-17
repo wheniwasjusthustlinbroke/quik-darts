@@ -5,7 +5,7 @@
         "profile": {
           ".read": "auth != null",
           ".write": "auth != null && auth.uid === $userId",
-          ".validate": "newData.hasChildren(['displayName']) && newData.child('displayName').isString() && newData.child('displayName').val().length >= 1 && newData.child('displayName').val().length <= 20"
+          ".validate": "newData.hasChildren(['displayName']) && newData.child('displayName').isString() && newData.child('displayName').val().length >= 1 && newData.child('displayName').val().length <= 20 && (!newData.hasChild('flag') || (newData.child('flag').isString() && newData.child('flag').val().length <= 10)) && !newData.hasChild('admin') && !newData.hasChild('verified') && !newData.hasChild('beta_tester') && !newData.hasChild('moderator')"
         },
         "wallet": {
           ".read": "auth != null && auth.uid === $userId",
