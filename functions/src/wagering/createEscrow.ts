@@ -78,6 +78,14 @@ export const createEscrow = functions
       );
     }
 
+    // Validate escrowId format to prevent injection/DoS attacks
+    if (escrowId.length > 100 || !/^[a-zA-Z0-9_-]+$/.test(escrowId)) {
+      throw new functions.https.HttpsError(
+        'invalid-argument',
+        'Invalid escrow ID format. Must be alphanumeric with underscores or hyphens, max 100 characters.'
+      );
+    }
+
     const now = Date.now();
     const walletRef = db.ref(`users/${userId}/wallet`);
     const escrowRef = db.ref(`escrow/${escrowId}`);

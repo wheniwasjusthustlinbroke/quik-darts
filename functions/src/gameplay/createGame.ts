@@ -77,6 +77,26 @@ export const createGame = functions
       );
     }
 
+    // Validate player IDs are valid strings
+    if (!player1Id || typeof player1Id !== 'string' || player1Id.length > 128) {
+      throw new functions.https.HttpsError(
+        'invalid-argument',
+        'Invalid player1 ID'
+      );
+    }
+    if (!player2Id || typeof player2Id !== 'string' || player2Id.length > 128) {
+      throw new functions.https.HttpsError(
+        'invalid-argument',
+        'Invalid player2 ID'
+      );
+    }
+    if (player1Id === player2Id) {
+      throw new functions.https.HttpsError(
+        'invalid-argument',
+        'Cannot play against yourself'
+      );
+    }
+
     // 3. For wagered games, verify escrow
     if (isWagered) {
       if (!escrowId || !stakeAmount) {
