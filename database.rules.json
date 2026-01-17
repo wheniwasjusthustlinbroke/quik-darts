@@ -63,7 +63,19 @@
           ".indexOn": ["timestamp"],
           "$playerId": {
             ".write": "auth != null && auth.uid === $playerId && auth.token.firebase.sign_in_provider != 'anonymous'",
-            ".validate": "!newData.exists() || (newData.hasChildren(['playerId', 'name', 'flag', 'timestamp']) && newData.child('playerId').val() === $playerId && newData.child('name').isString() && newData.child('name').val().length >= 1 && newData.child('name').val().length <= 20 && ($stakeLevel === '50' || $stakeLevel === '100' || $stakeLevel === '500' || $stakeLevel === '2500'))"
+            ".validate": "!newData.exists() || (newData.hasChildren(['playerId', 'name', 'flag', 'timestamp']) && newData.child('playerId').val() === $playerId && newData.child('name').isString() && newData.child('name').val().length >= 1 && newData.child('name').val().length <= 20 && ($stakeLevel === '50' || $stakeLevel === '100' || $stakeLevel === '500' || $stakeLevel === '2500'))",
+            "matchedGameId": {
+              ".write": "auth != null && auth.token.firebase.sign_in_provider != 'anonymous'",
+              ".validate": "newData.isString() && newData.val().length >= 10 && newData.val().length <= 50"
+            },
+            "matchedByName": {
+              ".write": "auth != null && auth.token.firebase.sign_in_provider != 'anonymous'",
+              ".validate": "newData.isString() && newData.val().length >= 1 && newData.val().length <= 20"
+            },
+            "matchedByFlag": {
+              ".write": "auth != null && auth.token.firebase.sign_in_provider != 'anonymous'",
+              ".validate": "newData.isString() && newData.val().length <= 50"
+            }
           }
         }
       }
