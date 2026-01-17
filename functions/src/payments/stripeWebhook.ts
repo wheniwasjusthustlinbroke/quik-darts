@@ -88,9 +88,12 @@ export const stripeWebhook = functions
       return;
     }
 
+    console.log(`[stripeWebhook] Received event type: ${event.type}`);
+
     // Handle the event
     if (event.type === 'checkout.session.completed') {
       const session = event.data.object as Stripe.Checkout.Session;
+      console.log(`[stripeWebhook] Session ID: ${session.id}, metadata:`, JSON.stringify(session.metadata));
       await handleSuccessfulPayment(session);
     } else {
       console.log(`[stripeWebhook] Unhandled event type: ${event.type}`);

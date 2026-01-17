@@ -113,9 +113,11 @@ exports.stripeWebhook = functions
         res.status(400).send('Invalid signature');
         return;
     }
+    console.log(`[stripeWebhook] Received event type: ${event.type}`);
     // Handle the event
     if (event.type === 'checkout.session.completed') {
         const session = event.data.object;
+        console.log(`[stripeWebhook] Session ID: ${session.id}, metadata:`, JSON.stringify(session.metadata));
         await handleSuccessfulPayment(session);
     }
     else {
