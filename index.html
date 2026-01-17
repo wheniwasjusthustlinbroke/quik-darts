@@ -1238,6 +1238,11 @@
       const [isWageredMatch, setIsWageredMatch] = useState(false); // Is current match wagered
       const [isCreatingEscrow, setIsCreatingEscrow] = useState(false); // Creating escrow in progress
 
+      // Tiered Optimistic UI state for wagered matches
+      const [scoreConfirming, setScoreConfirming] = useState(false); // Show "Confirming..." on score
+      const [rhythmState, setRhythmState] = useState('neutral'); // 'flow' | 'perfect' | 'neutral' | 'rushing' | 'hesitating'
+      const [pendingDartCorrection, setPendingDartCorrection] = useState(null); // For dart position correction animation
+
       const [achievementStats, setAchievementStats] = useState(() => {
         try {
           const saved = localStorage.getItem('quikdarts_stats');
@@ -2179,20 +2184,37 @@
         });
       }, [database, isWageredMatch, currentEscrowId, functions, gameRoomId, playSound]);
 
+      // Generate unique throw ID for tracking
+      const generateThrowId = useCallback(() => {
+        return `t_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      }, []);
+
       // Sync throw to Firebase via Cloud Function (server-authoritative)
       // SECURITY: No fallback to direct writes - all throws MUST go through Cloud Function
+      // Returns server result for tiered optimistic UI
       const syncThrowToFirebase = useCallback(async (throwData) => {
-        if (!onlineMode || !gameRoomId) return;
+        if (!onlineMode || !gameRoomId) return null;
 
         // SECURITY: Require Cloud Functions - no direct write fallback
         if (!functions) {
           console.error('Cloud Functions not available - online mode requires server validation');
           alert('Online play is temporarily unavailable. Please try again later.');
-          return;
+          return null;
         }
 
-        // For server-authoritative gameplay, only send dart position
-        // The server will calculate score and update game state
+        // Build payload - enhanced for wagered matches
+        const payload = {
+          gameId: gameRoomId,
+          dartPosition: throwData.position
+        };
+
+        // Add enhanced payload for wagered matches (anti-cheat validation)
+        if (isWageredMatch && throwData.aimPoint && throwData.powerValue !== undefined) {
+          payload.aimPoint = throwData.aimPoint;
+          payload.powerValue = throwData.powerValue;
+          payload.throwId = throwData.throwId || generateThrowId();
+        }
+
         const maxRetries = 3;
         let lastError = null;
 
@@ -2200,21 +2222,18 @@
           try {
             console.log(`[syncThrow] Attempt ${attempt + 1}: Sending dart at`, throwData.position);
             const submitThrow = functions.httpsCallable('submitThrow');
-            const result = await submitThrow({
-              gameId: gameRoomId,
-              dartPosition: throwData.position
-            });
+            const result = await submitThrow(payload);
 
-            // Server returns: { success, score, label, isBust, newScore, isCheckout, isWinner }
+            // Server returns: { success, score, label, isBust, newScore, isCheckout, rhythm, serverTimestamp }
             if (!result.data.success) {
               console.error('[syncThrow] Throw rejected by server:', result.data.error);
               // Don't retry on server rejection (it's not a transient error)
-              return;
+              return null;
             }
 
-            console.log('[syncThrow] Throw accepted:', result.data.label, result.data.score, 'pts');
-            // Game state is updated by the server, Firebase listener will sync UI
-            return;
+            console.log('[syncThrow] Throw accepted:', result.data.label, result.data.score, 'pts', 'rhythm:', result.data.rhythm);
+            // Return server result for tiered optimistic UI
+            return result.data;
           } catch (error) {
             lastError = error;
             console.error(`[syncThrow] Attempt ${attempt + 1} failed:`, error.message || error);
@@ -2222,10 +2241,10 @@
             // Don't retry on permission/precondition errors - they won't succeed
             if (error.code === 'functions/failed-precondition') {
               console.warn('[syncThrow] Server rejected: not your turn or game ended');
-              return;
+              return null;
             } else if (error.code === 'functions/permission-denied') {
               console.warn('[syncThrow] Server rejected: not a player in this game');
-              return;
+              return null;
             }
 
             // Retry with backoff for network errors
@@ -2238,7 +2257,8 @@
         // All retries failed
         console.error('[syncThrow] All retries failed:', lastError);
         alert('Failed to register throw. Please check your connection and try again.');
-      }, [onlineMode, gameRoomId]);
+        return null;
+      }, [onlineMode, gameRoomId, isWageredMatch, generateThrowId, functions]);
 
       // Cancel matchmaking
       const cancelMatchmaking = useCallback(() => {
@@ -3081,7 +3101,14 @@
             // In online mode, sync to server and let Firebase listener handle game state
             if (onlineMode) {
               console.log('[checkout] Online mode - syncing checkout throw to server');
-              syncThrowToFirebase({
+
+              // Wagered matches: show confirming state
+              if (isWageredMatch) {
+                setScoreConfirming(true);
+              }
+
+              // Enhanced payload for wagered matches
+              const throwPayload = {
                 player: currentPlayerIndex,
                 score: result.score,
                 multiplier: result.multiplier,
@@ -3091,8 +3118,21 @@
                 dartsThrown: dartsThrown + 1,
                 currentTurnScore: currentTurnScore + result.score,
                 currentPlayer: currentPlayerIndex,
-                position: finalPosition
+                position: finalPosition,
+                // Enhanced payload for wagered match anti-cheat
+                aimPoint: isWageredMatch ? { x: effectiveAimX, y: effectiveAimY } : undefined,
+                powerValue: isWageredMatch ? power : undefined
+              };
+
+              syncThrowToFirebase(throwPayload).then((serverResult) => {
+                setScoreConfirming(false);
+                if (serverResult && serverResult.rhythm) {
+                  setRhythmState(serverResult.rhythm);
+                }
+              }).catch(() => {
+                setScoreConfirming(false);
               });
+
               // Server will set winner and status='finished'
               // Firebase listener will detect winner and call handleLegWin
               return;
@@ -3134,7 +3174,8 @@
           // In online mode, ONLY sync to Firebase - don't update local state
           // The Firebase listener will update state for both players
           if (onlineMode) {
-            syncThrowToFirebase({
+            // Enhanced payload for wagered matches
+            const throwPayload = {
               player: currentPlayerIndex,
               score: result.score,
               multiplier: result.multiplier,
@@ -3144,8 +3185,46 @@
               dartsThrown: newDartsThrown,
               currentTurnScore: newCurrentTurnScore,
               currentPlayer: nextPlayerIndex,
-              position: finalPosition
-            });
+              position: finalPosition,
+              // Enhanced payload for wagered match anti-cheat
+              aimPoint: isWageredMatch ? { x: effectiveAimX, y: effectiveAimY } : undefined,
+              powerValue: isWageredMatch ? power : undefined
+            };
+
+            if (isWageredMatch) {
+              // WAGERED MATCH: Tiered optimistic UI
+              // Dart animation is instant, but score waits for server confirmation
+              setScoreConfirming(true);
+
+              syncThrowToFirebase(throwPayload)
+                .then((serverResult) => {
+                  setScoreConfirming(false);
+
+                  if (serverResult) {
+                    // Update rhythm state from server
+                    if (serverResult.rhythm) {
+                      setRhythmState(serverResult.rhythm);
+                    }
+
+                    // Check for position correction (anti-cheat)
+                    // If server adjusted position, animate dart to corrected position
+                    if (serverResult.positionAdjusted && serverResult.adjustedPosition) {
+                      setPendingDartCorrection({
+                        from: finalPosition,
+                        to: serverResult.adjustedPosition
+                      });
+                      // Clear correction after animation
+                      setTimeout(() => setPendingDartCorrection(null), 500);
+                    }
+                  }
+                })
+                .catch(() => {
+                  setScoreConfirming(false);
+                });
+            } else {
+              // CASUAL MATCH: Full optimistic UI - fire and forget
+              syncThrowToFirebase(throwPayload);
+            }
 
             // After 3 darts, reset local UI state
             // Note: Server (submitThrow Cloud Function) handles clearing dartPositions/dartsThrown
@@ -3155,6 +3234,7 @@
                 setCurrentTurnThrows([]);
                 setTriplesHit(0); // Reset power bar shrinking
                 setAimWobble({ x: 0, y: 0 }); // Reset wobble
+                setRhythmState('neutral'); // Reset rhythm for next turn
               }, 1000);
             }
           } else {
@@ -3178,7 +3258,7 @@
             }
           }
         }, 300);
-      }, [aimWobble, power, dartsThrown, players, currentPlayerIndex, winner, calculateScore, addRandomness, playSound, isCheckoutPosition, triplesHit, handleLegWin, updateStats, nextPlayer, onlineMode, playerId, syncThrowToFirebase, currentTurnScore, practiceMode, practiceSkillLevel, dartPositions, updateAchievementStats, achievementStats, updateWeeklyChallengeStats]);
+      }, [aimWobble, power, dartsThrown, players, currentPlayerIndex, winner, calculateScore, addRandomness, playSound, isCheckoutPosition, triplesHit, handleLegWin, updateStats, nextPlayer, onlineMode, playerId, syncThrowToFirebase, currentTurnScore, practiceMode, practiceSkillLevel, dartPositions, updateAchievementStats, achievementStats, updateWeeklyChallengeStats, isWageredMatch]);
 
       const handleMouseMove = useCallback((e) => {
         if (!boardRef.current || isPowerCharging) return;
@@ -7277,16 +7357,83 @@
 
               {onlineMode && (
                 <div style={{ marginTop: '20px', padding: '15px', background: `linear-gradient(135deg, ${COLORS.primary}30, ${COLORS.primary}20)`, borderRadius: '10px', border: `2px solid ${COLORS.primaryLight}` }}>
-                  <div style={{ color: COLORS.primaryLight, fontSize: '11px', fontWeight: '600', letterSpacing: '2px', marginBottom: '8px' }}>🌍 ONLINE MATCH</div>
+                  <div style={{ color: COLORS.primaryLight, fontSize: '11px', fontWeight: '600', letterSpacing: '2px', marginBottom: '8px' }}>
+                    {isWageredMatch ? '💰 WAGERED MATCH' : '🌍 ONLINE MATCH'}
+                  </div>
                   <div style={{ color: currentPlayerIndex === playerId ? COLORS.success : COLORS.accent, fontSize: '15px', fontWeight: '700', letterSpacing: '1px' }}>
                     {currentPlayerIndex === playerId ? '▶ YOUR TURN' : '⏸ OPPONENT\'S TURN'}
                   </div>
                 </div>
               )}
 
+              {/* Rhythm Indicator - shows during your turn in online matches */}
+              {onlineMode && currentPlayerIndex === playerId && rhythmState !== 'neutral' && (
+                <div
+                  className="rhythm-indicator"
+                  style={{
+                    marginTop: '15px',
+                    padding: '12px 16px',
+                    borderRadius: '10px',
+                    textAlign: 'center',
+                    animation: 'rhythmPulse 0.5s ease-out',
+                    background: rhythmState === 'flow' ? 'rgba(255, 215, 0, 0.15)' :
+                               rhythmState === 'perfect' ? 'rgba(76, 175, 80, 0.15)' :
+                               'rgba(255, 152, 0, 0.15)',
+                    border: `2px solid ${
+                      rhythmState === 'flow' ? '#FFD700' :
+                      rhythmState === 'perfect' ? '#4CAF50' :
+                      '#FF9800'
+                    }`,
+                  }}
+                >
+                  <div style={{
+                    fontSize: '20px',
+                    marginBottom: '4px'
+                  }}>
+                    {rhythmState === 'flow' ? '🔥' :
+                     rhythmState === 'perfect' ? '🎯' :
+                     rhythmState === 'rushing' ? '⚡' :
+                     rhythmState === 'hesitating' ? '⏳' : ''}
+                  </div>
+                  <div style={{
+                    fontSize: '12px',
+                    fontWeight: '600',
+                    letterSpacing: '1px',
+                    color: rhythmState === 'flow' ? '#FFD700' :
+                           rhythmState === 'perfect' ? '#4CAF50' :
+                           '#FF9800'
+                  }}>
+                    {rhythmState === 'flow' ? 'IN THE ZONE!' :
+                     rhythmState === 'perfect' ? 'PERFECT RHYTHM' :
+                     rhythmState === 'rushing' ? 'SLOW DOWN' :
+                     rhythmState === 'hesitating' ? 'KEEP MOVING' : ''}
+                  </div>
+                </div>
+              )}
+
               <div style={{ marginTop: '20px', padding: '15px', background: 'rgba(255, 255, 255, 0.03)', borderRadius: '10px', border: '1px solid rgba(255, 255, 255, 0.05)' }}>
                 <div style={{ color: COLORS.textMuted, fontSize: '11px', marginBottom: '5px', letterSpacing: '1px' }}>TURN SCORE</div>
-                <div style={{ color: COLORS.accent, fontSize: '32px', fontWeight: '700', fontFamily: "'Roboto Mono', monospace" }}>{currentTurnScore}</div>
+                <div style={{
+                  color: scoreConfirming ? COLORS.textMuted : COLORS.accent,
+                  fontSize: '32px',
+                  fontWeight: '700',
+                  fontFamily: "'Roboto Mono', monospace",
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '10px'
+                }}>
+                  {currentTurnScore}
+                  {scoreConfirming && (
+                    <span style={{
+                      fontSize: '12px',
+                      color: COLORS.primary,
+                      animation: 'confirmingPulse 1s ease-in-out infinite'
+                    }}>
+                      ⏳ Confirming...
+                    </span>
+                  )}
+                </div>
                 <div style={{ color: COLORS.textMuted, fontSize: '14px', marginTop: '5px' }}>Darts: {'🎯'.repeat(dartsThrown)}{'○'.repeat(3 - dartsThrown)}</div>
               </div>
 
@@ -7721,6 +7868,26 @@
             @keyframes fadeIn { from { opacity: 0; transform: scale(0.9); } to { opacity: 1; transform: scale(1); } }
             @keyframes throwDart { from { opacity: 0; transform: translateY(50px); } to { opacity: 1; transform: translateY(0); } }
             @keyframes slideInRight { 0% { transform: translateX(400px); opacity: 0; } 100% { transform: translateX(0); opacity: 1; } }
+
+            /* Rhythm Indicator Animations */
+            @keyframes rhythmPulse {
+              0% { transform: scale(0.8); opacity: 0; }
+              50% { transform: scale(1.05); }
+              100% { transform: scale(1); opacity: 1; }
+            }
+
+            /* Score Confirming Animation */
+            @keyframes confirmingPulse {
+              0%, 100% { opacity: 0.5; }
+              50% { opacity: 1; }
+            }
+
+            /* Dart Position Correction Animation */
+            @keyframes dartCorrection {
+              0% { transform: translate(0, 0); }
+              50% { transform: translate(var(--correction-dx), var(--correction-dy)); opacity: 0.7; }
+              100% { transform: translate(var(--correction-dx), var(--correction-dy)); opacity: 1; }
+            }
 
             /* Epic Nine-Darter Star Animations */
             @keyframes epicStarEntry {
