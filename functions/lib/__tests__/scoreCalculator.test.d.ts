@@ -1,0 +1,4 @@
+/**
+ * Score Calculator Tests
+ */
+export {};

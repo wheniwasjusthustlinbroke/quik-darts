@@ -149,7 +149,10 @@ exports.submitThrow = functions
         updates['currentTurnScore'] = 0;
         updates['dartsThrown'] = 0;
         updates['currentPlayer'] = playerIndex === 0 ? 1 : 0;
-        updates['dartPositions'] = {}; // Clear dart positions for next turn
+        // Clear dart positions using null (avoids Firebase update conflict with dartPositions/N)
+        updates['dartPositions/0'] = null;
+        updates['dartPositions/1'] = null;
+        updates['dartPositions/2'] = null;
         turnEnded = true;
         console.log(`[submitThrow] Game ${gameId}: Player ${playerIndex} busts with ${label}`);
     }
@@ -162,7 +165,10 @@ exports.submitThrow = functions
             updates['currentTurnScore'] = 0;
             updates['dartsThrown'] = 0;
             updates['currentPlayer'] = playerIndex === 0 ? 1 : 0;
-            updates['dartPositions'] = {}; // Clear for next turn
+            // Clear dart positions using null (avoids Firebase update conflict with dartPositions/N)
+            updates['dartPositions/0'] = null;
+            updates['dartPositions/1'] = null;
+            updates['dartPositions/2'] = null;
             turnEnded = true;
             console.log(`[submitThrow] Game ${gameId}: Player ${playerIndex} turn ends`);
         }
