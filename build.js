@@ -98,10 +98,13 @@ function compileJSX(code) {
 }
 
 function obfuscateCode(code) {
-  log('Obfuscating JavaScript...');
+  // DISABLED: Obfuscation breaks React. Just return compiled code.
+  log('Skipping obfuscation (React compatibility)...');
+  return code;
 
-  const obfuscationResult = JavaScriptObfuscator.obfuscate(code, OBFUSCATION_OPTIONS);
-  return obfuscationResult.getObfuscatedCode();
+  // Original obfuscation (disabled):
+  // const obfuscationResult = JavaScriptObfuscator.obfuscate(code, OBFUSCATION_OPTIONS);
+  // return obfuscationResult.getObfuscatedCode();
 }
 
 function removeExternalBabel(html) {
