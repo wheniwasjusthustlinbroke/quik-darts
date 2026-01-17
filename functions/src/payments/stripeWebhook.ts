@@ -75,24 +75,11 @@ export const stripeWebhook = functions
 
     let event: Stripe.Event;
 
-    // Get the raw body - try multiple methods
-    let rawBody: string | Buffer;
-    if (req.rawBody) {
-      rawBody = req.rawBody;
-    } else if (typeof req.body === 'string') {
-      rawBody = req.body;
-    } else {
-      rawBody = JSON.stringify(req.body);
-    }
-
-    // Debug logging
-    console.log(`[stripeWebhook] Body source: ${req.rawBody ? 'rawBody' : 'body'}`);
-    console.log(`[stripeWebhook] Body type: ${typeof rawBody}, length: ${rawBody?.length || 0}`);
-    console.log(`[stripeWebhook] Signature type: ${typeof signature}`);
-    console.log(`[stripeWebhook] Secret starts: ${webhookSecret.substring(0, 10)}...`);
+    // Get the raw body (Firebase provides req.rawBody for signature verification)
+    const rawBody = req.rawBody || req.body;
 
     try {
-      // Verify the webhook signature using rawBody
+      // Verify the webhook signature
       event = getStripe().webhooks.constructEvent(
         rawBody,
         signature as string,
@@ -100,24 +87,15 @@ export const stripeWebhook = functions
       );
     } catch (error: unknown) {
       const errMessage = error instanceof Error ? error.message : String(error);
-      console.error(`[stripeWebhook] Signature failed: ${errMessage}`);
-      // Log more details for debugging
-      if (typeof rawBody === 'string') {
-        console.log(`[stripeWebhook] Body preview: ${rawBody.substring(0, 100)}...`);
-      }
+      console.error(`[stripeWebhook] Signature verification failed: ${errMessage}`);
       res.status(400).send('Invalid signature');
       return;
     }
 
-    console.log(`[stripeWebhook] Received event type: ${event.type}`);
-
     // Handle the event
     if (event.type === 'checkout.session.completed') {
       const session = event.data.object as Stripe.Checkout.Session;
-      console.log(`[stripeWebhook] Session ID: ${session.id}, metadata:`, JSON.stringify(session.metadata));
       await handleSuccessfulPayment(session);
-    } else {
-      console.log(`[stripeWebhook] Unhandled event type: ${event.type}`);
     }
 
     // Return 200 to acknowledge receipt

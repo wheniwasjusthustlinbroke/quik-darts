@@ -3512,7 +3512,6 @@
 
           const rewardListener = AdMob.addListener(RewardAdPluginEvents.Rewarded, () => {
             rewardReceived = true;
-            console.log('[watchAdForCoins] Reward earned');
           });
 
           const dismissListener = AdMob.addListener(RewardAdPluginEvents.Dismissed, async () => {
@@ -3542,7 +3541,6 @@
 
                     if (claimResult.data.success) {
                       setAdsRemainingToday(claimResult.data.adsRemainingToday || 0);
-                      console.log('[watchAdForCoins] Reward claimed successfully');
                     } else {
                       setAdError(claimResult.data.error || 'Failed to claim reward');
                     }
@@ -3552,11 +3550,8 @@
                   console.error('[watchAdForCoins] Poll attempt failed:', error);
                 }
 
-                // If last attempt and still nothing, show message
-                if (attempt === maxAttempts - 1) {
-                  console.log('[watchAdForCoins] Reward verification pending');
-                  // Don't show error - reward might be processed later
-                }
+                // If last attempt and still nothing, reward might be processed later
+                // (no need to show error to user)
               }
             }
 
