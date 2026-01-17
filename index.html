@@ -834,6 +834,11 @@
       { id: 'nine_darter_offline', name: 'Perfect Game', description: 'The holy grail of darts. Achieve a legendary nine-dart finish.', icon: '👑', rarity: 'legendary', mode: 'offline' },
       { id: 'nine_darter_online', name: 'Online Legend', description: 'Perfection under pressure. Nine-dart finish against a real opponent.', icon: '💎', rarity: 'mythic', mode: 'online' },
 
+      // Perfect 9 Chain (Nine-Darter milestones)
+      { id: 'perfect9_first', name: 'Perfect 9', description: 'Complete a leg with 9 perfect darts.', icon: '9️⃣', rarity: 'mythic', mode: 'offline', chain: 'perfect9', tier: 1, statKey: 'totalNineDarters', target: 1 },
+      { id: 'perfect9_ten', name: 'Perfect 9 Master', description: 'Complete 10 nine-darters.', icon: '9️⃣', rarity: 'mythic', mode: 'offline', chain: 'perfect9', tier: 2, statKey: 'totalNineDarters', target: 10 },
+      { id: 'perfect9_hundred', name: 'Perfect 9 Legend', description: 'Complete 100 nine-darters.', icon: '9️⃣', rarity: 'mythic', mode: 'offline', chain: 'perfect9', tier: 3, statKey: 'totalNineDarters', target: 100 },
+
       // Bullseye! Chain
       { id: 'first_bull', name: 'Bullseye! I', description: 'Right in the center! Hit your first bullseye.', icon: '🎯', rarity: 'common', mode: 'offline', chain: 'bullseye', tier: 1 },
       { id: 'fifty_bulls', name: 'Bullseye! II', description: 'Precision personified. Find the bullseye 50 times.', icon: '🎯', rarity: 'rare', mode: 'offline', statKey: 'totalBulls', target: 50, chain: 'bullseye', tier: 2 },
@@ -2639,6 +2644,17 @@
         }
         if (stats.totalTriples >= 200) {
           unlockAchievement('two_hundred_triples');
+        }
+
+        // Perfect 9 Chain (Nine-Darter milestones)
+        if (stats.totalNineDarters >= 1) {
+          unlockAchievement('perfect9_first');
+        }
+        if (stats.totalNineDarters >= 10) {
+          unlockAchievement('perfect9_ten');
+        }
+        if (stats.totalNineDarters >= 100) {
+          unlockAchievement('perfect9_hundred');
         }
       }, [unlockAchievement]);
 
