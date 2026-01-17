@@ -3705,8 +3705,8 @@
           return;
         }
 
-        // Wait for authentication
-        const authUser = await authReadyPromise;
+        // Use current auth user (not the one-time authReadyPromise which may be stale)
+        const authUser = auth?.currentUser;
         if (!authUser || authUser.isAnonymous) {
           alert('Please sign in to play wagered matches.');
           return;
