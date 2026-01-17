@@ -22,6 +22,10 @@
         "streaks": {
           ".read": "auth != null",
           ".write": false
+        },
+        "stats": {
+          ".read": "auth != null",
+          ".write": false
         }
       }
     },
