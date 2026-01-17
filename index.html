@@ -3404,17 +3404,30 @@
 
         const walletListener = walletRef.on('value', async (snapshot) => {
           const wallet = snapshot.val();
+          console.log('[walletListener] Wallet update:', wallet);
 
           if (!wallet) {
             // New user - initialize their wallet via Cloud Function
+            console.log('[walletListener] No wallet found for user', currentUser.uid);
+            console.log('[walletListener] Functions available:', !!functions);
             if (functions) {
               try {
+                console.log('[walletListener] Calling initializeNewUser...');
                 const initFn = functions.httpsCallable('initializeNewUser');
-                await initFn();
+                const result = await initFn();
+                console.log('[walletListener] initializeNewUser result:', result.data);
                 // Wallet will be created, listener will fire again
               } catch (error) {
-                console.error('Failed to initialize user wallet:', error);
+                console.error('[walletListener] Failed to initialize user wallet:', error);
+                console.error('[walletListener] Error code:', error.code);
+                console.error('[walletListener] Error message:', error.message);
+                // Show user-friendly error
+                if (error.code === 'functions/permission-denied') {
+                  alert('Unable to create wallet. Please sign in with Google, Facebook, or Apple.');
+                }
               }
+            } else {
+              console.error('[walletListener] Functions not available!');
             }
           } else {
             // Update coin balance
@@ -3424,7 +3437,9 @@
             const lastBonus = wallet.lastDailyBonus || 0;
             const now = Date.now();
             const twentyFourHours = 24 * 60 * 60 * 1000;
-            setDailyBonusAvailable(now - lastBonus >= twentyFourHours);
+            const bonusAvailable = now - lastBonus >= twentyFourHours;
+            console.log('[walletListener] Daily bonus check:', { lastBonus, now, diff: now - lastBonus, twentyFourHours, bonusAvailable });
+            setDailyBonusAvailable(bonusAvailable);
 
             // Calculate ads remaining today
             const lastAdReward = wallet.lastAdReward || 0;
@@ -3455,13 +3470,26 @@
         setIsClaimingBonus(true);
         try {
           const claimFn = functions.httpsCallable('claimDailyBonus');
+          console.log('[claimDailyBonus] Calling function...');
           const result = await claimFn();
+          console.log('[claimDailyBonus] Response:', result.data);
           if (result.data.success) {
             // Wallet listener will update the balance
             setDailyBonusAvailable(false);
+            console.log('[claimDailyBonus] Bonus claimed successfully!');
+          } else {
+            // Show error to user
+            const errorMsg = result.data.error || 'Failed to claim bonus';
+            console.log('[claimDailyBonus] Claim failed:', errorMsg);
+            if (result.data.nextClaimTime) {
+              const nextTime = new Date(result.data.nextClaimTime);
+              alert(`${errorMsg}. Next claim available: ${nextTime.toLocaleString()}`);
+            } else {
+              alert(errorMsg);
+            }
           }
         } catch (error) {
-          console.error('Failed to claim daily bonus:', error);
+          console.error('[claimDailyBonus] Error:', error);
           alert('Failed to claim daily bonus. Please try again.');
         } finally {
           setIsClaimingBonus(false);

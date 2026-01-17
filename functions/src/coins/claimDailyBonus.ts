@@ -33,6 +33,9 @@ interface ClaimResult {
 export const claimDailyBonus = functions
   .region('europe-west1')
   .https.onCall(async (data, context): Promise<ClaimResult> => {
+    console.log('[claimDailyBonus] Function called');
+    console.log('[claimDailyBonus] Auth:', context.auth ? `uid=${context.auth.uid}` : 'null');
+
     // 1. Must be authenticated
     if (!context.auth) {
       throw new functions.https.HttpsError(
@@ -43,6 +46,8 @@ export const claimDailyBonus = functions
 
     const userId = context.auth.uid;
     const token = context.auth.token;
+
+    console.log('[claimDailyBonus] Provider:', token.firebase?.sign_in_provider);
 
     // 2. Must NOT be anonymous
     if (token.firebase?.sign_in_provider === 'anonymous') {
@@ -56,8 +61,14 @@ export const claimDailyBonus = functions
     const walletRef = db.ref(`users/${userId}/wallet`);
     const transactionsRef = db.ref(`users/${userId}/transactions`);
 
+    console.log(`[claimDailyBonus] Starting claim for user ${userId}`);
+
     // 3. Atomic transaction for claiming
     const result = await walletRef.transaction((wallet) => {
+      console.log(`[claimDailyBonus] Transaction callback, wallet exists: ${wallet !== null}`);
+      if (wallet) {
+        console.log(`[claimDailyBonus] lastDailyBonus: ${wallet.lastDailyBonus}, now: ${now}`);
+      }
       if (wallet === null) {
         // No wallet exists - user needs to initialize first
         return; // Abort
@@ -81,6 +92,8 @@ export const claimDailyBonus = functions
         version: (wallet.version || 0) + 1,
       };
     });
+
+    console.log(`[claimDailyBonus] Transaction committed: ${result.committed}`);
 
     // Check if transaction was aborted
     if (!result.committed) {
