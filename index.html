@@ -2257,12 +2257,24 @@
         }
 
         // Refund escrow if we have one and game hasn't started
+        // IMPORTANT: Await the refund and update coin balance before clearing state
         if (currentEscrowId && !gameRoomId && functions) {
           console.log('[cancelMatchmaking] Refunding escrow:', currentEscrowId);
           const refundEscrowFn = functions.httpsCallable('refundEscrow');
-          refundEscrowFn({ escrowId: currentEscrowId })
+          refundEscrowFn({ escrowId: currentEscrowId, reason: 'cancelled' })
             .then(result => {
-              console.log('[cancelMatchmaking] Escrow refunded:', result.data);
+              console.log('[cancelMatchmaking] Escrow refund result:', result.data);
+              // Update coin balance if refund succeeded and we got coins back
+              if (result.data.success && result.data.refundedAmounts && result.data.refundedAmounts.length > 0) {
+                // Find our refund amount (we should be in the list)
+                const totalRefunded = result.data.refundedAmounts.reduce((sum, amt) => sum + amt, 0);
+                // Only add back our portion (usually first amount for player who initiated)
+                const ourRefund = result.data.refundedAmounts[0];
+                if (ourRefund > 0) {
+                  setCoinBalance(prev => prev + ourRefund);
+                  console.log('[cancelMatchmaking] Coins refunded to balance:', ourRefund);
+                }
+              }
             })
             .catch(err => {
               console.error('[cancelMatchmaking] Escrow refund failed:', err);
