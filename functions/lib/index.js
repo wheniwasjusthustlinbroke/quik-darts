@@ -39,7 +39,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.cleanupExpiredEscrows = exports.refundEscrow = exports.settleGame = exports.createEscrow = exports.forfeitGame = exports.submitThrow = exports.createGame = exports.claimAdReward = exports.claimDailyBonus = exports.initializeNewUser = void 0;
+exports.cleanupExpiredEscrows = exports.refundEscrow = exports.settleGame = exports.createEscrow = exports.forfeitGame = exports.submitThrow = exports.createGame = exports.getUnclaimedAdReward = exports.admobCallback = exports.claimAdReward = exports.claimDailyBonus = exports.initializeNewUser = void 0;
 const admin = __importStar(require("firebase-admin"));
 // Initialize Firebase Admin
 admin.initializeApp();
@@ -52,6 +52,10 @@ var claimDailyBonus_1 = require("./coins/claimDailyBonus");
 Object.defineProperty(exports, "claimDailyBonus", { enumerable: true, get: function () { return claimDailyBonus_1.claimDailyBonus; } });
 var claimAdReward_1 = require("./coins/claimAdReward");
 Object.defineProperty(exports, "claimAdReward", { enumerable: true, get: function () { return claimAdReward_1.claimAdReward; } });
+var admobCallback_1 = require("./coins/admobCallback");
+Object.defineProperty(exports, "admobCallback", { enumerable: true, get: function () { return admobCallback_1.admobCallback; } });
+var getUnclaimedAdReward_1 = require("./coins/getUnclaimedAdReward");
+Object.defineProperty(exports, "getUnclaimedAdReward", { enumerable: true, get: function () { return getUnclaimedAdReward_1.getUnclaimedAdReward; } });
 // ============================================
 // GAMEPLAY - Server-authoritative game logic
 // ============================================

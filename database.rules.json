@@ -38,6 +38,10 @@
       ".read": false,
       ".write": false
     },
+    "verifiedAdRewards": {
+      ".read": false,
+      ".write": false
+    },
     "matchmaking_queue": {
       "casual": {
         ".read": "auth != null",
