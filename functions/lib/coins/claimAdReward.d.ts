@@ -2,13 +2,21 @@
  * Claim Ad Reward
  *
  * Awards coins for watching a rewarded video ad.
- * Requires AdMob server-side verification (SSV) to prevent faking.
+ * This function claims a verified ad completion recorded by the admobCallback.
+ *
+ * Flow:
+ * 1. User watches rewarded ad in app
+ * 2. AdMob calls admobCallback with signed verification
+ * 3. admobCallback verifies and stores the completion in verifiedAdRewards/
+ * 4. User's client calls this function with the transactionId
+ * 5. This function verifies and awards coins
  *
  * Security:
  * - Rejects anonymous auth
- * - Requires AdMob SSV callback verification
+ * - Only awards coins for server-verified ad completions
  * - Rate limited: max 5 ads per day
- * - Stores used reward IDs to prevent replay attacks
+ * - Each transactionId can only be claimed once (atomic check)
+ * - Uses transactions to prevent race conditions
  */
 import * as functions from 'firebase-functions';
 export declare const claimAdReward: functions.HttpsFunction & functions.Runnable<any>;

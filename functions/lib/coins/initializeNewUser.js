@@ -68,8 +68,9 @@ exports.initializeNewUser = functions
         throw new functions.https.HttpsError('permission-denied', 'Guest accounts do not have coin wallets. Sign in with Google, Facebook, or Apple to earn coins.');
     }
     // 3. Must be a valid provider (extra safety)
+    // Note: Use generic error to prevent provider enumeration
     if (!ALLOWED_PROVIDERS.includes(signInProvider || '')) {
-        throw new functions.https.HttpsError('permission-denied', `Invalid auth provider: ${signInProvider}. Use Google, Facebook, or Apple.`);
+        throw new functions.https.HttpsError('permission-denied', 'Please sign in with Google, Facebook, or Apple to create a coin wallet.');
     }
     // 4. Use transaction to prevent race conditions
     const userRef = db.ref(`users/${userId}`);

@@ -1220,6 +1220,9 @@
       const [showStakeSelection, setShowStakeSelection] = useState(false); // Stake selection modal
       const [selectedStake, setSelectedStake] = useState(50); // Selected stake amount
       const [isClaimingBonus, setIsClaimingBonus] = useState(false); // Claiming daily bonus
+      const [adsRemainingToday, setAdsRemainingToday] = useState(5); // Ad rewards remaining today
+      const [isWatchingAd, setIsWatchingAd] = useState(false); // Currently watching ad
+      const [adError, setAdError] = useState(null); // Ad error message
       const walletListenerRef = useRef(null); // Wallet listener cleanup
 
       const [achievementStats, setAchievementStats] = useState(() => {
@@ -3420,6 +3423,13 @@
             const now = Date.now();
             const twentyFourHours = 24 * 60 * 60 * 1000;
             setDailyBonusAvailable(now - lastBonus >= twentyFourHours);
+
+            // Calculate ads remaining today
+            const lastAdReward = wallet.lastAdReward || 0;
+            const lastAdDay = Math.floor(lastAdReward / twentyFourHours);
+            const currentDay = Math.floor(now / twentyFourHours);
+            const adsUsedToday = currentDay > lastAdDay ? 0 : (wallet.adRewardsToday || 0);
+            setAdsRemainingToday(Math.max(0, 5 - adsUsedToday));
           }
         }, (error) => {
           console.error('Wallet listener error:', error);
@@ -3453,6 +3463,112 @@
           alert('Failed to claim daily bonus. Please try again.');
         } finally {
           setIsClaimingBonus(false);
+        }
+      };
+
+      // Watch ad for coins reward
+      // Uses Capacitor AdMob plugin on native, shows placeholder on web
+      const watchAdForCoins = async () => {
+        if (!functions || !currentUser || currentUser.isAnonymous || isWatchingAd) return;
+        if (adsRemainingToday <= 0) {
+          alert('Daily ad limit reached. Come back tomorrow for more!');
+          return;
+        }
+
+        setIsWatchingAd(true);
+        setAdError(null);
+
+        try {
+          // Check if running in Capacitor (native app)
+          const isCapacitor = typeof window !== 'undefined' && window.Capacitor && window.Capacitor.isNativePlatform();
+
+          if (!isCapacitor) {
+            // Web browser - ads not available
+            alert('Watch rewarded ads in the mobile app to earn free coins!');
+            setIsWatchingAd(false);
+            return;
+          }
+
+          // Import Capacitor AdMob plugin dynamically
+          const { AdMob, RewardAdPluginEvents } = await import('@capacitor-community/admob');
+
+          // Configure SSV (Server-Side Verification) with userId
+          const ssvOptions = {
+            customData: currentUser.uid, // This will be sent to our admobCallback
+          };
+
+          // AdMob Rewarded Ad Unit ID
+          // NOTE: Replace with your actual ad unit ID from AdMob console
+          const rewardedAdOptions = {
+            adId: 'ca-app-pub-XXXXXXXXXXXXXXXX/YYYYYYYYYY', // TODO: Replace with real ad unit ID
+            isTesting: true, // Set to false in production
+            ssv: ssvOptions,
+          };
+
+          // Listen for reward event
+          let rewardReceived = false;
+
+          const rewardListener = AdMob.addListener(RewardAdPluginEvents.Rewarded, () => {
+            rewardReceived = true;
+            console.log('[watchAdForCoins] Reward earned');
+          });
+
+          const dismissListener = AdMob.addListener(RewardAdPluginEvents.Dismissed, async () => {
+            rewardListener.remove();
+            dismissListener.remove();
+
+            if (rewardReceived) {
+              // Ad was watched completely - poll for the SSV callback to process
+              // AdMob sends the callback server-to-server, so we need to wait and check
+              const maxAttempts = 10;
+              const delayMs = 1500;
+
+              for (let attempt = 0; attempt < maxAttempts; attempt++) {
+                await new Promise(resolve => setTimeout(resolve, delayMs));
+
+                try {
+                  // Query for unclaimed ad rewards for this user
+                  const getUnclaimedFn = functions.httpsCallable('getUnclaimedAdReward');
+                  const unclaimedResult = await getUnclaimedFn();
+
+                  if (unclaimedResult.data.found && unclaimedResult.data.transactionId) {
+                    // Found an unclaimed reward - claim it
+                    const claimFn = functions.httpsCallable('claimAdReward');
+                    const claimResult = await claimFn({
+                      transactionId: unclaimedResult.data.transactionId
+                    });
+
+                    if (claimResult.data.success) {
+                      setAdsRemainingToday(claimResult.data.adsRemainingToday || 0);
+                      console.log('[watchAdForCoins] Reward claimed successfully');
+                    } else {
+                      setAdError(claimResult.data.error || 'Failed to claim reward');
+                    }
+                    break;
+                  }
+                } catch (error) {
+                  console.error('[watchAdForCoins] Poll attempt failed:', error);
+                }
+
+                // If last attempt and still nothing, show message
+                if (attempt === maxAttempts - 1) {
+                  console.log('[watchAdForCoins] Reward verification pending');
+                  // Don't show error - reward might be processed later
+                }
+              }
+            }
+
+            setIsWatchingAd(false);
+          });
+
+          // Load and show the ad
+          await AdMob.prepareRewardVideoAd(rewardedAdOptions);
+          await AdMob.showRewardVideoAd();
+
+        } catch (error) {
+          console.error('[watchAdForCoins] Ad error:', error);
+          setAdError('Unable to load ad. Please try again later.');
+          setIsWatchingAd(false);
         }
       };
 
@@ -4875,6 +4991,31 @@
                       }}
                     >
                       {isClaimingBonus ? '...' : '+50 Free!'}
+                    </button>
+                  )}
+                  {adsRemainingToday > 0 && (
+                    <button
+                      onClick={watchAdForCoins}
+                      disabled={isWatchingAd}
+                      title={`Watch ad for +25 coins (${adsRemainingToday}/5 remaining)`}
+                      style={{
+                        background: 'linear-gradient(135deg, #D4A03A, #B8862E)',
+                        border: 'none',
+                        color: '#0D1117',
+                        padding: '6px 10px',
+                        borderRadius: '20px',
+                        cursor: isWatchingAd ? 'wait' : 'pointer',
+                        fontSize: '12px',
+                        fontWeight: '600',
+                        opacity: isWatchingAd ? 0.7 : 1,
+                        transition: 'all 0.2s ease',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '4px'
+                      }}
+                    >
+                      <span style={{ fontSize: '14px' }}>▶</span>
+                      {isWatchingAd ? '...' : '+25'}
                     </button>
                   )}
                 </li>

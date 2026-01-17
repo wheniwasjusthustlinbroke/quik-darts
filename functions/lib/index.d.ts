@@ -7,6 +7,8 @@
 export { initializeNewUser } from './coins/initializeNewUser';
 export { claimDailyBonus } from './coins/claimDailyBonus';
 export { claimAdReward } from './coins/claimAdReward';
+export { admobCallback } from './coins/admobCallback';
+export { getUnclaimedAdReward } from './coins/getUnclaimedAdReward';
 export { createGame } from './gameplay/createGame';
 export { submitThrow } from './gameplay/submitThrow';
 export { forfeitGame } from './gameplay/forfeitGame';

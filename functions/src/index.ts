@@ -16,6 +16,8 @@ admin.initializeApp();
 export { initializeNewUser } from './coins/initializeNewUser';
 export { claimDailyBonus } from './coins/claimDailyBonus';
 export { claimAdReward } from './coins/claimAdReward';
+export { admobCallback } from './coins/admobCallback';
+export { getUnclaimedAdReward } from './coins/getUnclaimedAdReward';
 
 // ============================================
 // GAMEPLAY - Server-authoritative game logic
