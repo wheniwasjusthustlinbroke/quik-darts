@@ -1944,7 +1944,7 @@
             if (opponentHeartbeat) {
               // Opponent has sent heartbeats - check if recent
               const timeSinceHeartbeat = now - opponentHeartbeat;
-              if (timeSinceHeartbeat > 8000) {
+              if (timeSinceHeartbeat > 15000) {
                 onDisconnect();
               }
             } else {
@@ -3837,7 +3837,7 @@
 
           // NO OPPONENT FOUND (or matching self, or failed to join) - Create own escrow and join queue
           console.log('[wageredMatchmaking] No opponent found, creating escrow...');
-          const escrowId = `escrow_${authUser.uid}_${Date.now()}`;
+          const escrowId = database.ref('escrow').push().key;
 
           const createEscrowFn = functions.httpsCallable('createEscrow');
           const escrowResult = await createEscrowFn({
