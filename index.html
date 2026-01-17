@@ -1223,6 +1223,8 @@
       const [adsRemainingToday, setAdsRemainingToday] = useState(5); // Ad rewards remaining today
       const [isWatchingAd, setIsWatchingAd] = useState(false); // Currently watching ad
       const [adError, setAdError] = useState(null); // Ad error message
+      const [showCoinShop, setShowCoinShop] = useState(false); // Coin shop modal
+      const [isPurchasing, setIsPurchasing] = useState(false); // Processing purchase
       const walletListenerRef = useRef(null); // Wallet listener cleanup
 
       const [achievementStats, setAchievementStats] = useState(() => {
@@ -3572,6 +3574,42 @@
         }
       };
 
+      // Coin packages for shop
+      const COIN_PACKAGES = [
+        { id: 'starter', coins: 500, price: '$0.99', popular: false },
+        { id: 'popular', coins: 1200, price: '$1.99', popular: true },
+        { id: 'best_value', coins: 3500, price: '$4.99', popular: false },
+        { id: 'pro', coins: 8000, price: '$9.99', popular: false },
+        { id: 'champion', coins: 20000, price: '$19.99', popular: false },
+      ];
+
+      // Purchase coins via Stripe
+      const purchaseCoins = async (packageId) => {
+        if (!functions || !currentUser || currentUser.isAnonymous || isPurchasing) return;
+
+        setIsPurchasing(true);
+        try {
+          const createCheckout = functions.httpsCallable('createStripeCheckout');
+          const result = await createCheckout({
+            packageId,
+            successUrl: window.location.origin + '?purchase=success',
+            cancelUrl: window.location.origin + '?purchase=cancelled',
+          });
+
+          if (result.data.success && result.data.url) {
+            // Redirect to Stripe Checkout
+            window.location.href = result.data.url;
+          } else {
+            alert('Failed to start checkout. Please try again.');
+          }
+        } catch (error) {
+          console.error('Purchase error:', error);
+          alert('Purchase failed. Please try again.');
+        } finally {
+          setIsPurchasing(false);
+        }
+      };
+
       // Handle "Play Online" button click
       // Shows stake selection for signed-in users, starts casual matchmaking for guests
       const handlePlayOnlineClick = () => {
@@ -4565,6 +4603,140 @@
         );
       }
 
+      // Coin Shop Modal
+      if (showCoinShop) {
+        return (
+          <div style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0, 0, 0, 0.85)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1000,
+            padding: '20px'
+          }} onClick={() => setShowCoinShop(false)}>
+            <div style={{
+              background: COLORS.backgroundCard,
+              borderRadius: '16px',
+              padding: '32px',
+              maxWidth: '500px',
+              width: '100%',
+              position: 'relative',
+              border: '1px solid rgba(255, 255, 255, 0.1)',
+              maxHeight: '90vh',
+              overflowY: 'auto'
+            }} onClick={(e) => e.stopPropagation()}>
+              {/* Close button */}
+              <button onClick={() => setShowCoinShop(false)} style={{
+                position: 'absolute',
+                top: '16px',
+                right: '16px',
+                background: 'none',
+                border: 'none',
+                color: COLORS.textMuted,
+                cursor: 'pointer',
+                padding: '4px'
+              }}>
+                <CloseIcon size={24} />
+              </button>
+
+              {/* Header */}
+              <div style={{ textAlign: 'center', marginBottom: '24px' }}>
+                <h2 style={{ color: COLORS.text, fontSize: '1.5rem', fontWeight: '700', marginBottom: '8px' }}>
+                  Coin Shop
+                </h2>
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '8px',
+                  marginBottom: '8px'
+                }}>
+                  <CoinIcon size={20} />
+                  <span style={{ color: '#D4A03A', fontWeight: '600', fontSize: '1.1rem' }}>
+                    Your Balance: {formatCoins(coinBalance)}
+                  </span>
+                </div>
+                <p style={{ color: COLORS.textMuted, fontSize: '0.9rem' }}>
+                  Purchase coins to play wagered matches!
+                </p>
+              </div>
+
+              {/* Coin packages */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                {COIN_PACKAGES.map((pkg) => (
+                  <button
+                    key={pkg.id}
+                    onClick={() => purchaseCoins(pkg.id)}
+                    disabled={isPurchasing}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      padding: '16px 20px',
+                      borderRadius: '12px',
+                      border: pkg.popular
+                        ? '2px solid #D4A03A'
+                        : '1px solid rgba(255, 255, 255, 0.1)',
+                      background: pkg.popular
+                        ? 'rgba(212, 160, 58, 0.15)'
+                        : 'rgba(255, 255, 255, 0.03)',
+                      cursor: isPurchasing ? 'wait' : 'pointer',
+                      opacity: isPurchasing ? 0.7 : 1,
+                      transition: 'all 0.2s ease',
+                      position: 'relative'
+                    }}
+                  >
+                    {pkg.popular && (
+                      <span style={{
+                        position: 'absolute',
+                        top: '-10px',
+                        left: '20px',
+                        background: 'linear-gradient(135deg, #D4A03A, #B8862E)',
+                        color: '#0D1117',
+                        padding: '2px 10px',
+                        borderRadius: '10px',
+                        fontSize: '0.7rem',
+                        fontWeight: '700'
+                      }}>
+                        POPULAR
+                      </span>
+                    )}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                      <CoinIcon size={24} />
+                      <span style={{ color: COLORS.text, fontWeight: '600', fontSize: '1.1rem' }}>
+                        {formatCoins(pkg.coins)}
+                      </span>
+                    </div>
+                    <span style={{
+                      color: '#D4A03A',
+                      fontWeight: '700',
+                      fontSize: '1rem',
+                      background: 'rgba(212, 160, 58, 0.2)',
+                      padding: '6px 14px',
+                      borderRadius: '8px'
+                    }}>
+                      {pkg.price}
+                    </span>
+                  </button>
+                ))}
+              </div>
+
+              {/* Footer */}
+              <p style={{
+                color: COLORS.textMuted,
+                fontSize: '0.75rem',
+                textAlign: 'center',
+                marginTop: '20px'
+              }}>
+                Secure payment via Stripe. Coins are non-refundable.
+              </p>
+            </div>
+          </div>
+        );
+      }
+
       // Achievements Gallery - check BEFORE menu
       if (showAchievements) {
         return (
@@ -5018,6 +5190,27 @@
                       {isWatchingAd ? '...' : '+25'}
                     </button>
                   )}
+                  <button
+                    onClick={() => setShowCoinShop(true)}
+                    title="Buy coins"
+                    style={{
+                      background: 'linear-gradient(135deg, #D4A03A, #B8862E)',
+                      border: 'none',
+                      color: '#0D1117',
+                      width: '28px',
+                      height: '28px',
+                      borderRadius: '50%',
+                      cursor: 'pointer',
+                      fontSize: '16px',
+                      fontWeight: '700',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      transition: 'all 0.2s ease'
+                    }}
+                  >
+                    +
+                  </button>
                 </li>
               )}
               <li>
