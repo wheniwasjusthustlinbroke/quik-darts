@@ -1290,6 +1290,12 @@
         }
       });
 
+      // Helper to check if current game has at least one AI opponent
+      // Used to prevent solo play (no AI) from counting towards achievements
+      const hasAIOpponent = useMemo(() => {
+        return players.length > 1 && players.some(p => p.isAI);
+      }, [players]);
+
       // Weekly time-limited challenge state - synced via Firebase, resets weekly
       const [weeklyChallenge, setWeeklyChallenge] = useState(() => {
         const currentWeek = getCurrentWeekNumber();
@@ -2802,11 +2808,11 @@
           playSound('ninedarter'); // Epic crowd roar and fanfare
           setTimeout(() => setShowNineDarter(false), 6000);
 
-          // Track nine-darter achievement
+          // Track nine-darter achievement (only vs AI or online, not solo play)
           if (!players[playerIndex].isAI) {
             if (onlineMode) {
               unlockAchievement('nine_darter_online');
-            } else if (!practiceMode) {
+            } else if (!practiceMode && hasAIOpponent) {
               unlockAchievement('nine_darter_offline');
               updateAchievementStats({ totalNineDarters: achievementStats.totalNineDarters + 1 });
             }
@@ -2876,14 +2882,14 @@
               }, 10000);
             }
 
-            // Track game completion and win
+            // Track game completion and win (only vs AI or online, not solo play)
             if (!players[playerIndex].isAI && !practiceMode) {
               if (onlineMode) {
                 updateAchievementStats({
                   totalOnlineGames: achievementStats.totalOnlineGames + 1,
                   totalOnlineWins: achievementStats.totalOnlineWins + 1
                 });
-              } else {
+              } else if (hasAIOpponent) {
                 updateAchievementStats({
                   totalGamesPlayed: achievementStats.totalGamesPlayed + 1,
                   totalGamesWon: achievementStats.totalGamesWon + 1
@@ -2895,7 +2901,7 @@
               // Track game played but not won (lost to AI or other player)
               if (onlineMode) {
                 updateAchievementStats({ totalOnlineGames: achievementStats.totalOnlineGames + 1 });
-              } else {
+              } else if (hasAIOpponent) {
                 updateAchievementStats({ totalGamesPlayed: achievementStats.totalGamesPlayed + 1 });
                 updateDailyChallengeStats({ dailyGames: 1 });
               }
@@ -3121,8 +3127,8 @@
             setShowScorePopup({ score: 180, label: '180!!!', position: finalPosition });
             setTimeout(() => setShowScorePopup(null), 2000);
 
-            // Track 180 for achievements (only in offline mode, not practice)
-            if (!onlineMode && !practiceMode) {
+            // Track 180 for achievements (only vs AI, not solo or practice)
+            if (!onlineMode && !practiceMode && hasAIOpponent) {
               updateAchievementStats({ total180s: achievementStats.total180s + 1 });
               updateWeeklyChallengeStats({ weekly180s: 1 });
               updateDailyChallengeStats({ daily180s: 1 });
@@ -3131,8 +3137,8 @@
             // Play regular hit sounds only if NOT a 180
             if (result.score === 50) {
               playSound('bullseye');
-              // Track bull for achievements (only in offline mode, not practice)
-              if (!onlineMode && !practiceMode) {
+              // Track bull for achievements (only vs AI, not solo or practice)
+              if (!onlineMode && !practiceMode && hasAIOpponent) {
                 updateAchievementStats({ totalBulls: achievementStats.totalBulls + 1 });
                 updateWeeklyChallengeStats({ weeklyBulls: 1 });
                 updateDailyChallengeStats({ dailyBulls: 1 });
@@ -3141,8 +3147,8 @@
               playSound('hit');
             }
 
-            // Track triples for achievements (only in offline mode, not practice)
-            if (result.multiplier === 3 && !onlineMode && !practiceMode) {
+            // Track triples for achievements (only vs AI, not solo or practice)
+            if (result.multiplier === 3 && !onlineMode && !practiceMode && hasAIOpponent) {
               updateAchievementStats({ totalTriples: achievementStats.totalTriples + 1 });
               updateWeeklyChallengeStats({ weeklyTriples: 1 });
               updateDailyChallengeStats({ dailyTriples: 1 });
@@ -3152,8 +3158,8 @@
             setTimeout(() => setShowScorePopup(null), 1000);
           }
 
-          // Track daily score for all throws
-          if (!onlineMode && !practiceMode && result.score > 0) {
+          // Track daily score for all throws (only vs AI, not solo or practice)
+          if (!onlineMode && !practiceMode && hasAIOpponent && result.score > 0) {
             updateDailyChallengeStats({ dailyScore: result.score });
           }
 
@@ -3215,9 +3221,9 @@
             setPlayers(newPlayers);
             updateStats(currentPlayerIndex, result);
 
-            // Track checkout for achievements
+            // Track checkout for achievements (only vs AI, not solo or practice)
             const checkoutValue = currentPlayer.score;
-            if (!players[currentPlayerIndex].isAI && !practiceMode) {
+            if (!players[currentPlayerIndex].isAI && !practiceMode && hasAIOpponent) {
               if (checkoutValue > (achievementStats.highestCheckout || 0)) {
                 updateAchievementStats({ highestCheckout: checkoutValue });
               }
