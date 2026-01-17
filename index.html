@@ -3734,13 +3734,106 @@
         setIsCreatingEscrow(true);
         setMatchmakingState('searching');
         setOnlineMode(true);
+        setIsWageredMatch(true);
+
+        const myPlayerId = authUser.uid;
+        setMyAuthId(myPlayerId);
+        const wageredQueueRef = database.ref(`matchmaking_queue/wagered/${selectedStake}`);
 
         try {
-          // Generate a unique escrow ID
+          // IMPORTANT: Check queue FIRST before creating any escrow
+          // This prevents both players from creating separate escrows
+          console.log('[wageredMatchmaking] Checking queue for opponents...');
+          const snapshot = await wageredQueueRef.orderByChild('timestamp').limitToFirst(1).once('value');
+
+          if (snapshot.exists()) {
+            const opponents = snapshot.val();
+            const opponentId = Object.keys(opponents)[0];
+            const opponentData = opponents[opponentId];
+
+            // Make sure we're not matching with ourselves
+            if (opponentData.playerId !== myPlayerId) {
+              // FOUND OPPONENT - Join their escrow first (don't create our own)
+              console.log('[wageredMatchmaking] Found opponent:', opponentData.playerId);
+              console.log('[wageredMatchmaking] Joining opponent escrow:', opponentData.escrowId);
+
+              try {
+                // Step 1: Join opponent's escrow FIRST (this locks it from pending -> locked)
+                const joinEscrowFn = functions.httpsCallable('createEscrow');
+                const escrowResult = await joinEscrowFn({
+                  escrowId: opponentData.escrowId,
+                  stakeAmount: selectedStake
+                });
+
+                if (!escrowResult.data.success) {
+                  throw new Error(escrowResult.data.error || 'Failed to join escrow');
+                }
+
+                console.log('[wageredMatchmaking] Joined escrow:', escrowResult.data);
+                setCurrentEscrowId(opponentData.escrowId);
+                setCoinBalance(escrowResult.data.newBalance);
+
+                // Step 2: Now create game (escrow is now locked, so createGame will succeed)
+                const createGameFn = functions.httpsCallable('createGame');
+                const result = await createGameFn({
+                  player1Id: opponentData.playerId,
+                  player1Name: sanitizeName(opponentData.name),
+                  player1Flag: sanitizeFlag(opponentData.flag),
+                  player2Id: myPlayerId,
+                  player2Name: sanitizeName(playerSetup.names[0]) || 'Player 2',
+                  player2Flag: sanitizeFlag(playerSetup.flags[0]) || '🌍',
+                  gameMode: playerSetup.gameMode,
+                  isWagered: true,
+                  escrowId: opponentData.escrowId,
+                  stakeAmount: selectedStake
+                });
+
+                if (!result.data.success || !result.data.gameId) {
+                  throw new Error(result.data.error || 'Failed to create game');
+                }
+
+                // Step 3: Remove opponent from queue
+                await wageredQueueRef.child(opponentData.playerId).remove();
+
+                const roomId = result.data.gameId;
+                setGameRoomId(roomId);
+                gameRoomRef.current = database.ref(`games/${roomId}`);
+
+                // IMPORTANT: Register onDisconnect FIRST to protect against early browser close
+                gameRoomRef.current.child('player2/connected').onDisconnect().set(false).then(() => {
+                  startHeartbeat(gameRoomRef.current, 'player2', 'player1', () => {
+                    stopHeartbeat();
+                    alert('Opponent disconnected. Returning to menu.');
+                    cancelMatchmaking();
+                  });
+
+                  setOpponentName(sanitizeName(opponentData.name));
+                  setOpponentFlag(sanitizeFlag(opponentData.flag));
+                  setMatchmakingState('found');
+                  setTimeout(() => startOnlineGame(roomId, 1), 1500);
+                }).catch((err) => {
+                  console.error('[wageredMatchmaking] Failed to register onDisconnect:', err);
+                  setOpponentName(sanitizeName(opponentData.name));
+                  setOpponentFlag(sanitizeFlag(opponentData.flag));
+                  setMatchmakingState('found');
+                  setTimeout(() => startOnlineGame(roomId, 1), 1500);
+                });
+
+                setIsCreatingEscrow(false);
+                return;
+              } catch (error) {
+                console.error('[wageredMatchmaking] Error joining opponent:', error);
+                // If joining failed, the escrow might already be taken by someone else
+                // Fall through to create our own escrow and join queue
+                console.log('[wageredMatchmaking] Falling back to creating own escrow...');
+              }
+            }
+          }
+
+          // NO OPPONENT FOUND (or matching self, or failed to join) - Create own escrow and join queue
+          console.log('[wageredMatchmaking] No opponent found, creating escrow...');
           const escrowId = `escrow_${authUser.uid}_${Date.now()}`;
 
-          // Create escrow - locks coins
-          console.log('[wageredMatchmaking] Creating escrow for', selectedStake, 'coins');
           const createEscrowFn = functions.httpsCallable('createEscrow');
           const escrowResult = await createEscrowFn({
             escrowId,
@@ -3753,124 +3846,23 @@
 
           console.log('[wageredMatchmaking] Escrow created:', escrowResult.data);
           setCurrentEscrowId(escrowId);
-          setIsWageredMatch(true);
           setCoinBalance(escrowResult.data.newBalance);
 
-          // Join wagered matchmaking queue
-          const myPlayerId = authUser.uid;
-          setMyAuthId(myPlayerId);
-          const wageredQueueRef = database.ref(`matchmaking_queue/wagered/${selectedStake}`);
+          // Add self to wagered queue
+          const myQueueEntry = {
+            playerId: myPlayerId,
+            name: sanitizeName(playerSetup.names[0]) || 'Player 1',
+            flag: sanitizeFlag(playerSetup.flags[0]) || '🌍',
+            timestamp: firebase.database.ServerValue.TIMESTAMP,
+            escrowId: escrowId,
+            stakeAmount: selectedStake
+          };
 
-          // Look for available opponent in wagered queue
-          wageredQueueRef.orderByChild('timestamp').limitToFirst(1).once('value', async (snapshot) => {
-            if (snapshot.exists()) {
-              const opponents = snapshot.val();
-              const opponentId = Object.keys(opponents)[0];
-              const opponentData = opponents[opponentId];
+          wageredQueueRef.child(myPlayerId).set(myQueueEntry);
+          wageredQueueRef.child(myPlayerId).onDisconnect().remove();
 
-              // Make sure we're not matching with ourselves
-              if (opponentData.playerId === myPlayerId) {
-                // Add ourselves to queue instead
-                const myQueueEntry = {
-                  playerId: myPlayerId,
-                  name: sanitizeName(playerSetup.names[0]) || 'Player 1',
-                  flag: sanitizeFlag(playerSetup.flags[0]) || '🌍',
-                  timestamp: firebase.database.ServerValue.TIMESTAMP,
-                  escrowId: escrowId,
-                  stakeAmount: selectedStake
-                };
-                wageredQueueRef.child(myPlayerId).set(myQueueEntry);
-                wageredQueueRef.child(myPlayerId).onDisconnect().remove();
-                listenForWageredMatch(myPlayerId, wageredQueueRef, escrowId);
-                return;
-              }
-
-              // Found an opponent - create game with wagered info
-              try {
-                const createGameFn = functions.httpsCallable('createGame');
-                const result = await createGameFn({
-                  player1Id: opponentData.playerId,
-                  player1Name: sanitizeName(opponentData.name),
-                  player1Flag: sanitizeFlag(opponentData.flag),
-                  player2Id: myPlayerId,
-                  player2Name: sanitizeName(playerSetup.names[0]) || 'Player 2',
-                  player2Flag: sanitizeFlag(playerSetup.flags[0]) || '🌍',
-                  gameMode: playerSetup.gameMode,
-                  isWagered: true,
-                  escrowId: opponentData.escrowId, // Use opponent's escrow ID for the game
-                  stakeAmount: selectedStake
-                });
-
-                if (!result.data.success || !result.data.gameId) {
-                  throw new Error(result.data.error || 'Failed to create game');
-                }
-
-                // Join opponent's escrow (our coins are locked, now lock into their escrow)
-                const joinEscrowFn = functions.httpsCallable('createEscrow');
-                await joinEscrowFn({
-                  escrowId: opponentData.escrowId,
-                  stakeAmount: selectedStake
-                });
-
-                const roomId = result.data.gameId;
-                setGameRoomId(roomId);
-                setCurrentEscrowId(opponentData.escrowId); // Switch to shared escrow
-                gameRoomRef.current = database.ref(`games/${roomId}`);
-
-                // IMPORTANT: Register onDisconnect FIRST to protect against early browser close
-                // For wagered games, this is critical to ensure opponent disconnect triggers forfeit
-                gameRoomRef.current.child('player2/connected').onDisconnect().set(false).then(() => {
-                  // Start heartbeat for disconnect detection (I'm player2, opponent is player1)
-                  startHeartbeat(gameRoomRef.current, 'player2', 'player1', () => {
-                    stopHeartbeat();
-                    alert('Opponent disconnected. Returning to menu.');
-                    cancelMatchmaking();
-                  });
-
-                  setOpponentName(sanitizeName(opponentData.name));
-                  setOpponentFlag(sanitizeFlag(opponentData.flag));
-                  setMatchmakingState('found');
-
-                  // Start game as player 2
-                  setTimeout(() => startOnlineGame(roomId, 1), 1500);
-                }).catch((err) => {
-                  console.error('[wageredMatchmaking] Failed to register onDisconnect:', err);
-                  // Still proceed - better than blocking entirely
-                  setOpponentName(sanitizeName(opponentData.name));
-                  setOpponentFlag(sanitizeFlag(opponentData.flag));
-                  setMatchmakingState('found');
-                  setTimeout(() => startOnlineGame(roomId, 1), 1500);
-                });
-              } catch (error) {
-                console.error('[wageredMatchmaking] Error creating game:', error);
-                // Refund escrow on failure
-                try {
-                  const refundFn = functions.httpsCallable('refundEscrow');
-                  await refundFn({ escrowId });
-                } catch (refundErr) {
-                  console.error('[wageredMatchmaking] Refund error:', refundErr);
-                }
-                alert('Failed to create game. Your coins have been refunded.');
-                cancelMatchmaking();
-              }
-            } else {
-              // No opponent found - add self to wagered queue
-              const myQueueEntry = {
-                playerId: myPlayerId,
-                name: sanitizeName(playerSetup.names[0]) || 'Player 1',
-                flag: sanitizeFlag(playerSetup.flags[0]) || '🌍',
-                timestamp: firebase.database.ServerValue.TIMESTAMP,
-                escrowId: escrowId,
-                stakeAmount: selectedStake
-              };
-
-              wageredQueueRef.child(myPlayerId).set(myQueueEntry);
-              wageredQueueRef.child(myPlayerId).onDisconnect().remove();
-
-              // Listen for when someone joins
-              listenForWageredMatch(myPlayerId, wageredQueueRef, escrowId);
-            }
-          });
+          // Listen for when someone joins
+          listenForWageredMatch(myPlayerId, wageredQueueRef, escrowId);
 
         } catch (error) {
           console.error('[wageredMatchmaking] Error:', error);
@@ -3886,8 +3878,12 @@
 
       // Listen for wagered match opponent
       const listenForWageredMatch = (myPlayerId, wageredQueueRef, escrowId) => {
-        matchmakingIntervalRef.current = setInterval(() => {
-          // Check if someone created a game with us
+        let isProcessingMatch = false; // Prevent concurrent match attempts
+
+        matchmakingIntervalRef.current = setInterval(async () => {
+          if (isProcessingMatch) return; // Skip if already processing
+
+          // Check 1: See if someone created a game with us
           database.ref('games').orderByChild('player1/id').equalTo(myPlayerId).once('value', (gameSnapshot) => {
             if (gameSnapshot.exists()) {
               const games = gameSnapshot.val();
@@ -3942,6 +3938,105 @@
                 }
               }
             }
+          });
+
+          // Check 2: Look for opponents in queue (handles race condition where both players joined queue simultaneously)
+          // Use UID comparison to determine who initiates the match (lower UID initiates)
+          wageredQueueRef.once('value', async (queueSnapshot) => {
+            if (isProcessingMatch) return;
+            if (!queueSnapshot.exists()) return;
+
+            const queueEntries = queueSnapshot.val();
+            const opponents = Object.entries(queueEntries)
+              .filter(([id]) => id !== myPlayerId)
+              .map(([id, data]) => ({ id, ...data }));
+
+            if (opponents.length === 0) return;
+
+            // Find the opponent with the oldest timestamp (first in queue)
+            const opponent = opponents.reduce((oldest, current) =>
+              (current.timestamp || 0) < (oldest.timestamp || 0) ? current : oldest
+            );
+
+            // Use UID comparison to decide who initiates: LOWER UID initiates
+            // This prevents both players from trying to join each other simultaneously
+            if (myPlayerId < opponent.playerId) {
+              console.log('[wageredMatchmaking] I have lower UID, I will initiate match with', opponent.playerId);
+              isProcessingMatch = true;
+
+              try {
+                // First, refund our escrow (we'll join theirs instead)
+                const refundFn = functions.httpsCallable('refundEscrow');
+                await refundFn({ escrowId });
+                console.log('[wageredMatchmaking] Refunded our escrow, now joining opponent escrow');
+
+                // Join opponent's escrow
+                const joinEscrowFn = functions.httpsCallable('createEscrow');
+                const escrowResult = await joinEscrowFn({
+                  escrowId: opponent.escrowId,
+                  stakeAmount: opponent.stakeAmount
+                });
+
+                if (!escrowResult.data.success) {
+                  throw new Error(escrowResult.data.error || 'Failed to join escrow');
+                }
+
+                setCurrentEscrowId(opponent.escrowId);
+                setCoinBalance(escrowResult.data.newBalance);
+
+                // Create game
+                const createGameFn = functions.httpsCallable('createGame');
+                const result = await createGameFn({
+                  player1Id: opponent.playerId,
+                  player1Name: sanitizeName(opponent.name),
+                  player1Flag: sanitizeFlag(opponent.flag),
+                  player2Id: myPlayerId,
+                  player2Name: sanitizeName(playerSetup.names[0]) || 'Player 2',
+                  player2Flag: sanitizeFlag(playerSetup.flags[0]) || '🌍',
+                  gameMode: playerSetup.gameMode,
+                  isWagered: true,
+                  escrowId: opponent.escrowId,
+                  stakeAmount: opponent.stakeAmount
+                });
+
+                if (!result.data.success || !result.data.gameId) {
+                  throw new Error(result.data.error || 'Failed to create game');
+                }
+
+                // Success - clean up and start game
+                clearInterval(matchmakingIntervalRef.current);
+                wageredQueueRef.child(myPlayerId).remove();
+                wageredQueueRef.child(opponent.playerId).remove();
+
+                const roomId = result.data.gameId;
+                setGameRoomId(roomId);
+                gameRoomRef.current = database.ref(`games/${roomId}`);
+
+                gameRoomRef.current.child('player2/connected').onDisconnect().set(false).then(() => {
+                  startHeartbeat(gameRoomRef.current, 'player2', 'player1', () => {
+                    stopHeartbeat();
+                    alert('Opponent disconnected. Returning to menu.');
+                    cancelMatchmaking();
+                  });
+
+                  setOpponentName(sanitizeName(opponent.name));
+                  setOpponentFlag(sanitizeFlag(opponent.flag));
+                  setMatchmakingState('found');
+                  setTimeout(() => startOnlineGame(roomId, 1), 1500);
+                }).catch((err) => {
+                  console.error('[wageredMatchmaking] Failed to register onDisconnect:', err);
+                  setOpponentName(sanitizeName(opponent.name));
+                  setOpponentFlag(sanitizeFlag(opponent.flag));
+                  setMatchmakingState('found');
+                  setTimeout(() => startOnlineGame(roomId, 1), 1500);
+                });
+              } catch (error) {
+                console.error('[wageredMatchmaking] Error matching from queue:', error);
+                isProcessingMatch = false;
+                // Don't cancel matchmaking - let the other player try, or wait for someone else
+              }
+            }
+            // If myPlayerId > opponent.playerId, do nothing - let the other player initiate
           });
         }, 1000);
       };
@@ -6147,7 +6242,7 @@
                   minHeight: '90px'
                 }}><DartIcon size={24} color={COLORS.textDark} />Start Game</button>
 
-                <button className="btn btn-secondary" onClick={startMatchmaking} style={{
+                <button className="btn btn-secondary" onClick={handlePlayOnlineClick} style={{
                   padding: '20px 16px',
                   fontSize: '0.95rem',
                   display: 'flex',
