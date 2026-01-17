@@ -1569,7 +1569,29 @@
         }
 
         try {
-          await database.ref(`users/${currentUser.uid}/profile/displayName`).set(sanitized);
+          // Use update() to preserve other profile fields while changing displayName
+          // Firebase rules validate the entire profile, so we need to include existing fields
+          const profileUpdate = {
+            displayName: sanitized
+          };
+          // Include existing flag if present to satisfy validation
+          if (userProfile?.flag) {
+            profileUpdate.flag = userProfile.flag;
+          }
+          if (userProfile?.uniqueId) {
+            profileUpdate.uniqueId = userProfile.uniqueId;
+          }
+          if (userProfile?.avatar) {
+            profileUpdate.avatar = userProfile.avatar;
+          }
+          if (userProfile?.createdAt) {
+            profileUpdate.createdAt = userProfile.createdAt;
+          }
+          if (userProfile?.provider) {
+            profileUpdate.provider = userProfile.provider;
+          }
+
+          await database.ref(`users/${currentUser.uid}/profile`).set(profileUpdate);
           setIsEditingNickname(false);
           setNicknameInput('');
           // userProfile will auto-update via the existing Firebase listener
@@ -1577,7 +1599,7 @@
           console.error('Failed to save nickname:', error);
           alert('Failed to save nickname. Please try again.');
         }
-      }, [currentUser, database, nicknameInput]);
+      }, [currentUser, database, nicknameInput, userProfile]);
 
       // Validate numeric values from Firebase to prevent data tampering
       const validateScore = (score, gameMode) => {
@@ -3625,7 +3647,7 @@
         }
       }, [players, currentPlayerIndex, gameState, winner, animatingDart, dartsThrown, getAITarget, calculateScore, playSound, updateStats, nextPlayer, legDartsThrown, handleLegWin, currentTurnScore]);
 
-      const startGame = () => {
+      const startGame = useCallback(() => {
         const newPlayers = Array.from({ length: playerSetup.count }, (_, i) => {
           // Use profile name/flag for first player if logged in, otherwise use setup defaults
           let playerName = playerSetup.names[i] || `Player ${i + 1}`;
@@ -3664,7 +3686,7 @@
         setSetScores(new Array(playerSetup.count).fill(0));
         setLegDartsThrown(new Array(playerSetup.count).fill(0));
         setGameState('playing');
-      };
+      }, [playerSetup, currentUser, userProfile]);
 
       const resetGame = () => {
         // If in online mode, use leaveOnlineGame to properly clean up Firebase
