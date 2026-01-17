@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Production Build - 2026-01-17T21:26:08.170Z -->
+<!-- Production Build - 2026-01-17T21:37:35.753Z -->
 <!-- Quik Darts v1.1 - January 2026 -->
 <html lang="en">
 <head>
@@ -3395,7 +3395,7 @@ const DartsGame = () => {
         bullseyes: 0,
         misses: 0,
         highestThrow: 0,
-        averagePerDart: 0
+        averagePerSet: 0
       };
       const newThrows = playerStats.throws + 1;
       const newTotal = playerStats.totalScore + result.score;
@@ -3409,7 +3409,7 @@ const DartsGame = () => {
           bullseyes: playerStats.bullseyes + (result.score === 50 ? 1 : 0),
           misses: playerStats.misses + (result.score === 0 ? 1 : 0),
           highestThrow: Math.max(playerStats.highestThrow, result.score),
-          averagePerDart: (newTotal / newThrows).toFixed(1)
+          averagePerSet: (newTotal / newThrows * 3).toFixed(1)
         }
       };
     });
@@ -9785,7 +9785,7 @@ const DartsGame = () => {
       color: COLORS.textMuted,
       textAlign: 'center'
     }
-  }, "Avg: ", gameStats[index].averagePerDart, " per dart"), (playerSetup.legsPerSet > 1 || playerSetup.setsToWin > 1) && React.createElement("div", {
+  }, "Avg: ", gameStats[index].averagePerSet, " (3-dart)"), (playerSetup.legsPerSet > 1 || playerSetup.setsToWin > 1) && React.createElement("div", {
     style: {
       fontSize: '11px',
       color: COLORS.accent,
@@ -10516,12 +10516,12 @@ const DartsGame = () => {
       fontSize: '24px',
       fontWeight: '700'
     }
-  }, gameStats[index].averagePerDart), React.createElement("div", {
+  }, gameStats[index].averagePerSet), React.createElement("div", {
     style: {
       color: COLORS.textMuted,
       fontSize: '12px'
     }
-  }, "Avg/Dart")), React.createElement("div", {
+  }, "3-Dart Avg")), React.createElement("div", {
     style: {
       textAlign: 'center'
     }
