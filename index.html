@@ -2905,7 +2905,7 @@
         setGameStats(prev => {
           const playerStats = prev[playerIndex] || {
             throws: 0, totalScore: 0, doubles: 0, triples: 0, bullseyes: 0,
-            misses: 0, highestThrow: 0, averagePerDart: 0
+            misses: 0, highestThrow: 0, averagePerSet: 0
           };
 
           const newThrows = playerStats.throws + 1;
@@ -2920,7 +2920,7 @@
               bullseyes: playerStats.bullseyes + (result.score === 50 ? 1 : 0),
               misses: playerStats.misses + (result.score === 0 ? 1 : 0),
               highestThrow: Math.max(playerStats.highestThrow, result.score),
-              averagePerDart: (newTotal / newThrows).toFixed(1)
+              averagePerSet: ((newTotal / newThrows) * 3).toFixed(1)
             }
           };
         });
@@ -7505,7 +7505,7 @@
                   </div>
                   {player.isAI && <div style={{ fontSize: '10px', color: COLORS.primaryLight, marginBottom: '5px', textTransform: 'uppercase', fontWeight: '500' }}>{player.aiDifficulty}</div>}
                   <div style={{ fontSize: '48px', fontWeight: '700', color: player.score <= 170 ? COLORS.success : COLORS.text, textAlign: 'center', margin: '10px 0', fontFamily: "'Roboto Mono', monospace" }}>{player.score}</div>
-                  {gameStats[index] && <div style={{ fontSize: '12px', color: COLORS.textMuted, textAlign: 'center' }}>Avg: {gameStats[index].averagePerDart} per dart</div>}
+                  {gameStats[index] && <div style={{ fontSize: '12px', color: COLORS.textMuted, textAlign: 'center' }}>Avg: {gameStats[index].averagePerSet} (3-dart)</div>}
                   {(playerSetup.legsPerSet > 1 || playerSetup.setsToWin > 1) && (
                     <div style={{ fontSize: '11px', color: COLORS.accent, textAlign: 'center', marginTop: '8px', letterSpacing: '1px' }}>
                       Sets: {setScores[index] || 0} | Legs: {legScores[index] || 0}
@@ -7998,7 +7998,7 @@
                     {gameStats[index] ? (
                       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '15px' }}>
                         <div style={{ textAlign: 'center' }}><div style={{ color: COLORS.accent, fontSize: '24px', fontWeight: '700' }}>{gameStats[index].throws}</div><div style={{ color: COLORS.textMuted, fontSize: '12px' }}>Throws</div></div>
-                        <div style={{ textAlign: 'center' }}><div style={{ color: COLORS.accent, fontSize: '24px', fontWeight: '700' }}>{gameStats[index].averagePerDart}</div><div style={{ color: COLORS.textMuted, fontSize: '12px' }}>Avg/Dart</div></div>
+                        <div style={{ textAlign: 'center' }}><div style={{ color: COLORS.accent, fontSize: '24px', fontWeight: '700' }}>{gameStats[index].averagePerSet}</div><div style={{ color: COLORS.textMuted, fontSize: '12px' }}>3-Dart Avg</div></div>
                         <div style={{ textAlign: 'center' }}><div style={{ color: COLORS.accent, fontSize: '24px', fontWeight: '700' }}>{gameStats[index].highestThrow}</div><div style={{ color: COLORS.textMuted, fontSize: '12px' }}>Best</div></div>
                         <div style={{ textAlign: 'center' }}><div style={{ color: COLORS.success, fontSize: '24px', fontWeight: '700' }}>{gameStats[index].triples}</div><div style={{ color: COLORS.textMuted, fontSize: '12px' }}>Triples</div></div>
                         <div style={{ textAlign: 'center' }}><div style={{ color: COLORS.primaryLight, fontSize: '24px', fontWeight: '700' }}>{gameStats[index].doubles}</div><div style={{ color: COLORS.textMuted, fontSize: '12px' }}>Doubles</div></div>
