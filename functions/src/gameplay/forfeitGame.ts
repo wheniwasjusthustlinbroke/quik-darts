@@ -121,6 +121,7 @@ export const forfeitGame = functions
 
 /**
  * Internal function to settle a wagered game
+ * SECURITY: Uses atomic transaction on escrow to prevent double-payout race condition
  */
 async function settleGameInternal(
   gameId: string,
@@ -129,18 +130,38 @@ async function settleGameInternal(
   escrowId: string
 ): Promise<void> {
   const escrowRef = db.ref(`escrow/${escrowId}`);
-  const escrowSnap = await escrowRef.once('value');
-  const escrow = escrowSnap.val();
+  const now = Date.now();
 
-  if (!escrow || escrow.status !== 'locked') {
-    console.log(`[settleGameInternal] Escrow ${escrowId} not locked, skipping`);
+  // CRITICAL: Use atomic transaction on escrow to prevent double-settlement race condition
+  // This atomically checks status and transitions to 'released' in one operation
+  const escrowResult = await escrowRef.transaction((escrow) => {
+    if (!escrow) return escrow;
+
+    // Already settled or not in locked state - abort transaction
+    if (escrow.status !== 'locked') {
+      console.log(`[settleGameInternal] Escrow ${escrowId} already in status: ${escrow.status}, aborting`);
+      return; // Abort transaction - returns undefined
+    }
+
+    // Atomically transition escrow to released state
+    return {
+      ...escrow,
+      status: 'released',
+      settledAt: now,
+      winnerId,
+    };
+  });
+
+  // Check if escrow transaction was committed (status was 'locked' and we changed it)
+  if (!escrowResult.committed || escrowResult.snapshot.val()?.status !== 'released') {
+    console.log(`[settleGameInternal] Escrow ${escrowId} already settled by another process, skipping payout`);
     return;
   }
 
+  const escrow = escrowResult.snapshot.val();
   const totalPot = escrow.totalPot;
-  const now = Date.now();
 
-  // Atomic transaction to award coins
+  // Now safe to award coins - escrow is atomically marked as released
   const walletRef = db.ref(`users/${winnerId}/wallet`);
 
   await walletRef.transaction((wallet) => {
@@ -161,13 +182,6 @@ async function settleGameInternal(
     gameId,
     description: 'Wagered game win',
     timestamp: now,
-  });
-
-  // Update escrow status
-  await escrowRef.update({
-    status: 'released',
-    settledAt: now,
-    winnerId,
   });
 
   // Mark game wager as settled
