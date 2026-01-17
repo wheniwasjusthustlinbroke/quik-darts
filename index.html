@@ -4035,20 +4035,30 @@
               isProcessingMatch = true;
 
               try {
-                // First, refund our escrow (we'll join theirs instead)
+                // Refund our escrow first, then join opponent's
+                console.log('[wageredMatchmaking] Refunding our escrow before joining opponent');
                 const refundFn = functions.httpsCallable('refundEscrow');
                 await refundFn({ escrowId });
-                console.log('[wageredMatchmaking] Refunded our escrow, now joining opponent escrow');
+                console.log('[wageredMatchmaking] Refunded, now joining opponent escrow:', opponent.escrowId);
 
-                // Join opponent's escrow
-                const joinEscrowFn = functions.httpsCallable('createEscrow');
-                const escrowResult = await joinEscrowFn({
-                  escrowId: opponent.escrowId,
-                  stakeAmount: opponent.stakeAmount
-                });
-
-                if (!escrowResult.data.success) {
-                  throw new Error(escrowResult.data.error || 'Failed to join escrow');
+                // Join opponent's escrow with retry logic
+                let escrowResult;
+                let retries = 3;
+                while (retries > 0) {
+                  try {
+                    const joinEscrowFn = functions.httpsCallable('createEscrow');
+                    escrowResult = await joinEscrowFn({
+                      escrowId: opponent.escrowId,
+                      stakeAmount: opponent.stakeAmount
+                    });
+                    if (escrowResult.data.success) break;
+                    throw new Error(escrowResult.data.error || 'Failed to join escrow');
+                  } catch (joinErr) {
+                    retries--;
+                    console.log('[wageredMatchmaking] Join attempt failed, retries left:', retries);
+                    if (retries === 0) throw joinErr;
+                    await new Promise(r => setTimeout(r, 500)); // Wait 500ms before retry
+                  }
                 }
 
                 setCurrentEscrowId(opponent.escrowId);
@@ -4114,6 +4124,25 @@
                 });
               } catch (error) {
                 console.error('[wageredMatchmaking] Error matching from queue:', error);
+                // Create a new escrow since ours was refunded
+                try {
+                  console.log('[wageredMatchmaking] Match failed, creating new escrow to stay in queue');
+                  const newEscrowId = database.ref('escrow').push().key;
+                  const createEscrowFn = functions.httpsCallable('createEscrow');
+                  const newEscrowResult = await createEscrowFn({
+                    escrowId: newEscrowId,
+                    stakeAmount: opponent.stakeAmount
+                  });
+                  if (newEscrowResult.data.success) {
+                    setCurrentEscrowId(newEscrowId);
+                    setCoinBalance(newEscrowResult.data.newBalance);
+                    // Update our queue entry with new escrow ID
+                    await myQueueEntryRef.update({ escrowId: newEscrowId });
+                    console.log('[wageredMatchmaking] Created new escrow, staying in queue');
+                  }
+                } catch (escrowErr) {
+                  console.error('[wageredMatchmaking] Failed to create new escrow:', escrowErr);
+                }
                 isProcessingMatch = false;
               }
             }
