@@ -9,24 +9,32 @@
     "build:dev": "cp index.html www/",
     "sync": "npm run build && cp dist/index.html www/ && npx cap sync",
     "ios": "npm run sync && npx cap open ios",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "cd functions && npm test",
+    "test:e2e": "npx playwright test",
+    "test:e2e:ui": "npx playwright test --ui",
+    "test:e2e:report": "npx playwright show-report"
   },
   "repository": {
     "type": "git",
     "url": "https://github.com/wheniwasjusthustlinbroke/quik-darts.git"
   },
-  "keywords": ["darts", "game", "multiplayer"],
+  "keywords": [
+    "darts",
+    "game",
+    "multiplayer"
+  ],
   "author": "Quik Darts",
   "license": "UNLICENSED",
   "dependencies": {
+    "@capacitor-community/admob": "^6.0.0",
     "@capacitor/cli": "^8.0.0",
     "@capacitor/core": "^8.0.0",
-    "@capacitor/ios": "^8.0.0",
-    "@capacitor-community/admob": "^6.0.0"
+    "@capacitor/ios": "^8.0.0"
   },
   "devDependencies": {
     "@babel/core": "^7.23.7",
     "@babel/preset-react": "^7.23.3",
+    "@playwright/test": "^1.57.0",
     "javascript-obfuscator": "^4.1.0"
   }
 }
