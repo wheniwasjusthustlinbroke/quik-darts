@@ -2085,10 +2085,49 @@
           setLegScores(validateScoreArray(gameData.legScores, 0));
           setSetScores(validateScoreArray(gameData.setScores, 0));
 
-          // Check for winner
-          if (gameData.winner !== undefined) {
+          // Check for winner (game ended)
+          if (gameData.winner !== undefined && gameData.status === 'finished') {
             const winnerIndex = validatePlayerIndex(gameData.winner);
-            setMatchWinner(winnerIndex === playerIndex ? myPlayer : opponent);
+            const isWinner = winnerIndex === playerIndex;
+            const winnerPlayer = isWinner ? myPlayer : opponent;
+
+            console.log('[gameListener] Game finished! Winner:', winnerIndex, 'isWinner:', isWinner);
+
+            // Set winner state
+            setWinner(winnerPlayer);
+            setMatchWinner(winnerPlayer);
+
+            // Play win/lose sound
+            if (isWinner) {
+              playSound('win');
+            }
+
+            // For wagered matches, settle the game (release escrow to winner)
+            if (isWageredMatch && currentEscrowId && functions && gameRoomId) {
+              console.log('[settleGame] Settling wagered match from listener:', gameRoomId);
+              const settleGameFn = functions.httpsCallable('settleGame');
+              settleGameFn({ gameId: gameRoomId })
+                .then(result => {
+                  console.log('[settleGame] Result:', result.data);
+                  if (result.data.success && result.data.payout > 0 && isWinner) {
+                    alert(`Congratulations! You won ${result.data.payout} coins!`);
+                  }
+                  // Clear escrow state
+                  setCurrentEscrowId(null);
+                  setIsWageredMatch(false);
+                })
+                .catch(err => {
+                  console.error('[settleGame] Error:', err);
+                  // Don't alert - settlement might have been done by opponent
+                });
+            }
+
+            // Delete the game after 10 seconds
+            setTimeout(() => {
+              if (gameRoomRef.current) {
+                gameRoomRef.current.remove().catch(err => console.error('Failed to delete completed game:', err));
+              }
+            }, 10000);
           }
         }, (error) => {
           // Handle Firebase listener errors
@@ -2096,7 +2135,7 @@
           alert('Connection to game lost. Returning to menu.');
           cancelMatchmaking();
         });
-      }, [database]);
+      }, [database, isWageredMatch, currentEscrowId, functions, gameRoomId, playSound]);
 
       // Sync throw to Firebase via Cloud Function (server-authoritative)
       // SECURITY: No fallback to direct writes - all throws MUST go through Cloud Function
@@ -2965,6 +3004,28 @@
           }
 
           if (newScore === 0 && result.multiplier === 2) {
+            // CHECKOUT!
+            // In online mode, sync to server and let Firebase listener handle game state
+            if (onlineMode) {
+              console.log('[checkout] Online mode - syncing checkout throw to server');
+              syncThrowToFirebase({
+                player: currentPlayerIndex,
+                score: result.score,
+                multiplier: result.multiplier,
+                label: result.label,
+                newScore: 0,
+                remaining: 0,
+                dartsThrown: dartsThrown + 1,
+                currentTurnScore: currentTurnScore + result.score,
+                currentPlayer: currentPlayerIndex,
+                position: finalPosition
+              });
+              // Server will set winner and status='finished'
+              // Firebase listener will detect winner and call handleLegWin
+              return;
+            }
+
+            // Offline mode: handle checkout locally
             const newPlayers = [...players];
             newPlayers[currentPlayerIndex] = { ...currentPlayer, score: 0 };
             setPlayers(newPlayers);
@@ -2972,7 +3033,7 @@
 
             // Track checkout for achievements
             const checkoutValue = currentPlayer.score;
-            if (!players[currentPlayerIndex].isAI && !onlineMode && !practiceMode) {
+            if (!players[currentPlayerIndex].isAI && !practiceMode) {
               if (checkoutValue > (achievementStats.highestCheckout || 0)) {
                 updateAchievementStats({ highestCheckout: checkoutValue });
               }
