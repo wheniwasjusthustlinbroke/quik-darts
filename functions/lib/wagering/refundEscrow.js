@@ -65,6 +65,89 @@ exports.refundEscrow = functions
     if (!escrowId || typeof escrowId !== 'string') {
         throw new functions.https.HttpsError('invalid-argument', 'Invalid escrow ID');
     }
+    // SPECIAL CASE: cleanup_pending - find and refund any pending escrows for this user
+    if (escrowId === 'cleanup_pending') {
+        console.log(`[refundEscrow] Cleanup pending escrows for user ${userId}`);
+        const now = Date.now();
+        // Find all pending escrows where user is player1 or player2
+        const escrowsSnap = await db.ref('escrow')
+            .orderByChild('status')
+            .equalTo('pending')
+            .once('value');
+        const escrows = escrowsSnap.val();
+        if (!escrows) {
+            return { success: true, refundedPlayers: [], refundedAmounts: [] };
+        }
+        const refundedPlayers = [];
+        const refundedAmounts = [];
+        for (const [eid, escrow] of Object.entries(escrows)) {
+            const isPlayer1 = escrow.player1?.userId === userId;
+            const isPlayer2 = escrow.player2?.userId === userId;
+            if (!isPlayer1 && !isPlayer2)
+                continue;
+            // Skip if not expired and locked
+            const isExpired = escrow.expiresAt && escrow.expiresAt < now;
+            if (escrow.status === 'locked' && !isExpired)
+                continue;
+            // Refund this escrow
+            const escrowRef = db.ref(`escrow/${eid}`);
+            const refundResult = await escrowRef.transaction((currentEscrow) => {
+                if (!currentEscrow)
+                    return currentEscrow;
+                if (currentEscrow.status === 'released' || currentEscrow.status === 'refunded') {
+                    return; // Already processed
+                }
+                return {
+                    ...currentEscrow,
+                    status: 'refunded',
+                    refundedAt: now,
+                    refundReason: 'cleanup_before_new_match',
+                };
+            });
+            if (refundResult.committed && refundResult.snapshot.val()?.status === 'refunded') {
+                const refundedEscrow = refundResult.snapshot.val();
+                // Refund player1
+                if (refundedEscrow.player1) {
+                    const p1Amount = refundedEscrow.player1.amount;
+                    await db.ref(`users/${refundedEscrow.player1.userId}/wallet`).transaction((wallet) => {
+                        if (!wallet)
+                            return wallet;
+                        return {
+                            ...wallet,
+                            coins: (wallet.coins || 0) + p1Amount,
+                            lifetimeSpent: Math.max(0, (wallet.lifetimeSpent || 0) - p1Amount),
+                            version: (wallet.version || 0) + 1,
+                        };
+                    });
+                    refundedPlayers.push(refundedEscrow.player1.userId);
+                    refundedAmounts.push(p1Amount);
+                }
+                // Refund player2 if exists
+                if (refundedEscrow.player2) {
+                    const p2Amount = refundedEscrow.player2.amount;
+                    await db.ref(`users/${refundedEscrow.player2.userId}/wallet`).transaction((wallet) => {
+                        if (!wallet)
+                            return wallet;
+                        return {
+                            ...wallet,
+                            coins: (wallet.coins || 0) + p2Amount,
+                            lifetimeSpent: Math.max(0, (wallet.lifetimeSpent || 0) - p2Amount),
+                            version: (wallet.version || 0) + 1,
+                        };
+                    });
+                    refundedPlayers.push(refundedEscrow.player2.userId);
+                    refundedAmounts.push(p2Amount);
+                }
+                // Also remove from queue if still there
+                const queueStake = refundedEscrow.stakeLevel;
+                if (queueStake) {
+                    await db.ref(`matchmaking_queue/wagered/${queueStake}/${userId}`).remove();
+                }
+                console.log(`[refundEscrow] Cleaned up stale escrow ${eid} for user ${userId}`);
+            }
+        }
+        return { success: true, refundedPlayers, refundedAmounts };
+    }
     // 3. Fetch escrow
     const escrowRef = db.ref(`escrow/${escrowId}`);
     const escrowSnap = await escrowRef.once('value');

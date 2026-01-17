@@ -3795,6 +3795,19 @@
         const wageredQueueRef = database.ref(`matchmaking_queue/wagered/${selectedStake}`);
 
         try {
+          // CLEANUP: First, try to refund any stale pending escrows from previous failed attempts
+          // This prevents "You already have a pending match" errors
+          console.log('[wageredMatchmaking] Checking for stale escrows to cleanup...');
+          try {
+            const refundFn = functions.httpsCallable('refundEscrow');
+            // Try to refund with a special flag that tells the server to find and refund any pending escrow
+            await refundFn({ escrowId: 'cleanup_pending', reason: 'cleanup_before_new_match' });
+            console.log('[wageredMatchmaking] Stale escrow cleanup completed');
+          } catch (cleanupErr) {
+            // Ignore cleanup errors - user might not have any pending escrows
+            console.log('[wageredMatchmaking] No stale escrows to cleanup or cleanup skipped');
+          }
+
           // IMPORTANT: Check queue FIRST before creating any escrow
           // This prevents both players from creating separate escrows
           console.log('[wageredMatchmaking] Checking queue for opponents...');
