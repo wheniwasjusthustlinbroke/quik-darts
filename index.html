@@ -1226,6 +1226,9 @@
       const [showCoinShop, setShowCoinShop] = useState(false); // Coin shop modal
       const [isPurchasing, setIsPurchasing] = useState(false); // Processing purchase
       const walletListenerRef = useRef(null); // Wallet listener cleanup
+      const [currentEscrowId, setCurrentEscrowId] = useState(null); // Active escrow ID for wagered match
+      const [isWageredMatch, setIsWageredMatch] = useState(false); // Is current match wagered
+      const [isCreatingEscrow, setIsCreatingEscrow] = useState(false); // Creating escrow in progress
 
       const [achievementStats, setAchievementStats] = useState(() => {
         try {
@@ -2114,6 +2117,24 @@
         // Remove from queue if still in matchmaking (use auth ID, not player index)
         if (myAuthId && database) {
           database.ref('matchmaking_queue').child(myAuthId).remove();
+          // Also remove from wagered queues
+          [50, 100, 500, 2500].forEach(stake => {
+            database.ref(`matchmaking_queue/wagered/${stake}`).child(myAuthId).remove();
+          });
+        }
+
+        // Refund escrow if we have one and game hasn't started
+        if (currentEscrowId && !gameRoomId && functions) {
+          console.log('[cancelMatchmaking] Refunding escrow:', currentEscrowId);
+          const refundEscrowFn = functions.httpsCallable('refundEscrow');
+          refundEscrowFn({ escrowId: currentEscrowId })
+            .then(result => {
+              console.log('[cancelMatchmaking] Escrow refunded:', result.data);
+            })
+            .catch(err => {
+              console.error('[cancelMatchmaking] Escrow refund failed:', err);
+              // Escrow might already be locked or expired - cleanup will handle it
+            });
         }
 
         // Clean up game room listener
@@ -2136,8 +2157,10 @@
         setGameRoomId(null);
         setPlayerId(null);
         setMyAuthId(null);
+        setCurrentEscrowId(null);
+        setIsWageredMatch(false);
         setGameState('menu');
-      }, [myAuthId, database, playerId]);
+      }, [myAuthId, database, playerId, currentEscrowId, gameRoomId, functions]);
 
       // Leave online game
       const leaveOnlineGame = useCallback(() => {
@@ -2548,6 +2571,30 @@
                 winner: playerIndex,
                 status: 'finished'
               })).catch(err => console.error('Failed to update winner after retries:', err));
+
+              // For wagered matches, settle the game (release escrow to winner)
+              if (isWageredMatch && currentEscrowId && functions && gameRoomId) {
+                console.log('[settleGame] Settling wagered match:', gameRoomId);
+                const settleGameFn = functions.httpsCallable('settleGame');
+                settleGameFn({ gameId: gameRoomId })
+                  .then(result => {
+                    console.log('[settleGame] Result:', result.data);
+                    if (result.data.success && result.data.payout > 0) {
+                      // Winner gets the pot - wallet listener will update balance
+                      const isWinner = playerIndex === myPlayerIndex;
+                      if (isWinner) {
+                        alert(`Congratulations! You won ${result.data.payout} coins!`);
+                      }
+                    }
+                    // Clear escrow state
+                    setCurrentEscrowId(null);
+                    setIsWageredMatch(false);
+                  })
+                  .catch(err => {
+                    console.error('[settleGame] Error:', err);
+                    // Don't alert on error - settlement might have been done by opponent
+                  });
+              }
 
               // Delete the game after 10 seconds (enough time for both to see result)
               setTimeout(() => {
@@ -3653,10 +3700,189 @@
           return;
         }
 
+        if (!functions || !database) {
+          alert('Online play is temporarily unavailable. Please try again later.');
+          return;
+        }
+
+        // Wait for authentication
+        const authUser = await authReadyPromise;
+        if (!authUser || authUser.isAnonymous) {
+          alert('Please sign in to play wagered matches.');
+          return;
+        }
+
         setShowStakeSelection(false);
-        // TODO: In Phase 2b, this will create escrow and use wagered queue
-        // For now, start regular matchmaking (casual mode even for signed-in users)
-        startMatchmaking();
+        setIsCreatingEscrow(true);
+        setMatchmakingState('searching');
+        setOnlineMode(true);
+
+        try {
+          // Generate a unique escrow ID
+          const escrowId = `escrow_${authUser.uid}_${Date.now()}`;
+
+          // Create escrow - locks coins
+          console.log('[wageredMatchmaking] Creating escrow for', selectedStake, 'coins');
+          const createEscrowFn = functions.httpsCallable('createEscrow');
+          const escrowResult = await createEscrowFn({
+            escrowId,
+            stakeAmount: selectedStake
+          });
+
+          if (!escrowResult.data.success) {
+            throw new Error(escrowResult.data.error || 'Failed to create escrow');
+          }
+
+          console.log('[wageredMatchmaking] Escrow created:', escrowResult.data);
+          setCurrentEscrowId(escrowId);
+          setIsWageredMatch(true);
+          setCoinBalance(escrowResult.data.newBalance);
+
+          // Join wagered matchmaking queue
+          const myPlayerId = authUser.uid;
+          setMyAuthId(myPlayerId);
+          const wageredQueueRef = database.ref(`matchmaking_queue/wagered/${selectedStake}`);
+
+          // Look for available opponent in wagered queue
+          wageredQueueRef.orderByChild('timestamp').limitToFirst(1).once('value', async (snapshot) => {
+            if (snapshot.exists()) {
+              const opponents = snapshot.val();
+              const opponentId = Object.keys(opponents)[0];
+              const opponentData = opponents[opponentId];
+
+              // Make sure we're not matching with ourselves
+              if (opponentData.playerId === myPlayerId) {
+                // Add ourselves to queue instead
+                const myQueueEntry = {
+                  playerId: myPlayerId,
+                  name: sanitizeName(playerSetup.names[0]) || 'Player 1',
+                  flag: sanitizeFlag(playerSetup.flags[0]) || '🌍',
+                  timestamp: firebase.database.ServerValue.TIMESTAMP,
+                  escrowId: escrowId,
+                  stakeAmount: selectedStake
+                };
+                wageredQueueRef.child(myPlayerId).set(myQueueEntry);
+                wageredQueueRef.child(myPlayerId).onDisconnect().remove();
+                listenForWageredMatch(myPlayerId, wageredQueueRef, escrowId);
+                return;
+              }
+
+              // Found an opponent - create game with wagered info
+              try {
+                const createGameFn = functions.httpsCallable('createGame');
+                const result = await createGameFn({
+                  player1Id: opponentData.playerId,
+                  player1Name: sanitizeName(opponentData.name),
+                  player1Flag: sanitizeFlag(opponentData.flag),
+                  player2Id: myPlayerId,
+                  player2Name: sanitizeName(playerSetup.names[0]) || 'Player 2',
+                  player2Flag: sanitizeFlag(playerSetup.flags[0]) || '🌍',
+                  gameMode: playerSetup.gameMode,
+                  isWagered: true,
+                  escrowId: opponentData.escrowId, // Use opponent's escrow ID for the game
+                  stakeAmount: selectedStake
+                });
+
+                if (!result.data.success || !result.data.gameId) {
+                  throw new Error(result.data.error || 'Failed to create game');
+                }
+
+                // Join opponent's escrow (our coins are locked, now lock into their escrow)
+                const joinEscrowFn = functions.httpsCallable('createEscrow');
+                await joinEscrowFn({
+                  escrowId: opponentData.escrowId,
+                  stakeAmount: selectedStake
+                });
+
+                const roomId = result.data.gameId;
+                setGameRoomId(roomId);
+                setCurrentEscrowId(opponentData.escrowId); // Switch to shared escrow
+                gameRoomRef.current = database.ref(`games/${roomId}`);
+
+                setOpponentName(sanitizeName(opponentData.name));
+                setOpponentFlag(sanitizeFlag(opponentData.flag));
+                setMatchmakingState('found');
+
+                // Start game as player 2
+                setTimeout(() => startOnlineGame(roomId, 1), 1500);
+              } catch (error) {
+                console.error('[wageredMatchmaking] Error creating game:', error);
+                // Refund escrow on failure
+                try {
+                  const refundFn = functions.httpsCallable('refundEscrow');
+                  await refundFn({ escrowId });
+                } catch (refundErr) {
+                  console.error('[wageredMatchmaking] Refund error:', refundErr);
+                }
+                alert('Failed to create game. Your coins have been refunded.');
+                cancelMatchmaking();
+              }
+            } else {
+              // No opponent found - add self to wagered queue
+              const myQueueEntry = {
+                playerId: myPlayerId,
+                name: sanitizeName(playerSetup.names[0]) || 'Player 1',
+                flag: sanitizeFlag(playerSetup.flags[0]) || '🌍',
+                timestamp: firebase.database.ServerValue.TIMESTAMP,
+                escrowId: escrowId,
+                stakeAmount: selectedStake
+              };
+
+              wageredQueueRef.child(myPlayerId).set(myQueueEntry);
+              wageredQueueRef.child(myPlayerId).onDisconnect().remove();
+
+              // Listen for when someone joins
+              listenForWageredMatch(myPlayerId, wageredQueueRef, escrowId);
+            }
+          });
+
+        } catch (error) {
+          console.error('[wageredMatchmaking] Error:', error);
+          alert(error.message || 'Failed to start wagered match. Please try again.');
+          setMatchmakingState('idle');
+          setOnlineMode(false);
+          setIsWageredMatch(false);
+          setCurrentEscrowId(null);
+        } finally {
+          setIsCreatingEscrow(false);
+        }
+      };
+
+      // Listen for wagered match opponent
+      const listenForWageredMatch = (myPlayerId, wageredQueueRef, escrowId) => {
+        matchmakingIntervalRef.current = setInterval(() => {
+          // Check if someone created a game with us
+          database.ref('games').orderByChild('player1/id').equalTo(myPlayerId).once('value', (gameSnapshot) => {
+            if (gameSnapshot.exists()) {
+              const games = gameSnapshot.val();
+              const now = Date.now();
+
+              for (const [roomId, gameData] of Object.entries(games)) {
+                const gameAge = now - (gameData.createdAt || 0);
+                const isRecent = gameAge < 30000;
+                const isWagered = gameData.wager && gameData.wager.escrowId;
+                const isPlayer2Connected = gameData.player2 && gameData.player2.connected === true;
+
+                if (isRecent && isWagered && isPlayer2Connected) {
+                  // Found our wagered game
+                  clearInterval(matchmakingIntervalRef.current);
+                  wageredQueueRef.child(myPlayerId).remove();
+
+                  setGameRoomId(roomId);
+                  setCurrentEscrowId(gameData.wager.escrowId);
+                  gameRoomRef.current = database.ref(`games/${roomId}`);
+
+                  setOpponentName(sanitizeName(gameData.player2.name));
+                  setOpponentFlag(sanitizeFlag(gameData.player2.flag));
+                  setMatchmakingState('found');
+
+                  setTimeout(() => startOnlineGame(roomId, 0), 1500);
+                  return;
+                }
+              }
+            }
+          });
+        }, 1000);
       };
 
       // Sign in with Google
