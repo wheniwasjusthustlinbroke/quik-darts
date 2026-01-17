@@ -2038,17 +2038,29 @@
           // Only alert about disconnection if opponent WAS connected before
           if (opponentWasConnected.current && opponent.connected === false && !gameData.winner) {
             opponentWasConnected.current = false; // Reset for next game
+            console.log('[gameListener] Opponent disconnected! Processing disconnect...', {
+              roomId,
+              hasWager: !!gameData.wager,
+              isWageredMatchState: isWageredMatch
+            });
 
             // For wagered matches, the remaining player wins by forfeit
-            if (isWageredMatch && gameRoomId && functions) {
+            // IMPORTANT: Check gameData.wager from Firebase (more reliable than closure state)
+            // and use roomId parameter (not gameRoomId which might be stale)
+            const isWagered = !!(gameData.wager && gameData.wager.escrowId);
+            if (isWagered && roomId && functions) {
               console.log('[gameListener] Opponent disconnected in wagered match - claiming forfeit win');
               const forfeitGameFn = functions.httpsCallable('forfeitGame');
-              forfeitGameFn({ gameId: gameRoomId, reason: 'disconnect', claimWin: true })
+              forfeitGameFn({ gameId: roomId, reason: 'disconnect', claimWin: true })
                 .then(result => {
                   console.log('[forfeitGame] Result:', result.data);
                   if (result.data.success) {
                     const payout = result.data.winnerPayout || 0;
                     alert(`${sanitizeName(opponent.name)} has disconnected. You win ${payout} coins!`);
+                    // Update coin balance with winnings
+                    if (payout > 0) {
+                      setCoinBalance(prev => prev + payout);
+                    }
                   } else {
                     alert(`${sanitizeName(opponent.name)} has disconnected. Returning to menu.`);
                   }
@@ -2128,14 +2140,19 @@
             }
 
             // For wagered matches, settle the game (release escrow to winner)
-            if (isWageredMatch && currentEscrowId && functions && gameRoomId) {
-              console.log('[settleGame] Settling wagered match from listener:', gameRoomId);
+            // IMPORTANT: Check gameData.wager from Firebase (more reliable than closure state)
+            // and use roomId parameter (not gameRoomId which might be stale)
+            const hasWager = !!(gameData.wager && gameData.wager.escrowId);
+            if (hasWager && roomId && functions) {
+              console.log('[settleGame] Settling wagered match from listener:', roomId, 'escrowId:', gameData.wager.escrowId);
               const settleGameFn = functions.httpsCallable('settleGame');
-              settleGameFn({ gameId: gameRoomId })
+              settleGameFn({ gameId: roomId })
                 .then(result => {
                   console.log('[settleGame] Result:', result.data);
                   if (result.data.success && result.data.payout > 0 && isWinner) {
                     alert(`Congratulations! You won ${result.data.payout} coins!`);
+                    // Update coin balance with winnings
+                    setCoinBalance(prev => prev + result.data.payout);
                   }
                   // Clear escrow state
                   setCurrentEscrowId(null);
@@ -2225,11 +2242,29 @@
 
       // Cancel matchmaking
       const cancelMatchmaking = useCallback(() => {
+        // CRITICAL: Capture refs BEFORE any cleanup so disconnect notification can complete
+        // This prevents the race condition where we clear refs before Firebase write finishes
+        const capturedGameRoomRef = gameRoomRef.current;
+        const capturedPlayerId = playerId;
+        const capturedGameRoomId = gameRoomId;
+
+        console.log('[cancelMatchmaking] Starting cleanup:', {
+          hasGameRoom: !!capturedGameRoomRef,
+          playerId: capturedPlayerId,
+          gameRoomId: capturedGameRoomId,
+          isWageredMatch
+        });
+
         // If in an active game, set my connected status to false to notify opponent
-        if (gameRoomRef.current && playerId !== null) {
-          const myPlayerKey = playerId === 0 ? 'player1' : 'player2';
-          gameRoomRef.current.child(`${myPlayerKey}/connected`).set(false)
-            .catch(err => console.error('Failed to set disconnected:', err));
+        // IMPORTANT: Use captured ref so write completes even after cleanup
+        if (capturedGameRoomRef && capturedPlayerId !== null) {
+          const myPlayerKey = capturedPlayerId === 0 ? 'player1' : 'player2';
+          console.log(`[cancelMatchmaking] Sending disconnect notification: ${myPlayerKey}/connected = false`);
+          capturedGameRoomRef.child(`${myPlayerKey}/connected`).set(false)
+            .then(() => console.log('[cancelMatchmaking] Disconnect notification sent successfully'))
+            .catch(err => console.error('[cancelMatchmaking] Failed to set disconnected:', err));
+        } else {
+          console.log('[cancelMatchmaking] Skipping disconnect notification - no active game or playerId is null');
         }
 
         // Clear matchmaking interval if it's running
@@ -2258,7 +2293,7 @@
 
         // Refund escrow if we have one and game hasn't started
         // IMPORTANT: Await the refund and update coin balance before clearing state
-        if (currentEscrowId && !gameRoomId && functions) {
+        if (currentEscrowId && !capturedGameRoomId && functions) {
           console.log('[cancelMatchmaking] Refunding escrow:', currentEscrowId);
           const refundEscrowFn = functions.httpsCallable('refundEscrow');
           refundEscrowFn({ escrowId: currentEscrowId, reason: 'cancelled' })
@@ -2282,7 +2317,8 @@
             });
         }
 
-        // Clean up game room listener
+        // Clean up game room listener - turn off AFTER disconnect notification is sent
+        // The notification uses capturedGameRoomRef so it's safe to clear this now
         if (gameRoomRef.current) {
           gameRoomRef.current.off();
           gameRoomRef.current = null;
@@ -2305,7 +2341,7 @@
         setCurrentEscrowId(null);
         setIsWageredMatch(false);
         setGameState('menu');
-      }, [myAuthId, database, playerId, currentEscrowId, gameRoomId, functions]);
+      }, [myAuthId, database, playerId, currentEscrowId, gameRoomId, functions, isWageredMatch]);
 
       // Leave online game
       const leaveOnlineGame = useCallback(() => {

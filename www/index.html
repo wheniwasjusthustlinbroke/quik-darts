@@ -1403,6 +1403,7 @@
       const powerIntervalRef = useRef(null);
       const powerResetTimeoutRef = useRef(null);
       const matchmakingIntervalRef = useRef(null);
+      const wageredListenerRef = useRef(null); // Stores wagered matchmaking listener for cleanup
       const audioContext = useRef(null);
       const aimPositionRef = useRef({ x: CENTER, y: CENTER });
 
@@ -1664,8 +1665,8 @@
               // This shouldn't happen, but if it does, add ourselves to queue instead
               const myQueueEntry = {
                 playerId: myPlayerId,
-                name: sanitizeName(playerSetup.names[0]) || 'Player 1',
-                flag: sanitizeFlag(playerSetup.flags[0]) || '🌍',
+                name: sanitizeName(userProfile?.displayName || currentUser?.displayName) || 'Player',
+                flag: sanitizeFlag(userProfile?.flag) || '🌍',
                 timestamp: firebase.database.ServerValue.TIMESTAMP
               };
               queueRef.child(myPlayerId).set(myQueueEntry);
@@ -1690,8 +1691,8 @@
                 player1Name: sanitizeName(opponentData.name),
                 player1Flag: sanitizeFlag(opponentData.flag),
                 player2Id: myPlayerId,
-                player2Name: sanitizeName(playerSetup.names[0]) || 'Player 2',
-                player2Flag: sanitizeFlag(playerSetup.flags[0]) || '🌍',
+                player2Name: sanitizeName(userProfile?.displayName || currentUser?.displayName) || 'Player',
+                player2Flag: sanitizeFlag(userProfile?.flag) || '🌍',
                 gameMode: playerSetup.gameMode,
                 isWagered: false
               });
@@ -1739,11 +1740,11 @@
             }
 
           } else {
-            // No opponent found - add self to queue
+            // No opponent found - add self to queue with profile name
             const myQueueEntry = {
               playerId: myPlayerId,
-              name: sanitizeName(playerSetup.names[0]) || 'Player 1',
-              flag: sanitizeFlag(playerSetup.flags[0]) || '🌍',
+              name: sanitizeName(userProfile?.displayName || currentUser?.displayName) || 'Player',
+              flag: sanitizeFlag(userProfile?.flag) || '🌍',
               timestamp: firebase.database.ServerValue.TIMESTAMP
             };
 
@@ -1866,8 +1867,8 @@
                             player1Name: sanitizeName(otherPlayer.name),
                             player1Flag: sanitizeFlag(otherPlayer.flag),
                             player2Id: myPlayerId,
-                            player2Name: sanitizeName(playerSetup.names[0]) || 'Player 2',
-                            player2Flag: sanitizeFlag(playerSetup.flags[0]) || '🌍',
+                            player2Name: sanitizeName(userProfile?.displayName || currentUser?.displayName) || 'Player',
+                            player2Flag: sanitizeFlag(userProfile?.flag) || '🌍',
                             gameMode: playerSetup.gameMode,
                             isWagered: false
                           });
@@ -2016,6 +2017,15 @@
           const gameData = snapshot.val();
           if (!gameData) return;
 
+          // Log game state updates for debugging
+          console.log('[gameListener] Update received:', {
+            p1Score: gameData.player1?.score,
+            p2Score: gameData.player2?.score,
+            currentPlayer: gameData.currentPlayer,
+            dartsThrown: gameData.dartsThrown,
+            status: gameData.status
+          });
+
           // Update local game state from Firebase
           const myPlayer = playerIndex === 0 ? gameData.player1 : gameData.player2;
           const opponent = playerIndex === 0 ? gameData.player2 : gameData.player1;
@@ -2027,8 +2037,45 @@
 
           // Only alert about disconnection if opponent WAS connected before
           if (opponentWasConnected.current && opponent.connected === false && !gameData.winner) {
-            alert(`${sanitizeName(opponent.name)} has disconnected. Returning to menu.`);
             opponentWasConnected.current = false; // Reset for next game
+            console.log('[gameListener] Opponent disconnected! Processing disconnect...', {
+              roomId,
+              hasWager: !!gameData.wager,
+              isWageredMatchState: isWageredMatch
+            });
+
+            // For wagered matches, the remaining player wins by forfeit
+            // IMPORTANT: Check gameData.wager from Firebase (more reliable than closure state)
+            // and use roomId parameter (not gameRoomId which might be stale)
+            const isWagered = !!(gameData.wager && gameData.wager.escrowId);
+            if (isWagered && roomId && functions) {
+              console.log('[gameListener] Opponent disconnected in wagered match - claiming forfeit win');
+              const forfeitGameFn = functions.httpsCallable('forfeitGame');
+              forfeitGameFn({ gameId: roomId, reason: 'disconnect', claimWin: true })
+                .then(result => {
+                  console.log('[forfeitGame] Result:', result.data);
+                  if (result.data.success) {
+                    const payout = result.data.winnerPayout || 0;
+                    alert(`${sanitizeName(opponent.name)} has disconnected. You win ${payout} coins!`);
+                    // Update coin balance with winnings
+                    if (payout > 0) {
+                      setCoinBalance(prev => prev + payout);
+                    }
+                  } else {
+                    alert(`${sanitizeName(opponent.name)} has disconnected. Returning to menu.`);
+                  }
+                  // Clear escrow state
+                  setCurrentEscrowId(null);
+                  setIsWageredMatch(false);
+                })
+                .catch(err => {
+                  console.error('[forfeitGame] Error:', err);
+                  alert(`${sanitizeName(opponent.name)} has disconnected. Returning to menu.`);
+                });
+            } else {
+              alert(`${sanitizeName(opponent.name)} has disconnected. Returning to menu.`);
+            }
+
             // Delete the game since opponent already left - prevents stale games
             const gameRefToDelete = gameRoomRef.current;
             if (gameRefToDelete) {
@@ -2075,10 +2122,54 @@
           setLegScores(validateScoreArray(gameData.legScores, 0));
           setSetScores(validateScoreArray(gameData.setScores, 0));
 
-          // Check for winner
-          if (gameData.winner !== undefined) {
+          // Check for winner (game ended)
+          if (gameData.winner !== undefined && gameData.status === 'finished') {
             const winnerIndex = validatePlayerIndex(gameData.winner);
-            setMatchWinner(winnerIndex === playerIndex ? myPlayer : opponent);
+            const isWinner = winnerIndex === playerIndex;
+            const winnerPlayer = isWinner ? myPlayer : opponent;
+
+            console.log('[gameListener] Game finished! Winner:', winnerIndex, 'isWinner:', isWinner);
+
+            // Set winner state
+            setWinner(winnerPlayer);
+            setMatchWinner(winnerPlayer);
+
+            // Play win/lose sound
+            if (isWinner) {
+              playSound('win');
+            }
+
+            // For wagered matches, settle the game (release escrow to winner)
+            // IMPORTANT: Check gameData.wager from Firebase (more reliable than closure state)
+            // and use roomId parameter (not gameRoomId which might be stale)
+            const hasWager = !!(gameData.wager && gameData.wager.escrowId);
+            if (hasWager && roomId && functions) {
+              console.log('[settleGame] Settling wagered match from listener:', roomId, 'escrowId:', gameData.wager.escrowId);
+              const settleGameFn = functions.httpsCallable('settleGame');
+              settleGameFn({ gameId: roomId })
+                .then(result => {
+                  console.log('[settleGame] Result:', result.data);
+                  if (result.data.success && result.data.payout > 0 && isWinner) {
+                    alert(`Congratulations! You won ${result.data.payout} coins!`);
+                    // Update coin balance with winnings
+                    setCoinBalance(prev => prev + result.data.payout);
+                  }
+                  // Clear escrow state
+                  setCurrentEscrowId(null);
+                  setIsWageredMatch(false);
+                })
+                .catch(err => {
+                  console.error('[settleGame] Error:', err);
+                  // Don't alert - settlement might have been done by opponent
+                });
+            }
+
+            // Delete the game after 10 seconds
+            setTimeout(() => {
+              if (gameRoomRef.current) {
+                gameRoomRef.current.remove().catch(err => console.error('Failed to delete completed game:', err));
+              }
+            }, 10000);
           }
         }, (error) => {
           // Handle Firebase listener errors
@@ -2086,7 +2177,7 @@
           alert('Connection to game lost. Returning to menu.');
           cancelMatchmaking();
         });
-      }, [database]);
+      }, [database, isWageredMatch, currentEscrowId, functions, gameRoomId, playSound]);
 
       // Sync throw to Firebase via Cloud Function (server-authoritative)
       // SECURITY: No fallback to direct writes - all throws MUST go through Cloud Function
@@ -2102,42 +2193,93 @@
 
         // For server-authoritative gameplay, only send dart position
         // The server will calculate score and update game state
-        try {
-          const submitThrow = functions.httpsCallable('submitThrow');
-          const result = await submitThrow({
-            gameId: gameRoomId,
-            dartPosition: throwData.position
-          });
+        const maxRetries = 3;
+        let lastError = null;
 
-          // Server returns: { success, score, label, isBust, newScore, isCheckout, isWinner }
-          if (!result.data.success) {
-            console.error('Throw rejected by server:', result.data.error);
-          }
-          // Game state is updated by the server, Firebase listener will sync UI
-        } catch (error) {
-          console.error('Failed to submit throw to server:', error);
-          // On error, notify user - do NOT fall back to direct writes
-          if (error.code === 'functions/failed-precondition') {
-            console.warn('Server rejected throw: precondition failed (not your turn or game ended)');
-          } else if (error.code === 'functions/permission-denied') {
-            console.warn('Server rejected throw: not a player in this game');
+        for (let attempt = 0; attempt < maxRetries; attempt++) {
+          try {
+            console.log(`[syncThrow] Attempt ${attempt + 1}: Sending dart at`, throwData.position);
+            const submitThrow = functions.httpsCallable('submitThrow');
+            const result = await submitThrow({
+              gameId: gameRoomId,
+              dartPosition: throwData.position
+            });
+
+            // Server returns: { success, score, label, isBust, newScore, isCheckout, isWinner }
+            if (!result.data.success) {
+              console.error('[syncThrow] Throw rejected by server:', result.data.error);
+              // Don't retry on server rejection (it's not a transient error)
+              return;
+            }
+
+            console.log('[syncThrow] Throw accepted:', result.data.label, result.data.score, 'pts');
+            // Game state is updated by the server, Firebase listener will sync UI
+            return;
+          } catch (error) {
+            lastError = error;
+            console.error(`[syncThrow] Attempt ${attempt + 1} failed:`, error.message || error);
+
+            // Don't retry on permission/precondition errors - they won't succeed
+            if (error.code === 'functions/failed-precondition') {
+              console.warn('[syncThrow] Server rejected: not your turn or game ended');
+              return;
+            } else if (error.code === 'functions/permission-denied') {
+              console.warn('[syncThrow] Server rejected: not a player in this game');
+              return;
+            }
+
+            // Retry with backoff for network errors
+            if (attempt < maxRetries - 1) {
+              await new Promise(r => setTimeout(r, 200 * (attempt + 1)));
+            }
           }
         }
+
+        // All retries failed
+        console.error('[syncThrow] All retries failed:', lastError);
+        alert('Failed to register throw. Please check your connection and try again.');
       }, [onlineMode, gameRoomId]);
 
       // Cancel matchmaking
       const cancelMatchmaking = useCallback(() => {
+        // CRITICAL: Capture refs BEFORE any cleanup so disconnect notification can complete
+        // This prevents the race condition where we clear refs before Firebase write finishes
+        const capturedGameRoomRef = gameRoomRef.current;
+        const capturedPlayerId = playerId;
+        const capturedGameRoomId = gameRoomId;
+
+        console.log('[cancelMatchmaking] Starting cleanup:', {
+          hasGameRoom: !!capturedGameRoomRef,
+          playerId: capturedPlayerId,
+          gameRoomId: capturedGameRoomId,
+          isWageredMatch
+        });
+
         // If in an active game, set my connected status to false to notify opponent
-        if (gameRoomRef.current && playerId !== null) {
-          const myPlayerKey = playerId === 0 ? 'player1' : 'player2';
-          gameRoomRef.current.child(`${myPlayerKey}/connected`).set(false)
-            .catch(err => console.error('Failed to set disconnected:', err));
+        // IMPORTANT: Use captured ref so write completes even after cleanup
+        if (capturedGameRoomRef && capturedPlayerId !== null) {
+          const myPlayerKey = capturedPlayerId === 0 ? 'player1' : 'player2';
+          console.log(`[cancelMatchmaking] Sending disconnect notification: ${myPlayerKey}/connected = false`);
+          capturedGameRoomRef.child(`${myPlayerKey}/connected`).set(false)
+            .then(() => console.log('[cancelMatchmaking] Disconnect notification sent successfully'))
+            .catch(err => console.error('[cancelMatchmaking] Failed to set disconnected:', err));
+        } else {
+          console.log('[cancelMatchmaking] Skipping disconnect notification - no active game or playerId is null');
         }
 
         // Clear matchmaking interval if it's running
         if (matchmakingIntervalRef.current) {
           clearInterval(matchmakingIntervalRef.current);
           matchmakingIntervalRef.current = null;
+        }
+
+        // Clean up wagered matchmaking listener and timeout
+        if (wageredListenerRef.current) {
+          wageredListenerRef.current.ref.off('value', wageredListenerRef.current.callback);
+          if (wageredListenerRef.current.timeoutId) {
+            clearTimeout(wageredListenerRef.current.timeoutId);
+          }
+          wageredListenerRef.current = null;
         }
 
         // Remove from queue if still in matchmaking (use auth ID, not player index)
@@ -2150,12 +2292,24 @@
         }
 
         // Refund escrow if we have one and game hasn't started
-        if (currentEscrowId && !gameRoomId && functions) {
+        // IMPORTANT: Await the refund and update coin balance before clearing state
+        if (currentEscrowId && !capturedGameRoomId && functions) {
           console.log('[cancelMatchmaking] Refunding escrow:', currentEscrowId);
           const refundEscrowFn = functions.httpsCallable('refundEscrow');
-          refundEscrowFn({ escrowId: currentEscrowId })
+          refundEscrowFn({ escrowId: currentEscrowId, reason: 'cancelled' })
             .then(result => {
-              console.log('[cancelMatchmaking] Escrow refunded:', result.data);
+              console.log('[cancelMatchmaking] Escrow refund result:', result.data);
+              // Update coin balance if refund succeeded and we got coins back
+              if (result.data.success && result.data.refundedAmounts && result.data.refundedAmounts.length > 0) {
+                // Find our refund amount (we should be in the list)
+                const totalRefunded = result.data.refundedAmounts.reduce((sum, amt) => sum + amt, 0);
+                // Only add back our portion (usually first amount for player who initiated)
+                const ourRefund = result.data.refundedAmounts[0];
+                if (ourRefund > 0) {
+                  setCoinBalance(prev => prev + ourRefund);
+                  console.log('[cancelMatchmaking] Coins refunded to balance:', ourRefund);
+                }
+              }
             })
             .catch(err => {
               console.error('[cancelMatchmaking] Escrow refund failed:', err);
@@ -2163,7 +2317,8 @@
             });
         }
 
-        // Clean up game room listener
+        // Clean up game room listener - turn off AFTER disconnect notification is sent
+        // The notification uses capturedGameRoomRef so it's safe to clear this now
         if (gameRoomRef.current) {
           gameRoomRef.current.off();
           gameRoomRef.current = null;
@@ -2186,7 +2341,7 @@
         setCurrentEscrowId(null);
         setIsWageredMatch(false);
         setGameState('menu');
-      }, [myAuthId, database, playerId, currentEscrowId, gameRoomId, functions]);
+      }, [myAuthId, database, playerId, currentEscrowId, gameRoomId, functions, isWageredMatch]);
 
       // Leave online game
       const leaveOnlineGame = useCallback(() => {
@@ -2922,6 +3077,28 @@
           }
 
           if (newScore === 0 && result.multiplier === 2) {
+            // CHECKOUT!
+            // In online mode, sync to server and let Firebase listener handle game state
+            if (onlineMode) {
+              console.log('[checkout] Online mode - syncing checkout throw to server');
+              syncThrowToFirebase({
+                player: currentPlayerIndex,
+                score: result.score,
+                multiplier: result.multiplier,
+                label: result.label,
+                newScore: 0,
+                remaining: 0,
+                dartsThrown: dartsThrown + 1,
+                currentTurnScore: currentTurnScore + result.score,
+                currentPlayer: currentPlayerIndex,
+                position: finalPosition
+              });
+              // Server will set winner and status='finished'
+              // Firebase listener will detect winner and call handleLegWin
+              return;
+            }
+
+            // Offline mode: handle checkout locally
             const newPlayers = [...players];
             newPlayers[currentPlayerIndex] = { ...currentPlayer, score: 0 };
             setPlayers(newPlayers);
@@ -2929,7 +3106,7 @@
 
             // Track checkout for achievements
             const checkoutValue = currentPlayer.score;
-            if (!players[currentPlayerIndex].isAI && !onlineMode && !practiceMode) {
+            if (!players[currentPlayerIndex].isAI && !practiceMode) {
               if (checkoutValue > (achievementStats.highestCheckout || 0)) {
                 updateAchievementStats({ highestCheckout: checkoutValue });
               }
@@ -3785,6 +3962,18 @@
         const wageredQueueRef = database.ref(`matchmaking_queue/wagered/${selectedStake}`);
 
         try {
+          // CLEANUP: Clean up any stale pending escrows BEFORE creating new one
+          // This prevents "You already have a pending match" errors
+          // Must await to ensure cleanup completes before createEscrow checks for existing escrows
+          console.log('[wageredMatchmaking] Cleaning up stale escrows...');
+          try {
+            const refundFn = functions.httpsCallable('refundEscrow');
+            await refundFn({ escrowId: 'cleanup_pending', reason: 'cleanup_before_new_match' });
+            console.log('[wageredMatchmaking] Stale escrow cleanup completed');
+          } catch (cleanupErr) {
+            console.log('[wageredMatchmaking] No stale escrows to cleanup (or cleanup failed)');
+          }
+
           // IMPORTANT: Check queue FIRST before creating any escrow
           // This prevents both players from creating separate escrows
           console.log('[wageredMatchmaking] Checking queue for opponents...');
@@ -3824,8 +4013,8 @@
                   player1Name: sanitizeName(opponentData.name),
                   player1Flag: sanitizeFlag(opponentData.flag),
                   player2Id: myPlayerId,
-                  player2Name: sanitizeName(playerSetup.names[0]) || 'Player 2',
-                  player2Flag: sanitizeFlag(playerSetup.flags[0]) || '🌍',
+                  player2Name: sanitizeName(userProfile?.displayName || currentUser?.displayName) || 'Player',
+                  player2Flag: sanitizeFlag(userProfile?.flag) || '🌍',
                   gameMode: playerSetup.gameMode,
                   isWagered: true,
                   escrowId: opponentData.escrowId,
@@ -3842,8 +4031,8 @@
                 // (Don't remove yet - they need to see this update to find the game)
                 await wageredQueueRef.child(opponentData.playerId).update({
                   matchedGameId: roomId,
-                  matchedByName: sanitizeName(playerSetup.names[0]) || 'Player 2',
-                  matchedByFlag: sanitizeFlag(playerSetup.flags[0]) || '🌍'
+                  matchedByName: sanitizeName(userProfile?.displayName || currentUser?.displayName) || 'Player',
+                  matchedByFlag: sanitizeFlag(userProfile?.flag) || '🌍'
                 });
                 setGameRoomId(roomId);
                 gameRoomRef.current = database.ref(`games/${roomId}`);
@@ -3897,11 +4086,11 @@
           setCurrentEscrowId(escrowId);
           setCoinBalance(escrowResult.data.newBalance);
 
-          // Add self to wagered queue
+          // Add self to wagered queue - use profile name, not default "Player 1"
           const myQueueEntry = {
             playerId: myPlayerId,
-            name: sanitizeName(playerSetup.names[0]) || 'Player 1',
-            flag: sanitizeFlag(playerSetup.flags[0]) || '🌍',
+            name: sanitizeName(userProfile?.displayName || currentUser?.displayName) || 'Player',
+            flag: sanitizeFlag(userProfile?.flag) || '🌍',
             timestamp: firebase.database.ServerValue.TIMESTAMP,
             escrowId: escrowId,
             stakeAmount: selectedStake
@@ -3930,6 +4119,14 @@
         let isProcessingMatch = false; // Prevent concurrent match attempts
         const myQueueEntryRef = wageredQueueRef.child(myPlayerId);
 
+        // IMPORTANT: Initialize wageredListenerRef early so cleanup works even during setup
+        // Will be updated with timeoutId after timeout is created
+        wageredListenerRef.current = {
+          ref: myQueueEntryRef,
+          callback: null, // Will be set after listener is created
+          timeoutId: null // Will be set after timeout is created
+        };
+
         // Use Firebase .on() listener for real-time updates to our queue entry
         // This is more reliable than polling and detects matchedGameId immediately
         const queueEntryListener = myQueueEntryRef.on('value', async (snapshot) => {
@@ -3947,19 +4144,39 @@
             const opponentName = myEntry.matchedByName || 'Opponent';
             const opponentFlag = myEntry.matchedByFlag || '🌍';
 
-            // Clean up listener and queue entry
+            // Clean up listener, interval, timeout, and queue entry
             myQueueEntryRef.off('value', queueEntryListener);
             clearInterval(matchmakingIntervalRef.current);
+            if (wageredListenerRef.current && wageredListenerRef.current.timeoutId) {
+              clearTimeout(wageredListenerRef.current.timeoutId);
+            }
+            wageredListenerRef.current = null;
             await myQueueEntryRef.remove();
 
             setGameRoomId(roomId);
             gameRoomRef.current = database.ref(`games/${roomId}`);
 
-            // Access the game directly by ID (allowed by database rules)
-            const gameSnap = await gameRoomRef.current.once('value');
-            const gameData = gameSnap.val();
+            // SECURITY: Validate game exists and we're actually a player in it
+            // This prevents spoofed matchedGameId attacks
+            let gameData;
+            try {
+              const gameSnap = await gameRoomRef.current.once('value');
+              gameData = gameSnap.val();
+            } catch (readErr) {
+              // Permission denied = we're not a player in this game (spoofed matchedGameId)
+              console.error('[wageredMatchmaking] Failed to read game - possible spoofed matchedGameId:', readErr);
+              isProcessingMatch = false;
+              return; // Ignore this matchedGameId and keep waiting
+            }
 
-            if (gameData && gameData.wager) {
+            // Validate game data exists and we're player1 (since we're waiting for matchedGameId)
+            if (!gameData || gameData.player1?.id !== myPlayerId) {
+              console.error('[wageredMatchmaking] Invalid game data or not player1 - ignoring matchedGameId');
+              isProcessingMatch = false;
+              return;
+            }
+
+            if (gameData.wager) {
               setCurrentEscrowId(gameData.wager.escrowId);
             }
 
@@ -3993,6 +4210,11 @@
           }
         });
 
+        // Store callback in ref now that listener is created
+        if (wageredListenerRef.current) {
+          wageredListenerRef.current.callback = queueEntryListener;
+        }
+
         // Check 2: Poll for opponents in queue (handles race condition where both players joined queue simultaneously)
         // Use UID comparison to determine who initiates the match (lower UID initiates)
         matchmakingIntervalRef.current = setInterval(async () => {
@@ -4018,23 +4240,46 @@
             // Use UID comparison to decide who initiates: LOWER UID initiates
             if (myPlayerId < opponent.playerId) {
               console.log('[wageredMatchmaking] I have lower UID, I will initiate match with', opponent.playerId);
+
+              // CRITICAL: Before trying to initiate, check if our escrow is still pending
+              // If someone already joined our escrow (status = 'locked'), we should wait
+              // for the matchedGameId notification instead of trying to join theirs
+              const ourEscrowRef = database.ref(`escrow/${escrowId}`);
+              const ourEscrowSnap = await ourEscrowRef.once('value');
+              const ourEscrow = ourEscrowSnap.val();
+
+              if (ourEscrow && ourEscrow.status === 'locked') {
+                console.log('[wageredMatchmaking] Our escrow is already locked - someone joined us. Waiting for matchedGameId...');
+                return; // Don't initiate - wait for the matchedGameId update from whoever joined us
+              }
+
               isProcessingMatch = true;
 
               try {
-                // First, refund our escrow (we'll join theirs instead)
+                // Refund our escrow first, then join opponent's
+                console.log('[wageredMatchmaking] Refunding our escrow before joining opponent');
                 const refundFn = functions.httpsCallable('refundEscrow');
-                await refundFn({ escrowId });
-                console.log('[wageredMatchmaking] Refunded our escrow, now joining opponent escrow');
+                await refundFn({ escrowId, reason: 'switching_to_opponent' });
+                console.log('[wageredMatchmaking] Refunded, now joining opponent escrow:', opponent.escrowId);
 
-                // Join opponent's escrow
-                const joinEscrowFn = functions.httpsCallable('createEscrow');
-                const escrowResult = await joinEscrowFn({
-                  escrowId: opponent.escrowId,
-                  stakeAmount: opponent.stakeAmount
-                });
-
-                if (!escrowResult.data.success) {
-                  throw new Error(escrowResult.data.error || 'Failed to join escrow');
+                // Join opponent's escrow with retry logic
+                let escrowResult;
+                let retries = 3;
+                while (retries > 0) {
+                  try {
+                    const joinEscrowFn = functions.httpsCallable('createEscrow');
+                    escrowResult = await joinEscrowFn({
+                      escrowId: opponent.escrowId,
+                      stakeAmount: opponent.stakeAmount
+                    });
+                    if (escrowResult.data.success) break;
+                    throw new Error(escrowResult.data.error || 'Failed to join escrow');
+                  } catch (joinErr) {
+                    retries--;
+                    console.log('[wageredMatchmaking] Join attempt failed, retries left:', retries);
+                    if (retries === 0) throw joinErr;
+                    await new Promise(r => setTimeout(r, 500)); // Wait 500ms before retry
+                  }
                 }
 
                 setCurrentEscrowId(opponent.escrowId);
@@ -4047,8 +4292,8 @@
                   player1Name: sanitizeName(opponent.name),
                   player1Flag: sanitizeFlag(opponent.flag),
                   player2Id: myPlayerId,
-                  player2Name: sanitizeName(playerSetup.names[0]) || 'Player 2',
-                  player2Flag: sanitizeFlag(playerSetup.flags[0]) || '🌍',
+                  player2Name: sanitizeName(userProfile?.displayName || currentUser?.displayName) || 'Player',
+                  player2Flag: sanitizeFlag(userProfile?.flag) || '🌍',
                   gameMode: playerSetup.gameMode,
                   isWagered: true,
                   escrowId: opponent.escrowId,
@@ -4064,13 +4309,17 @@
                 // Notify opponent by updating their queue entry with matchedGameId
                 await wageredQueueRef.child(opponent.playerId).update({
                   matchedGameId: roomId,
-                  matchedByName: sanitizeName(playerSetup.names[0]) || 'Player 2',
-                  matchedByFlag: sanitizeFlag(playerSetup.flags[0]) || '🌍'
+                  matchedByName: sanitizeName(userProfile?.displayName || currentUser?.displayName) || 'Player',
+                  matchedByFlag: sanitizeFlag(userProfile?.flag) || '🌍'
                 });
 
-                // Clean up our entry and listener
+                // Clean up our entry, listener, interval, and timeout
                 myQueueEntryRef.off('value', queueEntryListener);
                 clearInterval(matchmakingIntervalRef.current);
+                if (wageredListenerRef.current && wageredListenerRef.current.timeoutId) {
+                  clearTimeout(wageredListenerRef.current.timeoutId);
+                }
+                wageredListenerRef.current = null;
                 await myQueueEntryRef.remove();
 
                 setGameRoomId(roomId);
@@ -4096,11 +4345,85 @@
                 });
               } catch (error) {
                 console.error('[wageredMatchmaking] Error matching from queue:', error);
+
+                // Check if error is "Cannot refund locked escrow" - means someone joined our escrow
+                const errorMsg = error.message || error.toString();
+                if (errorMsg.includes('locked escrow') || errorMsg.includes('Cannot refund')) {
+                  // Our escrow is locked = someone joined us! Wait for matchedGameId notification
+                  console.log('[wageredMatchmaking] Our escrow is locked - opponent joined us. Waiting for matchedGameId...');
+                  isProcessingMatch = false;
+                  return; // Don't create new escrow, just wait
+                }
+
+                // For other errors, try to create a new escrow to stay in queue
+                try {
+                  console.log('[wageredMatchmaking] Match failed, creating new escrow to stay in queue');
+                  const newEscrowId = database.ref('escrow').push().key;
+                  const createEscrowFn = functions.httpsCallable('createEscrow');
+                  const newEscrowResult = await createEscrowFn({
+                    escrowId: newEscrowId,
+                    stakeAmount: opponent.stakeAmount
+                  });
+                  if (newEscrowResult.data.success) {
+                    setCurrentEscrowId(newEscrowId);
+                    setCoinBalance(newEscrowResult.data.newBalance);
+                    // Update our queue entry with new escrow ID
+                    await myQueueEntryRef.update({ escrowId: newEscrowId });
+                    console.log('[wageredMatchmaking] Created new escrow, staying in queue');
+                  }
+                } catch (escrowErr) {
+                  console.error('[wageredMatchmaking] Failed to create new escrow:', escrowErr);
+                }
                 isProcessingMatch = false;
               }
             }
           });
         }, 2000); // Check every 2 seconds for race condition handling
+
+        // Timeout after 60 seconds - refund escrow and notify user
+        const timeoutId = setTimeout(() => {
+          console.log('[wageredMatchmaking] Timeout - no opponent found');
+
+          // Clean up listener
+          myQueueEntryRef.off('value', queueEntryListener);
+
+          // Clean up interval
+          if (matchmakingIntervalRef.current) {
+            clearInterval(matchmakingIntervalRef.current);
+            matchmakingIntervalRef.current = null;
+          }
+
+          // Remove from queue
+          myQueueEntryRef.remove();
+
+          // Clear wagered listener ref
+          wageredListenerRef.current = null;
+
+          // Refund escrow
+          if (functions && escrowId) {
+            const refundFn = functions.httpsCallable('refundEscrow');
+            refundFn({ escrowId, reason: 'cancelled' })
+              .then(result => {
+                console.log('[wageredMatchmaking] Escrow refunded on timeout:', result.data);
+                if (result.data.refundedAmounts && result.data.refundedAmounts[0]) {
+                  setCoinBalance(prev => prev + result.data.refundedAmounts[0]);
+                }
+              })
+              .catch(err => console.error('[wageredMatchmaking] Refund failed:', err));
+          }
+
+          // Reset state and notify user
+          setMatchmakingState('idle');
+          setOnlineMode(false);
+          setIsWageredMatch(false);
+          setCurrentEscrowId(null);
+          alert('No opponent found. Your coins have been refunded. Please try again.');
+        }, 60000);
+
+        // Update ref with timeoutId now that timeout is created
+        if (wageredListenerRef.current) {
+          wageredListenerRef.current.timeoutId = timeoutId;
+        }
       };
 
       // Sign in with Google
