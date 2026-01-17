@@ -108,15 +108,33 @@ exports.settleGame = functions
     }
     // Award XP to loser
     await awardXP(loserId, loserXP, now);
-    // 9. Handle wagered game settlement
+    // 9. Handle wagered game settlement with atomic escrow state transition
     let payout = 0;
     if (game.wager && game.wager.escrowId) {
         const escrowRef = db.ref(`escrow/${game.wager.escrowId}`);
-        const escrowSnap = await escrowRef.once('value');
-        const escrow = escrowSnap.val();
-        if (escrow && escrow.status === 'locked') {
+        // CRITICAL: Use atomic transaction on escrow to prevent double-settlement race condition
+        // This transaction atomically checks status and transitions to 'released' in one operation
+        const escrowResult = await escrowRef.transaction((escrow) => {
+            if (!escrow)
+                return escrow;
+            // Already settled or not in locked state - abort transaction
+            if (escrow.status !== 'locked') {
+                console.log(`[settleGame] Escrow ${game.wager.escrowId} already in status: ${escrow.status}, aborting`);
+                return; // Abort transaction
+            }
+            // Atomically transition escrow to released state
+            return {
+                ...escrow,
+                status: 'released',
+                settledAt: now,
+                winnerId,
+            };
+        });
+        // Check if escrow transaction was committed
+        if (escrowResult.committed && escrowResult.snapshot.val()?.status === 'released') {
+            const escrow = escrowResult.snapshot.val();
             payout = escrow.totalPot;
-            // Atomic transaction: award coins to winner
+            // Now award coins to winner (safe - escrow is already atomically marked as released)
             const walletRef = db.ref(`users/${winnerId}/wallet`);
             await walletRef.transaction((wallet) => {
                 if (!wallet)
@@ -136,16 +154,14 @@ exports.settleGame = functions
                 description: `Won wagered match (+${payout} coins)`,
                 timestamp: now,
             });
-            // Update escrow status
-            await escrowRef.update({
-                status: 'released',
-                settledAt: now,
-                winnerId,
-            });
             console.log(`[settleGame] Game ${gameId}: ${winnerId} won ${payout} coins`);
         }
+        else {
+            // Escrow was already settled by another concurrent call
+            console.log(`[settleGame] Game ${gameId}: Escrow already settled, skipping payout`);
+        }
     }
-    // 10. Mark game as settled
+    // 10. Mark game as settled (idempotent)
     await gameRef.child('wager/settled').set(true);
     // 11. Update progression stats for both players
     await updateProgression(winnerId, true);

@@ -96,42 +96,73 @@ export const refundEscrow = functions
       };
     }
 
-    // 6. Refund all players
+    // 6. CRITICAL: Use atomic transaction to prevent double-refund race condition
+    // This atomically transitions escrow from pending/locked to refunded
+    const refundResult = await escrowRef.transaction((currentEscrow) => {
+      if (!currentEscrow) return currentEscrow;
+
+      // Already refunded or released by another concurrent call - abort
+      if (currentEscrow.status === 'released' || currentEscrow.status === 'refunded') {
+        console.log(`[refundEscrow] Escrow ${escrowId} already ${currentEscrow.status}, aborting`);
+        return; // Abort transaction
+      }
+
+      // Can only refund if pending OR (locked AND expired)
+      const isLockedAndExpired = currentEscrow.status === 'locked' && currentEscrow.expiresAt && currentEscrow.expiresAt < now;
+      if (currentEscrow.status !== 'pending' && !isLockedAndExpired) {
+        console.log(`[refundEscrow] Escrow ${escrowId} in status ${currentEscrow.status}, cannot refund`);
+        return; // Abort transaction
+      }
+
+      // Atomically mark as refunded
+      return {
+        ...currentEscrow,
+        status: 'refunded',
+        refundedAt: now,
+        refundReason: reason,
+      };
+    });
+
+    // Check if transaction was committed
+    if (!refundResult.committed || refundResult.snapshot.val()?.status !== 'refunded') {
+      // Another concurrent call already processed this escrow
+      console.log(`[refundEscrow] Escrow ${escrowId} already processed by another call`);
+      return {
+        success: true,
+        error: 'Escrow already processed',
+      };
+    }
+
+    // 7. Now refund players (safe - escrow is atomically marked as refunded)
+    const refundedEscrow = refundResult.snapshot.val();
     const refundedPlayers: string[] = [];
     const refundedAmounts: number[] = [];
 
     // Refund player 1
-    if (escrow.player1) {
+    if (refundedEscrow.player1) {
       await refundPlayer(
-        escrow.player1.userId,
-        escrow.player1.amount,
+        refundedEscrow.player1.userId,
+        refundedEscrow.player1.amount,
         escrowId,
         reason,
         now
       );
-      refundedPlayers.push(escrow.player1.userId);
-      refundedAmounts.push(escrow.player1.amount);
+      refundedPlayers.push(refundedEscrow.player1.userId);
+      refundedAmounts.push(refundedEscrow.player1.amount);
     }
 
     // Refund player 2
-    if (escrow.player2) {
+    if (refundedEscrow.player2) {
       await refundPlayer(
-        escrow.player2.userId,
-        escrow.player2.amount,
+        refundedEscrow.player2.userId,
+        refundedEscrow.player2.amount,
         escrowId,
         reason,
         now
       );
-      refundedPlayers.push(escrow.player2.userId);
-      refundedAmounts.push(escrow.player2.amount);
+      refundedPlayers.push(refundedEscrow.player2.userId);
+      refundedAmounts.push(refundedEscrow.player2.amount);
     }
-
-    // 7. Update escrow status
-    await escrowRef.update({
-      status: 'refunded',
-      refundedAt: now,
-      refundReason: reason,
-    });
 
     console.log(`[refundEscrow] Escrow ${escrowId} refunded. Players: ${refundedPlayers.join(', ')}`);
 
@@ -205,38 +236,64 @@ export const cleanupExpiredEscrows = functions
 
     for (const [escrowId, escrow] of Object.entries(escrows as Record<string, any>)) {
       if (escrow.status === 'pending' || escrow.status === 'locked') {
-        console.log(`[cleanupExpiredEscrows] Refunding expired escrow ${escrowId}`);
+        console.log(`[cleanupExpiredEscrows] Processing expired escrow ${escrowId}`);
 
-        // Refund player 1
-        if (escrow.player1) {
-          await refundPlayer(
-            escrow.player1.userId,
-            escrow.player1.amount,
-            escrowId,
-            'expired',
-            now
-          );
-        }
+        const escrowRef = db.ref(`escrow/${escrowId}`);
 
-        // Refund player 2
-        if (escrow.player2) {
-          await refundPlayer(
-            escrow.player2.userId,
-            escrow.player2.amount,
-            escrowId,
-            'expired',
-            now
-          );
-        }
+        // CRITICAL: Use atomic transaction to prevent double-refund race condition
+        const refundResult = await escrowRef.transaction((currentEscrow) => {
+          if (!currentEscrow) return currentEscrow;
 
-        // Update escrow status
-        await db.ref(`escrow/${escrowId}`).update({
-          status: 'refunded',
-          refundedAt: now,
-          refundReason: 'expired',
+          // Already processed - abort
+          if (currentEscrow.status === 'released' || currentEscrow.status === 'refunded') {
+            return; // Abort transaction
+          }
+
+          // Not expired anymore (edge case with clock skew)
+          if (currentEscrow.expiresAt && currentEscrow.expiresAt > now) {
+            return; // Abort transaction
+          }
+
+          // Atomically mark as refunded
+          return {
+            ...currentEscrow,
+            status: 'refunded',
+            refundedAt: now,
+            refundReason: 'expired',
+          };
         });
 
-        refundedCount++;
+        // Only process refunds if we successfully marked escrow as refunded
+        if (refundResult.committed && refundResult.snapshot.val()?.status === 'refunded') {
+          const refundedEscrow = refundResult.snapshot.val();
+
+          // Refund player 1
+          if (refundedEscrow.player1) {
+            await refundPlayer(
+              refundedEscrow.player1.userId,
+              refundedEscrow.player1.amount,
+              escrowId,
+              'expired',
+              now
+            );
+          }
+
+          // Refund player 2
+          if (refundedEscrow.player2) {
+            await refundPlayer(
+              refundedEscrow.player2.userId,
+              refundedEscrow.player2.amount,
+              escrowId,
+              'expired',
+              now
+            );
+          }
+
+          refundedCount++;
+          console.log(`[cleanupExpiredEscrows] Refunded expired escrow ${escrowId}`);
+        } else {
+          console.log(`[cleanupExpiredEscrows] Escrow ${escrowId} already processed, skipping`);
+        }
       }
     }
 

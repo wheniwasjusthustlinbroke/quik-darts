@@ -17,21 +17,19 @@
         },
         "progression": {
           ".read": "auth != null",
-          ".write": "auth != null && auth.uid === $userId",
-          ".validate": "newData.child('xp').isNumber() && newData.child('xp').val() >= 0 && newData.child('level').isNumber() && newData.child('level').val() >= 1 && newData.child('level').val() <= 100"
+          ".write": false
         },
         "streaks": {
           ".read": "auth != null",
-          ".write": "auth != null && auth.uid === $userId",
-          ".validate": "newData.child('currentWinStreak').isNumber() && newData.child('currentWinStreak').val() >= 0 && newData.child('bestWinStreak').isNumber() && newData.child('bestWinStreak').val() >= 0"
+          ".write": false
         }
       }
     },
     "escrow": {
-      ".read": "auth != null",
+      ".read": false,
       ".write": false,
       "$escrowId": {
-        ".read": "auth != null"
+        ".read": "auth != null && (data.child('player1/userId').val() === auth.uid || data.child('player2/userId').val() === auth.uid)"
       }
     },
     "usedAdRewards": {
@@ -97,11 +95,8 @@
       }
     },
     "weekly_completions": {
-      "$challengeId": {
-        ".read": "auth != null",
-        ".write": "auth != null",
-        ".validate": "!newData.exists() || ($challengeId.matches(/^[a-zA-Z0-9_-]{1,50}$/) && newData.isNumber() && newData.val() >= 0 && newData.val() <= 100000 && (!data.exists() || newData.val() === data.val() + 1))"
-      }
+      ".read": "auth != null",
+      ".write": false
     },
     "$other": {
       ".read": false,
