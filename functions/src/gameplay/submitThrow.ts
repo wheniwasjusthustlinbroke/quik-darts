@@ -141,18 +141,43 @@ function getDistance(p1: { x: number; y: number }, p2: { x: number; y: number })
 }
 
 /**
+ * Validate that enhanced payload has valid types.
+ * SECURITY: Prevents type confusion attacks.
+ */
+function isValidEnhancedPayload(
+  aimPoint: unknown,
+  powerValue: unknown
+): aimPoint is { x: number; y: number } {
+  if (!aimPoint || typeof aimPoint !== 'object') return false;
+  const ap = aimPoint as Record<string, unknown>;
+  if (typeof ap.x !== 'number' || typeof ap.y !== 'number') return false;
+  if (!Number.isFinite(ap.x) || !Number.isFinite(ap.y)) return false;
+  if (typeof powerValue !== 'number' || !Number.isFinite(powerValue)) return false;
+  return true;
+}
+
+/**
  * Validate throw plausibility for anti-cheat.
- * Only applies to wagered matches with enhanced payload.
+ * SECURITY: For wagered matches, enhanced payload is REQUIRED.
  */
 function validateThrowPlausibility(
   aimPoint: { x: number; y: number } | undefined,
   powerValue: number | undefined,
   finalPosition: DartPosition,
-  rhythm: RhythmResult
+  rhythm: RhythmResult,
+  isWageredMatch: boolean
 ): { valid: boolean; reason?: string } {
-  // If no enhanced payload, skip plausibility check (casual mode)
-  if (!aimPoint || powerValue === undefined) {
-    return { valid: true };
+  // SECURITY: For wagered matches, enhanced payload is REQUIRED
+  // This prevents attackers from bypassing validation by not sending the payload
+  if (isWageredMatch) {
+    if (!aimPoint || powerValue === undefined) {
+      return { valid: false, reason: 'missing_required_payload_for_wagered_match' };
+    }
+  } else {
+    // Casual mode: skip plausibility check if no enhanced payload
+    if (!aimPoint || powerValue === undefined) {
+      return { valid: true };
+    }
   }
 
   // Validate aim point is within board bounds
@@ -181,7 +206,8 @@ function validateThrowPlausibility(
   }
 
   // Apply rhythm modifier (worse rhythm = more expected deviation)
-  const rhythmModifier = 1 - rhythm.bonus;
+  // SECURITY: Clamp modifier to prevent exploitation (0.9 to 1.1 range)
+  const rhythmModifier = Math.max(0.9, Math.min(1.1, 1 - rhythm.bonus));
   const maxDeviation = baseDeviation * rhythmModifier;
 
   // Check if claimed position is plausible
@@ -299,17 +325,34 @@ export const submitThrow = functions
     // 8. Calculate server-side rhythm
     const rhythm = calculateServerRhythm(currentTurnThrows, now);
 
-    // 8.5. Validate throw plausibility (anti-cheat for wagered matches)
-    const isWagered = game.wagerAmount && game.wagerAmount > 0;
-    if (isWagered) {
-      const plausibility = validateThrowPlausibility(aimPoint, powerValue, dartPosition, rhythm);
-      if (!plausibility.valid) {
-        console.warn(`[submitThrow] Anti-cheat: Rejected throw in game ${gameId} - ${plausibility.reason}`);
+    // 8.5. Validate throw plausibility (anti-cheat)
+    const isWagered = !!(game.wagerAmount && game.wagerAmount > 0);
+
+    // SECURITY: For wagered matches, validate enhanced payload types first
+    if (isWagered && (aimPoint !== undefined || powerValue !== undefined)) {
+      if (!isValidEnhancedPayload(aimPoint, powerValue)) {
+        console.warn(`[submitThrow] Anti-cheat: Invalid payload types in game ${gameId}`);
         throw new functions.https.HttpsError(
-          'failed-precondition',
-          `Invalid throw: ${plausibility.reason}`
+          'invalid-argument',
+          'Invalid throw payload: malformed aimPoint or powerValue'
         );
       }
+    }
+
+    // Validate throw plausibility (REQUIRED for wagered, optional for casual)
+    const plausibility = validateThrowPlausibility(
+      aimPoint as { x: number; y: number } | undefined,
+      powerValue,
+      dartPosition,
+      rhythm,
+      isWagered
+    );
+    if (!plausibility.valid) {
+      console.warn(`[submitThrow] Anti-cheat: Rejected throw in game ${gameId} - ${plausibility.reason}`);
+      throw new functions.https.HttpsError(
+        'failed-precondition',
+        `Invalid throw: ${plausibility.reason}`
+      );
     }
 
     // 9. Calculate score SERVER-SIDE (no client trust)
