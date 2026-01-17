@@ -49,9 +49,15 @@ jobs:
       - name: Setup Pages
         uses: actions/configure-pages@v4
 
-      - name: Upload artifact
+      - name: Upload artifact for GitHub Pages
         uses: actions/upload-pages-artifact@v3
         with:
+          path: './dist'
+
+      - name: Upload artifact for Firebase
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
           path: './dist'
 
   deploy-github-pages:
@@ -72,29 +78,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - name: Download build artifact
+        uses: actions/download-artifact@v4
         with:
-          node-version: '20'
-          cache: 'npm'
-
-      - name: Install dependencies
-        run: npm ci || npm install
-
-      - name: Build obfuscated version
-        run: npm run build
-
-      - name: Copy static assets to dist
-        run: |
-          cp -r favicon*.png dist/ 2>/dev/null || true
-          cp -r favicon*.svg dist/ 2>/dev/null || true
-          cp -r favicon.ico dist/ 2>/dev/null || true
-          cp -r apple-touch-icon.png dist/ 2>/dev/null || true
-          cp -r site.webmanifest dist/ 2>/dev/null || true
-          cp -r robots.txt dist/ 2>/dev/null || true
-          cp -r assets dist/ 2>/dev/null || true
-          cp -r images dist/ 2>/dev/null || true
-          cp -r sounds dist/ 2>/dev/null || true
+          name: dist
+          path: './dist'
 
       - name: Install Firebase CLI
         run: npm install -g firebase-tools
