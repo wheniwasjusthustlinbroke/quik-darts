@@ -4032,13 +4032,26 @@
             // Use UID comparison to decide who initiates: LOWER UID initiates
             if (myPlayerId < opponent.playerId) {
               console.log('[wageredMatchmaking] I have lower UID, I will initiate match with', opponent.playerId);
+
+              // CRITICAL: Before trying to initiate, check if our escrow is still pending
+              // If someone already joined our escrow (status = 'locked'), we should wait
+              // for the matchedGameId notification instead of trying to join theirs
+              const ourEscrowRef = database.ref(`escrow/${escrowId}`);
+              const ourEscrowSnap = await ourEscrowRef.once('value');
+              const ourEscrow = ourEscrowSnap.val();
+
+              if (ourEscrow && ourEscrow.status === 'locked') {
+                console.log('[wageredMatchmaking] Our escrow is already locked - someone joined us. Waiting for matchedGameId...');
+                return; // Don't initiate - wait for the matchedGameId update from whoever joined us
+              }
+
               isProcessingMatch = true;
 
               try {
                 // Refund our escrow first, then join opponent's
                 console.log('[wageredMatchmaking] Refunding our escrow before joining opponent');
                 const refundFn = functions.httpsCallable('refundEscrow');
-                await refundFn({ escrowId });
+                await refundFn({ escrowId, reason: 'switching_to_opponent' });
                 console.log('[wageredMatchmaking] Refunded, now joining opponent escrow:', opponent.escrowId);
 
                 // Join opponent's escrow with retry logic
