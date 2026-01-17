@@ -1699,12 +1699,30 @@
               setGameRoomId(roomId);
               gameRoomRef.current = database.ref(`games/${roomId}`);
 
-              setOpponentName(sanitizeName(opponentData.name));
-              setOpponentFlag(sanitizeFlag(opponentData.flag));
-              setMatchmakingState('found');
+              // IMPORTANT: Register onDisconnect FIRST to protect against early browser close
+              // This ensures if player closes browser during "opponent found" screen, Firebase sets connected=false
+              gameRoomRef.current.child('player2/connected').onDisconnect().set(false).then(() => {
+                // Start heartbeat for disconnect detection (I'm player2, opponent is player1)
+                startHeartbeat(gameRoomRef.current, 'player2', 'player1', () => {
+                  stopHeartbeat();
+                  alert('Opponent disconnected. Returning to menu.');
+                  cancelMatchmaking();
+                });
 
-              // Start game as player 2
-              setTimeout(() => startOnlineGame(roomId, 1), 1500);
+                setOpponentName(sanitizeName(opponentData.name));
+                setOpponentFlag(sanitizeFlag(opponentData.flag));
+                setMatchmakingState('found');
+
+                // Start game as player 2
+                setTimeout(() => startOnlineGame(roomId, 1), 1500);
+              }).catch((err) => {
+                console.error('[matchmaking] Failed to register onDisconnect:', err);
+                // Still proceed - better than blocking entirely
+                setOpponentName(sanitizeName(opponentData.name));
+                setOpponentFlag(sanitizeFlag(opponentData.flag));
+                setMatchmakingState('found');
+                setTimeout(() => startOnlineGame(roomId, 1), 1500);
+              });
             } catch (error) {
               console.error('Error creating game:', error);
               alert('Failed to create game. Please try again.');
@@ -3799,12 +3817,30 @@
                 setCurrentEscrowId(opponentData.escrowId); // Switch to shared escrow
                 gameRoomRef.current = database.ref(`games/${roomId}`);
 
-                setOpponentName(sanitizeName(opponentData.name));
-                setOpponentFlag(sanitizeFlag(opponentData.flag));
-                setMatchmakingState('found');
+                // IMPORTANT: Register onDisconnect FIRST to protect against early browser close
+                // For wagered games, this is critical to ensure opponent disconnect triggers forfeit
+                gameRoomRef.current.child('player2/connected').onDisconnect().set(false).then(() => {
+                  // Start heartbeat for disconnect detection (I'm player2, opponent is player1)
+                  startHeartbeat(gameRoomRef.current, 'player2', 'player1', () => {
+                    stopHeartbeat();
+                    alert('Opponent disconnected. Returning to menu.');
+                    cancelMatchmaking();
+                  });
 
-                // Start game as player 2
-                setTimeout(() => startOnlineGame(roomId, 1), 1500);
+                  setOpponentName(sanitizeName(opponentData.name));
+                  setOpponentFlag(sanitizeFlag(opponentData.flag));
+                  setMatchmakingState('found');
+
+                  // Start game as player 2
+                  setTimeout(() => startOnlineGame(roomId, 1), 1500);
+                }).catch((err) => {
+                  console.error('[wageredMatchmaking] Failed to register onDisconnect:', err);
+                  // Still proceed - better than blocking entirely
+                  setOpponentName(sanitizeName(opponentData.name));
+                  setOpponentFlag(sanitizeFlag(opponentData.flag));
+                  setMatchmakingState('found');
+                  setTimeout(() => startOnlineGame(roomId, 1), 1500);
+                });
               } catch (error) {
                 console.error('[wageredMatchmaking] Error creating game:', error);
                 // Refund escrow on failure
@@ -3872,11 +3908,36 @@
                   setCurrentEscrowId(gameData.wager.escrowId);
                   gameRoomRef.current = database.ref(`games/${roomId}`);
 
-                  setOpponentName(sanitizeName(gameData.player2.name));
-                  setOpponentFlag(sanitizeFlag(gameData.player2.flag));
-                  setMatchmakingState('found');
+                  // IMPORTANT: Register onDisconnect FIRST to protect against early browser close
+                  // For wagered games, this is critical to ensure opponent disconnect triggers forfeit
+                  gameRoomRef.current.child('player1/connected').onDisconnect().set(false).then(() => {
+                    // Set connected status
+                    gameRoomRef.current.child('player1/connected').set(true);
+                    opponentWasConnected.current = true;
 
-                  setTimeout(() => startOnlineGame(roomId, 0), 1500);
+                    // Start heartbeat for disconnect detection (I'm player1, opponent is player2)
+                    startHeartbeat(gameRoomRef.current, 'player1', 'player2', () => {
+                      stopHeartbeat();
+                      alert('Opponent disconnected. Returning to menu.');
+                      if (gameRoomRef.current) {
+                        gameRoomRef.current.remove().catch(() => {});
+                      }
+                      cancelMatchmaking();
+                    });
+
+                    setOpponentName(sanitizeName(gameData.player2.name));
+                    setOpponentFlag(sanitizeFlag(gameData.player2.flag));
+                    setMatchmakingState('found');
+
+                    setTimeout(() => startOnlineGame(roomId, 0), 1500);
+                  }).catch((err) => {
+                    console.error('[wageredMatchmaking] Failed to register onDisconnect:', err);
+                    // Still proceed - better than blocking entirely
+                    setOpponentName(sanitizeName(gameData.player2.name));
+                    setOpponentFlag(sanitizeFlag(gameData.player2.flag));
+                    setMatchmakingState('found');
+                    setTimeout(() => startOnlineGame(roomId, 0), 1500);
+                  });
                   return;
                 }
               }
