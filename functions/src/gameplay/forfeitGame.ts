@@ -84,6 +84,8 @@ export const forfeitGame = functions
       );
     }
 
+    const now = Date.now();
+
     // 6. Determine winner based on claimWin flag
     // If claimWin is true, caller is claiming win because opponent disconnected
     // If claimWin is false, caller is forfeiting (opponent wins)
@@ -91,7 +93,31 @@ export const forfeitGame = functions
     let forfeitingPlayerIndex: number;
 
     if (claimWin) {
-      // Caller is claiming win (opponent disconnected)
+      // SECURITY: Verify opponent actually disconnected before allowing claimWin
+      // This prevents fraud where a player falsely claims opponent disconnected
+      const opponentPlayerKey = callerPlayerIndex === 0 ? 'player2' : 'player1';
+      const opponent = game[opponentPlayerKey];
+
+      const DISCONNECT_THRESHOLD_MS = 30000; // 30 seconds
+      const opponentLastHeartbeat = opponent.lastHeartbeat || 0;
+      const heartbeatStale = (now - opponentLastHeartbeat) > DISCONNECT_THRESHOLD_MS;
+      const opponentDisconnected = opponent.connected === false;
+
+      // Must have EITHER stale heartbeat OR explicit disconnect flag
+      if (!heartbeatStale && !opponentDisconnected) {
+        console.log(`[forfeitGame] SECURITY: Rejected claimWin - opponent still connected. ` +
+          `lastHeartbeat: ${opponentLastHeartbeat}, connected: ${opponent.connected}, ` +
+          `timeSinceHeartbeat: ${now - opponentLastHeartbeat}ms`);
+        throw new functions.https.HttpsError(
+          'failed-precondition',
+          'Cannot claim win - opponent is still connected'
+        );
+      }
+
+      console.log(`[forfeitGame] claimWin verified: heartbeatStale=${heartbeatStale}, ` +
+        `opponentDisconnected=${opponentDisconnected}, timeSinceHeartbeat=${now - opponentLastHeartbeat}ms`);
+
+      // Caller is claiming win (opponent disconnected - VERIFIED)
       winnerIndex = callerPlayerIndex;
       forfeitingPlayerIndex = callerPlayerIndex === 0 ? 1 : 0;
     } else {
@@ -101,8 +127,6 @@ export const forfeitGame = functions
     }
 
     const winnerId = winnerIndex === 0 ? game.player1.id : game.player2.id;
-
-    const now = Date.now();
 
     // 7. Update game state
     const updates: Record<string, unknown> = {

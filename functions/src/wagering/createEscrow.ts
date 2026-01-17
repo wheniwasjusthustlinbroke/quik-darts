@@ -25,7 +25,7 @@ type StakeLevel = typeof VALID_STAKES[number];
 const ESCROW_EXPIRY_MS = 30 * 60 * 1000;
 
 interface CreateEscrowRequest {
-  escrowId: string; // Usually the gameId or a unique ID
+  escrowId?: string; // Optional: if provided, join existing escrow. If not, server generates secure ID.
   stakeAmount: number;
   opponentId?: string; // Optional: known opponent
 }
@@ -62,7 +62,8 @@ export const createEscrow = functions
     }
 
     // 3. Validate stake amount
-    const { escrowId, stakeAmount } = data;
+    const { stakeAmount } = data;
+    let { escrowId } = data;
 
     if (!VALID_STAKES.includes(stakeAmount as StakeLevel)) {
       throw new functions.https.HttpsError(
@@ -71,19 +72,23 @@ export const createEscrow = functions
       );
     }
 
-    if (!escrowId || typeof escrowId !== 'string') {
-      throw new functions.https.HttpsError(
-        'invalid-argument',
-        'Invalid escrow ID'
-      );
-    }
+    // SECURITY: If escrowId is provided (joining existing), validate format
+    // If not provided (creating new), generate a cryptographically secure ID server-side
+    const isJoiningExisting = !!escrowId;
 
-    // Validate escrowId format to prevent injection/DoS attacks
-    if (escrowId.length > 100 || !/^[a-zA-Z0-9_-]+$/.test(escrowId)) {
-      throw new functions.https.HttpsError(
-        'invalid-argument',
-        'Invalid escrow ID format. Must be alphanumeric with underscores or hyphens, max 100 characters.'
-      );
+    if (isJoiningExisting) {
+      // Validate escrowId format to prevent injection/DoS attacks
+      if (typeof escrowId !== 'string' || escrowId.length > 100 || !/^[a-zA-Z0-9_-]+$/.test(escrowId)) {
+        throw new functions.https.HttpsError(
+          'invalid-argument',
+          'Invalid escrow ID format. Must be alphanumeric with underscores or hyphens, max 100 characters.'
+        );
+      }
+    } else {
+      // Generate cryptographically secure escrowId using Firebase push key
+      // This prevents ID enumeration and collision attacks
+      escrowId = db.ref('escrow').push().key!;
+      console.log(`[createEscrow] Generated server-side escrowId: ${escrowId}`);
     }
 
     const now = Date.now();

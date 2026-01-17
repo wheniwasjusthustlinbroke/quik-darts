@@ -68,16 +68,25 @@ exports.createEscrow = functions
         throw new functions.https.HttpsError('permission-denied', 'Wagered matches require a signed-in account. Please sign in with Google, Facebook, or Apple.');
     }
     // 3. Validate stake amount
-    const { escrowId, stakeAmount } = data;
+    const { stakeAmount } = data;
+    let { escrowId } = data;
     if (!VALID_STAKES.includes(stakeAmount)) {
         throw new functions.https.HttpsError('invalid-argument', `Invalid stake amount. Valid stakes: ${VALID_STAKES.join(', ')}`);
     }
-    if (!escrowId || typeof escrowId !== 'string') {
-        throw new functions.https.HttpsError('invalid-argument', 'Invalid escrow ID');
+    // SECURITY: If escrowId is provided (joining existing), validate format
+    // If not provided (creating new), generate a cryptographically secure ID server-side
+    const isJoiningExisting = !!escrowId;
+    if (isJoiningExisting) {
+        // Validate escrowId format to prevent injection/DoS attacks
+        if (typeof escrowId !== 'string' || escrowId.length > 100 || !/^[a-zA-Z0-9_-]+$/.test(escrowId)) {
+            throw new functions.https.HttpsError('invalid-argument', 'Invalid escrow ID format. Must be alphanumeric with underscores or hyphens, max 100 characters.');
+        }
     }
-    // Validate escrowId format to prevent injection/DoS attacks
-    if (escrowId.length > 100 || !/^[a-zA-Z0-9_-]+$/.test(escrowId)) {
-        throw new functions.https.HttpsError('invalid-argument', 'Invalid escrow ID format. Must be alphanumeric with underscores or hyphens, max 100 characters.');
+    else {
+        // Generate cryptographically secure escrowId using Firebase push key
+        // This prevents ID enumeration and collision attacks
+        escrowId = db.ref('escrow').push().key;
+        console.log(`[createEscrow] Generated server-side escrowId: ${escrowId}`);
     }
     const now = Date.now();
     const walletRef = db.ref(`users/${userId}/wallet`);

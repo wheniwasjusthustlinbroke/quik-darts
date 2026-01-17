@@ -92,7 +92,7 @@
           },
           "lastHeartbeat": {
             ".write": "auth != null && auth.uid === data.parent().child('id').val()",
-            ".validate": "newData.isNumber() && newData.val() > 0"
+            ".validate": "newData.isNumber() && newData.val() > 0 && newData.val() <= now + 5000"
           }
         },
         "player2": {
@@ -101,11 +101,11 @@
           },
           "lastHeartbeat": {
             ".write": "auth != null && auth.uid === data.parent().child('id').val()",
-            ".validate": "newData.isNumber() && newData.val() > 0"
+            ".validate": "newData.isNumber() && newData.val() > 0 && newData.val() <= now + 5000"
           }
         },
         "wager": {
-          ".read": "auth != null",
+          ".read": "auth != null && (root.child('games').child($roomId).child('player1/id').val() === auth.uid || root.child('games').child($roomId).child('player2/id').val() === auth.uid)",
           ".write": false
         }
       }

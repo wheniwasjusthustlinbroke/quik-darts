@@ -4070,11 +4070,10 @@
 
           // NO OPPONENT FOUND (or matching self, or failed to join) - Create own escrow and join queue
           console.log('[wageredMatchmaking] No opponent found, creating escrow...');
-          const escrowId = database.ref('escrow').push().key;
 
+          // SECURITY: Let server generate escrowId to prevent ID enumeration/collision attacks
           const createEscrowFn = functions.httpsCallable('createEscrow');
           const escrowResult = await createEscrowFn({
-            escrowId,
             stakeAmount: selectedStake
           });
 
@@ -4082,6 +4081,8 @@
             throw new Error(escrowResult.data.error || 'Failed to create escrow');
           }
 
+          // Use the server-generated escrowId
+          const escrowId = escrowResult.data.escrowId;
           console.log('[wageredMatchmaking] Escrow created:', escrowResult.data);
           setCurrentEscrowId(escrowId);
           setCoinBalance(escrowResult.data.newBalance);
@@ -4358,13 +4359,13 @@
                 // For other errors, try to create a new escrow to stay in queue
                 try {
                   console.log('[wageredMatchmaking] Match failed, creating new escrow to stay in queue');
-                  const newEscrowId = database.ref('escrow').push().key;
+                  // SECURITY: Let server generate escrowId
                   const createEscrowFn = functions.httpsCallable('createEscrow');
                   const newEscrowResult = await createEscrowFn({
-                    escrowId: newEscrowId,
                     stakeAmount: opponent.stakeAmount
                   });
                   if (newEscrowResult.data.success) {
+                    const newEscrowId = newEscrowResult.data.escrowId;
                     setCurrentEscrowId(newEscrowId);
                     setCoinBalance(newEscrowResult.data.newBalance);
                     // Update our queue entry with new escrow ID
