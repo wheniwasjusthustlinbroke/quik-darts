@@ -1234,6 +1234,10 @@
       const [userStreaks, setUserStreaks] = useState(null); // User's win streak data
       const [showProfileScreen, setShowProfileScreen] = useState(false); // Profile screen visibility
 
+      // Nickname editing state
+      const [isEditingNickname, setIsEditingNickname] = useState(false);
+      const [nicknameInput, setNicknameInput] = useState('');
+
       const [currentEscrowId, setCurrentEscrowId] = useState(null); // Active escrow ID for wagered match
       const [isWageredMatch, setIsWageredMatch] = useState(false); // Is current match wagered
       const [isCreatingEscrow, setIsCreatingEscrow] = useState(false); // Creating escrow in progress
@@ -1553,6 +1557,27 @@
         const hasEmoji = /[\u{1F1E6}-\u{1F1FF}]|[\u{1F3F4}]|[\u{1F300}-\u{1F9FF}]/u.test(trimmed);
         return hasEmoji ? trimmed : '🌍';
       };
+
+      // Save nickname/display name to Firebase
+      const saveNickname = useCallback(async () => {
+        if (!currentUser || currentUser.isAnonymous || !database) return;
+
+        const sanitized = sanitizeName(nicknameInput);
+        if (!sanitized || sanitized.length < 1 || sanitized === 'Player') {
+          alert('Please enter a valid nickname (1-20 characters)');
+          return;
+        }
+
+        try {
+          await database.ref(`users/${currentUser.uid}/profile/displayName`).set(sanitized);
+          setIsEditingNickname(false);
+          setNicknameInput('');
+          // userProfile will auto-update via the existing Firebase listener
+        } catch (error) {
+          console.error('Failed to save nickname:', error);
+          alert('Failed to save nickname. Please try again.');
+        }
+      }, [currentUser, database, nicknameInput]);
 
       // Validate numeric values from Firebase to prevent data tampering
       const validateScore = (score, gameMode) => {
@@ -3601,13 +3626,29 @@
       }, [players, currentPlayerIndex, gameState, winner, animatingDart, dartsThrown, getAITarget, calculateScore, playSound, updateStats, nextPlayer, legDartsThrown, handleLegWin, currentTurnScore]);
 
       const startGame = () => {
-        const newPlayers = Array.from({ length: playerSetup.count }, (_, i) => ({
-          name: playerSetup.names[i] || `Player ${i + 1}`,
-          score: playerSetup.gameMode,
-          isAI: playerSetup.aiPlayers[i] || false,
-          aiDifficulty: playerSetup.aiDifficulty[i] || null,
-          flag: playerSetup.flags[i] || '🏴󠁧󠁢󠁥󠁮󠁧󠁿'
-        }));
+        const newPlayers = Array.from({ length: playerSetup.count }, (_, i) => {
+          // Use profile name/flag for first player if logged in, otherwise use setup defaults
+          let playerName = playerSetup.names[i] || `Player ${i + 1}`;
+          let playerFlag = playerSetup.flags[i] || '🏴󠁧󠁢󠁥󠁮󠁧󠁿';
+
+          // For the human player (index 0), use profile data if available
+          if (i === 0 && currentUser && !currentUser.isAnonymous) {
+            if (userProfile?.displayName) {
+              playerName = userProfile.displayName;
+            }
+            if (userProfile?.flag) {
+              playerFlag = userProfile.flag;
+            }
+          }
+
+          return {
+            name: playerName,
+            score: playerSetup.gameMode,
+            isAI: playerSetup.aiPlayers[i] || false,
+            aiDifficulty: playerSetup.aiDifficulty[i] || null,
+            flag: playerFlag
+          };
+        });
         setPlayers(newPlayers);
         setCurrentPlayerIndex(0);
         setDartsThrown(0);
@@ -5730,10 +5771,99 @@
                     </div>
                   </div>
 
-                  {/* Display name */}
-                  <h2 style={{ color: COLORS.text, fontSize: '1.5rem', fontWeight: '600', margin: '0 0 8px 0' }}>
-                    {userProfile?.displayName || currentUser.displayName || 'Player'}
-                  </h2>
+                  {/* Display name with edit option */}
+                  {isEditingNickname ? (
+                    <div style={{ marginBottom: '16px' }}>
+                      <input
+                        type="text"
+                        value={nicknameInput}
+                        onChange={(e) => setNicknameInput(e.target.value.slice(0, 20))}
+                        placeholder="Enter nickname..."
+                        maxLength={20}
+                        autoFocus
+                        style={{
+                          width: '100%',
+                          padding: '10px 12px',
+                          background: 'rgba(255, 255, 255, 0.1)',
+                          border: `1px solid ${COLORS.accent}`,
+                          borderRadius: '8px',
+                          color: COLORS.text,
+                          fontSize: '1rem',
+                          textAlign: 'center',
+                          marginBottom: '10px',
+                          outline: 'none',
+                          fontFamily: "'Inter', sans-serif"
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') saveNickname();
+                          if (e.key === 'Escape') {
+                            setIsEditingNickname(false);
+                            setNicknameInput('');
+                          }
+                        }}
+                      />
+                      <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
+                        <button
+                          onClick={saveNickname}
+                          style={{
+                            padding: '8px 16px',
+                            background: COLORS.success,
+                            color: COLORS.text,
+                            border: 'none',
+                            borderRadius: '6px',
+                            fontSize: '0.85rem',
+                            fontWeight: '600',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          Save
+                        </button>
+                        <button
+                          onClick={() => {
+                            setIsEditingNickname(false);
+                            setNicknameInput('');
+                          }}
+                          style={{
+                            padding: '8px 16px',
+                            background: 'rgba(255, 255, 255, 0.1)',
+                            color: COLORS.textMuted,
+                            border: '1px solid rgba(255, 255, 255, 0.2)',
+                            borderRadius: '6px',
+                            fontSize: '0.85rem',
+                            fontWeight: '600',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div style={{ marginBottom: '8px' }}>
+                      <h2 style={{ color: COLORS.text, fontSize: '1.5rem', fontWeight: '600', margin: '0 0 4px 0', display: 'inline' }}>
+                        {userProfile?.displayName || currentUser.displayName || 'Player'}
+                      </h2>
+                      <button
+                        onClick={() => {
+                          setNicknameInput(userProfile?.displayName || currentUser.displayName || '');
+                          setIsEditingNickname(true);
+                        }}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          color: COLORS.accent,
+                          cursor: 'pointer',
+                          padding: '4px 8px',
+                          fontSize: '14px',
+                          verticalAlign: 'middle',
+                          marginLeft: '4px'
+                        }}
+                        title="Edit display name"
+                      >
+                        ✏️
+                      </button>
+                    </div>
+                  )}
 
                   {/* Flag */}
                   <div style={{ color: COLORS.textMuted, fontSize: '1rem', marginBottom: '16px' }}>
