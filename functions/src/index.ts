@@ -34,8 +34,8 @@ export { settleGame } from './wagering/settleGame';
 export { refundEscrow, cleanupExpiredEscrows } from './wagering/refundEscrow';
 
 // ============================================
-// PAYMENTS - IAP and Stripe (Phase 5)
+// PAYMENTS - Stripe (Phase 5)
 // ============================================
-// export { verifyApplePurchase } from './payments/verifyApplePurchase';
-// export { createStripeCheckout } from './payments/createStripeCheckout';
-// export { stripeWebhook } from './payments/stripeWebhook';
+export { createStripeCheckout } from './payments/createStripeCheckout';
+export { stripeWebhook } from './payments/stripeWebhook';
+// export { verifyApplePurchase } from './payments/verifyApplePurchase'; // TODO: Phase 5b

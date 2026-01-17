@@ -42,6 +42,10 @@
       ".read": false,
       ".write": false
     },
+    "stripeFulfillments": {
+      ".read": false,
+      ".write": false
+    },
     "matchmaking_queue": {
       "casual": {
         ".read": "auth != null",

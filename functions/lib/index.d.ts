@@ -15,3 +15,5 @@ export { forfeitGame } from './gameplay/forfeitGame';
 export { createEscrow } from './wagering/createEscrow';
 export { settleGame } from './wagering/settleGame';
 export { refundEscrow, cleanupExpiredEscrows } from './wagering/refundEscrow';
+export { createStripeCheckout } from './payments/createStripeCheckout';
+export { stripeWebhook } from './payments/stripeWebhook';

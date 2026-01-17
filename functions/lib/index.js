@@ -39,7 +39,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.cleanupExpiredEscrows = exports.refundEscrow = exports.settleGame = exports.createEscrow = exports.forfeitGame = exports.submitThrow = exports.createGame = exports.getUnclaimedAdReward = exports.admobCallback = exports.claimAdReward = exports.claimDailyBonus = exports.initializeNewUser = void 0;
+exports.stripeWebhook = exports.createStripeCheckout = exports.cleanupExpiredEscrows = exports.refundEscrow = exports.settleGame = exports.createEscrow = exports.forfeitGame = exports.submitThrow = exports.createGame = exports.getUnclaimedAdReward = exports.admobCallback = exports.claimAdReward = exports.claimDailyBonus = exports.initializeNewUser = void 0;
 const admin = __importStar(require("firebase-admin"));
 // Initialize Firebase Admin
 admin.initializeApp();
@@ -76,9 +76,11 @@ var refundEscrow_1 = require("./wagering/refundEscrow");
 Object.defineProperty(exports, "refundEscrow", { enumerable: true, get: function () { return refundEscrow_1.refundEscrow; } });
 Object.defineProperty(exports, "cleanupExpiredEscrows", { enumerable: true, get: function () { return refundEscrow_1.cleanupExpiredEscrows; } });
 // ============================================
-// PAYMENTS - IAP and Stripe (Phase 5)
+// PAYMENTS - Stripe (Phase 5)
 // ============================================
-// export { verifyApplePurchase } from './payments/verifyApplePurchase';
-// export { createStripeCheckout } from './payments/createStripeCheckout';
-// export { stripeWebhook } from './payments/stripeWebhook';
+var createStripeCheckout_1 = require("./payments/createStripeCheckout");
+Object.defineProperty(exports, "createStripeCheckout", { enumerable: true, get: function () { return createStripeCheckout_1.createStripeCheckout; } });
+var stripeWebhook_1 = require("./payments/stripeWebhook");
+Object.defineProperty(exports, "stripeWebhook", { enumerable: true, get: function () { return stripeWebhook_1.stripeWebhook; } });
+// export { verifyApplePurchase } from './payments/verifyApplePurchase'; // TODO: Phase 5b
 //# sourceMappingURL=index.js.map
