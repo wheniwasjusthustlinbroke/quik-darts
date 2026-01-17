@@ -1226,6 +1226,14 @@
       const [showCoinShop, setShowCoinShop] = useState(false); // Coin shop modal
       const [isPurchasing, setIsPurchasing] = useState(false); // Processing purchase
       const walletListenerRef = useRef(null); // Wallet listener cleanup
+      const profileListenerRef = useRef(null); // Profile listener cleanup
+
+      // Profile state
+      const [userProfile, setUserProfile] = useState(null); // User's profile data
+      const [userProgression, setUserProgression] = useState(null); // User's level/XP data
+      const [userStreaks, setUserStreaks] = useState(null); // User's win streak data
+      const [showProfileScreen, setShowProfileScreen] = useState(false); // Profile screen visibility
+
       const [currentEscrowId, setCurrentEscrowId] = useState(null); // Active escrow ID for wagered match
       const [isWageredMatch, setIsWageredMatch] = useState(false); // Is current match wagered
       const [isCreatingEscrow, setIsCreatingEscrow] = useState(false); // Creating escrow in progress
@@ -3528,6 +3536,42 @@
         };
       }, [currentUser]);
 
+      // Listen for profile and progression data
+      useEffect(() => {
+        if (!database || !currentUser || currentUser.isAnonymous) {
+          setUserProfile(null);
+          setUserProgression(null);
+          setUserStreaks(null);
+          if (profileListenerRef.current) {
+            profileListenerRef.current();
+            profileListenerRef.current = null;
+          }
+          return;
+        }
+
+        const userRef = database.ref(`users/${currentUser.uid}`);
+
+        const profileListener = userRef.on('value', (snapshot) => {
+          const userData = snapshot.val();
+          if (userData) {
+            setUserProfile(userData.profile || null);
+            setUserProgression(userData.progression || null);
+            setUserStreaks(userData.streaks || null);
+          }
+        }, (error) => {
+          console.error('Profile listener error:', error);
+        });
+
+        profileListenerRef.current = () => userRef.off('value', profileListener);
+
+        return () => {
+          if (profileListenerRef.current) {
+            profileListenerRef.current();
+            profileListenerRef.current = null;
+          }
+        };
+      }, [currentUser]);
+
       // Claim daily bonus
       const claimDailyBonus = async () => {
         if (!functions || !currentUser || currentUser.isAnonymous || isClaimingBonus) return;
@@ -5160,6 +5204,307 @@
         );
       }
 
+      // Profile Screen - check BEFORE menu
+      if (showProfileScreen && currentUser && !currentUser.isAnonymous) {
+        // Level system calculations (matching server-side logic)
+        const getXPForLevel = (level) => {
+          if (level <= 1) return 0;
+          return Math.floor(50 * level * Math.pow(1.08, level - 1));
+        };
+
+        const level = userProgression?.level || 1;
+        const xp = userProgression?.xp || 0;
+        const currentLevelXP = getXPForLevel(level);
+        const nextLevelXP = getXPForLevel(level + 1);
+        const xpProgress = nextLevelXP > currentLevelXP ? (xp - currentLevelXP) / (nextLevelXP - currentLevelXP) : 1;
+
+        const gamesPlayed = userProgression?.gamesPlayed || 0;
+        const gamesWon = userProgression?.gamesWon || 0;
+        const winPercentage = gamesPlayed > 0 ? ((gamesWon / gamesPlayed) * 100).toFixed(1) : '0.0';
+        const bestStreak = userStreaks?.bestWinStreak || 0;
+        const currentStreak = userStreaks?.currentWinStreak || 0;
+
+        // Rank titles based on level
+        const getRankTitle = (lvl) => {
+          if (lvl >= 80) return 'Legend';
+          if (lvl >= 60) return 'Master';
+          if (lvl >= 40) return 'Expert';
+          if (lvl >= 25) return 'Veteran';
+          if (lvl >= 15) return 'Skilled';
+          if (lvl >= 8) return 'Amateur';
+          if (lvl >= 3) return 'Novice';
+          return 'Rookie';
+        };
+
+        const rankTitle = getRankTitle(level);
+
+        const copyUniqueId = () => {
+          const uniqueId = userProfile?.uniqueId || 'N/A';
+          navigator.clipboard.writeText(uniqueId).then(() => {
+            alert('Player ID copied to clipboard!');
+          }).catch(() => {
+            alert('Failed to copy ID');
+          });
+        };
+
+        return (
+          <div style={{ minHeight: '100vh', background: COLORS.background, display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '80px 20px 40px' }}>
+            {/* Background gradient */}
+            <div style={{
+              position: 'fixed',
+              inset: 0,
+              background: `radial-gradient(ellipse at 30% 20%, ${COLORS.primary}40 0%, transparent 50%), radial-gradient(ellipse at 70% 80%, ${COLORS.accent}20 0%, transparent 40%), linear-gradient(180deg, ${COLORS.background} 0%, ${COLORS.backgroundLight} 100%)`,
+              zIndex: 0
+            }} />
+
+            <div style={{ maxWidth: '900px', width: '100%', position: 'relative', zIndex: 1 }}>
+              {/* Header */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' }}>
+                <h1 style={{ fontSize: 'clamp(1.75rem, 4vw, 2.5rem)', fontWeight: '700', color: COLORS.text, margin: 0 }}>Profile</h1>
+                <button className="btn btn-ghost" onClick={() => setShowProfileScreen(false)} style={{ padding: '12px 24px' }}>Back</button>
+              </div>
+
+              {/* Main content - two columns on desktop */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'minmax(280px, 1fr) 2fr', gap: '24px' }}>
+                {/* Left column - Avatar and basic info */}
+                <div style={{
+                  background: COLORS.backgroundCard,
+                  borderRadius: '16px',
+                  padding: '32px 24px',
+                  border: '1px solid rgba(255, 255, 255, 0.05)',
+                  textAlign: 'center'
+                }}>
+                  {/* Avatar with frame */}
+                  <div style={{
+                    position: 'relative',
+                    width: '120px',
+                    height: '120px',
+                    margin: '0 auto 20px',
+                    borderRadius: '50%',
+                    background: `linear-gradient(135deg, ${COLORS.accent}, ${COLORS.accentDark})`,
+                    padding: '4px',
+                    boxShadow: `0 0 20px ${COLORS.accent}40`
+                  }}>
+                    {currentUser.photoURL ? (
+                      <img
+                        src={currentUser.photoURL}
+                        alt="Profile"
+                        style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }}
+                        referrerPolicy="no-referrer"
+                      />
+                    ) : (
+                      <div style={{
+                        width: '100%',
+                        height: '100%',
+                        borderRadius: '50%',
+                        background: COLORS.backgroundLight,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontSize: '48px',
+                        fontWeight: '700',
+                        color: COLORS.accent
+                      }}>
+                        {(userProfile?.displayName || currentUser.displayName || 'P')[0].toUpperCase()}
+                      </div>
+                    )}
+                    {/* Level badge */}
+                    <div style={{
+                      position: 'absolute',
+                      bottom: '-5px',
+                      right: '-5px',
+                      background: `linear-gradient(135deg, ${COLORS.accent}, ${COLORS.accentDark})`,
+                      borderRadius: '50%',
+                      width: '36px',
+                      height: '36px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontWeight: '700',
+                      fontSize: '14px',
+                      color: COLORS.textDark,
+                      border: `3px solid ${COLORS.background}`
+                    }}>
+                      {level}
+                    </div>
+                  </div>
+
+                  {/* Display name */}
+                  <h2 style={{ color: COLORS.text, fontSize: '1.5rem', fontWeight: '600', margin: '0 0 8px 0' }}>
+                    {userProfile?.displayName || currentUser.displayName || 'Player'}
+                  </h2>
+
+                  {/* Flag */}
+                  <div style={{ color: COLORS.textMuted, fontSize: '1rem', marginBottom: '16px' }}>
+                    {userProfile?.flag || '🌍'} {rankTitle}
+                  </div>
+
+                  {/* Unique ID */}
+                  <div style={{
+                    background: 'rgba(255, 255, 255, 0.05)',
+                    borderRadius: '8px',
+                    padding: '12px',
+                    marginBottom: '20px'
+                  }}>
+                    <div style={{ color: COLORS.textMuted, fontSize: '0.75rem', marginBottom: '4px' }}>Player ID</div>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                      <span style={{ color: COLORS.accent, fontWeight: '600', fontFamily: 'monospace', fontSize: '1rem' }}>
+                        {userProfile?.uniqueId || 'N/A'}
+                      </span>
+                      <button
+                        onClick={copyUniqueId}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          color: COLORS.textMuted,
+                          cursor: 'pointer',
+                          padding: '4px',
+                          fontSize: '16px'
+                        }}
+                        title="Copy ID"
+                      >
+                        📋
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Coin balance */}
+                  <div style={{
+                    background: 'rgba(212, 160, 58, 0.1)',
+                    borderRadius: '8px',
+                    padding: '12px',
+                    border: '1px solid rgba(212, 160, 58, 0.2)'
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                      <CoinIcon size={20} />
+                      <span style={{ color: COLORS.accent, fontWeight: '700', fontSize: '1.25rem' }}>
+                        {formatCoins(coinBalance)}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Right column - Stats */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                  {/* Level Progress */}
+                  <div style={{
+                    background: COLORS.backgroundCard,
+                    borderRadius: '12px',
+                    padding: '20px',
+                    border: '1px solid rgba(255, 255, 255, 0.05)'
+                  }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                      <span style={{ color: COLORS.textMuted, fontSize: '0.85rem' }}>Level Progress</span>
+                      <span style={{ color: COLORS.accent, fontWeight: '600' }}>Level {level}</span>
+                    </div>
+                    <div style={{ background: 'rgba(255, 255, 255, 0.1)', borderRadius: '8px', height: '12px', overflow: 'hidden', marginBottom: '8px' }}>
+                      <div style={{
+                        background: `linear-gradient(90deg, ${COLORS.accent}, ${COLORS.accentLight})`,
+                        height: '100%',
+                        width: `${xpProgress * 100}%`,
+                        borderRadius: '8px',
+                        transition: 'width 0.5s'
+                      }}></div>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', color: COLORS.textMuted, fontSize: '0.8rem' }}>
+                      <span>{formatCoins(xp)} XP</span>
+                      <span>{formatCoins(nextLevelXP)} XP</span>
+                    </div>
+                  </div>
+
+                  {/* Player Stats Grid */}
+                  <div style={{
+                    background: COLORS.backgroundCard,
+                    borderRadius: '12px',
+                    padding: '20px',
+                    border: '1px solid rgba(255, 255, 255, 0.05)'
+                  }}>
+                    <h3 style={{ color: COLORS.text, fontSize: '1rem', fontWeight: '600', margin: '0 0 16px 0' }}>Player Stats</h3>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '16px' }}>
+                      <div style={{ background: 'rgba(255, 255, 255, 0.03)', borderRadius: '8px', padding: '12px' }}>
+                        <div style={{ color: COLORS.textMuted, fontSize: '0.75rem', marginBottom: '4px' }}>Games Played</div>
+                        <div style={{ color: COLORS.text, fontSize: '1.25rem', fontWeight: '600' }}>{gamesPlayed}</div>
+                      </div>
+                      <div style={{ background: 'rgba(255, 255, 255, 0.03)', borderRadius: '8px', padding: '12px' }}>
+                        <div style={{ color: COLORS.textMuted, fontSize: '0.75rem', marginBottom: '4px' }}>Games Won</div>
+                        <div style={{ color: '#27ae60', fontSize: '1.25rem', fontWeight: '600' }}>{gamesWon}</div>
+                      </div>
+                      <div style={{ background: 'rgba(255, 255, 255, 0.03)', borderRadius: '8px', padding: '12px' }}>
+                        <div style={{ color: COLORS.textMuted, fontSize: '0.75rem', marginBottom: '4px' }}>Win Rate</div>
+                        <div style={{ color: COLORS.accent, fontSize: '1.25rem', fontWeight: '600' }}>{winPercentage}%</div>
+                      </div>
+                      <div style={{ background: 'rgba(255, 255, 255, 0.03)', borderRadius: '8px', padding: '12px' }}>
+                        <div style={{ color: COLORS.textMuted, fontSize: '0.75rem', marginBottom: '4px' }}>Total Earnings</div>
+                        <div style={{ color: COLORS.accent, fontSize: '1.25rem', fontWeight: '600' }}>{formatCoins(coinBalance)}</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Streaks */}
+                  <div style={{
+                    background: COLORS.backgroundCard,
+                    borderRadius: '12px',
+                    padding: '20px',
+                    border: '1px solid rgba(255, 255, 255, 0.05)'
+                  }}>
+                    <h3 style={{ color: COLORS.text, fontSize: '1rem', fontWeight: '600', margin: '0 0 16px 0' }}>Win Streaks</h3>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '16px' }}>
+                      <div style={{ background: 'rgba(255, 255, 255, 0.03)', borderRadius: '8px', padding: '12px' }}>
+                        <div style={{ color: COLORS.textMuted, fontSize: '0.75rem', marginBottom: '4px' }}>Current Streak</div>
+                        <div style={{ color: currentStreak > 0 ? '#27ae60' : COLORS.text, fontSize: '1.25rem', fontWeight: '600' }}>
+                          {currentStreak} {currentStreak > 0 && '🔥'}
+                        </div>
+                      </div>
+                      <div style={{ background: 'rgba(255, 255, 255, 0.03)', borderRadius: '8px', padding: '12px' }}>
+                        <div style={{ color: COLORS.textMuted, fontSize: '0.75rem', marginBottom: '4px' }}>Best Streak</div>
+                        <div style={{ color: COLORS.accent, fontSize: '1.25rem', fontWeight: '600' }}>{bestStreak} 🏆</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Achievements Progress */}
+                  <div style={{
+                    background: COLORS.backgroundCard,
+                    borderRadius: '12px',
+                    padding: '20px',
+                    border: '1px solid rgba(255, 255, 255, 0.05)'
+                  }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                      <h3 style={{ color: COLORS.text, fontSize: '1rem', fontWeight: '600', margin: 0 }}>Achievements</h3>
+                      <button
+                        onClick={() => { setShowProfileScreen(false); setShowAchievements(true); }}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          color: COLORS.accent,
+                          cursor: 'pointer',
+                          fontSize: '0.85rem',
+                          fontWeight: '500'
+                        }}
+                      >
+                        View All →
+                      </button>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                      <span style={{ color: COLORS.textMuted, fontSize: '0.85rem' }}>Progress</span>
+                      <span style={{ color: COLORS.accent, fontWeight: '600' }}>{unlockedAchievements.length} / {ACHIEVEMENTS_DATA.length}</span>
+                    </div>
+                    <div style={{ background: 'rgba(255, 255, 255, 0.1)', borderRadius: '8px', height: '8px', overflow: 'hidden' }}>
+                      <div style={{
+                        background: `linear-gradient(90deg, ${COLORS.accent}, ${COLORS.accentLight})`,
+                        height: '100%',
+                        width: `${(unlockedAchievements.length / ACHIEVEMENTS_DATA.length) * 100}%`,
+                        borderRadius: '8px'
+                      }}></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      }
+
       // Achievements Gallery - check BEFORE menu
       if (showAchievements) {
         return (
@@ -5639,30 +5984,36 @@
               <li>
                 {currentUser && !currentUser.isAnonymous ? (
                   <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    {currentUser.photoURL ? (
-                      <img
-                        src={currentUser.photoURL}
-                        alt={currentUser.displayName || 'Profile'}
-                        style={{ width: '36px', height: '36px', borderRadius: '50%', border: `2px solid ${COLORS.accent}` }}
-                        referrerPolicy="no-referrer"
-                        onError={(e) => { e.target.style.display = 'none'; e.target.nextSibling.style.display = 'flex'; }}
-                      />
-                    ) : null}
-                    <div style={{
-                      width: '36px',
-                      height: '36px',
-                      borderRadius: '50%',
-                      background: `linear-gradient(135deg, ${COLORS.accent}, ${COLORS.accentDark})`,
-                      display: currentUser.photoURL ? 'none' : 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      color: COLORS.textDark,
-                      fontWeight: '700',
-                      fontSize: '16px',
-                      border: `2px solid ${COLORS.accentLight}`
-                    }}>
-                      {(currentUser.displayName || currentUser.email || 'U')[0].toUpperCase()}
-                    </div>
+                    <button
+                      onClick={() => setShowProfileScreen(true)}
+                      style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
+                      title="View Profile"
+                    >
+                      {currentUser.photoURL ? (
+                        <img
+                          src={currentUser.photoURL}
+                          alt={currentUser.displayName || 'Profile'}
+                          style={{ width: '36px', height: '36px', borderRadius: '50%', border: `2px solid ${COLORS.accent}` }}
+                          referrerPolicy="no-referrer"
+                          onError={(e) => { e.target.style.display = 'none'; e.target.nextSibling.style.display = 'flex'; }}
+                        />
+                      ) : null}
+                      <div style={{
+                        width: '36px',
+                        height: '36px',
+                        borderRadius: '50%',
+                        background: `linear-gradient(135deg, ${COLORS.accent}, ${COLORS.accentDark})`,
+                        display: currentUser.photoURL ? 'none' : 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: COLORS.textDark,
+                        fontWeight: '700',
+                        fontSize: '16px',
+                        border: `2px solid ${COLORS.accentLight}`
+                      }}>
+                        {(currentUser.displayName || currentUser.email || 'U')[0].toUpperCase()}
+                      </div>
+                    </button>
                     <button onClick={handleSignOut} style={{
                       background: 'none',
                       border: '1px solid rgba(255,255,255,0.2)',

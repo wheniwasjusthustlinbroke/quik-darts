@@ -22,6 +22,16 @@ const STARTING_COINS = 500;
 // Allowed auth providers (not anonymous)
 const ALLOWED_PROVIDERS = ['google.com', 'facebook.com', 'apple.com'];
 
+// Generate a unique player ID in format XXX-XXX-XXX-X
+function generateUniqueId(): string {
+  const segments: string[] = [];
+  for (let i = 0; i < 3; i++) {
+    segments.push(Math.floor(Math.random() * 1000).toString().padStart(3, '0'));
+  }
+  const checkDigit = Math.floor(Math.random() * 10).toString();
+  return `${segments.join('-')}-${checkDigit}`;
+}
+
 interface InitializeResult {
   success: boolean;
   coins?: number;
@@ -81,6 +91,8 @@ export const initializeNewUser = functions
           profile: {
             displayName: token.name || 'Player',
             flag: '',
+            uniqueId: generateUniqueId(),
+            avatar: 'default',
             createdAt: Date.now(),
             provider: signInProvider,
           },
@@ -102,6 +114,14 @@ export const initializeNewUser = functions
           streaks: {
             currentWinStreak: 0,
             bestWinStreak: 0,
+          },
+          stats: {
+            total180s: 0,
+            totalBullseyes: 0,
+            totalTriples: 0,
+            totalDoubles: 0,
+            highestCheckout: 0,
+            perfectLegs: 0,
           },
           transactions: {
             [`init_${Date.now()}`]: {
