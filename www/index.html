@@ -3962,17 +3962,14 @@
         const wageredQueueRef = database.ref(`matchmaking_queue/wagered/${selectedStake}`);
 
         try {
-          // CLEANUP: Clean up any stale pending escrows BEFORE creating new one
-          // This prevents "You already have a pending match" errors
-          // Must await to ensure cleanup completes before createEscrow checks for existing escrows
-          console.log('[wageredMatchmaking] Cleaning up stale escrows...');
-          try {
-            const refundFn = functions.httpsCallable('refundEscrow');
-            await refundFn({ escrowId: 'cleanup_pending', reason: 'cleanup_before_new_match' });
-            console.log('[wageredMatchmaking] Stale escrow cleanup completed');
-          } catch (cleanupErr) {
-            console.log('[wageredMatchmaking] No stale escrows to cleanup (or cleanup failed)');
-          }
+          // CLEANUP: Fire-and-forget cleanup of stale escrows
+          // Don't await - this was causing 10+ second delays due to querying all escrows
+          // If user has a pending escrow, createEscrow will fail and we handle it there
+          console.log('[wageredMatchmaking] Starting background cleanup of stale escrows...');
+          const refundFn = functions.httpsCallable('refundEscrow');
+          refundFn({ escrowId: 'cleanup_pending', reason: 'cleanup_before_new_match' })
+            .then(() => console.log('[wageredMatchmaking] Background cleanup completed'))
+            .catch(() => console.log('[wageredMatchmaking] Background cleanup failed (not critical)'));
 
           // IMPORTANT: Check queue FIRST before creating any escrow
           // This prevents both players from creating separate escrows
