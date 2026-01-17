@@ -56,7 +56,7 @@ exports.forfeitGame = functions
         throw new functions.https.HttpsError('unauthenticated', 'Must be logged in');
     }
     const userId = context.auth.uid;
-    const { gameId, reason = 'forfeit' } = data;
+    const { gameId, reason = 'forfeit', claimWin = false } = data;
     // 2. Validate request
     if (!gameId || typeof gameId !== 'string') {
         throw new functions.https.HttpsError('invalid-argument', 'Invalid game ID');
@@ -73,18 +73,31 @@ exports.forfeitGame = functions
         throw new functions.https.HttpsError('failed-precondition', 'Game is already finished');
     }
     // 5. Determine player index (caller must be a player)
-    let forfeitingPlayerIndex;
+    let callerPlayerIndex;
     if (game.player1.id === userId) {
-        forfeitingPlayerIndex = 0;
+        callerPlayerIndex = 0;
     }
     else if (game.player2.id === userId) {
-        forfeitingPlayerIndex = 1;
+        callerPlayerIndex = 1;
     }
     else {
         throw new functions.https.HttpsError('permission-denied', 'You are not a player in this game');
     }
-    // 6. Determine winner (opponent of forfeiting player)
-    const winnerIndex = forfeitingPlayerIndex === 0 ? 1 : 0;
+    // 6. Determine winner based on claimWin flag
+    // If claimWin is true, caller is claiming win because opponent disconnected
+    // If claimWin is false, caller is forfeiting (opponent wins)
+    let winnerIndex;
+    let forfeitingPlayerIndex;
+    if (claimWin) {
+        // Caller is claiming win (opponent disconnected)
+        winnerIndex = callerPlayerIndex;
+        forfeitingPlayerIndex = callerPlayerIndex === 0 ? 1 : 0;
+    }
+    else {
+        // Caller is forfeiting (opponent wins)
+        forfeitingPlayerIndex = callerPlayerIndex;
+        winnerIndex = callerPlayerIndex === 0 ? 1 : 0;
+    }
     const winnerId = winnerIndex === 0 ? game.player1.id : game.player2.id;
     const now = Date.now();
     // 7. Update game state
@@ -98,10 +111,11 @@ exports.forfeitGame = functions
     await gameRef.update(updates);
     console.log(`[forfeitGame] Game ${gameId}: Player ${forfeitingPlayerIndex} forfeited (${reason}). Winner: Player ${winnerIndex}`);
     // 8. If wagered game, trigger settlement
+    let winnerPayout = 0;
     if (game.wager && !game.wager.settled) {
         try {
-            // Call settleGame internally
-            await settleGameInternal(gameId, winnerIndex, winnerId, game.wager.escrowId);
+            // Call settleGame internally and get payout
+            winnerPayout = await settleGameInternal(gameId, winnerIndex, winnerId, game.wager.escrowId);
         }
         catch (error) {
             console.error(`[forfeitGame] Failed to settle wagered game ${gameId}:`, error);
@@ -112,11 +126,13 @@ exports.forfeitGame = functions
         success: true,
         winner: winnerIndex,
         winnerId,
+        winnerPayout,
     };
 });
 /**
  * Internal function to settle a wagered game
  * SECURITY: Uses atomic transaction on escrow to prevent double-payout race condition
+ * Returns the payout amount (0 if already settled)
  */
 async function settleGameInternal(gameId, winnerIndex, winnerId, escrowId) {
     const escrowRef = db.ref(`escrow/${escrowId}`);
@@ -142,7 +158,7 @@ async function settleGameInternal(gameId, winnerIndex, winnerId, escrowId) {
     // Check if escrow transaction was committed (status was 'locked' and we changed it)
     if (!escrowResult.committed || escrowResult.snapshot.val()?.status !== 'released') {
         console.log(`[settleGameInternal] Escrow ${escrowId} already settled by another process, skipping payout`);
-        return;
+        return 0;
     }
     const escrow = escrowResult.snapshot.val();
     const totalPot = escrow.totalPot;
@@ -169,5 +185,6 @@ async function settleGameInternal(gameId, winnerIndex, winnerId, escrowId) {
     // Mark game wager as settled
     await db.ref(`games/${gameId}/wager/settled`).set(true);
     console.log(`[settleGameInternal] Settled game ${gameId}: ${winnerId} won ${totalPot} coins`);
+    return totalPot;
 }
 //# sourceMappingURL=forfeitGame.js.map

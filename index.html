@@ -2037,8 +2037,33 @@
 
           // Only alert about disconnection if opponent WAS connected before
           if (opponentWasConnected.current && opponent.connected === false && !gameData.winner) {
-            alert(`${sanitizeName(opponent.name)} has disconnected. Returning to menu.`);
             opponentWasConnected.current = false; // Reset for next game
+
+            // For wagered matches, the remaining player wins by forfeit
+            if (isWageredMatch && gameRoomId && functions) {
+              console.log('[gameListener] Opponent disconnected in wagered match - claiming forfeit win');
+              const forfeitGameFn = functions.httpsCallable('forfeitGame');
+              forfeitGameFn({ gameId: gameRoomId, reason: 'disconnect', claimWin: true })
+                .then(result => {
+                  console.log('[forfeitGame] Result:', result.data);
+                  if (result.data.success) {
+                    const payout = result.data.winnerPayout || 0;
+                    alert(`${sanitizeName(opponent.name)} has disconnected. You win ${payout} coins!`);
+                  } else {
+                    alert(`${sanitizeName(opponent.name)} has disconnected. Returning to menu.`);
+                  }
+                  // Clear escrow state
+                  setCurrentEscrowId(null);
+                  setIsWageredMatch(false);
+                })
+                .catch(err => {
+                  console.error('[forfeitGame] Error:', err);
+                  alert(`${sanitizeName(opponent.name)} has disconnected. Returning to menu.`);
+                });
+            } else {
+              alert(`${sanitizeName(opponent.name)} has disconnected. Returning to menu.`);
+            }
+
             // Delete the game since opponent already left - prevents stale games
             const gameRefToDelete = gameRoomRef.current;
             if (gameRefToDelete) {
