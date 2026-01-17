@@ -1665,8 +1665,8 @@
               // This shouldn't happen, but if it does, add ourselves to queue instead
               const myQueueEntry = {
                 playerId: myPlayerId,
-                name: sanitizeName(playerSetup.names[0]) || 'Player 1',
-                flag: sanitizeFlag(playerSetup.flags[0]) || '🌍',
+                name: sanitizeName(userProfile?.displayName || currentUser?.displayName) || 'Player',
+                flag: sanitizeFlag(userProfile?.flag) || '🌍',
                 timestamp: firebase.database.ServerValue.TIMESTAMP
               };
               queueRef.child(myPlayerId).set(myQueueEntry);
@@ -1691,8 +1691,8 @@
                 player1Name: sanitizeName(opponentData.name),
                 player1Flag: sanitizeFlag(opponentData.flag),
                 player2Id: myPlayerId,
-                player2Name: sanitizeName(playerSetup.names[0]) || 'Player 2',
-                player2Flag: sanitizeFlag(playerSetup.flags[0]) || '🌍',
+                player2Name: sanitizeName(userProfile?.displayName || currentUser?.displayName) || 'Player',
+                player2Flag: sanitizeFlag(userProfile?.flag) || '🌍',
                 gameMode: playerSetup.gameMode,
                 isWagered: false
               });
@@ -1740,11 +1740,11 @@
             }
 
           } else {
-            // No opponent found - add self to queue
+            // No opponent found - add self to queue with profile name
             const myQueueEntry = {
               playerId: myPlayerId,
-              name: sanitizeName(playerSetup.names[0]) || 'Player 1',
-              flag: sanitizeFlag(playerSetup.flags[0]) || '🌍',
+              name: sanitizeName(userProfile?.displayName || currentUser?.displayName) || 'Player',
+              flag: sanitizeFlag(userProfile?.flag) || '🌍',
               timestamp: firebase.database.ServerValue.TIMESTAMP
             };
 
@@ -1867,8 +1867,8 @@
                             player1Name: sanitizeName(otherPlayer.name),
                             player1Flag: sanitizeFlag(otherPlayer.flag),
                             player2Id: myPlayerId,
-                            player2Name: sanitizeName(playerSetup.names[0]) || 'Player 2',
-                            player2Flag: sanitizeFlag(playerSetup.flags[0]) || '🌍',
+                            player2Name: sanitizeName(userProfile?.displayName || currentUser?.displayName) || 'Player',
+                            player2Flag: sanitizeFlag(userProfile?.flag) || '🌍',
                             gameMode: playerSetup.gameMode,
                             isWagered: false
                           });
@@ -3937,8 +3937,8 @@
                   player1Name: sanitizeName(opponentData.name),
                   player1Flag: sanitizeFlag(opponentData.flag),
                   player2Id: myPlayerId,
-                  player2Name: sanitizeName(playerSetup.names[0]) || 'Player 2',
-                  player2Flag: sanitizeFlag(playerSetup.flags[0]) || '🌍',
+                  player2Name: sanitizeName(userProfile?.displayName || currentUser?.displayName) || 'Player',
+                  player2Flag: sanitizeFlag(userProfile?.flag) || '🌍',
                   gameMode: playerSetup.gameMode,
                   isWagered: true,
                   escrowId: opponentData.escrowId,
@@ -3955,8 +3955,8 @@
                 // (Don't remove yet - they need to see this update to find the game)
                 await wageredQueueRef.child(opponentData.playerId).update({
                   matchedGameId: roomId,
-                  matchedByName: sanitizeName(playerSetup.names[0]) || 'Player 2',
-                  matchedByFlag: sanitizeFlag(playerSetup.flags[0]) || '🌍'
+                  matchedByName: sanitizeName(userProfile?.displayName || currentUser?.displayName) || 'Player',
+                  matchedByFlag: sanitizeFlag(userProfile?.flag) || '🌍'
                 });
                 setGameRoomId(roomId);
                 gameRoomRef.current = database.ref(`games/${roomId}`);
@@ -4010,11 +4010,11 @@
           setCurrentEscrowId(escrowId);
           setCoinBalance(escrowResult.data.newBalance);
 
-          // Add self to wagered queue
+          // Add self to wagered queue - use profile name, not default "Player 1"
           const myQueueEntry = {
             playerId: myPlayerId,
-            name: sanitizeName(playerSetup.names[0]) || 'Player 1',
-            flag: sanitizeFlag(playerSetup.flags[0]) || '🌍',
+            name: sanitizeName(userProfile?.displayName || currentUser?.displayName) || 'Player',
+            flag: sanitizeFlag(userProfile?.flag) || '🌍',
             timestamp: firebase.database.ServerValue.TIMESTAMP,
             escrowId: escrowId,
             stakeAmount: selectedStake
@@ -4216,8 +4216,8 @@
                   player1Name: sanitizeName(opponent.name),
                   player1Flag: sanitizeFlag(opponent.flag),
                   player2Id: myPlayerId,
-                  player2Name: sanitizeName(playerSetup.names[0]) || 'Player 2',
-                  player2Flag: sanitizeFlag(playerSetup.flags[0]) || '🌍',
+                  player2Name: sanitizeName(userProfile?.displayName || currentUser?.displayName) || 'Player',
+                  player2Flag: sanitizeFlag(userProfile?.flag) || '🌍',
                   gameMode: playerSetup.gameMode,
                   isWagered: true,
                   escrowId: opponent.escrowId,
@@ -4233,8 +4233,8 @@
                 // Notify opponent by updating their queue entry with matchedGameId
                 await wageredQueueRef.child(opponent.playerId).update({
                   matchedGameId: roomId,
-                  matchedByName: sanitizeName(playerSetup.names[0]) || 'Player 2',
-                  matchedByFlag: sanitizeFlag(playerSetup.flags[0]) || '🌍'
+                  matchedByName: sanitizeName(userProfile?.displayName || currentUser?.displayName) || 'Player',
+                  matchedByFlag: sanitizeFlag(userProfile?.flag) || '🌍'
                 });
 
                 // Clean up our entry, listener, interval, and timeout
