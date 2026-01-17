@@ -1208,7 +1208,14 @@
       const [unlockedAchievements, setUnlockedAchievements] = useState(() => {
         try {
           const saved = localStorage.getItem('quikdarts_achievements');
-          return saved ? JSON.parse(saved) : [];
+          if (saved) {
+            const parsed = JSON.parse(saved);
+            // Validate: only keep IDs that exist in ACHIEVEMENTS_DATA
+            return Array.isArray(parsed) ? parsed.filter(id =>
+              typeof id === 'string' && ACHIEVEMENTS_DATA.some(a => a.id === id)
+            ) : [];
+          }
+          return [];
         } catch (error) {
           console.error('Failed to load achievements from localStorage:', error);
           return [];
@@ -1216,6 +1223,7 @@
       });
       const [achievementPopup, setAchievementPopup] = useState(null); // Currently showing achievement
       const [showAchievements, setShowAchievements] = useState(false); // Show achievements gallery
+      const [achievementTab, setAchievementTab] = useState('offline'); // 'offline' | 'online'
       const [showLoginModal, setShowLoginModal] = useState(false); // Show login modal
       const [currentUser, setCurrentUser] = useState(null); // Current signed-in user
 
@@ -6097,22 +6105,95 @@
                 <button className="btn btn-ghost" onClick={() => setShowAchievements(false)} style={{ padding: '12px 24px' }}>Back</button>
               </div>
 
-              {/* Progress Card */}
+              {/* Achievement Category Tabs */}
               <div style={{
+                display: 'flex',
+                gap: '8px',
+                marginBottom: '24px',
                 background: COLORS.backgroundCard,
                 borderRadius: '12px',
-                padding: '24px',
-                marginBottom: '32px',
+                padding: '6px',
                 border: '1px solid rgba(255, 255, 255, 0.05)'
               }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                  <span style={{ color: COLORS.textMuted, fontSize: '0.9rem' }}>Progress</span>
-                  <span style={{ color: COLORS.accent, fontSize: '1rem', fontWeight: '600' }}>{unlockedAchievements.length} / {ACHIEVEMENTS_DATA.length}</span>
-                </div>
-                <div style={{ background: 'rgba(255, 255, 255, 0.1)', borderRadius: '8px', height: '8px', overflow: 'hidden' }}>
-                  <div style={{ background: `linear-gradient(90deg, ${COLORS.accent}, ${COLORS.accentLight})`, height: '100%', width: `${(unlockedAchievements.length / ACHIEVEMENTS_DATA.length) * 100}%`, transition: 'width 0.5s', borderRadius: '8px' }}></div>
-                </div>
+                {['offline', 'online'].map(tab => {
+                  const isActive = achievementTab === tab;
+                  const tabAchievements = ACHIEVEMENTS_DATA.filter(a => a.mode === tab);
+                  const tabUnlocked = unlockedAchievements.filter(id =>
+                    ACHIEVEMENTS_DATA.find(a => a.id === id)?.mode === tab
+                  );
+                  return (
+                    <button
+                      key={tab}
+                      onClick={() => setAchievementTab(tab)}
+                      style={{
+                        flex: 1,
+                        padding: '14px 20px',
+                        borderRadius: '8px',
+                        border: 'none',
+                        cursor: 'pointer',
+                        fontWeight: '600',
+                        fontSize: '0.95rem',
+                        fontFamily: "'Inter', sans-serif",
+                        transition: 'all 0.2s ease',
+                        background: isActive
+                          ? tab === 'offline'
+                            ? `linear-gradient(135deg, ${COLORS.accent}, ${COLORS.accentDark})`
+                            : 'linear-gradient(135deg, #60a5fa, #3b82f6)'
+                          : 'transparent',
+                        color: isActive ? (tab === 'offline' ? COLORS.textDark : '#fff') : COLORS.textMuted
+                      }}
+                    >
+                      <span style={{ marginRight: '8px' }}>{tab === 'offline' ? '🎮' : '🌍'}</span>
+                      {tab === 'offline' ? 'Offline' : 'Online'}
+                      <span style={{ marginLeft: '8px', fontSize: '0.8rem', opacity: 0.9 }}>
+                        {tabUnlocked.length}/{tabAchievements.length}
+                      </span>
+                    </button>
+                  );
+                })}
               </div>
+
+              {/* Progress Card - Tab-Specific */}
+              {(() => {
+                const tabAchievements = ACHIEVEMENTS_DATA.filter(a => a.mode === achievementTab);
+                const tabUnlocked = unlockedAchievements.filter(id =>
+                  ACHIEVEMENTS_DATA.find(a => a.id === id)?.mode === achievementTab
+                );
+                const progress = tabAchievements.length > 0 ? (tabUnlocked.length / tabAchievements.length) * 100 : 0;
+
+                return (
+                  <div style={{
+                    background: COLORS.backgroundCard,
+                    borderRadius: '12px',
+                    padding: '24px',
+                    marginBottom: '32px',
+                    border: '1px solid rgba(255, 255, 255, 0.05)'
+                  }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                      <span style={{ color: COLORS.textMuted, fontSize: '0.9rem' }}>
+                        {achievementTab === 'offline' ? 'Offline Progress' : 'Online Progress'}
+                      </span>
+                      <span style={{ color: achievementTab === 'offline' ? COLORS.accent : '#60a5fa', fontSize: '1rem', fontWeight: '600' }}>
+                        {tabUnlocked.length} / {tabAchievements.length}
+                      </span>
+                    </div>
+                    <div style={{ background: 'rgba(255, 255, 255, 0.1)', borderRadius: '8px', height: '8px', overflow: 'hidden' }}>
+                      <div style={{
+                        background: achievementTab === 'offline'
+                          ? `linear-gradient(90deg, ${COLORS.accent}, ${COLORS.accentLight})`
+                          : 'linear-gradient(90deg, #60a5fa, #93c5fd)',
+                        height: '100%',
+                        width: `${progress}%`,
+                        transition: 'width 0.5s',
+                        borderRadius: '8px'
+                      }}></div>
+                    </div>
+                    <div style={{ marginTop: '8px', fontSize: '0.75rem', color: COLORS.textMuted, textAlign: 'right' }}>
+                      Total: {unlockedAchievements.length} / {ACHIEVEMENTS_DATA.length}
+                    </div>
+                  </div>
+                );
+              })()}
 
               {/* Weekly Challenge Section */}
               {(() => {
@@ -6250,13 +6331,15 @@
                 </div>
               </div>
 
-              {/* Almost There Section - Achievements at 70-95% */}
+              {/* Almost There Section - Achievements at 70-95% (filtered by current tab) */}
               {(() => {
-                const almostThereAchievements = ACHIEVEMENTS_DATA.filter(achievement => {
-                  if (unlockedAchievements.includes(achievement.id)) return false;
-                  const progress = getAchievementProgress(achievement, achievementStats);
-                  return progress && progress.progress >= 0.7 && progress.progress < 1;
-                });
+                const almostThereAchievements = ACHIEVEMENTS_DATA
+                  .filter(a => a.mode === achievementTab)
+                  .filter(achievement => {
+                    if (unlockedAchievements.includes(achievement.id)) return false;
+                    const progress = getAchievementProgress(achievement, achievementStats);
+                    return progress && progress.progress >= 0.7 && progress.progress < 1;
+                  });
 
                 if (almostThereAchievements.length === 0) return null;
 
@@ -6317,9 +6400,15 @@
                 );
               })()}
 
-              {/* Achievements Grid */}
+              {/* Achievements Grid - Filtered by Tab */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
+                <span style={{ fontSize: '1.25rem' }}>{achievementTab === 'offline' ? '🎮' : '🌍'}</span>
+                <h2 style={{ color: COLORS.text, fontSize: '1.1rem', fontWeight: '600', margin: 0 }}>
+                  {achievementTab === 'offline' ? 'Offline Achievements' : 'Online Achievements'}
+                </h2>
+              </div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '16px' }}>
-                {ACHIEVEMENTS_DATA.map(achievement => {
+                {ACHIEVEMENTS_DATA.filter(a => a.mode === achievementTab).map(achievement => {
                   const isUnlocked = unlockedAchievements.includes(achievement.id);
                   const progressData = !isUnlocked ? getAchievementProgress(achievement, achievementStats) : null;
                   const rarityStyle = getRarityCardStyle(achievement.rarity, isUnlocked);
