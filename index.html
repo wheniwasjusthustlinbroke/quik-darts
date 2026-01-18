@@ -846,6 +846,95 @@
       />
     );
 
+    // ============================================
+    // MATCHMAKING OVERLAY COMPONENT
+    // ============================================
+    const MatchmakingOverlay = ({ visible, stage, isWagered, stakeAmount, you, opponent, onCancel }) => {
+      if (!visible) return null;
+
+      return (
+        <div className="qd-mmBackdrop" role="dialog" aria-modal="true">
+          {stage === 'searching' && (
+            <div className="qd-mmCard">
+              <div className="qd-mmIcon">🌍</div>
+              <div className="qd-mmTitle">FINDING OPPONENT…</div>
+              <div className="qd-mmSub">Searching for players worldwide</div>
+              {isWagered && stakeAmount > 0 && (
+                <div className="qd-mmHint">
+                  WAGERED MATCH • Stake locked: <strong>{stakeAmount?.toLocaleString()}</strong>
+                </div>
+              )}
+              <div className="qd-mmDots" aria-hidden="true">
+                <span /><span /><span />
+              </div>
+              <button className="qd-mmBtn" onClick={onCancel}>CANCEL</button>
+            </div>
+          )}
+
+          {stage === 'found' && opponent && (
+            <div className="qd-mmCard">
+              <div className="qd-mmIcon">✓</div>
+              <div className="qd-mmTitle green">OPPONENT FOUND!</div>
+              <div className="qd-mmOpponent">
+                <div className="qd-mmAvatar">
+                  {opponent.avatarUrl ? (
+                    <img src={opponent.avatarUrl} alt="" />
+                  ) : (
+                    <div className="qd-mmAvatarFallback">
+                      {opponent.name?.slice(0,1)?.toUpperCase() || '?'}
+                    </div>
+                  )}
+                </div>
+                <div className="qd-mmName">{opponent.name}</div>
+              </div>
+              <div className="qd-mmSub">Starting game…</div>
+            </div>
+          )}
+
+          {stage === 'intro' && opponent && isWagered && (
+            <div className="qd-vsWrap">
+              <div className="qd-vsPlayer left">
+                <div className="qd-vsAvatar">
+                  {you.avatarUrl ? (
+                    <img src={you.avatarUrl} alt="" />
+                  ) : (
+                    <div className="qd-vsAvatarFallback">
+                      {you.name?.slice(0,1)?.toUpperCase() || '?'}
+                    </div>
+                  )}
+                </div>
+                <div className="qd-vsName">{you.name}</div>
+                <div className="qd-vsLvl">Lv.{you.level}</div>
+              </div>
+
+              <div className="qd-vsCenter">
+                <div className="qd-vsText">VS</div>
+                <div className="qd-vsPot">
+                  <StakeChipIcon size={86} className="qd-vsChip" />
+                  <div className="qd-vsPotLabel">MATCH STAKE</div>
+                  <div className="qd-vsPotAmount">{stakeAmount?.toLocaleString()}</div>
+                </div>
+              </div>
+
+              <div className="qd-vsPlayer right">
+                <div className="qd-vsAvatar">
+                  {opponent.avatarUrl ? (
+                    <img src={opponent.avatarUrl} alt="" />
+                  ) : (
+                    <div className="qd-vsAvatarFallback">
+                      {opponent.name?.slice(0,1)?.toUpperCase() || '?'}
+                    </div>
+                  )}
+                </div>
+                <div className="qd-vsName">{opponent.name}</div>
+                <div className="qd-vsLvl">Lv.{opponent.level}</div>
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    };
+
     // Format coin balance with commas
     const formatCoins = (amount) => {
       return amount.toLocaleString();
@@ -5697,9 +5786,9 @@
             isWagered={isWageredMatch}
             stakeAmount={selectedStake * 2}
             you={{
-              name: userProfile?.displayName || 'You',
-              level: userProgression?.level || 1,
-              avatarUrl: userProfile?.avatar
+              name: sanitizeName(userProfile?.displayName) || 'You',
+              level: sanitizeLevel(userProgression?.level) || 1,
+              avatarUrl: sanitizeAvatarUrl(userProfile?.avatar)
             }}
             opponent={opponentName ? {
               name: opponentName,
@@ -7345,95 +7434,6 @@
           </div>
         </nav>
       );
-
-      // ============================================
-      // MATCHMAKING OVERLAY COMPONENT
-      // ============================================
-      const MatchmakingOverlay = ({ visible, stage, isWagered, stakeAmount, you, opponent, onCancel }) => {
-        if (!visible) return null;
-
-        return (
-          <div className="qd-mmBackdrop" role="dialog" aria-modal="true">
-            {stage === 'searching' && (
-              <div className="qd-mmCard">
-                <div className="qd-mmIcon">🌍</div>
-                <div className="qd-mmTitle">FINDING OPPONENT…</div>
-                <div className="qd-mmSub">Searching for players worldwide</div>
-                {isWagered && stakeAmount > 0 && (
-                  <div className="qd-mmHint">
-                    WAGERED MATCH • Stake locked: <strong>{stakeAmount?.toLocaleString()}</strong>
-                  </div>
-                )}
-                <div className="qd-mmDots" aria-hidden="true">
-                  <span /><span /><span />
-                </div>
-                <button className="qd-mmBtn" onClick={onCancel}>CANCEL</button>
-              </div>
-            )}
-
-            {stage === 'found' && opponent && (
-              <div className="qd-mmCard">
-                <div className="qd-mmIcon">✓</div>
-                <div className="qd-mmTitle green">OPPONENT FOUND!</div>
-                <div className="qd-mmOpponent">
-                  <div className="qd-mmAvatar">
-                    {opponent.avatarUrl ? (
-                      <img src={opponent.avatarUrl} alt="" />
-                    ) : (
-                      <div className="qd-mmAvatarFallback">
-                        {opponent.name?.slice(0,1)?.toUpperCase() || '?'}
-                      </div>
-                    )}
-                  </div>
-                  <div className="qd-mmName">{opponent.name}</div>
-                </div>
-                <div className="qd-mmSub">Starting game…</div>
-              </div>
-            )}
-
-            {stage === 'intro' && opponent && isWagered && (
-              <div className="qd-vsWrap">
-                <div className="qd-vsPlayer left">
-                  <div className="qd-vsAvatar">
-                    {you.avatarUrl ? (
-                      <img src={you.avatarUrl} alt="" />
-                    ) : (
-                      <div className="qd-vsAvatarFallback">
-                        {you.name?.slice(0,1)?.toUpperCase() || '?'}
-                      </div>
-                    )}
-                  </div>
-                  <div className="qd-vsName">{you.name}</div>
-                  <div className="qd-vsLvl">Lv.{you.level}</div>
-                </div>
-
-                <div className="qd-vsCenter">
-                  <div className="qd-vsText">VS</div>
-                  <div className="qd-vsPot">
-                    <StakeChipIcon size={86} className="qd-vsChip" />
-                    <div className="qd-vsPotLabel">MATCH STAKE</div>
-                    <div className="qd-vsPotAmount">{stakeAmount?.toLocaleString()}</div>
-                  </div>
-                </div>
-
-                <div className="qd-vsPlayer right">
-                  <div className="qd-vsAvatar">
-                    {opponent.avatarUrl ? (
-                      <img src={opponent.avatarUrl} alt="" />
-                    ) : (
-                      <div className="qd-vsAvatarFallback">
-                        {opponent.name?.slice(0,1)?.toUpperCase() || '?'}
-                      </div>
-                    )}
-                  </div>
-                  <div className="qd-vsName">{opponent.name}</div>
-                  <div className="qd-vsLvl">Lv.{opponent.level}</div>
-                </div>
-              </div>
-            )}
-          </div>
-        );
-      };
 
       // ============================================
       // WAGERED MATCH HEADER COMPONENT
