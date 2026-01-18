@@ -420,6 +420,7 @@
       backdrop-filter: blur(8px);
       -webkit-backdrop-filter: blur(8px);
       z-index: 9999;
+      pointer-events: auto; /* Prevent clicks passing through to background */
     }
 
     /* Matchmaking Card */
@@ -850,14 +851,64 @@
     // MATCHMAKING OVERLAY COMPONENT
     // ============================================
     const MatchmakingOverlay = ({ visible, stage, isWagered, stakeAmount, you, opponent, onCancel }) => {
+      const backdropRef = useRef(null);
+      const cancelBtnRef = useRef(null);
+      const previousFocusRef = useRef(null);
+      const [youAvatarError, setYouAvatarError] = useState(false);
+      const [opponentAvatarError, setOpponentAvatarError] = useState(false);
+
+      // Focus trap: capture focus when modal opens, restore on close
+      useEffect(() => {
+        if (visible) {
+          previousFocusRef.current = document.activeElement;
+          // Focus cancel button when in searching stage
+          if (stage === 'searching' && cancelBtnRef.current) {
+            cancelBtnRef.current.focus();
+          }
+        } else {
+          // Restore focus when modal closes
+          if (previousFocusRef.current && typeof previousFocusRef.current.focus === 'function') {
+            previousFocusRef.current.focus();
+          }
+        }
+      }, [visible, stage]);
+
+      // Reset avatar errors when opponent changes
+      useEffect(() => {
+        setOpponentAvatarError(false);
+        setYouAvatarError(false);
+      }, [opponent?.avatarUrl, you?.avatarUrl]);
+
+      // Keyboard escape handler
+      const handleKeyDown = (e) => {
+        if (e.key === 'Escape' && stage === 'searching') {
+          onCancel();
+        }
+      };
+
+      // Prevent clicks on backdrop from passing through
+      const handleBackdropClick = (e) => {
+        if (e.target === e.currentTarget && stage === 'searching') {
+          onCancel();
+        }
+      };
+
       if (!visible) return null;
 
       return (
-        <div className="qd-mmBackdrop" role="dialog" aria-modal="true">
+        <div
+          ref={backdropRef}
+          className="qd-mmBackdrop"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="mm-title"
+          onKeyDown={handleKeyDown}
+          onClick={handleBackdropClick}
+        >
           {stage === 'searching' && (
             <div className="qd-mmCard">
               <div className="qd-mmIcon">🌍</div>
-              <div className="qd-mmTitle">FINDING OPPONENT…</div>
+              <div id="mm-title" className="qd-mmTitle">FINDING OPPONENT…</div>
               <div className="qd-mmSub">Searching for players worldwide</div>
               {isWagered && stakeAmount > 0 && (
                 <div className="qd-mmHint">
@@ -867,18 +918,22 @@
               <div className="qd-mmDots" aria-hidden="true">
                 <span /><span /><span />
               </div>
-              <button className="qd-mmBtn" onClick={onCancel}>CANCEL</button>
+              <button ref={cancelBtnRef} className="qd-mmBtn" onClick={onCancel}>CANCEL</button>
             </div>
           )}
 
           {stage === 'found' && opponent && (
             <div className="qd-mmCard">
               <div className="qd-mmIcon">✓</div>
-              <div className="qd-mmTitle green">OPPONENT FOUND!</div>
+              <div id="mm-title" className="qd-mmTitle green">OPPONENT FOUND!</div>
               <div className="qd-mmOpponent">
                 <div className="qd-mmAvatar">
-                  {opponent.avatarUrl ? (
-                    <img src={opponent.avatarUrl} alt="" />
+                  {opponent.avatarUrl && !opponentAvatarError ? (
+                    <img
+                      src={opponent.avatarUrl}
+                      alt={`${opponent.name}'s avatar`}
+                      onError={() => setOpponentAvatarError(true)}
+                    />
                   ) : (
                     <div className="qd-mmAvatarFallback">
                       {opponent.name?.slice(0,1)?.toUpperCase() || '?'}
@@ -895,8 +950,12 @@
             <div className="qd-vsWrap">
               <div className="qd-vsPlayer left">
                 <div className="qd-vsAvatar">
-                  {you.avatarUrl ? (
-                    <img src={you.avatarUrl} alt="" />
+                  {you.avatarUrl && !youAvatarError ? (
+                    <img
+                      src={you.avatarUrl}
+                      alt={`${you.name}'s avatar`}
+                      onError={() => setYouAvatarError(true)}
+                    />
                   ) : (
                     <div className="qd-vsAvatarFallback">
                       {you.name?.slice(0,1)?.toUpperCase() || '?'}
@@ -918,8 +977,12 @@
 
               <div className="qd-vsPlayer right">
                 <div className="qd-vsAvatar">
-                  {opponent.avatarUrl ? (
-                    <img src={opponent.avatarUrl} alt="" />
+                  {opponent.avatarUrl && !opponentAvatarError ? (
+                    <img
+                      src={opponent.avatarUrl}
+                      alt={`${opponent.name}'s avatar`}
+                      onError={() => setOpponentAvatarError(true)}
+                    />
                   ) : (
                     <div className="qd-vsAvatarFallback">
                       {opponent.name?.slice(0,1)?.toUpperCase() || '?'}
@@ -988,6 +1051,14 @@
     const DOUBLE_OUTER = 215;
     const OUTER_BULL = 20;
     const INNER_BULL = 10;
+
+    // ============================================
+    // MATCHMAKING TIMING CONSTANTS
+    // ============================================
+    const MATCHMAKING_TIMINGS = Object.freeze({
+      FOUND_TO_INTRO_DELAY_MS: 700,   // Delay after finding opponent before showing VS intro
+      INTRO_DURATION_MS: 2500         // Duration of VS intro screen
+    });
 
     // ============================================
     // DARTBOARD THEME SYSTEM
@@ -1867,6 +1938,10 @@
       useEffect(() => {
         if (matchmakingState !== 'found' || !pendingGameInfo) return;
 
+        // Respect reduced motion preference
+        const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        const delay = prefersReducedMotion ? 0 : MATCHMAKING_TIMINGS.FOUND_TO_INTRO_DELAY_MS;
+
         const timer = setTimeout(() => {
           if (isWageredMatch) {
             // Wagered: show VS intro screen
@@ -1876,7 +1951,7 @@
             startOnlineGame(pendingGameInfo.roomId, pendingGameInfo.playerIndex);
             setPendingGameInfo(null);
           }
-        }, 700);
+        }, delay);
 
         return () => clearTimeout(timer);
       }, [matchmakingState, pendingGameInfo, isWageredMatch]);
@@ -1885,10 +1960,14 @@
       useEffect(() => {
         if (matchmakingState !== 'intro' || !pendingGameInfo) return;
 
+        // Respect reduced motion preference - skip intro for users who prefer reduced motion
+        const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        const delay = prefersReducedMotion ? 0 : MATCHMAKING_TIMINGS.INTRO_DURATION_MS;
+
         const timer = setTimeout(() => {
           startOnlineGame(pendingGameInfo.roomId, pendingGameInfo.playerIndex);
           setPendingGameInfo(null);
-        }, 2500);
+        }, delay);
 
         return () => clearTimeout(timer);
       }, [matchmakingState, pendingGameInfo]);
