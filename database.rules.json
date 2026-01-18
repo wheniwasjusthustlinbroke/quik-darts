@@ -56,7 +56,7 @@
         ".indexOn": ["timestamp"],
         "$playerId": {
           ".write": "auth != null && auth.uid === $playerId",
-          ".validate": "!newData.exists() || (newData.hasChildren(['playerId', 'name', 'flag', 'timestamp']) && newData.child('playerId').val() === $playerId && newData.child('name').isString() && newData.child('name').val().length >= 1 && newData.child('name').val().length <= 20 && newData.child('flag').isString() && newData.child('flag').val().length <= 50)",
+          ".validate": "!newData.exists() || (newData.hasChildren(['playerId', 'name', 'flag', 'timestamp']) && newData.child('playerId').val() === $playerId && newData.child('name').isString() && newData.child('name').val().length >= 1 && newData.child('name').val().length <= 20 && newData.child('flag').isString() && newData.child('flag').val().length <= 50 && (!newData.hasChild('level') || (newData.child('level').isNumber() && newData.child('level').val() >= 1 && newData.child('level').val() <= 999)) && (!newData.hasChild('avatarUrl') || (newData.child('avatarUrl').isString() && newData.child('avatarUrl').val().length <= 500 && newData.child('avatarUrl').val().beginsWith('https://'))))",
           "matchedGameId": {
             ".write": "auth != null",
             ".validate": "newData.isString() && newData.val().length >= 10 && newData.val().length <= 50"
@@ -68,6 +68,14 @@
           "matchedByFlag": {
             ".write": "auth != null",
             ".validate": "newData.isString() && newData.val().length <= 50"
+          },
+          "matchedByLevel": {
+            ".write": "auth != null",
+            ".validate": "newData.isNumber() && newData.val() >= 1 && newData.val() <= 999"
+          },
+          "matchedByAvatar": {
+            ".write": "auth != null",
+            ".validate": "newData.isString() && newData.val().length <= 500 && newData.val().beginsWith('https://')"
           }
         }
       },
@@ -77,7 +85,7 @@
           ".indexOn": ["timestamp"],
           "$playerId": {
             ".write": "auth != null && auth.uid === $playerId && auth.token.firebase.sign_in_provider != 'anonymous'",
-            ".validate": "!newData.exists() || (newData.hasChildren(['playerId', 'name', 'flag', 'timestamp']) && newData.child('playerId').val() === $playerId && newData.child('name').isString() && newData.child('name').val().length >= 1 && newData.child('name').val().length <= 20 && newData.child('flag').isString() && newData.child('flag').val().length <= 50 && ($stakeLevel === '50' || $stakeLevel === '100' || $stakeLevel === '500' || $stakeLevel === '2500'))",
+            ".validate": "!newData.exists() || (newData.hasChildren(['playerId', 'name', 'flag', 'timestamp']) && newData.child('playerId').val() === $playerId && newData.child('name').isString() && newData.child('name').val().length >= 1 && newData.child('name').val().length <= 20 && newData.child('flag').isString() && newData.child('flag').val().length <= 50 && ($stakeLevel === '50' || $stakeLevel === '100' || $stakeLevel === '500' || $stakeLevel === '2500') && (!newData.hasChild('level') || (newData.child('level').isNumber() && newData.child('level').val() >= 1 && newData.child('level').val() <= 999)) && (!newData.hasChild('avatarUrl') || (newData.child('avatarUrl').isString() && newData.child('avatarUrl').val().length <= 500 && newData.child('avatarUrl').val().beginsWith('https://'))))",
             "matchedGameId": {
               ".write": "auth != null && auth.token.firebase.sign_in_provider != 'anonymous'",
               ".validate": "newData.isString() && newData.val().length >= 10 && newData.val().length <= 50"
@@ -89,6 +97,14 @@
             "matchedByFlag": {
               ".write": "auth != null && auth.token.firebase.sign_in_provider != 'anonymous'",
               ".validate": "newData.isString() && newData.val().length <= 50"
+            },
+            "matchedByLevel": {
+              ".write": "auth != null && auth.token.firebase.sign_in_provider != 'anonymous'",
+              ".validate": "newData.isNumber() && newData.val() >= 1 && newData.val() <= 999"
+            },
+            "matchedByAvatar": {
+              ".write": "auth != null && auth.token.firebase.sign_in_provider != 'anonymous'",
+              ".validate": "newData.isString() && newData.val().length <= 500 && newData.val().beginsWith('https://')"
             }
           }
         }
