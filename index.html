@@ -392,9 +392,7 @@
       50% { opacity: 0.8; }
     }
     .animate-fade-in { animation: fadeInUp 0.6s ease forwards; }
-    .animate-delay-1 { animation-delay: 0.1s; opacity: 0; }
     .animate-delay-2 { animation-delay: 0.2s; opacity: 0; }
-    .animate-delay-3 { animation-delay: 0.3s; opacity: 0; }
 
     /* Utility */
     .sr-only {
@@ -800,12 +798,6 @@
     const PlayIcon = ({ size = 20 }) => (
       <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
         <path d="M8 5v14l11-7z"/>
-      </svg>
-    );
-
-    const BookIcon = ({ size = 20 }) => (
-      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden="true" style={{ marginRight: '8px', flexShrink: 0 }}>
-        <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20M4 19.5A2.5 2.5 0 0 0 6.5 22H20V2H6.5A2.5 2.5 0 0 0 4 4.5v15z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
       </svg>
     );
 
@@ -1765,7 +1757,6 @@
       // Tiered Optimistic UI state for wagered matches
       const [scoreConfirming, setScoreConfirming] = useState(false); // Show "Confirming..." on score
       const [rhythmState, setRhythmState] = useState('neutral'); // 'flow' | 'perfect' | 'neutral' | 'rushing' | 'hesitating'
-      const [pendingDartCorrection, setPendingDartCorrection] = useState(null); // For dart position correction animation
 
       const [achievementStats, setAchievementStats] = useState(() => {
         try {
@@ -2700,7 +2691,12 @@
 
         roomRef.on('value', (snapshot) => {
           const gameData = snapshot.val();
-          if (!gameData) return;
+          // Validate game state completeness before processing
+          // Prevents race conditions where partial data is read before game is fully initialized
+          if (!gameData || !gameData.player1 || !gameData.player2 || !gameData.gameMode) {
+            console.log('[gameListener] Waiting for complete game data...');
+            return;
+          }
 
           // Log game state updates for debugging
           console.log('[gameListener] Update received:', {
@@ -9156,13 +9152,6 @@
             @keyframes confirmingPulse {
               0%, 100% { opacity: 0.5; }
               50% { opacity: 1; }
-            }
-
-            /* Dart Position Correction Animation */
-            @keyframes dartCorrection {
-              0% { transform: translate(0, 0); }
-              50% { transform: translate(var(--correction-dx), var(--correction-dy)); opacity: 0.7; }
-              100% { transform: translate(var(--correction-dx), var(--correction-dy)); opacity: 1; }
             }
 
             /* Epic Nine-Darter Star Animations */
