@@ -2776,8 +2776,8 @@
               name: sanitizeName(gameData.player1.name),
               flag: sanitizeFlag(gameData.player1.flag),
               score: validateScore(gameData.player1.score, validatedGameMode),
-              level: gameData.player1.level || 1,
-              avatarUrl: gameData.player1.avatarUrl || null,
+              level: sanitizeLevel(gameData.player1.level) || 1,
+              avatarUrl: sanitizeAvatarUrl(gameData.player1.avatarUrl) || null,
               isAI: false
             },
             {
@@ -2785,8 +2785,8 @@
               name: sanitizeName(gameData.player2.name),
               flag: sanitizeFlag(gameData.player2.flag),
               score: validateScore(gameData.player2.score, validatedGameMode),
-              level: gameData.player2.level || 1,
-              avatarUrl: gameData.player2.avatarUrl || null,
+              level: sanitizeLevel(gameData.player2.level) || 1,
+              avatarUrl: sanitizeAvatarUrl(gameData.player2.avatarUrl) || null,
               isAI: false
             }
           ]);
