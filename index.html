@@ -5106,6 +5106,17 @@
                 await refundFn({ escrowId, reason: 'switching_to_opponent' });
                 console.log('[wageredMatchmaking] Refunded, now joining opponent escrow:', opponent.escrowId);
 
+                // Validate opponent's escrow is still valid before joining
+                const opponentEscrowRef = database.ref(`escrow/${opponent.escrowId}`);
+                const opponentEscrowSnap = await opponentEscrowRef.once('value');
+                const opponentEscrow = opponentEscrowSnap.val();
+
+                if (!opponentEscrow || opponentEscrow.status !== 'pending') {
+                  console.log('[wageredMatchmaking] Opponent escrow is stale or invalid, skipping:', opponentEscrow?.status);
+                  isProcessingMatch = false;
+                  return;
+                }
+
                 // Join opponent's escrow with retry logic
                 let escrowResult;
                 let retries = 3;
@@ -5126,10 +5137,12 @@
                   }
                 }
 
+                console.log('[wageredMatchmaking] Joined escrow successfully:', escrowResult.data);
                 setCurrentEscrowId(opponent.escrowId);
                 setCoinBalance(escrowResult.data.newBalance);
 
                 // Create game
+                console.log('[wageredMatchmaking] Creating game with opponent:', opponent.playerId);
                 const createGameFn = functions.httpsCallable('createGame');
                 const result = await createGameFn({
                   player1Id: opponent.playerId,
@@ -5148,6 +5161,7 @@
                   throw new Error(result.data.error || 'Failed to create game');
                 }
 
+                console.log('[wageredMatchmaking] Game created successfully:', result.data.gameId);
                 const roomId = result.data.gameId;
 
                 // Notify opponent by updating their queue entry with matchedGameId
