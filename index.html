@@ -2476,9 +2476,7 @@
                   startHeartbeat(gameRoomRef.current, 'player1', 'player2', () => {
                     stopHeartbeat();
                     alert('Opponent disconnected. Returning to menu.');
-                    if (gameRoomRef.current) {
-                      gameRoomRef.current.remove().catch(() => {});
-                    }
+                    // Game cleanup handled server-side
                     cancelMatchmaking();
                   });
 
@@ -2761,12 +2759,7 @@
               alert(`${sanitizeName(opponent.name)} has disconnected. Returning to menu.`);
             }
 
-            // Delete the game since opponent already left - prevents stale games
-            const gameRefToDelete = gameRoomRef.current;
-            if (gameRefToDelete) {
-              gameRefToDelete.remove()
-                .catch(err => console.error('Failed to delete game:', err));
-            }
+            // Game cleanup handled server-side by forfeitGame Cloud Function
             cancelMatchmaking();
             return;
           }
@@ -2864,13 +2857,7 @@
                   // Don't alert - settlement might have been done by opponent
                 });
             }
-
-            // Delete the game after 10 seconds
-            setTimeout(() => {
-              if (gameRoomRef.current) {
-                gameRoomRef.current.remove().catch(err => console.error('Failed to delete completed game:', err));
-              }
-            }, 10000);
+            // Game cleanup handled server-side by settleWageredGame
           }
         }, (error) => {
           // Handle Firebase listener errors
@@ -3518,13 +3505,7 @@
                     // Don't alert on error - settlement might have been done by opponent
                   });
               }
-
-              // Delete the game after 10 seconds (enough time for both to see result)
-              setTimeout(() => {
-                if (gameRoomRef.current) {
-                  gameRoomRef.current.remove().catch(err => console.error('Failed to delete completed game:', err));
-                }
-              }, 10000);
+              // Game cleanup handled server-side by settleWageredGame
             }
 
             // Track game completion and win (only vs AI or online, not solo play)
@@ -5029,9 +5010,7 @@
               startHeartbeat(gameRoomRef.current, 'player1', 'player2', () => {
                 stopHeartbeat();
                 alert('Opponent disconnected. Returning to menu.');
-                if (gameRoomRef.current) {
-                  gameRoomRef.current.remove().catch(() => {});
-                }
+                // Game cleanup handled server-side
                 cancelMatchmaking();
               });
 
