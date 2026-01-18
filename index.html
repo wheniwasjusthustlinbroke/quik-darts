@@ -4013,7 +4013,9 @@
           if (result.data.success) {
             // Wallet listener will update the balance
             setDailyBonusAvailable(false);
-            console.log('[claimDailyBonus] Bonus claimed successfully!');
+            console.log('[claimDailyBonus] Bonus claimed successfully! New balance:', result.data.newBalance);
+            // Show success feedback with the actual amount and new balance
+            alert(`+${result.data.coinsAwarded} coins claimed! New balance: ${result.data.newBalance}`);
           } else {
             // Show error to user
             const errorMsg = result.data.error || 'Failed to claim bonus';
@@ -6850,6 +6852,7 @@
 
         const PlayerCard = ({ player, isLeft }) => {
           const isLoading = !player?.name;
+          const isMobile = window.innerWidth < 768;
 
           if (isLoading) {
             // Skeleton placeholder
@@ -6857,21 +6860,24 @@
               <div style={{
                 display: 'flex',
                 alignItems: 'center',
-                gap: '12px',
+                gap: isMobile ? '8px' : '12px',
                 flexDirection: isLeft ? 'row' : 'row-reverse',
                 flex: 1,
-                justifyContent: isLeft ? 'flex-start' : 'flex-end'
+                justifyContent: isLeft ? 'flex-start' : 'flex-end',
+                maxWidth: 'calc(50% - 80px)',
+                minWidth: isMobile ? '100px' : '140px'
               }}>
                 <div style={{
-                  width: '44px',
-                  height: '44px',
+                  width: isMobile ? '36px' : '44px',
+                  height: isMobile ? '36px' : '44px',
                   borderRadius: '50%',
                   background: 'rgba(255,255,255,0.1)',
-                  animation: 'skeletonPulse 1.5s ease-in-out infinite'
+                  animation: 'skeletonPulse 1.5s ease-in-out infinite',
+                  flexShrink: 0
                 }} />
-                <div>
-                  <div style={{ width: '80px', height: '16px', background: 'rgba(255,255,255,0.1)', borderRadius: '4px', marginBottom: '4px' }} />
-                  <div style={{ width: '60px', height: '12px', background: 'rgba(255,255,255,0.05)', borderRadius: '4px' }} />
+                <div style={{ overflow: 'hidden' }}>
+                  <div style={{ width: '70px', height: '14px', background: 'rgba(255,255,255,0.1)', borderRadius: '4px', marginBottom: '4px' }} />
+                  <div style={{ width: '50px', height: '10px', background: 'rgba(255,255,255,0.05)', borderRadius: '4px' }} />
                 </div>
               </div>
             );
@@ -6881,15 +6887,17 @@
             <div style={{
               display: 'flex',
               alignItems: 'center',
-              gap: '12px',
+              gap: isMobile ? '8px' : '12px',
               flexDirection: isLeft ? 'row' : 'row-reverse',
               flex: 1,
-              justifyContent: isLeft ? 'flex-start' : 'flex-end'
+              justifyContent: isLeft ? 'flex-start' : 'flex-end',
+              maxWidth: 'calc(50% - 80px)',
+              minWidth: isMobile ? '100px' : '140px'
             }}>
               {/* Avatar */}
               <div style={{
-                width: '44px',
-                height: '44px',
+                width: isMobile ? '36px' : '44px',
+                height: isMobile ? '36px' : '44px',
                 borderRadius: '50%',
                 background: player.avatarUrl ? `url(${player.avatarUrl}) center/cover` : `linear-gradient(135deg, ${COLORS.primary}, ${COLORS.primaryLight})`,
                 display: 'flex',
@@ -6897,7 +6905,7 @@
                 justifyContent: 'center',
                 color: COLORS.text,
                 fontWeight: '700',
-                fontSize: '14px',
+                fontSize: isMobile ? '12px' : '14px',
                 border: `2px solid ${COLORS.accent}40`,
                 flexShrink: 0
               }}>
@@ -6905,40 +6913,43 @@
               </div>
 
               {/* Name & Level */}
-              <div style={{ textAlign: isLeft ? 'left' : 'right' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexDirection: isLeft ? 'row' : 'row-reverse' }}>
+              <div style={{ textAlign: isLeft ? 'left' : 'right', overflow: 'hidden', minWidth: 0 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexDirection: isLeft ? 'row' : 'row-reverse' }}>
                   <span style={{
                     color: COLORS.text,
-                    fontSize: '15px',
+                    fontSize: isMobile ? '13px' : '15px',
                     fontWeight: '600',
                     whiteSpace: 'nowrap',
                     overflow: 'hidden',
                     textOverflow: 'ellipsis',
-                    maxWidth: '120px'
+                    maxWidth: isMobile ? '80px' : '100px'
                   }}>
                     {truncateName(player.name)}
                   </span>
                   <span style={{
-                    background: 'rgba(255,255,255,0.1)',
-                    color: COLORS.textMuted,
-                    fontSize: '11px',
-                    fontWeight: '600',
+                    background: 'linear-gradient(135deg, rgba(255, 215, 0, 0.2), rgba(255, 180, 0, 0.15))',
+                    color: '#FFD700',
+                    fontSize: isMobile ? '9px' : '10px',
+                    fontWeight: '700',
                     padding: '2px 6px',
-                    borderRadius: '10px'
+                    borderRadius: '8px',
+                    border: '1px solid rgba(255, 215, 0, 0.2)',
+                    flexShrink: 0
                   }}>
                     Lv.{player.level || '?'}
                   </span>
                 </div>
                 <div style={{
                   color: COLORS.textMuted,
-                  fontSize: '12px',
-                  marginTop: '2px',
+                  fontSize: isMobile ? '10px' : '11px',
+                  marginTop: '3px',
                   display: 'flex',
                   alignItems: 'center',
                   gap: '4px',
                   justifyContent: isLeft ? 'flex-start' : 'flex-end'
                 }}>
-                  Stake: <CoinIcon size={12} /> {formatCompactNumber(player.stake || 0)}
+                  <CoinIcon size={isMobile ? 10 : 11} />
+                  <span style={{ fontWeight: '600' }}>{formatCompactNumber(player.stake || 0)}</span>
                 </div>
               </div>
             </div>
@@ -6951,59 +6962,66 @@
             top: 0,
             left: 0,
             right: 0,
-            height: window.innerWidth < 768 ? '64px' : '72px',
+            height: window.innerWidth < 768 ? '70px' : '76px',
             background: `linear-gradient(180deg, ${COLORS.background} 0%, ${COLORS.backgroundLight} 100%)`,
             borderBottom: `1px solid ${COLORS.accent}30`,
             display: 'flex',
             alignItems: 'center',
-            justifyContent: 'space-between',
-            padding: '0 20px',
+            justifyContent: 'flex-start',
+            padding: '0 24px',
             paddingTop: 'env(safe-area-inset-top)',
             zIndex: 1000,
-            boxSizing: 'border-box'
+            boxSizing: 'border-box',
+            gap: '12px'
           }}>
             {/* Player 1 (Left) */}
             <PlayerCard player={player1} isLeft={true} />
 
-            {/* Pot (Center) */}
+            {/* Pot (Center) - Hero Element */}
             <div style={{
               position: 'absolute',
               left: '50%',
-              transform: `translateX(-50%) ${showWinAnimation && !prefersReducedMotion ? `translateX(${animationDirection}px)` : ''}`,
+              top: '50%',
+              transform: `translate(-50%, -50%) ${showWinAnimation && !prefersReducedMotion ? `translateX(${animationDirection}px)` : ''}`,
               transition: showWinAnimation ? 'transform 900ms cubic-bezier(0.4, 0, 0.2, 1)' : 'none',
               display: 'flex',
               flexDirection: 'column',
               alignItems: 'center',
-              animation: phase === 'prematch' ? 'potPulse 650ms cubic-bezier(0.34, 1.56, 0.64, 1), potGlow 650ms ease-out' : 'none'
+              animation: phase === 'prematch' ? 'potPulse 650ms cubic-bezier(0.34, 1.56, 0.64, 1), potGlow 650ms ease-out' : 'none',
+              zIndex: 10
             }}>
               <div style={{
                 display: 'flex',
                 alignItems: 'center',
-                gap: '8px',
-                background: 'rgba(255, 215, 0, 0.1)',
-                padding: '8px 16px',
-                borderRadius: '20px',
-                boxShadow: phase === 'inmatch' ? '0 0 20px rgba(255, 215, 0, 0.5)' : '0 0 30px rgba(255, 215, 0, 0.7)'
+                gap: '10px',
+                background: 'linear-gradient(135deg, rgba(255, 215, 0, 0.2) 0%, rgba(255, 180, 0, 0.15) 100%)',
+                padding: '10px 20px',
+                borderRadius: '24px',
+                border: '1px solid rgba(255, 215, 0, 0.3)',
+                boxShadow: phase === 'inmatch'
+                  ? '0 0 20px rgba(255, 215, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.1)'
+                  : '0 0 30px rgba(255, 215, 0, 0.6), 0 4px 20px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.1)'
               }}>
-                <CoinIcon size={24} />
+                <CoinIcon size={28} />
                 <span style={{
                   color: '#FFD700',
-                  fontSize: '20px',
+                  fontSize: '24px',
                   fontWeight: '700',
                   fontFamily: "'Roboto Mono', monospace",
-                  textShadow: '0 0 10px rgba(255, 215, 0, 0.5)'
+                  textShadow: '0 0 15px rgba(255, 215, 0, 0.6), 0 2px 4px rgba(0, 0, 0, 0.3)'
                 }}>
                   {formatCompactNumber(pot || 0)}
                 </span>
               </div>
               <span style={{
-                color: COLORS.textMuted,
-                fontSize: '10px',
-                fontWeight: '600',
-                letterSpacing: '1px',
-                marginTop: '2px'
+                color: '#FFD700',
+                fontSize: '9px',
+                fontWeight: '700',
+                letterSpacing: '2px',
+                marginTop: '4px',
+                textShadow: '0 0 8px rgba(255, 215, 0, 0.4)'
               }}>
-                POT
+                PRIZE POT
               </span>
 
               {/* Win amount overlay */}

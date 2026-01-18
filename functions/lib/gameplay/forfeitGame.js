@@ -181,7 +181,7 @@ async function settleGameInternal(gameId, winnerIndex, winnerId, escrowId) {
     const totalPot = escrow.totalPot;
     // Now safe to award coins - escrow is atomically marked as released
     const walletRef = db.ref(`users/${winnerId}/wallet`);
-    await walletRef.transaction((wallet) => {
+    const walletResult = await walletRef.transaction((wallet) => {
         if (!wallet)
             return wallet;
         return {
@@ -191,6 +191,9 @@ async function settleGameInternal(gameId, winnerIndex, winnerId, escrowId) {
             version: (wallet.version || 0) + 1,
         };
     });
+    if (!walletResult.committed) {
+        console.error(`[settleGameInternal] Failed to award ${totalPot} coins to ${winnerId} - wallet transaction failed`);
+    }
     // Log transaction
     await db.ref(`users/${winnerId}/transactions`).push({
         type: 'payout',

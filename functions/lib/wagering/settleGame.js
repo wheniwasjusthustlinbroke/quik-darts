@@ -136,7 +136,7 @@ exports.settleGame = functions
             payout = escrow.totalPot;
             // Now award coins to winner (safe - escrow is already atomically marked as released)
             const walletRef = db.ref(`users/${winnerId}/wallet`);
-            await walletRef.transaction((wallet) => {
+            const walletResult = await walletRef.transaction((wallet) => {
                 if (!wallet)
                     return wallet;
                 return {
@@ -146,6 +146,9 @@ exports.settleGame = functions
                     version: (wallet.version || 0) + 1,
                 };
             });
+            if (!walletResult.committed) {
+                console.error(`[settleGame] Failed to award ${payout} coins to ${winnerId} - wallet transaction failed`);
+            }
             // Log transaction
             await db.ref(`users/${winnerId}/transactions`).push({
                 type: 'payout',
