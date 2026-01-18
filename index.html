@@ -6862,10 +6862,7 @@
                 alignItems: 'center',
                 gap: isMobile ? '8px' : '12px',
                 flexDirection: isLeft ? 'row' : 'row-reverse',
-                flex: 1,
-                justifyContent: isLeft ? 'flex-start' : 'flex-end',
-                maxWidth: 'calc(50% - 80px)',
-                minWidth: isMobile ? '100px' : '140px'
+                maxWidth: isMobile ? '140px' : '200px'
               }}>
                 <div style={{
                   width: isMobile ? '36px' : '44px',
@@ -6889,10 +6886,7 @@
               alignItems: 'center',
               gap: isMobile ? '8px' : '12px',
               flexDirection: isLeft ? 'row' : 'row-reverse',
-              flex: 1,
-              justifyContent: isLeft ? 'flex-start' : 'flex-end',
-              maxWidth: 'calc(50% - 80px)',
-              minWidth: isMobile ? '100px' : '140px'
+              maxWidth: isMobile ? '140px' : '200px'
             }}>
               {/* Avatar */}
               <div style={{
@@ -6967,12 +6961,11 @@
             borderBottom: `1px solid ${COLORS.accent}30`,
             display: 'flex',
             alignItems: 'center',
-            justifyContent: 'flex-start',
+            justifyContent: 'space-between',
             padding: '0 24px',
             paddingTop: 'env(safe-area-inset-top)',
             zIndex: 1000,
-            boxSizing: 'border-box',
-            gap: '12px'
+            boxSizing: 'border-box'
           }}>
             {/* Player 1 (Left) */}
             <PlayerCard player={player1} isLeft={true} />
