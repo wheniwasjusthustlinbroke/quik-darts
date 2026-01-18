@@ -50,6 +50,7 @@
       ".write": false
     },
     "matchmaking_queue": {
+      ".read": "auth != null",
       "casual": {
         ".read": "auth != null",
         ".indexOn": ["timestamp"],
