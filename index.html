@@ -372,6 +372,25 @@
         border-color: rgba(231, 76, 60, 1);
       }
     }
+    /* Wagered Match Header Animations */
+    @keyframes potPulse {
+      0% { transform: scale(1); }
+      50% { transform: scale(1.06); }
+      100% { transform: scale(1); }
+    }
+    @keyframes potGlow {
+      0% { box-shadow: 0 0 20px rgba(255, 215, 0, 0.5); }
+      50% { box-shadow: 0 0 30px rgba(255, 215, 0, 1); }
+      100% { box-shadow: 0 0 20px rgba(255, 215, 0, 0.7); }
+    }
+    @keyframes wagerFadeInUp {
+      0% { opacity: 0; transform: translateY(10px); }
+      100% { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes skeletonPulse {
+      0%, 100% { opacity: 0.4; }
+      50% { opacity: 0.8; }
+    }
     .animate-fade-in { animation: fadeInUp 0.6s ease forwards; }
     .animate-delay-1 { animation-delay: 0.1s; opacity: 0; }
     .animate-delay-2 { animation-delay: 0.2s; opacity: 0; }
@@ -515,6 +534,14 @@
     // Format coin balance with commas
     const formatCoins = (amount) => {
       return amount.toLocaleString();
+    };
+
+    // Format large numbers compactly (1.2M, 500K, etc.)
+    const formatCompactNumber = (num) => {
+      if (num >= 1000000) {
+        return (num / 1000000).toFixed(1).replace(/\.0$/, '') + 'M';
+      }
+      return num.toLocaleString('en-US');
     };
 
     // Design System Colors (matching CSS variables)
@@ -1254,6 +1281,7 @@
       const [currentEscrowId, setCurrentEscrowId] = useState(null); // Active escrow ID for wagered match
       const [isWageredMatch, setIsWageredMatch] = useState(false); // Is current match wagered
       const [isCreatingEscrow, setIsCreatingEscrow] = useState(false); // Creating escrow in progress
+      const [escrowData, setEscrowData] = useState(null); // Escrow data for wagered match header
 
       // Tiered Optimistic UI state for wagered matches
       const [scoreConfirming, setScoreConfirming] = useState(false); // Show "Confirming..." on score
@@ -2138,6 +2166,7 @@
                   // Clear escrow state
                   setCurrentEscrowId(null);
                   setIsWageredMatch(false);
+                  setEscrowData(null);
                 })
                 .catch(err => {
                   console.error('[forfeitGame] Error:', err);
@@ -2161,18 +2190,33 @@
           const validatedGameMode = gameData.gameMode === 301 || gameData.gameMode === 501 ? gameData.gameMode : 501;
           setPlayers([
             {
+              uid: gameData.player1.id,
               name: sanitizeName(gameData.player1.name),
               flag: sanitizeFlag(gameData.player1.flag),
               score: validateScore(gameData.player1.score, validatedGameMode),
+              level: gameData.player1.level || 1,
+              avatarUrl: gameData.player1.avatarUrl || null,
               isAI: false
             },
             {
+              uid: gameData.player2.id,
               name: sanitizeName(gameData.player2.name),
               flag: sanitizeFlag(gameData.player2.flag),
               score: validateScore(gameData.player2.score, validatedGameMode),
+              level: gameData.player2.level || 1,
+              avatarUrl: gameData.player2.avatarUrl || null,
               isAI: false
             }
           ]);
+
+          // Fetch escrow data for wagered match header
+          if (gameData.wager?.escrowId && !escrowData) {
+            database.ref(`escrow/${gameData.wager.escrowId}`).once('value', (snap) => {
+              if (snap.exists()) {
+                setEscrowData(snap.val());
+              }
+            });
+          }
 
           setCurrentPlayerIndex(validatePlayerIndex(gameData.currentPlayer));
           setDartsThrown(validateDartsThrown(gameData.dartsThrown));
@@ -2228,6 +2272,7 @@
                   // Clear escrow state
                   setCurrentEscrowId(null);
                   setIsWageredMatch(false);
+                  setEscrowData(null);
                 })
                 .catch(err => {
                   console.error('[settleGame] Error:', err);
@@ -2426,6 +2471,7 @@
         setMyAuthId(null);
         setCurrentEscrowId(null);
         setIsWageredMatch(false);
+        setEscrowData(null);
         setGameState('menu');
       }, [myAuthId, database, playerId, currentEscrowId, gameRoomId, functions, isWageredMatch]);
 
@@ -2867,6 +2913,7 @@
                     // Clear escrow state
                     setCurrentEscrowId(null);
                     setIsWageredMatch(false);
+                    setEscrowData(null);
                   })
                   .catch(err => {
                     console.error('[settleGame] Error:', err);
@@ -4294,6 +4341,7 @@
           setOnlineMode(false);
           setIsWageredMatch(false);
           setCurrentEscrowId(null);
+          setEscrowData(null);
         } finally {
           setIsCreatingEscrow(false);
         }
@@ -4602,6 +4650,7 @@
           setOnlineMode(false);
           setIsWageredMatch(false);
           setCurrentEscrowId(null);
+          setEscrowData(null);
           alert('No opponent found. Your coins have been refunded. Please try again.');
         }, 60000);
 
@@ -6750,6 +6799,220 @@
       );
 
       // ============================================
+      // WAGERED MATCH HEADER COMPONENT
+      // ============================================
+      const WageredMatchHeader = ({ pot, player1, player2, phase, winnerUid, isWagered, currentUserId }) => {
+        if (!isWagered) return null;
+
+        const [showWinAnimation, setShowWinAnimation] = useState(false);
+        const [animationDirection, setAnimationDirection] = useState(0);
+        const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+        // Determine if current user won
+        const userWon = winnerUid && winnerUid === currentUserId;
+
+        useEffect(() => {
+          if (phase === 'end' && winnerUid) {
+            const winnerIsPlayer1 = winnerUid === player1?.uid;
+            setAnimationDirection(winnerIsPlayer1 ? -150 : 150);
+            setShowWinAnimation(true);
+          }
+        }, [phase, winnerUid, player1]);
+
+        // Get initials for avatar fallback
+        const getInitials = (name) => {
+          if (!name) return '?';
+          return name.slice(0, 2).toUpperCase();
+        };
+
+        // Truncate name to 14 chars
+        const truncateName = (name) => {
+          if (!name) return 'Player';
+          return name.length > 14 ? name.slice(0, 14) + '…' : name;
+        };
+
+        const PlayerCard = ({ player, isLeft }) => {
+          const isLoading = !player?.name;
+
+          if (isLoading) {
+            // Skeleton placeholder
+            return (
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '12px',
+                flexDirection: isLeft ? 'row' : 'row-reverse',
+                flex: 1,
+                justifyContent: isLeft ? 'flex-start' : 'flex-end'
+              }}>
+                <div style={{
+                  width: '44px',
+                  height: '44px',
+                  borderRadius: '50%',
+                  background: 'rgba(255,255,255,0.1)',
+                  animation: 'skeletonPulse 1.5s ease-in-out infinite'
+                }} />
+                <div>
+                  <div style={{ width: '80px', height: '16px', background: 'rgba(255,255,255,0.1)', borderRadius: '4px', marginBottom: '4px' }} />
+                  <div style={{ width: '60px', height: '12px', background: 'rgba(255,255,255,0.05)', borderRadius: '4px' }} />
+                </div>
+              </div>
+            );
+          }
+
+          return (
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '12px',
+              flexDirection: isLeft ? 'row' : 'row-reverse',
+              flex: 1,
+              justifyContent: isLeft ? 'flex-start' : 'flex-end'
+            }}>
+              {/* Avatar */}
+              <div style={{
+                width: '44px',
+                height: '44px',
+                borderRadius: '50%',
+                background: player.avatarUrl ? `url(${player.avatarUrl}) center/cover` : `linear-gradient(135deg, ${COLORS.primary}, ${COLORS.primaryLight})`,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: COLORS.text,
+                fontWeight: '700',
+                fontSize: '14px',
+                border: `2px solid ${COLORS.accent}40`,
+                flexShrink: 0
+              }}>
+                {!player.avatarUrl && getInitials(player.name)}
+              </div>
+
+              {/* Name & Level */}
+              <div style={{ textAlign: isLeft ? 'left' : 'right' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexDirection: isLeft ? 'row' : 'row-reverse' }}>
+                  <span style={{
+                    color: COLORS.text,
+                    fontSize: '15px',
+                    fontWeight: '600',
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    maxWidth: '120px'
+                  }}>
+                    {truncateName(player.name)}
+                  </span>
+                  <span style={{
+                    background: 'rgba(255,255,255,0.1)',
+                    color: COLORS.textMuted,
+                    fontSize: '11px',
+                    fontWeight: '600',
+                    padding: '2px 6px',
+                    borderRadius: '10px'
+                  }}>
+                    Lv.{player.level || '?'}
+                  </span>
+                </div>
+                <div style={{
+                  color: COLORS.textMuted,
+                  fontSize: '12px',
+                  marginTop: '2px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  justifyContent: isLeft ? 'flex-start' : 'flex-end'
+                }}>
+                  Stake: <CoinIcon size={12} /> {formatCompactNumber(player.stake || 0)}
+                </div>
+              </div>
+            </div>
+          );
+        };
+
+        return (
+          <div style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            height: window.innerWidth < 768 ? '64px' : '72px',
+            background: `linear-gradient(180deg, ${COLORS.background} 0%, ${COLORS.backgroundLight} 100%)`,
+            borderBottom: `1px solid ${COLORS.accent}30`,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            padding: '0 20px',
+            paddingTop: 'env(safe-area-inset-top)',
+            zIndex: 1000,
+            boxSizing: 'border-box'
+          }}>
+            {/* Player 1 (Left) */}
+            <PlayerCard player={player1} isLeft={true} />
+
+            {/* Pot (Center) */}
+            <div style={{
+              position: 'absolute',
+              left: '50%',
+              transform: `translateX(-50%) ${showWinAnimation && !prefersReducedMotion ? `translateX(${animationDirection}px)` : ''}`,
+              transition: showWinAnimation ? 'transform 900ms cubic-bezier(0.4, 0, 0.2, 1)' : 'none',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              animation: phase === 'prematch' ? 'potPulse 650ms cubic-bezier(0.34, 1.56, 0.64, 1), potGlow 650ms ease-out' : 'none'
+            }}>
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                background: 'rgba(255, 215, 0, 0.1)',
+                padding: '8px 16px',
+                borderRadius: '20px',
+                boxShadow: phase === 'inmatch' ? '0 0 20px rgba(255, 215, 0, 0.5)' : '0 0 30px rgba(255, 215, 0, 0.7)'
+              }}>
+                <CoinIcon size={24} />
+                <span style={{
+                  color: '#FFD700',
+                  fontSize: '20px',
+                  fontWeight: '700',
+                  fontFamily: "'Roboto Mono', monospace",
+                  textShadow: '0 0 10px rgba(255, 215, 0, 0.5)'
+                }}>
+                  {formatCompactNumber(pot || 0)}
+                </span>
+              </div>
+              <span style={{
+                color: COLORS.textMuted,
+                fontSize: '10px',
+                fontWeight: '600',
+                letterSpacing: '1px',
+                marginTop: '2px'
+              }}>
+                POT
+              </span>
+
+              {/* Win amount overlay */}
+              {showWinAnimation && userWon && (
+                <div style={{
+                  position: 'absolute',
+                  top: '100%',
+                  marginTop: '8px',
+                  color: COLORS.success,
+                  fontSize: '16px',
+                  fontWeight: '700',
+                  animation: prefersReducedMotion ? 'none' : 'wagerFadeInUp 400ms ease-out',
+                  opacity: 1
+                }}>
+                  +{formatCompactNumber(pot)}
+                </div>
+              )}
+            </div>
+
+            {/* Player 2 (Right) */}
+            <PlayerCard player={player2} isLeft={false} />
+          </div>
+        );
+      };
+
+      // ============================================
       // FOOTER COMPONENT
       // ============================================
       const Footer = ({ onNavigate }) => (
@@ -7500,7 +7763,31 @@
       }
 
       return (
-        <div style={{ minHeight: '100vh', background: COLORS.background, padding: '20px', fontFamily: "'Inter', sans-serif", position: 'relative' }}>
+        <div style={{ minHeight: '100vh', background: COLORS.background, padding: '20px', paddingTop: onlineMode && isWageredMatch ? (window.innerWidth < 768 ? '84px' : '92px') : '20px', fontFamily: "'Inter', sans-serif", position: 'relative' }}>
+          {/* Wagered Match Header */}
+          {onlineMode && isWageredMatch && (
+            <WageredMatchHeader
+              pot={escrowData?.totalPot || (selectedStake * 2)}
+              player1={{
+                uid: players[0]?.uid || '',
+                name: players[0]?.name || '',
+                level: players[0]?.level || userProgression?.level || 1,
+                avatarUrl: players[0]?.avatarUrl,
+                stake: selectedStake
+              }}
+              player2={{
+                uid: players[1]?.uid || '',
+                name: players[1]?.name || opponentName || 'Opponent',
+                level: players[1]?.level || 1,
+                avatarUrl: players[1]?.avatarUrl,
+                stake: selectedStake
+              }}
+              phase={matchWinner ? 'end' : 'inmatch'}
+              winnerUid={matchWinner !== null ? (matchWinner === 0 ? players[0]?.uid : players[1]?.uid) : null}
+              isWagered={isWageredMatch}
+              currentUserId={currentUser?.uid}
+            />
+          )}
           {/* Background gradient matching home screen */}
           <div style={{ position: 'absolute', inset: 0, background: `radial-gradient(ellipse at 30% 20%, ${COLORS.primary}40 0%, transparent 50%), radial-gradient(ellipse at 70% 80%, ${COLORS.accent}20 0%, transparent 40%)`, zIndex: 0, pointerEvents: 'none' }} />
           <div className="game-layout" style={{ display: 'flex', flexWrap: 'wrap', gap: '30px', maxWidth: '1400px', margin: '0 auto', justifyContent: 'center', position: 'relative', zIndex: 1 }}>
