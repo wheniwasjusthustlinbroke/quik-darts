@@ -5106,18 +5106,8 @@
                 await refundFn({ escrowId, reason: 'switching_to_opponent' });
                 console.log('[wageredMatchmaking] Refunded, now joining opponent escrow:', opponent.escrowId);
 
-                // Validate opponent's escrow is still valid before joining
-                const opponentEscrowRef = database.ref(`escrow/${opponent.escrowId}`);
-                const opponentEscrowSnap = await opponentEscrowRef.once('value');
-                const opponentEscrow = opponentEscrowSnap.val();
-
-                if (!opponentEscrow || opponentEscrow.status !== 'pending') {
-                  console.log('[wageredMatchmaking] Opponent escrow is stale or invalid, skipping:', opponentEscrow?.status);
-                  isProcessingMatch = false;
-                  return;
-                }
-
                 // Join opponent's escrow with retry logic
+                // Note: Server-side createEscrow validates escrow status
                 let escrowResult;
                 let retries = 3;
                 while (retries > 0) {
