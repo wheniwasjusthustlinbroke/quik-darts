@@ -636,6 +636,8 @@
 
     .qd-vsChip {
       animation: qdChipPop 520ms cubic-bezier(.2,.9,.2,1.15);
+      mix-blend-mode: lighten;
+      filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.5));
     }
 
     @keyframes qdChipPop {
@@ -834,7 +836,8 @@
           display: 'block',
           userSelect: 'none',
           objectFit: 'contain',
-          filter: 'drop-shadow(0 8px 16px rgba(0,0,0,0.4))',
+          filter: 'drop-shadow(0 4px 12px rgba(0,0,0,0.5))',
+          mixBlendMode: 'lighten',
         }}
       />
     );
