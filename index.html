@@ -1729,8 +1729,9 @@
 
         setMatchmakingState('searching');
         setOnlineMode(true);
-        const queueRef = database.ref('matchmaking_queue');
-        const gamesRef = database.ref('games');
+        const queueRef = database.ref('matchmaking_queue/casual');
+        // Note: gamesRef removed - we no longer query /games directly (permission denied)
+        // Instead we notify opponent via matchedGameId in their queue entry
 
         // Wait for authentication and use auth UID as player ID
         const authUser = await authReadyPromise;
@@ -1807,6 +1808,14 @@
               setGameRoomId(roomId);
               gameRoomRef.current = database.ref(`games/${roomId}`);
 
+              // Notify opponent by updating their queue entry with matchedGameId
+              // This allows them to find the game without querying /games
+              await queueRef.child(opponentData.playerId).update({
+                matchedGameId: roomId,
+                matchedByName: sanitizeName(userProfile?.displayName || currentUser?.displayName) || 'Player',
+                matchedByFlag: sanitizeFlag(userProfile?.flag) || '🌍'
+              });
+
               // IMPORTANT: Register onDisconnect FIRST to protect against early browser close
               // This ensures if player closes browser during "opponent found" screen, Firebase sets connected=false
               gameRoomRef.current.child('player2/connected').onDisconnect().set(false).then(() => {
@@ -1852,157 +1861,165 @@
             // Auto-remove from queue if user disconnects (closes browser, loses connection, etc.)
             queueRef.child(myPlayerId).onDisconnect().remove();
 
-            // Listen for when someone joins OR check if others joined queue while waiting
-            matchmakingIntervalRef.current = setInterval(() => {
-              // First check if someone created a game with us as player1
-              database.ref(`games`).orderByChild('player1/id').equalTo(myPlayerId).once('value', (gameSnapshot) => {
-                if (gameSnapshot.exists()) {
-                  // Find a recent game where player2 is connected (not a stale game)
-                  const games = gameSnapshot.val();
-                  const now = Date.now();
-                  let activeRoomId = null;
-                  let activeGameData = null;
+            // Store ref for cleanup
+            const myQueueEntryRef = queueRef.child(myPlayerId);
+            let isProcessingMatch = false;
 
-                  for (const [roomId, gameData] of Object.entries(games)) {
-                    // Only join if:
-                    // 1. player2 is connected (active game waiting for us), AND
-                    // 2. game was created within the last 30 seconds (not stale)
-                    const gameAge = now - (gameData.createdAt || 0);
-                    const isRecent = gameAge < 30000; // 30 seconds
-                    const isVeryRecent = gameAge < 10000; // 10 seconds
-                    const isPlayer2Connected = gameData.player2 && gameData.player2.connected === true;
+            // Listen for matchedGameId (when someone creates a game with us as player1)
+            const queueEntryListener = myQueueEntryRef.on('value', async (snapshot) => {
+              if (isProcessingMatch) return;
+              if (!snapshot.exists()) return;
 
-                    if (isRecent && isPlayer2Connected) {
-                      activeRoomId = roomId;
-                      activeGameData = gameData;
-                      break;
-                    } else if (isVeryRecent && !isPlayer2Connected) {
-                      // Opponent JUST disconnected (within 10 seconds) - notify user
-                      database.ref(`games/${roomId}`).remove()
-                        .catch(err => console.error(`Failed to delete game ${roomId}:`, err));
-                      if (matchmakingIntervalRef.current) {
-                        clearInterval(matchmakingIntervalRef.current);
-                        matchmakingIntervalRef.current = null;
-                      }
-                      queueRef.child(myPlayerId).remove();
-                      alert('Opponent disconnected before match could start. Please try again.');
-                      cancelMatchmaking();
-                      return;
-                    } else {
-                      // Delete stale game (old or player2 disconnected long ago)
-                      database.ref(`games/${roomId}`).remove()
-                        .catch(err => console.error(`Failed to delete stale game ${roomId}:`, err));
+              const myEntry = snapshot.val();
+
+              // Check if someone matched with us (they wrote matchedGameId to our queue entry)
+              if (myEntry.matchedGameId) {
+                console.log('[casualMatchmaking] Found matchedGameId in queue entry:', myEntry.matchedGameId);
+                isProcessingMatch = true;
+
+                const roomId = myEntry.matchedGameId;
+                const opponentName = myEntry.matchedByName || 'Opponent';
+                const opponentFlag = myEntry.matchedByFlag || '🌍';
+
+                // Clean up listener and interval
+                myQueueEntryRef.off('value', queueEntryListener);
+                if (matchmakingIntervalRef.current) {
+                  clearInterval(matchmakingIntervalRef.current);
+                  matchmakingIntervalRef.current = null;
+                }
+                await myQueueEntryRef.remove();
+
+                setGameRoomId(roomId);
+                gameRoomRef.current = database.ref(`games/${roomId}`);
+
+                // Validate game exists and we're a player
+                let gameData;
+                try {
+                  const gameSnap = await gameRoomRef.current.once('value');
+                  gameData = gameSnap.val();
+                } catch (readErr) {
+                  console.error('[casualMatchmaking] Failed to read game:', readErr);
+                  isProcessingMatch = false;
+                  return;
+                }
+
+                if (!gameData || gameData.player1?.id !== myPlayerId) {
+                  console.error('[casualMatchmaking] Invalid game data - ignoring');
+                  isProcessingMatch = false;
+                  return;
+                }
+
+                // IMPORTANT: Register onDisconnect FIRST
+                gameRoomRef.current.child('player1/connected').onDisconnect().set(false).then(() => {
+                  gameRoomRef.current.child('player1/connected').set(true);
+                  opponentWasConnected.current = true;
+
+                  startHeartbeat(gameRoomRef.current, 'player1', 'player2', () => {
+                    stopHeartbeat();
+                    alert('Opponent disconnected. Returning to menu.');
+                    if (gameRoomRef.current) {
+                      gameRoomRef.current.remove().catch(() => {});
                     }
-                  }
+                    cancelMatchmaking();
+                  });
 
-                  // If no active game found, continue waiting (stale games were deleted)
-                  if (!activeRoomId) {
-                    return;
-                  }
+                  setOpponentName(sanitizeName(opponentName));
+                  setOpponentFlag(sanitizeFlag(opponentFlag));
+                  setMatchmakingState('found');
+
+                  setTimeout(() => startOnlineGame(roomId, 0), 1500);
+                }).catch((err) => {
+                  console.error('[casualMatchmaking] Failed to register onDisconnect:', err);
+                  setOpponentName(sanitizeName(opponentName));
+                  setOpponentFlag(sanitizeFlag(opponentFlag));
+                  setMatchmakingState('found');
+                  setTimeout(() => startOnlineGame(roomId, 0), 1500);
+                });
+              }
+            });
+
+            // Also periodically check if there are OTHER players in queue we can join
+            matchmakingIntervalRef.current = setInterval(() => {
+              if (isProcessingMatch) return;
+
+              queueRef.orderByChild('timestamp').limitToFirst(2).once('value', async (queueSnapshot) => {
+                if (isProcessingMatch) return;
+                if (!queueSnapshot.exists()) return;
+
+                const queuePlayers = queueSnapshot.val();
+                // Find first player that isn't us and doesn't already have a match
+                const otherPlayerId = Object.keys(queuePlayers).find(id =>
+                  id !== myPlayerId && !queuePlayers[id].matchedGameId
+                );
+
+                if (otherPlayerId) {
+                  const otherPlayer = queuePlayers[otherPlayerId];
+                  isProcessingMatch = true;
+
+                  // Clean up listener and interval
+                  myQueueEntryRef.off('value', queueEntryListener);
                   if (matchmakingIntervalRef.current) {
                     clearInterval(matchmakingIntervalRef.current);
                     matchmakingIntervalRef.current = null;
                   }
+
+                  // Remove myself from queue
                   queueRef.child(myPlayerId).remove();
 
-                  setGameRoomId(activeRoomId);
-                  gameRoomRef.current = database.ref(`games/${activeRoomId}`);
+                  if (!functions) {
+                    console.error('Cloud Functions not available');
+                    isProcessingMatch = false;
+                    return;
+                  }
 
-                  // IMPORTANT: Register onDisconnect FIRST and wait for it to complete
-                  // This ensures the handler is on the server before we proceed
-                  gameRoomRef.current.child('player1/connected').onDisconnect().set(false).then(() => {
-                    // Now set connected status
-                    gameRoomRef.current.child('player1/connected').set(true);
-
-                    // Mark opponent as connected (we verified player2.connected === true to get here)
-                    opponentWasConnected.current = true;
-
-                    // Start heartbeat for disconnect detection (I'm player1, opponent is player2)
-                    startHeartbeat(gameRoomRef.current, 'player1', 'player2', () => {
-                      stopHeartbeat();
-                      alert('Opponent disconnected. Returning to menu.');
-                      if (gameRoomRef.current) {
-                        gameRoomRef.current.remove().catch(() => {});
-                      }
-                      cancelMatchmaking();
+                  try {
+                    const createGameFn = functions.httpsCallable('createGame');
+                    const result = await createGameFn({
+                      player1Id: otherPlayer.playerId,
+                      player1Name: sanitizeName(otherPlayer.name),
+                      player1Flag: sanitizeFlag(otherPlayer.flag),
+                      player2Id: myPlayerId,
+                      player2Name: sanitizeName(userProfile?.displayName || currentUser?.displayName) || 'Player',
+                      player2Flag: sanitizeFlag(userProfile?.flag) || '🌍',
+                      gameMode: playerSetup.gameMode,
+                      isWagered: false
                     });
 
-                    setOpponentName(sanitizeName(activeGameData.player2.name));
-                    setOpponentFlag(sanitizeFlag(activeGameData.player2.flag));
-                    setMatchmakingState('found');
-
-                    setTimeout(() => startOnlineGame(activeRoomId, 0), 1500);
-                  });
-                } else {
-                  // Also check if there are OTHER players waiting in queue we can join
-                  queueRef.orderByChild('timestamp').limitToFirst(2).once('value', async (queueSnapshot) => {
-                    if (queueSnapshot.exists()) {
-                      const queuePlayers = queueSnapshot.val();
-                      // Find first player that isn't us
-                      const otherPlayerId = Object.keys(queuePlayers).find(id => id !== myPlayerId);
-
-                      if (otherPlayerId) {
-                        const otherPlayer = queuePlayers[otherPlayerId];
-
-                        // Join this player's game
-                        if (matchmakingIntervalRef.current) {
-                          clearInterval(matchmakingIntervalRef.current);
-                          matchmakingIntervalRef.current = null;
-                        }
-
-                        // Remove myself from queue (other player removes themselves when they find the game)
-                        queueRef.child(myPlayerId).remove();
-
-                        // Create game room via Cloud Function (server-authoritative)
-                        if (!functions) {
-                          console.error('Cloud Functions not available');
-                          return;
-                        }
-
-                        try {
-                          const createGameFn = functions.httpsCallable('createGame');
-                          const result = await createGameFn({
-                            player1Id: otherPlayer.playerId,
-                            player1Name: sanitizeName(otherPlayer.name),
-                            player1Flag: sanitizeFlag(otherPlayer.flag),
-                            player2Id: myPlayerId,
-                            player2Name: sanitizeName(userProfile?.displayName || currentUser?.displayName) || 'Player',
-                            player2Flag: sanitizeFlag(userProfile?.flag) || '🌍',
-                            gameMode: playerSetup.gameMode,
-                            isWagered: false
-                          });
-
-                          if (!result.data.success || !result.data.gameId) {
-                            console.error('Failed to create game:', result.data.error);
-                            return;
-                          }
-
-                          const roomId = result.data.gameId;
-                          setGameRoomId(roomId);
-                          gameRoomRef.current = database.ref(`games/${roomId}`);
-
-                          // IMPORTANT: Register onDisconnect FIRST and wait for it to complete
-                          // This ensures if Chrome closes immediately, Firebase will set connected=false
-                          gameRoomRef.current.child('player2/connected').onDisconnect().set(false).then(() => {
-                            // Start heartbeat for disconnect detection (I'm player2, opponent is player1)
-                            startHeartbeat(gameRoomRef.current, 'player2', 'player1', () => {
-                              stopHeartbeat();
-                              alert('Opponent disconnected. Returning to menu.');
-                              cancelMatchmaking();
-                            });
-
-                            setOpponentName(sanitizeName(otherPlayer.name));
-                            setOpponentFlag(sanitizeFlag(otherPlayer.flag));
-                            setMatchmakingState('found');
-
-                            setTimeout(() => startOnlineGame(roomId, 1), 1500);
-                          });
-                        } catch (error) {
-                          console.error('Error creating game:', error);
-                        }
-                      }
+                    if (!result.data.success || !result.data.gameId) {
+                      console.error('Failed to create game:', result.data.error);
+                      isProcessingMatch = false;
+                      return;
                     }
-                  });
+
+                    const roomId = result.data.gameId;
+
+                    // Notify opponent by updating their queue entry with matchedGameId
+                    await queueRef.child(otherPlayer.playerId).update({
+                      matchedGameId: roomId,
+                      matchedByName: sanitizeName(userProfile?.displayName || currentUser?.displayName) || 'Player',
+                      matchedByFlag: sanitizeFlag(userProfile?.flag) || '🌍'
+                    });
+
+                    setGameRoomId(roomId);
+                    gameRoomRef.current = database.ref(`games/${roomId}`);
+
+                    gameRoomRef.current.child('player2/connected').onDisconnect().set(false).then(() => {
+                      startHeartbeat(gameRoomRef.current, 'player2', 'player1', () => {
+                        stopHeartbeat();
+                        alert('Opponent disconnected. Returning to menu.');
+                        cancelMatchmaking();
+                      });
+
+                      setOpponentName(sanitizeName(otherPlayer.name));
+                      setOpponentFlag(sanitizeFlag(otherPlayer.flag));
+                      setMatchmakingState('found');
+
+                      setTimeout(() => startOnlineGame(roomId, 1), 1500);
+                    });
+                  } catch (error) {
+                    console.error('Error creating game:', error);
+                    isProcessingMatch = false;
+                  }
                 }
               });
             }, 2000);

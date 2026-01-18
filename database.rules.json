@@ -56,7 +56,19 @@
         ".indexOn": ["timestamp"],
         "$playerId": {
           ".write": "auth != null && auth.uid === $playerId",
-          ".validate": "!newData.exists() || (newData.hasChildren(['playerId', 'name', 'flag', 'timestamp']) && newData.child('playerId').val() === $playerId && newData.child('name').isString() && newData.child('name').val().length >= 1 && newData.child('name').val().length <= 20 && newData.child('flag').isString() && newData.child('flag').val().length <= 50)"
+          ".validate": "!newData.exists() || (newData.hasChildren(['playerId', 'name', 'flag', 'timestamp']) && newData.child('playerId').val() === $playerId && newData.child('name').isString() && newData.child('name').val().length >= 1 && newData.child('name').val().length <= 20 && newData.child('flag').isString() && newData.child('flag').val().length <= 50)",
+          "matchedGameId": {
+            ".write": "auth != null",
+            ".validate": "newData.isString() && newData.val().length >= 10 && newData.val().length <= 50"
+          },
+          "matchedByName": {
+            ".write": "auth != null",
+            ".validate": "newData.isString() && newData.val().length >= 1 && newData.val().length <= 20"
+          },
+          "matchedByFlag": {
+            ".write": "auth != null",
+            ".validate": "newData.isString() && newData.val().length <= 50"
+          }
         }
       },
       "wagered": {
