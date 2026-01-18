@@ -1280,6 +1280,7 @@
 
       const [currentEscrowId, setCurrentEscrowId] = useState(null); // Active escrow ID for wagered match
       const [isWageredMatch, setIsWageredMatch] = useState(false); // Is current match wagered
+      const [showLeaveConfirmation, setShowLeaveConfirmation] = useState(false); // Leave match confirmation modal
       const [isCreatingEscrow, setIsCreatingEscrow] = useState(false); // Creating escrow in progress
       const [escrowData, setEscrowData] = useState(null); // Escrow data for wagered match header
 
@@ -2489,6 +2490,7 @@
         setCurrentEscrowId(null);
         setIsWageredMatch(false);
         setEscrowData(null);
+        setShowLeaveConfirmation(false); // Close confirmation modal on cleanup
         setGameState('menu');
       }, [myAuthId, database, playerId, currentEscrowId, gameRoomId, functions, isWageredMatch]);
 
@@ -2497,6 +2499,18 @@
         // cancelMatchmaking now handles all cleanup including setting connected=false
         cancelMatchmaking();
       }, [cancelMatchmaking]);
+
+      // Handle leave button click - show confirmation for wagered matches
+      const handleLeaveClick = useCallback(() => {
+        // Show confirmation ONLY for wagered matches during active gameplay
+        // Active gameplay = winner is null (game not finished)
+        if (isWageredMatch && winner === null) {
+          setShowLeaveConfirmation(true);
+        } else {
+          // Casual match or game finished - immediate leave
+          leaveOnlineGame();
+        }
+      }, [isWageredMatch, winner, leaveOnlineGame]);
 
       // ========== END ONLINE MULTIPLAYER FUNCTIONS ==========
 
@@ -5633,6 +5647,128 @@
         );
       }
 
+      // Leave Match Confirmation Modal
+      if (showLeaveConfirmation) {
+        return (
+          <div style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0, 0, 0, 0.85)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1001,
+            padding: '20px'
+          }}>
+            <div style={{
+              background: COLORS.backgroundCard,
+              borderRadius: '16px',
+              padding: '32px',
+              maxWidth: '400px',
+              width: '100%',
+              position: 'relative',
+              border: '1px solid rgba(255, 255, 255, 0.1)',
+              textAlign: 'center'
+            }}>
+              {/* Warning Icon */}
+              <div style={{
+                width: '64px',
+                height: '64px',
+                borderRadius: '50%',
+                background: `${COLORS.error}20`,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                margin: '0 auto 20px'
+              }}>
+                <span style={{ fontSize: '32px' }}>⚠️</span>
+              </div>
+
+              {/* Title */}
+              <h2 style={{
+                color: COLORS.text,
+                fontSize: '1.3rem',
+                fontWeight: '700',
+                marginBottom: '12px'
+              }}>Leave Match?</h2>
+
+              {/* Message */}
+              <p style={{
+                color: COLORS.textMuted,
+                fontSize: '1rem',
+                marginBottom: '24px',
+                lineHeight: '1.5'
+              }}>
+                Are you sure you want to leave? You will forfeit your coins.
+              </p>
+
+              {/* Stakes display */}
+              {escrowData && (
+                <div style={{
+                  background: 'rgba(255, 255, 255, 0.05)',
+                  borderRadius: '8px',
+                  padding: '12px',
+                  marginBottom: '24px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '8px'
+                }}>
+                  <CoinIcon size={18} />
+                  <span style={{ color: '#D4A03A', fontWeight: '600' }}>
+                    {formatCoins(escrowData.stakeAmount || 0)} at stake
+                  </span>
+                </div>
+              )}
+
+              {/* Buttons */}
+              <div style={{ display: 'flex', gap: '12px' }}>
+                {/* No - Stay in game */}
+                <button
+                  onClick={() => setShowLeaveConfirmation(false)}
+                  style={{
+                    flex: 1,
+                    padding: '14px 20px',
+                    borderRadius: '10px',
+                    border: '1px solid rgba(255, 255, 255, 0.2)',
+                    background: 'transparent',
+                    color: COLORS.text,
+                    fontSize: '1rem',
+                    fontWeight: '600',
+                    cursor: 'pointer',
+                    fontFamily: 'var(--font-primary)'
+                  }}
+                >
+                  No, Stay
+                </button>
+
+                {/* Yes - Leave and forfeit */}
+                <button
+                  onClick={() => {
+                    setShowLeaveConfirmation(false);
+                    leaveOnlineGame();
+                  }}
+                  style={{
+                    flex: 1,
+                    padding: '14px 20px',
+                    borderRadius: '10px',
+                    border: 'none',
+                    background: COLORS.error,
+                    color: 'white',
+                    fontSize: '1rem',
+                    fontWeight: '600',
+                    cursor: 'pointer',
+                    fontFamily: 'var(--font-primary)'
+                  }}
+                >
+                  Yes, Leave
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      }
+
       // Coin Shop Modal
       if (showCoinShop) {
         return (
@@ -8018,7 +8154,7 @@
 
               <div style={{ marginTop: '20px', display: 'flex', gap: '10px' }}>
                 <button onClick={() => setShowStats(true)} style={{ flex: 1, padding: '12px', background: 'rgba(255, 255, 255, 0.05)', color: COLORS.text, border: '1px solid rgba(255, 255, 255, 0.1)', borderRadius: '10px', cursor: 'pointer', fontFamily: "'Inter', sans-serif", fontSize: '13px', fontWeight: '500' }}>STATS</button>
-                <button onClick={onlineMode ? leaveOnlineGame : resetGame} style={{ flex: 1, padding: '12px', background: `${COLORS.error}30`, color: COLORS.text, border: 'none', borderRadius: '10px', cursor: 'pointer', fontFamily: "'Inter', sans-serif", fontSize: '13px', fontWeight: '500' }}>{onlineMode ? 'LEAVE' : 'MENU'}</button>
+                <button onClick={onlineMode ? handleLeaveClick : resetGame} style={{ flex: 1, padding: '12px', background: `${COLORS.error}30`, color: COLORS.text, border: 'none', borderRadius: '10px', cursor: 'pointer', fontFamily: "'Inter', sans-serif", fontSize: '13px', fontWeight: '500' }}>{onlineMode ? 'LEAVE' : 'MENU'}</button>
               </div>
                 </>
               )}

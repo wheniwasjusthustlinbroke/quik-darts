@@ -94,7 +94,7 @@ exports.forfeitGame = functions
         // This prevents fraud where a player falsely claims opponent disconnected
         const opponentPlayerKey = callerPlayerIndex === 0 ? 'player2' : 'player1';
         const opponent = game[opponentPlayerKey];
-        const DISCONNECT_THRESHOLD_MS = 30000; // 30 seconds
+        const DISCONNECT_THRESHOLD_MS = 10000; // 10 seconds - reduced for faster forfeit detection
         const opponentLastHeartbeat = opponent.lastHeartbeat || 0;
         const heartbeatStale = (now - opponentLastHeartbeat) > DISCONNECT_THRESHOLD_MS;
         const opponentDisconnected = opponent.connected === false;

@@ -100,9 +100,13 @@ export const settleGame = functions
       };
     }
 
+    // SECURITY: winnerId is derived from game state (game.winner), not user input
+    // This prevents settlement fraud - winner cannot be manipulated by caller
     const winnerId = game.winner === 0 ? game.player1.id : game.player2.id;
     const loserId = game.winner === 0 ? game.player2.id : game.player1.id;
     const now = Date.now();
+
+    console.log(`[settleGame] Settling game ${gameId}: winner=${winnerId}, loser=${loserId}`);
 
     // 8. Award XP to both players
     const winnerXP = XP_REWARDS.GAME_PLAYED + XP_REWARDS.GAME_WON + (game.wager ? XP_REWARDS.GAME_WON_WAGERED : 0);
