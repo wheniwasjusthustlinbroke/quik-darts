@@ -2,13 +2,13 @@
  * Claim Daily Bonus
  *
  * Awards daily login bonus to signed-in users.
- * Can only be claimed once per 24-hour period.
+ * Resets at midnight in user's local timezone.
  *
  * Security:
  * - Rejects anonymous auth
  * - Uses server timestamp (prevents clock manipulation)
  * - Atomic transaction (prevents race conditions)
- * - Checks 24-hour cooldown server-side
+ * - Validates timezone input (prevents injection)
  */
 
 import * as functions from 'firebase-functions';
@@ -19,8 +19,9 @@ const db = admin.database();
 // Daily bonus amount
 const DAILY_BONUS = 50;
 
-// Cooldown in milliseconds (24 hours)
-const COOLDOWN_MS = 24 * 60 * 60 * 1000;
+interface ClaimDailyBonusRequest {
+  timezone?: string; // IANA timezone, e.g., "America/New_York"
+}
 
 interface ClaimResult {
   success: boolean;
@@ -30,9 +31,32 @@ interface ClaimResult {
   error?: string;
 }
 
+/**
+ * Get date string (YYYY-MM-DD) in a specific timezone
+ */
+function getLocalDateString(timestamp: number, timezone: string): string {
+  try {
+    return new Date(timestamp).toLocaleDateString('en-CA', { timeZone: timezone });
+  } catch {
+    // Invalid timezone - fall back to UTC
+    return new Date(timestamp).toISOString().split('T')[0];
+  }
+}
+
+/**
+ * Calculate next midnight in user's timezone
+ */
+function getNextMidnight(timezone: string): number {
+  const now = new Date();
+  const tomorrow = new Date(now);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  tomorrow.setHours(0, 0, 0, 0);
+  return tomorrow.getTime();
+}
+
 export const claimDailyBonus = functions
   .region('europe-west1')
-  .https.onCall(async (data, context): Promise<ClaimResult> => {
+  .https.onCall(async (data: ClaimDailyBonusRequest, context): Promise<ClaimResult> => {
     // 1. Must be authenticated
     if (!context.auth) {
       throw new functions.https.HttpsError(
@@ -56,7 +80,11 @@ export const claimDailyBonus = functions
     const walletRef = db.ref(`users/${userId}/wallet`);
     const transactionsRef = db.ref(`users/${userId}/transactions`);
 
-    // 3. Read wallet to check existence and cooldown BEFORE transaction
+    // 3. Get and validate timezone from client (default to UTC)
+    const { timezone = 'UTC' } = data || {};
+    const validTimezone = /^[A-Za-z_\/\-+0-9]+$/.test(timezone) ? timezone : 'UTC';
+
+    // 4. Read wallet to check existence BEFORE transaction
     const walletSnap = await walletRef.once('value');
     const currentWallet = walletSnap.val();
 
@@ -67,20 +95,23 @@ export const claimDailyBonus = functions
       );
     }
 
-    // 4. Check cooldown BEFORE transaction
+    // 5. Check if already claimed TODAY (midnight reset)
     const lastClaim = currentWallet.lastDailyBonus || 0;
-    const timeSinceLastClaim = now - lastClaim;
 
-    if (timeSinceLastClaim < COOLDOWN_MS) {
-      const nextClaimTime = lastClaim + COOLDOWN_MS;
-      return {
-        success: false,
-        nextClaimTime,
-        error: 'Already claimed today',
-      };
+    if (lastClaim > 0) {
+      const lastClaimDate = getLocalDateString(lastClaim, validTimezone);
+      const todayDate = getLocalDateString(now, validTimezone);
+
+      if (lastClaimDate === todayDate) {
+        return {
+          success: false,
+          nextClaimTime: getNextMidnight(validTimezone),
+          error: 'Already claimed today',
+        };
+      }
     }
 
-    // 5. Atomic transaction for awarding coins (only handles the write, not the check)
+    // 6. Atomic transaction for awarding coins
     const result = await walletRef.transaction((wallet) => {
       if (wallet === null) {
         // This shouldn't happen since we checked above, but handle it
@@ -95,11 +126,16 @@ export const claimDailyBonus = functions
         };
       }
 
-      // Double-check cooldown in transaction (in case of race condition)
+      // Double-check date in transaction (in case of race condition)
       const txLastClaim = wallet.lastDailyBonus || 0;
-      if (now - txLastClaim < COOLDOWN_MS) {
-        return; // Abort - race condition
+      if (txLastClaim > 0) {
+        const txLastDate = getLocalDateString(txLastClaim, validTimezone);
+        const txTodayDate = getLocalDateString(now, validTimezone);
+        if (txLastDate === txTodayDate) {
+          return; // Abort - already claimed today
+        }
       }
+
       return {
         ...wallet,
         coins: (wallet.coins || 0) + DAILY_BONUS,
@@ -110,17 +146,15 @@ export const claimDailyBonus = functions
     });
 
     if (!result.committed) {
-      // Race condition - another request claimed first
-      const updatedWallet = await walletRef.once('value');
-      const lastBonus = updatedWallet.val()?.lastDailyBonus || 0;
+      // Race condition - another request claimed first today
       return {
         success: false,
-        nextClaimTime: lastBonus + COOLDOWN_MS,
+        nextClaimTime: getNextMidnight(validTimezone),
         error: 'Already claimed today',
       };
     }
 
-    // 6. Log transaction
+    // 7. Log transaction
     const txnId = `daily_${now}`;
     const newBalance = result.snapshot.val()?.coins || 0;
 
@@ -138,6 +172,6 @@ export const claimDailyBonus = functions
       success: true,
       coinsAwarded: DAILY_BONUS,
       newBalance,
-      nextClaimTime: now + COOLDOWN_MS,
+      nextClaimTime: getNextMidnight(validTimezone),
     };
   });
