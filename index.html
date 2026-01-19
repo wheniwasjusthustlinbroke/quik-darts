@@ -2737,7 +2737,7 @@
                 .then(result => {
                   console.log('[forfeitGame] Result:', result.data);
                   if (result.data.success) {
-                    const payout = result.data.winnerPayout || 0;
+                    const payout = typeof result.data.winnerPayout === 'number' ? result.data.winnerPayout : 0;
                     alert(`${sanitizeName(opponent.name)} has disconnected. You win ${payout} coins!`);
                     // Update coin balance with winnings
                     if (payout > 0) {
@@ -2842,10 +2842,11 @@
               settleGameFn({ gameId: roomId })
                 .then(result => {
                   console.log('[settleGame] Result:', result.data);
-                  if (result.data.success && result.data.payout > 0 && isWinner) {
-                    alert(`Congratulations! You won ${result.data.payout} coins!`);
+                  const payout = typeof result.data.payout === 'number' ? result.data.payout : 0;
+                  if (result.data.success && payout > 0 && isWinner) {
+                    alert(`Congratulations! You won ${payout} coins!`);
                     // Update coin balance with winnings
-                    setCoinBalance(prev => prev + result.data.payout);
+                    setCoinBalance(prev => prev + payout);
                   }
                   // Clear escrow state
                   setCurrentEscrowId(null);
@@ -3488,11 +3489,12 @@
                 settleGameFn({ gameId: gameRoomId })
                   .then(result => {
                     console.log('[settleGame] Result:', result.data);
-                    if (result.data.success && result.data.payout > 0) {
+                    const payout = typeof result.data.payout === 'number' ? result.data.payout : 0;
+                    if (result.data.success && payout > 0) {
                       // Winner gets the pot - wallet listener will update balance
                       const isWinner = playerIndex === myPlayerIndex;
                       if (isWinner) {
-                        alert(`Congratulations! You won ${result.data.payout} coins!`);
+                        alert(`Congratulations! You won ${payout} coins!`);
                       }
                     }
                     // Clear escrow state
@@ -4576,8 +4578,10 @@
             // Wallet listener will update the balance
             setDailyBonusAvailable(false);
             console.log('[claimDailyBonus] Bonus claimed successfully! New balance:', result.data.newBalance);
-            // Show success feedback with the actual amount and new balance
-            alert(`+${result.data.coinsAwarded} coins claimed! New balance: ${result.data.newBalance}`);
+            // Show success feedback with validated numeric values
+            const coins = typeof result.data.coinsAwarded === 'number' ? result.data.coinsAwarded : 0;
+            const balance = typeof result.data.newBalance === 'number' ? result.data.newBalance : 0;
+            alert(`+${coins} coins claimed! New balance: ${balance}`);
           } else {
             // Show error to user
             const errorMsg = result.data.error || 'Failed to claim bonus';
@@ -4923,7 +4927,8 @@
 
         } catch (error) {
           console.error('[wageredMatchmaking] Error:', error);
-          alert(error.message || 'Failed to start wagered match. Please try again.');
+          // Don't expose internal error details to user
+          alert('Failed to start wagered match. Please try again.');
           setMatchmakingState('idle');
           setOnlineMode(false);
           setIsWageredMatch(false);
