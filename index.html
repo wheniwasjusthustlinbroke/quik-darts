@@ -4477,16 +4477,25 @@
             // Update coin balance
             setCoinBalance(wallet.coins || 0);
 
-            // Check if daily bonus is available (24 hours since last claim)
+            // Check if daily bonus is available (midnight reset)
             const lastBonus = wallet.lastDailyBonus || 0;
             const now = Date.now();
-            const twentyFourHours = 24 * 60 * 60 * 1000;
-            const bonusAvailable = now - lastBonus >= twentyFourHours;
-            console.log('[walletListener] Daily bonus check:', { lastBonus, now, diff: now - lastBonus, twentyFourHours, bonusAvailable });
+
+            // Helper to get local date string (YYYY-MM-DD)
+            const getLocalDateString = (timestamp) => {
+              if (!timestamp) return '';
+              return new Date(timestamp).toLocaleDateString('en-CA');
+            };
+
+            const lastClaimDate = getLocalDateString(lastBonus);
+            const todayDate = getLocalDateString(now);
+            const bonusAvailable = !lastBonus || lastClaimDate !== todayDate;
+            console.log('[walletListener] Daily bonus check:', { lastBonus, lastClaimDate, todayDate, bonusAvailable });
             setDailyBonusAvailable(bonusAvailable);
 
             // Calculate ads remaining today
             const lastAdReward = wallet.lastAdReward || 0;
+            const twentyFourHours = 24 * 60 * 60 * 1000;
             const lastAdDay = Math.floor(lastAdReward / twentyFourHours);
             const currentDay = Math.floor(now / twentyFourHours);
             const adsUsedToday = currentDay > lastAdDay ? 0 : (wallet.adRewardsToday || 0);
@@ -4565,7 +4574,10 @@
         try {
           const claimFn = functions.httpsCallable('claimDailyBonus');
           console.log('[claimDailyBonus] Calling function...');
-          const result = await claimFn();
+          // Send user's timezone for midnight reset calculation
+          const result = await claimFn({
+            timezone: Intl.DateTimeFormat().resolvedOptions().timeZone
+          });
           console.log('[claimDailyBonus] Response:', result.data);
           if (result.data.success) {
             // Wallet listener will update the balance
