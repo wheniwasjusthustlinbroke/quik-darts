@@ -3360,14 +3360,6 @@
               if (!completedChallenges.includes(activeChallenge.id)) {
                 completedChallenges.push(activeChallenge.id);
               }
-              // Sync completion to Firebase for global tracking (requires auth)
-              if (database && currentAuthUser) {
-                try {
-                  database.ref('weekly_completions/' + activeChallenge.id).transaction(count => (count || 0) + 1);
-                } catch (error) {
-                  console.error('Failed to sync weekly completion to Firebase:', error);
-                }
-              }
             }
           }
 
@@ -4448,18 +4440,16 @@
 
         const walletListener = walletRef.on('value', async (snapshot) => {
           const wallet = snapshot.val();
-          console.log('[walletListener] Wallet update:', wallet);
+          console.log('[walletListener] Wallet updated');
 
           if (!wallet) {
             // New user - initialize their wallet via Cloud Function
-            console.log('[walletListener] No wallet found for user', currentUser.uid);
-            console.log('[walletListener] Functions available:', !!functions);
+            console.log('[walletListener] No wallet found, initializing...');
             if (functions) {
               try {
-                console.log('[walletListener] Calling initializeNewUser...');
                 const initFn = functions.httpsCallable('initializeNewUser');
                 const result = await initFn();
-                console.log('[walletListener] initializeNewUser result:', result.data);
+                console.log('[walletListener] Wallet initialized:', result.data?.success ? 'success' : 'failed');
                 // Wallet will be created, listener will fire again
               } catch (error) {
                 console.error('[walletListener] Failed to initialize user wallet:', error);
@@ -4490,7 +4480,7 @@
             const lastClaimDate = getLocalDateString(lastBonus);
             const todayDate = getLocalDateString(now);
             const bonusAvailable = !lastBonus || lastClaimDate !== todayDate;
-            console.log('[walletListener] Daily bonus check:', { lastBonus, lastClaimDate, todayDate, bonusAvailable });
+            console.log('[walletListener] Daily bonus available:', bonusAvailable);
             setDailyBonusAvailable(bonusAvailable);
 
             // Calculate ads remaining today
