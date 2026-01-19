@@ -42,12 +42,8 @@ interface InitializeResult {
 export const initializeNewUser = functions
   .region('europe-west1') // Same region as database
   .https.onCall(async (data, context): Promise<InitializeResult> => {
-    console.log('[initializeNewUser] Function called');
-
     // 1. Must be authenticated
     if (!context.auth) {
-      console.log('[initializeNewUser] No auth context');
-
       throw new functions.https.HttpsError(
         'unauthenticated',
         'Must be logged in to initialize account'
@@ -57,9 +53,6 @@ export const initializeNewUser = functions
     const userId = context.auth.uid;
     const token = context.auth.token;
     const signInProvider = token.firebase?.sign_in_provider;
-
-    console.log('[initializeNewUser] User:', userId);
-    console.log('[initializeNewUser] Provider:', signInProvider);
 
     // 2. Must NOT be anonymous - only signed-in users get coins
     if (signInProvider === 'anonymous') {
@@ -79,14 +72,11 @@ export const initializeNewUser = functions
     }
 
     // 4. Use transaction to prevent race conditions
-    console.log('[initializeNewUser] Starting transaction for user', userId);
     const userRef = db.ref(`users/${userId}`);
 
     const result = await userRef.transaction((currentData) => {
-      console.log('[initializeNewUser] Transaction callback, data exists:', currentData !== null);
       // If user data doesn't exist, create it
       if (currentData === null) {
-        console.log('[initializeNewUser] Creating new user data');
         return {
           profile: {
             displayName: token.name || 'Player',
@@ -137,11 +127,9 @@ export const initializeNewUser = functions
 
       // User already exists - check if wallet exists
       if (currentData.wallet) {
-        console.log('[initializeNewUser] Wallet already exists, aborting');
         // Wallet exists, abort transaction (return undefined)
         return; // This aborts the transaction
       }
-      console.log('[initializeNewUser] User exists but no wallet, adding wallet');
 
       // User exists but no wallet (edge case) - add wallet
       return {
@@ -168,8 +156,6 @@ export const initializeNewUser = functions
       };
     });
 
-    console.log('[initializeNewUser] Transaction committed:', result.committed);
-
     // Check transaction result
     if (!result.committed) {
       // Transaction was aborted - wallet already exists
@@ -181,7 +167,7 @@ export const initializeNewUser = functions
     }
 
     // New wallet created
-    console.log(`[initializeNewUser] Created wallet for ${userId} with ${STARTING_COINS} coins`);
+    console.log(`[initializeNewUser] New user wallet created`);
 
     return {
       success: true,

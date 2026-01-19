@@ -104,8 +104,8 @@ export const createStripeCheckout = functions
       );
     }
 
-    // Validate URLs are from allowed domains
-    const allowedDomains = ['quikdarts.com', 'localhost', '127.0.0.1'];
+    // Validate URLs are from allowed domains (production only)
+    const allowedDomains = ['quikdarts.com', 'quikdarts.web.app'];
     const isValidUrl = (url: string): boolean => {
       try {
         const parsed = new URL(url);
@@ -153,7 +153,7 @@ export const createStripeCheckout = functions
         client_reference_id: userId,
       });
 
-      console.log(`[createStripeCheckout] Created session ${session.id} for user ${userId}, package: ${packageId}`);
+      console.log(`[createStripeCheckout] Checkout session created successfully`);
 
       return {
         success: true,

@@ -106,7 +106,7 @@ export const settleGame = functions
     const loserId = game.winner === 0 ? game.player2.id : game.player1.id;
     const now = Date.now();
 
-    console.log(`[settleGame] Settling game ${gameId}: winner=${winnerId}, loser=${loserId}`);
+    console.log(`[settleGame] Settling game`);
 
     // 8. Award XP to both players
     const winnerXP = XP_REWARDS.GAME_PLAYED + XP_REWARDS.GAME_WON + (game.wager ? XP_REWARDS.GAME_WON_WAGERED : 0);
@@ -181,10 +181,10 @@ export const settleGame = functions
           timestamp: now,
         });
 
-        console.log(`[settleGame] Game ${gameId}: ${winnerId} won ${payout} coins`);
+        console.log(`[settleGame] Payout awarded to winner`);
       } else {
         // Escrow was already settled by another concurrent call
-        console.log(`[settleGame] Game ${gameId}: Escrow already settled, skipping payout`);
+        console.log(`[settleGame] Escrow already settled, skipping payout`);
       }
     }
 
@@ -259,7 +259,7 @@ async function awardXP(
         timestamp,
       });
 
-      console.log(`[awardXP] User ${userId} leveled up to ${newLevel}, awarded ${coinsAwarded} coins`);
+      console.log(`[awardXP] Player leveled up to ${newLevel}`);
 
       return { newLevel, coinsAwarded };
     }

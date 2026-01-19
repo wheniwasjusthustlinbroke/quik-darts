@@ -258,7 +258,7 @@ export const claimAdReward = functions
       transactionId,
     });
 
-    console.log(`[claimAdReward] User ${userId} claimed ${AD_REWARD} coins (${adsToday}/${MAX_ADS_PER_DAY} today)`);
+    console.log(`[claimAdReward] Ad reward claimed successfully (${adsToday}/${MAX_ADS_PER_DAY} today)`);
 
     return {
       success: true,
