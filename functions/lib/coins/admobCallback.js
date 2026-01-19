@@ -195,7 +195,7 @@ exports.admobCallback = functions
     }
     // Validate userId format (Firebase UID)
     if (userId.length < 20 || userId.length > 128 || !/^[a-zA-Z0-9]+$/.test(userId)) {
-        console.error(`[admobCallback] Invalid userId format: ${userId}`);
+        console.error(`[admobCallback] Invalid userId format`);
         res.status(200).send('OK');
         return;
     }
@@ -204,7 +204,7 @@ exports.admobCallback = functions
     // Also limit length to prevent DoS
     const transactionId = params.transaction_id;
     if (!transactionId || transactionId.length > 256 || !/^[a-zA-Z0-9_\-:]+$/.test(transactionId)) {
-        console.error(`[admobCallback] Invalid transaction_id format: ${transactionId?.slice(0, 50)}`);
+        console.error(`[admobCallback] Invalid transaction_id format`);
         res.status(200).send('OK');
         return;
     }
@@ -212,7 +212,7 @@ exports.admobCallback = functions
     const transactionRef = db.ref(`verifiedAdRewards/${transactionId}`);
     const existingTransaction = await transactionRef.once('value');
     if (existingTransaction.exists()) {
-        console.log(`[admobCallback] Duplicate transaction_id: ${transactionId}`);
+        console.log(`[admobCallback] Duplicate transaction - already processed`);
         // Return 200 - already processed
         res.status(200).send('OK');
         return;
@@ -220,7 +220,7 @@ exports.admobCallback = functions
     // Verify the signature
     const isValid = await verifySignature(params);
     if (!isValid) {
-        console.error(`[admobCallback] Invalid signature for transaction: ${transactionId}`);
+        console.error(`[admobCallback] Invalid signature - verification failed`);
         // Return 200 to not trigger retries, but log the issue
         res.status(200).send('OK');
         return;
@@ -237,7 +237,7 @@ exports.admobCallback = functions
         verifiedAt: now,
         claimed: false,
     });
-    console.log(`[admobCallback] Verified ad reward for user ${userId}, transaction: ${transactionId}`);
+    console.log(`[admobCallback] Ad reward verified successfully`);
     // Return 200 to acknowledge receipt
     res.status(200).send('OK');
 });

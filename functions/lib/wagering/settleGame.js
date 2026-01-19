@@ -98,7 +98,7 @@ exports.settleGame = functions
     const winnerId = game.winner === 0 ? game.player1.id : game.player2.id;
     const loserId = game.winner === 0 ? game.player2.id : game.player1.id;
     const now = Date.now();
-    console.log(`[settleGame] Settling game ${gameId}: winner=${winnerId}, loser=${loserId}`);
+    console.log(`[settleGame] Settling game`);
     // 8. Award XP to both players
     const winnerXP = levelSystem_1.XP_REWARDS.GAME_PLAYED + levelSystem_1.XP_REWARDS.GAME_WON + (game.wager ? levelSystem_1.XP_REWARDS.GAME_WON_WAGERED : 0);
     const loserXP = levelSystem_1.XP_REWARDS.GAME_PLAYED;
@@ -160,11 +160,11 @@ exports.settleGame = functions
                 description: `Won wagered match (+${payout} coins)`,
                 timestamp: now,
             });
-            console.log(`[settleGame] Game ${gameId}: ${winnerId} won ${payout} coins`);
+            console.log(`[settleGame] Payout awarded to winner`);
         }
         else {
             // Escrow was already settled by another concurrent call
-            console.log(`[settleGame] Game ${gameId}: Escrow already settled, skipping payout`);
+            console.log(`[settleGame] Escrow already settled, skipping payout`);
         }
     }
     // 10. Mark game as settled (idempotent)
@@ -223,7 +223,7 @@ async function awardXP(userId, xpAmount, timestamp) {
                 description: `Reached level ${newLevel}`,
                 timestamp,
             });
-            console.log(`[awardXP] User ${userId} leveled up to ${newLevel}, awarded ${coinsAwarded} coins`);
+            console.log(`[awardXP] Player leveled up to ${newLevel}`);
             return { newLevel, coinsAwarded };
         }
     }

@@ -86,7 +86,7 @@ exports.createEscrow = functions
         // Generate cryptographically secure escrowId using Firebase push key
         // This prevents ID enumeration and collision attacks
         escrowId = db.ref('escrow').push().key;
-        console.log(`[createEscrow] Generated server-side escrowId: ${escrowId}`);
+        console.log(`[createEscrow] Generated server-side escrow ID`);
     }
     const now = Date.now();
     const walletRef = db.ref(`users/${userId}/wallet`);
@@ -193,7 +193,7 @@ exports.createEscrow = functions
         if ((wallet.coins || 0) < stakeAmount) {
             return {
                 success: false,
-                error: `Insufficient coins. You have ${wallet.coins || 0}, need ${stakeAmount}.`,
+                error: 'Insufficient coins for this stake level.',
             };
         }
         throw new functions.https.HttpsError('aborted', 'Transaction failed. Please try again.');
@@ -203,7 +203,7 @@ exports.createEscrow = functions
     const finalEscrow = finalEscrowSnap.val();
     const finalWalletSnap = await walletRef.once('value');
     const finalWallet = finalWalletSnap.val();
-    console.log(`[createEscrow] User ${userId} locked ${stakeAmount} coins in escrow ${escrowId}. Status: ${finalEscrow.status}`);
+    console.log(`[createEscrow] Escrow created/joined. Status: ${finalEscrow.status}`);
     return {
         success: true,
         escrowId,
