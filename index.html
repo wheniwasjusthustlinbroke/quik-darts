@@ -3473,15 +3473,8 @@
             setMatchWinner(players[playerIndex]);
             setWinner(players[playerIndex]);
 
-            // In online mode, sync winner to Firebase and schedule game deletion
+            // In online mode, settle the game via Cloud Function (which updates game state server-side)
             if (onlineMode && gameRoomRef.current) {
-              // Update Firebase with winner so opponent sees it (with retry)
-              const roomRef = gameRoomRef.current;
-              retryFirebaseOperation(() => roomRef.update({
-                winner: playerIndex,
-                status: 'finished'
-              })).catch(err => console.error('Failed to update winner after retries:', err));
-
               // For wagered matches, settle the game (release escrow to winner)
               if (isWageredMatch && currentEscrowId && functions && gameRoomId) {
                 console.log('[settleGame] Settling wagered match:', gameRoomId);

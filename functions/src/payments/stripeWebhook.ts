@@ -113,13 +113,13 @@ async function handleSuccessfulPayment(session: Stripe.Checkout.Session): Promis
 
   // Validate metadata
   if (!userId || !packageId) {
-    console.error(`[stripeWebhook] Missing metadata in session ${sessionId}`);
+    console.error(`[stripeWebhook] Missing metadata in session`);
     return;
   }
 
   // Validate userId format
   if (!/^[a-zA-Z0-9]{20,128}$/.test(userId)) {
-    console.error(`[stripeWebhook] Invalid userId format: ${userId}`);
+    console.error(`[stripeWebhook] Invalid userId format`);
     return;
   }
 
@@ -137,7 +137,7 @@ async function handleSuccessfulPayment(session: Stripe.Checkout.Session): Promis
   const existingFulfillment = await fulfillmentRef.once('value');
 
   if (existingFulfillment.exists()) {
-    console.log(`[stripeWebhook] Session ${sessionId} already fulfilled`);
+    console.log(`[stripeWebhook] Session already fulfilled`);
     return;
   }
 
@@ -170,7 +170,7 @@ async function handleSuccessfulPayment(session: Stripe.Checkout.Session): Promis
   });
 
   if (!result.committed) {
-    console.error(`[stripeWebhook] Failed to award coins for session ${sessionId}`);
+    console.error(`[stripeWebhook] Failed to award coins - wallet transaction failed`);
     return;
   }
 
@@ -195,5 +195,5 @@ async function handleSuccessfulPayment(session: Stripe.Checkout.Session): Promis
     stripeSessionId: sessionId,
   });
 
-  console.log(`[stripeWebhook] Awarded ${coinsToAward} coins to user ${userId} for session ${sessionId}`);
+  console.log(`[stripeWebhook] Coins awarded successfully`);
 }

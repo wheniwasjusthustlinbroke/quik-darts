@@ -216,7 +216,7 @@ export const createEscrow = functions
       if ((wallet.coins || 0) < stakeAmount) {
         return {
           success: false,
-          error: `Insufficient coins. You have ${wallet.coins || 0}, need ${stakeAmount}.`,
+          error: 'Insufficient coins for this stake level.',
         };
       }
 
