@@ -103,8 +103,8 @@ exports.createStripeCheckout = functions
     if (!successUrl || !cancelUrl) {
         throw new functions.https.HttpsError('invalid-argument', 'Missing redirect URLs');
     }
-    // Validate URLs are from allowed domains
-    const allowedDomains = ['quikdarts.com', 'localhost', '127.0.0.1'];
+    // Validate URLs are from allowed domains (production only)
+    const allowedDomains = ['quikdarts.com', 'quikdarts.web.app'];
     const isValidUrl = (url) => {
         try {
             const parsed = new URL(url);
@@ -145,7 +145,7 @@ exports.createStripeCheckout = functions
             // Prevent duplicate fulfillment
             client_reference_id: userId,
         });
-        console.log(`[createStripeCheckout] Created session ${session.id} for user ${userId}, package: ${packageId}`);
+        console.log(`[createStripeCheckout] Checkout session created successfully`);
         return {
             success: true,
             sessionId: session.id,

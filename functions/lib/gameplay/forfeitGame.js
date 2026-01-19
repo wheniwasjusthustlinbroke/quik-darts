@@ -100,13 +100,10 @@ exports.forfeitGame = functions
         const opponentDisconnected = opponent.connected === false;
         // Must have EITHER stale heartbeat OR explicit disconnect flag
         if (!heartbeatStale && !opponentDisconnected) {
-            console.log(`[forfeitGame] SECURITY: Rejected claimWin - opponent still connected. ` +
-                `lastHeartbeat: ${opponentLastHeartbeat}, connected: ${opponent.connected}, ` +
-                `timeSinceHeartbeat: ${now - opponentLastHeartbeat}ms`);
+            console.log(`[forfeitGame] SECURITY: Rejected claimWin - opponent still connected`);
             throw new functions.https.HttpsError('failed-precondition', 'Cannot claim win - opponent is still connected');
         }
-        console.log(`[forfeitGame] claimWin verified: heartbeatStale=${heartbeatStale}, ` +
-            `opponentDisconnected=${opponentDisconnected}, timeSinceHeartbeat=${now - opponentLastHeartbeat}ms`);
+        console.log(`[forfeitGame] claimWin verified - opponent disconnect confirmed`);
         // Caller is claiming win (opponent disconnected - VERIFIED)
         winnerIndex = callerPlayerIndex;
         forfeitingPlayerIndex = callerPlayerIndex === 0 ? 1 : 0;
@@ -126,7 +123,7 @@ exports.forfeitGame = functions
         forfeitReason: reason,
     };
     await gameRef.update(updates);
-    console.log(`[forfeitGame] Game ${gameId}: Player ${forfeitingPlayerIndex} forfeited (${reason}). Winner: Player ${winnerIndex}`);
+    console.log(`[forfeitGame] Game forfeited successfully`);
     // 8. If wagered game, trigger settlement
     let winnerPayout = 0;
     if (game.wager && !game.wager.settled) {
@@ -135,7 +132,7 @@ exports.forfeitGame = functions
             winnerPayout = await settleGameInternal(gameId, winnerIndex, winnerId, game.wager.escrowId);
         }
         catch (error) {
-            console.error(`[forfeitGame] Failed to settle wagered game ${gameId}:`, error);
+            console.error(`[forfeitGame] Failed to settle wagered game:`, error);
             // Don't throw - game forfeit succeeded, settlement can be retried
         }
     }
@@ -161,7 +158,7 @@ async function settleGameInternal(gameId, winnerIndex, winnerId, escrowId) {
             return escrow;
         // Already settled or not in locked state - abort transaction
         if (escrow.status !== 'locked') {
-            console.log(`[settleGameInternal] Escrow ${escrowId} already in status: ${escrow.status}, aborting`);
+            console.log(`[settleGameInternal] Escrow already processed, aborting`);
             return; // Abort transaction - returns undefined
         }
         // Atomically transition escrow to released state
@@ -174,7 +171,7 @@ async function settleGameInternal(gameId, winnerIndex, winnerId, escrowId) {
     });
     // Check if escrow transaction was committed (status was 'locked' and we changed it)
     if (!escrowResult.committed || escrowResult.snapshot.val()?.status !== 'released') {
-        console.log(`[settleGameInternal] Escrow ${escrowId} already settled by another process, skipping payout`);
+        console.log(`[settleGameInternal] Escrow already settled by another process, skipping payout`);
         return 0;
     }
     const escrow = escrowResult.snapshot.val();
@@ -192,7 +189,7 @@ async function settleGameInternal(gameId, winnerIndex, winnerId, escrowId) {
         };
     });
     if (!walletResult.committed) {
-        console.error(`[settleGameInternal] Failed to award ${totalPot} coins to ${winnerId} - wallet transaction failed`);
+        console.error(`[settleGameInternal] Failed to award payout - wallet transaction failed`);
     }
     // Log transaction
     await db.ref(`users/${winnerId}/transactions`).push({
@@ -204,7 +201,7 @@ async function settleGameInternal(gameId, winnerIndex, winnerId, escrowId) {
     });
     // Mark game wager as settled
     await db.ref(`games/${gameId}/wager/settled`).set(true);
-    console.log(`[settleGameInternal] Settled game ${gameId}: ${winnerId} won ${totalPot} coins`);
+    console.log(`[settleGameInternal] Game settled - payout awarded`);
     return totalPot;
 }
 //# sourceMappingURL=forfeitGame.js.map

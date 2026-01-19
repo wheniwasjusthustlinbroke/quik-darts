@@ -67,7 +67,7 @@ exports.refundEscrow = functions
     }
     // SPECIAL CASE: cleanup_pending - find and refund any pending escrows for this user
     if (escrowId === 'cleanup_pending') {
-        console.log(`[refundEscrow] Cleanup pending escrows for user ${userId}`);
+        console.log(`[refundEscrow] Cleaning up pending escrows`);
         const now = Date.now();
         // Find all pending escrows where user is player1 or player2
         const escrowsSnap = await db.ref('escrow')
@@ -143,7 +143,7 @@ exports.refundEscrow = functions
                 if (queueStake) {
                     await db.ref(`matchmaking_queue/wagered/${queueStake}/${userId}`).remove();
                 }
-                console.log(`[refundEscrow] Cleaned up stale escrow ${eid} for user ${userId}`);
+                console.log(`[refundEscrow] Cleaned up stale escrow`);
             }
         }
         return { success: true, refundedPlayers, refundedAmounts };
@@ -183,13 +183,13 @@ exports.refundEscrow = functions
             return currentEscrow;
         // Already refunded or released by another concurrent call - abort
         if (currentEscrow.status === 'released' || currentEscrow.status === 'refunded') {
-            console.log(`[refundEscrow] Escrow ${escrowId} already ${currentEscrow.status}, aborting`);
+            console.log(`[refundEscrow] Escrow already processed, aborting`);
             return; // Abort transaction
         }
         // Can only refund if pending OR (locked AND expired)
         const isLockedAndExpired = currentEscrow.status === 'locked' && currentEscrow.expiresAt && currentEscrow.expiresAt < now;
         if (currentEscrow.status !== 'pending' && !isLockedAndExpired) {
-            console.log(`[refundEscrow] Escrow ${escrowId} in status ${currentEscrow.status}, cannot refund`);
+            console.log(`[refundEscrow] Cannot refund - escrow in invalid state`);
             return; // Abort transaction
         }
         // Atomically mark as refunded
@@ -203,7 +203,7 @@ exports.refundEscrow = functions
     // Check if transaction was committed
     if (!refundResult.committed || refundResult.snapshot.val()?.status !== 'refunded') {
         // Another concurrent call already processed this escrow
-        console.log(`[refundEscrow] Escrow ${escrowId} already processed by another call`);
+        console.log(`[refundEscrow] Escrow already processed by another call`);
         return {
             success: true,
             error: 'Escrow already processed',
@@ -225,7 +225,7 @@ exports.refundEscrow = functions
         refundedPlayers.push(refundedEscrow.player2.userId);
         refundedAmounts.push(refundedEscrow.player2.amount);
     }
-    console.log(`[refundEscrow] Escrow ${escrowId} refunded. Players: ${refundedPlayers.join(', ')}`);
+    console.log(`[refundEscrow] Escrow refunded successfully`);
     return {
         success: true,
         refundedPlayers,
@@ -257,7 +257,7 @@ async function refundPlayer(playerId, amount, escrowId, reason, timestamp) {
         description: `Escrow refund (${reason})`,
         timestamp,
     });
-    console.log(`[refundPlayer] Refunded ${amount} coins to ${playerId}`);
+    console.log(`[refundPlayer] Refund processed successfully`);
 }
 /**
  * Scheduled function to clean up expired escrows
