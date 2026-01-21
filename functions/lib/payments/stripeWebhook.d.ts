@@ -6,8 +6,9 @@
  *
  * Security:
  * - Verifies Stripe webhook signature
- * - Prevents replay attacks by storing processed session IDs
+ * - Prevents replay attacks with atomic fulfillment check + record
  * - Uses atomic transactions for coin awards
+ * - Failed fulfillments are marked (not deleted) to prevent double-award on retry
  *
  * Setup: Configure webhook in Stripe Dashboard → Developers → Webhooks
  * URL: https://europe-west1-quikdarts.cloudfunctions.net/stripeWebhook

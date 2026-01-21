@@ -17,6 +17,7 @@
  * - Rate limited: max 5 ads per day
  * - Each transactionId can only be claimed once (atomic check)
  * - Uses transactions to prevent race conditions
+ * - Claims are never reverted to prevent race condition exploitation
  */
 import * as functions from 'firebase-functions';
 export declare const claimAdReward: functions.HttpsFunction & functions.Runnable<any>;

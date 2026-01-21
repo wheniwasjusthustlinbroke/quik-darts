@@ -7,8 +7,9 @@
  *
  * Security:
  * - Verifies Stripe webhook signature
- * - Prevents replay attacks by storing processed session IDs
+ * - Prevents replay attacks with atomic fulfillment check + record
  * - Uses atomic transactions for coin awards
+ * - Failed fulfillments are marked (not deleted) to prevent double-award on retry
  *
  * Setup: Configure webhook in Stripe Dashboard → Developers → Webhooks
  * URL: https://europe-west1-quikdarts.cloudfunctions.net/stripeWebhook
@@ -149,15 +150,32 @@ async function handleSuccessfulPayment(session) {
         console.error(`[stripeWebhook] Invalid coins amount for package ${packageId}`);
         return;
     }
-    // Check for duplicate fulfillment
+    // SECURITY FIX: Atomic fulfillment check + record to prevent replay attacks
+    // This transaction atomically checks if the session was already fulfilled and marks it as processing
+    const now = Date.now();
     const fulfillmentRef = db.ref(`stripeFulfillments/${sessionId}`);
-    const existingFulfillment = await fulfillmentRef.once('value');
-    if (existingFulfillment.exists()) {
-        console.log(`[stripeWebhook] Session already fulfilled`);
+    const fulfillmentResult = await fulfillmentRef.transaction((existing) => {
+        if (existing) {
+            // Already fulfilled - abort
+            return; // Returns undefined to abort transaction
+        }
+        // Atomically mark as processing to prevent concurrent webhooks
+        return {
+            userId,
+            packageId,
+            coinsToAward,
+            amountPaid: session.amount_total,
+            currency: session.currency,
+            status: 'processing',
+            startedAt: now,
+        };
+    });
+    // Check if we successfully claimed this fulfillment
+    if (!fulfillmentResult.committed) {
+        console.log(`[stripeWebhook] Session already fulfilled (duplicate webhook)`);
         return;
     }
-    // Award coins with atomic transaction
-    const now = Date.now();
+    // We now own the fulfillment - safe to award coins
     const walletRef = db.ref(`users/${userId}/wallet`);
     const transactionsRef = db.ref(`users/${userId}/transactions`);
     const result = await walletRef.transaction((wallet) => {
@@ -182,16 +200,20 @@ async function handleSuccessfulPayment(session) {
         };
     });
     if (!result.committed) {
+        // CRITICAL: Wallet update failed - mark fulfillment as failed for investigation
+        // Do NOT delete the fulfillment record as this prevents retries that would double-award
         console.error(`[stripeWebhook] Failed to award coins - wallet transaction failed`);
+        await fulfillmentRef.update({
+            status: 'failed',
+            error: 'wallet_transaction_failed',
+            failedAt: now,
+        });
         return;
     }
-    // Record fulfillment to prevent duplicates
-    await fulfillmentRef.set({
-        userId,
-        packageId,
+    // Success - mark fulfillment as complete
+    await fulfillmentRef.update({
+        status: 'completed',
         coinsAwarded: coinsToAward,
-        amountPaid: session.amount_total,
-        currency: session.currency,
         fulfilledAt: now,
     });
     // Log transaction

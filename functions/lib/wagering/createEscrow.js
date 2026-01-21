@@ -11,6 +11,7 @@
  * - Uses atomic transaction to prevent race conditions
  * - Prevents joining multiple games simultaneously
  * - 30-minute expiration for abandoned escrows
+ * - Rate limited: max 5 escrows per user per hour (prevents lockup attacks)
  */
 var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
     if (k2 === undefined) k2 = k;
@@ -54,6 +55,9 @@ const db = admin.database();
 const VALID_STAKES = [50, 100, 500, 2500];
 // Escrow expiration (30 minutes)
 const ESCROW_EXPIRY_MS = 30 * 60 * 1000;
+// Rate limiting: max escrows per user in time window
+const MAX_ESCROWS_PER_HOUR = 5;
+const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000; // 1 hour
 exports.createEscrow = functions
     .region('europe-west1')
     .https.onCall(async (data, context) => {
@@ -73,9 +77,46 @@ exports.createEscrow = functions
     if (!VALID_STAKES.includes(stakeAmount)) {
         throw new functions.https.HttpsError('invalid-argument', `Invalid stake amount. Valid stakes: ${VALID_STAKES.join(', ')}`);
     }
+    const now = Date.now();
+    // SECURITY: Rate limiting - prevent escrow lockup attacks
+    // Users can only create a limited number of escrows per hour
+    const isJoiningExisting = !!escrowId;
+    if (!isJoiningExisting) {
+        const rateLimitRef = db.ref(`escrowRateLimits/${userId}`);
+        const rateLimitResult = await rateLimitRef.transaction((rateLimit) => {
+            if (!rateLimit) {
+                // First escrow - initialize rate limit tracking
+                return {
+                    count: 1,
+                    windowStart: now,
+                };
+            }
+            // Check if we're in a new window
+            if (now - rateLimit.windowStart > RATE_LIMIT_WINDOW_MS) {
+                // New window - reset count
+                return {
+                    count: 1,
+                    windowStart: now,
+                };
+            }
+            // Same window - check limit
+            if (rateLimit.count >= MAX_ESCROWS_PER_HOUR) {
+                return; // Abort - rate limit exceeded
+            }
+            // Increment count
+            return {
+                count: rateLimit.count + 1,
+                windowStart: rateLimit.windowStart,
+            };
+        });
+        if (!rateLimitResult.committed) {
+            console.warn(`[createEscrow] Rate limit exceeded for user ${userId}`);
+            throw new functions.https.HttpsError('resource-exhausted', `Too many wagered matches. You can create up to ${MAX_ESCROWS_PER_HOUR} matches per hour. Please try again later.`);
+        }
+        console.log(`[createEscrow] Rate limit check passed: ${rateLimitResult.snapshot.val()?.count}/${MAX_ESCROWS_PER_HOUR}`);
+    }
     // SECURITY: If escrowId is provided (joining existing), validate format
     // If not provided (creating new), generate a cryptographically secure ID server-side
-    const isJoiningExisting = !!escrowId;
     if (isJoiningExisting) {
         // Validate escrowId format to prevent injection/DoS attacks
         if (typeof escrowId !== 'string' || escrowId.length > 100 || !/^[a-zA-Z0-9_-]+$/.test(escrowId)) {
@@ -88,7 +129,6 @@ exports.createEscrow = functions
         escrowId = db.ref('escrow').push().key;
         console.log(`[createEscrow] Generated server-side escrow ID`);
     }
-    const now = Date.now();
     const walletRef = db.ref(`users/${userId}/wallet`);
     const escrowRef = db.ref(`escrow/${escrowId}`);
     // 4. Check if user already has pending escrow (prevent joining multiple games)

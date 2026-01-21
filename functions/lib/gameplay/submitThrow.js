@@ -13,6 +13,7 @@
  * - Server validates throw plausibility (anti-cheat)
  * - Server calculates rhythm bonus from timestamps
  * - Rate limiting to prevent throw spam
+ * - Wagered matches: escrow existence and lock status verified (not just game state)
  */
 var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
     if (k2 === undefined) k2 = k;
@@ -247,7 +248,24 @@ exports.submitThrow = functions
     // 8. Calculate server-side rhythm
     const rhythm = calculateServerRhythm(currentTurnThrows, now);
     // 8.5. Validate throw plausibility (anti-cheat)
-    const isWagered = !!(game.wagerAmount && game.wagerAmount > 0);
+    // SECURITY: Don't just trust game.wagerAmount - verify the escrow is actually locked
+    let isWagered = false;
+    if (game.wagerAmount && game.wagerAmount > 0 && game.wager?.escrowId) {
+        // Verify escrow exists and is locked - prevents wagered match fraud
+        const escrowRef = db.ref(`escrow/${game.wager.escrowId}`);
+        const escrowSnap = await escrowRef.once('value');
+        const escrow = escrowSnap.val();
+        if (!escrow) {
+            console.error(`[submitThrow] Wagered match has no escrow - game ${gameId}`);
+            throw new functions.https.HttpsError('failed-precondition', 'Escrow not found for wagered match. Game is invalid.');
+        }
+        if (escrow.status !== 'locked') {
+            console.error(`[submitThrow] Escrow not locked (${escrow.status}) - game ${gameId}`);
+            throw new functions.https.HttpsError('failed-precondition', 'Escrow not locked. Cannot continue wagered match.');
+        }
+        isWagered = true;
+        console.log(`[submitThrow] Escrow verified for wagered match - game ${gameId}`);
+    }
     // SECURITY: For wagered matches, validate enhanced payload types first
     if (isWagered && (aimPoint !== undefined || powerValue !== undefined)) {
         if (!isValidEnhancedPayload(aimPoint, powerValue)) {

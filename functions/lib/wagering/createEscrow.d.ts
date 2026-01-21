@@ -10,6 +10,7 @@
  * - Uses atomic transaction to prevent race conditions
  * - Prevents joining multiple games simultaneously
  * - 30-minute expiration for abandoned escrows
+ * - Rate limited: max 5 escrows per user per hour (prevents lockup attacks)
  */
 import * as functions from 'firebase-functions';
 export declare const createEscrow: functions.HttpsFunction & functions.Runnable<any>;

@@ -15,6 +15,9 @@
  * - Verifies signature using Google's RSA public keys
  * - Stores transaction_id to prevent replay attacks
  * - Only accepts requests from Google's servers
+ * - Key fetch has 5-second timeout to prevent DoS
+ * - 5-minute key cache for faster key rotation response
+ * - Response structure validated before caching
  *
  * See: https://developers.google.com/admob/android/ssv
  */
@@ -32,8 +35,12 @@ const ADMOB_PUBLIC_KEYS_URL = 'https://www.gstatic.com/admob/reward/verifier-key
 let cachedKeys: { [keyId: string]: string } = {};
 let keysCacheExpiry = 0;
 
-// Cache duration: 1 hour
-const KEYS_CACHE_DURATION_MS = 60 * 60 * 1000;
+// SECURITY: Cache duration reduced to 5 minutes for faster key rotation response
+// Shorter cache = faster recovery if a key is compromised
+const KEYS_CACHE_DURATION_MS = 5 * 60 * 1000;
+
+// Fetch timeout to prevent DoS via slow responses
+const FETCH_TIMEOUT_MS = 5000;
 
 interface AdMobSSVParams {
   ad_network: string;
@@ -49,6 +56,11 @@ interface AdMobSSVParams {
 
 /**
  * Fetch Google's public keys for AdMob SSV verification
+ *
+ * Security hardening:
+ * - 5-second fetch timeout prevents DoS via slow responses
+ * - Response structure validated before caching
+ * - Cache reduced to 5 minutes for faster key rotation response
  */
 async function fetchPublicKeys(): Promise<{ [keyId: string]: string }> {
   const now = Date.now();
@@ -59,20 +71,46 @@ async function fetchPublicKeys(): Promise<{ [keyId: string]: string }> {
   }
 
   try {
-    const response = await fetch(ADMOB_PUBLIC_KEYS_URL);
+    // SECURITY: Add timeout to prevent DoS via slow responses
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+
+    const response = await fetch(ADMOB_PUBLIC_KEYS_URL, {
+      signal: controller.signal,
+      headers: { 'User-Agent': 'QuikDarts/1.0' },
+    });
+    clearTimeout(timeoutId);
+
     if (!response.ok) {
       throw new Error(`Failed to fetch keys: ${response.status}`);
     }
 
     const data = await response.json();
 
+    // SECURITY: Validate response structure before caching
+    if (!data || typeof data !== 'object') {
+      throw new Error('Invalid key response: not an object');
+    }
+
     // Google returns keys in format: { keys: [ { keyId: number, pem: string, base64: string }, ... ] }
+    if (!data.keys || !Array.isArray(data.keys)) {
+      throw new Error('Invalid key response: missing keys array');
+    }
+
     const keys: { [keyId: string]: string } = {};
-    if (data.keys && Array.isArray(data.keys)) {
-      for (const key of data.keys) {
-        // Use base64 encoded key (DER format)
-        keys[String(key.keyId)] = key.pem || key.base64;
+    for (const key of data.keys) {
+      // Validate each key has required fields
+      if (!key.keyId || (!key.pem && !key.base64)) {
+        console.warn('[admobCallback] Skipping malformed key entry');
+        continue;
       }
+      // Use base64 encoded key (DER format)
+      keys[String(key.keyId)] = key.pem || key.base64;
+    }
+
+    // SECURITY: Ensure we have at least one valid key
+    if (Object.keys(keys).length === 0) {
+      throw new Error('Invalid key response: no valid keys found');
     }
 
     cachedKeys = keys;
@@ -81,7 +119,15 @@ async function fetchPublicKeys(): Promise<{ [keyId: string]: string }> {
     console.log(`[admobCallback] Fetched ${Object.keys(keys).length} public keys from Google`);
     return keys;
   } catch (error) {
-    console.error('[admobCallback] Failed to fetch public keys:', error);
+    const errMessage = error instanceof Error ? error.message : String(error);
+    console.error('[admobCallback] Failed to fetch public keys:', errMessage);
+
+    // If we have cached keys (even expired), use them as fallback
+    if (cachedKeys && Object.keys(cachedKeys).length > 0) {
+      console.warn('[admobCallback] Using expired cached keys as fallback');
+      return cachedKeys;
+    }
+
     throw new functions.https.HttpsError('internal', 'Failed to verify ad reward');
   }
 }
