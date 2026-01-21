@@ -17,6 +17,7 @@
  * - Rate limited: max 5 ads per day
  * - Each transactionId can only be claimed once (atomic check)
  * - Uses transactions to prevent race conditions
+ * - Claims are never reverted to prevent race condition exploitation
  */
 
 import * as functions from 'firebase-functions';
@@ -207,12 +208,15 @@ export const claimAdReward = functions
 
     // Check if wallet transaction was aborted
     if (!walletResult.committed) {
-      // Revert the claim since we couldn't award coins
+      // SECURITY FIX: Do NOT revert the claim - this creates a race condition window
+      // Instead, mark the claim as failed but keep it claimed to prevent double-claiming
+      // A scheduled job can reconcile orphaned claims if needed
       await verifiedRewardRef.update({
-        claimed: false,
-        claimedAt: null,
         claimError: 'wallet_transaction_failed',
+        claimErrorAt: now,
       });
+
+      console.error(`[claimAdReward] Wallet transaction failed for user ${userId}, transactionId ${transactionId}`);
 
       const walletSnap = await walletRef.once('value');
       const wallet = walletSnap.val();
@@ -220,7 +224,7 @@ export const claimAdReward = functions
       if (!wallet) {
         throw new functions.https.HttpsError(
           'failed-precondition',
-          'Account not initialized'
+          'Account not initialized. Please restart the app.'
         );
       }
 
@@ -241,7 +245,7 @@ export const claimAdReward = functions
 
       throw new functions.https.HttpsError(
         'internal',
-        'Transaction failed'
+        'Failed to update wallet. Please try again or contact support.'
       );
     }
 

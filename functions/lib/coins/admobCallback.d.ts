@@ -15,6 +15,9 @@
  * - Verifies signature using Google's RSA public keys
  * - Stores transaction_id to prevent replay attacks
  * - Only accepts requests from Google's servers
+ * - Key fetch has 5-second timeout to prevent DoS
+ * - 5-minute key cache for faster key rotation response
+ * - Response structure validated before caching
  *
  * See: https://developers.google.com/admob/android/ssv
  */

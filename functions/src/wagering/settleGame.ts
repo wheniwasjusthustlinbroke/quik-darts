@@ -7,8 +7,10 @@
  * Security:
  * - Only callable by players in the game
  * - Verifies game is finished
- * - Prevents double settlement
+ * - Prevents double settlement with requestId-based settlement lock
  * - Uses atomic transaction for coin transfer
+ * - Recoverable: if wallet update fails, settlement lock is released for retry
+ * - Winner ID derived from server-authoritative game state, not user input
  */
 
 import * as functions from 'firebase-functions';
@@ -106,6 +108,10 @@ export const settleGame = functions
     const loserId = game.winner === 0 ? game.player2.id : game.player1.id;
     const now = Date.now();
 
+    // SECURITY: Generate unique request ID to track this settlement attempt
+    // This prevents race conditions where two requests could both try to settle
+    const requestId = `${userId}_${now}_${Math.random().toString(36).substring(2, 8)}`;
+
     console.log(`[settleGame] Settling game`);
 
     // 8. Award XP to both players
@@ -129,8 +135,8 @@ export const settleGame = functions
     if (game.wager && game.wager.escrowId) {
       const escrowRef = db.ref(`escrow/${game.wager.escrowId}`);
 
-      // CRITICAL: Use atomic transaction on escrow to prevent double-settlement race condition
-      // This transaction atomically checks status and transitions to 'released' in one operation
+      // CRITICAL: Use atomic transaction with settlement lock to prevent double-settlement
+      // The settlementRequestId ensures only one request can proceed with wallet update
       const escrowResult = await escrowRef.transaction((escrow) => {
         if (!escrow) return escrow;
 
@@ -140,52 +146,90 @@ export const settleGame = functions
           return; // Abort transaction
         }
 
-        // Atomically transition escrow to released state
+        // SECURITY: Check if another request is already settling this escrow
+        // If settlement started but not completed, allow retry after 30 seconds
+        if (escrow.settlementRequestId) {
+          const settlementAge = now - (escrow.settlementStartedAt || 0);
+          if (settlementAge < 30000) {
+            console.log(`[settleGame] Escrow ${game.wager.escrowId} already being settled by ${escrow.settlementRequestId}`);
+            return; // Abort - another request is settling
+          }
+          // Stale settlement lock - allow retry
+          console.log(`[settleGame] Stale settlement lock, allowing retry`);
+        }
+
+        // Atomically acquire settlement lock
         return {
           ...escrow,
-          status: 'released',
-          settledAt: now,
+          status: 'settling', // Intermediate state to signal settlement in progress
+          settlementStartedAt: now,
+          settlementRequestId: requestId,
           winnerId,
         };
       });
 
-      // Check if escrow transaction was committed
-      if (escrowResult.committed && escrowResult.snapshot.val()?.status === 'released') {
-        const escrow = escrowResult.snapshot.val();
-        payout = escrow.totalPot;
-
-        // Now award coins to winner (safe - escrow is already atomically marked as released)
-        const walletRef = db.ref(`users/${winnerId}/wallet`);
-
-        const walletResult = await walletRef.transaction((wallet) => {
-          if (!wallet) return wallet;
-
-          return {
-            ...wallet,
-            coins: (wallet.coins || 0) + payout,
-            lifetimeEarnings: (wallet.lifetimeEarnings || 0) + payout,
-            version: (wallet.version || 0) + 1,
-          };
-        });
-
-        if (!walletResult.committed) {
-          console.error(`[settleGame] Failed to award ${payout} coins to ${winnerId} - wallet transaction failed`);
-        }
-
-        // Log transaction
-        await db.ref(`users/${winnerId}/transactions`).push({
-          type: 'payout',
-          amount: payout,
-          gameId,
-          description: `Won wagered match (+${payout} coins)`,
-          timestamp: now,
-        });
-
-        console.log(`[settleGame] Payout awarded to winner`);
-      } else {
-        // Escrow was already settled by another concurrent call
-        console.log(`[settleGame] Escrow already settled, skipping payout`);
+      // Check if WE acquired the settlement lock
+      const escrowAfterLock = escrowResult.snapshot.val();
+      if (!escrowResult.committed || escrowAfterLock?.settlementRequestId !== requestId) {
+        // Another request is settling or escrow was already released
+        console.log(`[settleGame] Could not acquire settlement lock, skipping`);
+        // Return success since game is being/was settled (idempotent)
+        return {
+          success: true,
+          winnerId,
+          error: 'Settlement in progress or already complete',
+        };
       }
+
+      payout = escrowAfterLock.totalPot;
+
+      // Now award coins to winner (safe - we own the settlement lock)
+      const walletRef = db.ref(`users/${winnerId}/wallet`);
+
+      const walletResult = await walletRef.transaction((wallet) => {
+        if (!wallet) return wallet;
+
+        return {
+          ...wallet,
+          coins: (wallet.coins || 0) + payout,
+          lifetimeEarnings: (wallet.lifetimeEarnings || 0) + payout,
+          version: (wallet.version || 0) + 1,
+        };
+      });
+
+      if (!walletResult.committed) {
+        // CRITICAL: Wallet update failed - release the settlement lock so another attempt can retry
+        console.error(`[settleGame] Failed to award ${payout} coins to ${winnerId} - wallet transaction failed`);
+        await escrowRef.update({
+          status: 'locked', // Reset to locked so retry is possible
+          settlementRequestId: null,
+          settlementStartedAt: null,
+          settlementError: `wallet_update_failed_${requestId}`,
+          winnerId, // Keep winner ID for retry
+        });
+        throw new functions.https.HttpsError(
+          'internal',
+          'Failed to award payout. Please try again.'
+        );
+      }
+
+      // Wallet update succeeded - finalize escrow release
+      await escrowRef.update({
+        status: 'released',
+        settledAt: now,
+        payoutAwarded: true,
+      });
+
+      // Log transaction
+      await db.ref(`users/${winnerId}/transactions`).push({
+        type: 'payout',
+        amount: payout,
+        gameId,
+        description: `Won wagered match (+${payout} coins)`,
+        timestamp: now,
+      });
+
+      console.log(`[settleGame] Payout awarded to winner`);
     }
 
     // 10. Mark game as settled (idempotent)
