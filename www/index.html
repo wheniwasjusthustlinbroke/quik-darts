@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Production Build - 2026-01-17T21:37:35.753Z -->
+<!-- Production Build - 2026-01-22T20:59:17.026Z -->
 <!-- Quik Darts v1.1 - January 2026 -->
 <html lang="en">
 <head>
@@ -371,10 +371,27 @@
         border-color: rgba(231, 76, 60, 1);
       }
     }
+    /* Wagered Match Header Animations */
+    @keyframes potPulse {
+      0% { transform: scale(1); }
+      50% { transform: scale(1.06); }
+      100% { transform: scale(1); }
+    }
+    @keyframes potGlow {
+      0% { box-shadow: 0 0 20px rgba(255, 215, 0, 0.5); }
+      50% { box-shadow: 0 0 30px rgba(255, 215, 0, 1); }
+      100% { box-shadow: 0 0 20px rgba(255, 215, 0, 0.7); }
+    }
+    @keyframes wagerFadeInUp {
+      0% { opacity: 0; transform: translateY(10px); }
+      100% { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes skeletonPulse {
+      0%, 100% { opacity: 0.4; }
+      50% { opacity: 0.8; }
+    }
     .animate-fade-in { animation: fadeInUp 0.6s ease forwards; }
-    .animate-delay-1 { animation-delay: 0.1s; opacity: 0; }
     .animate-delay-2 { animation-delay: 0.2s; opacity: 0; }
-    .animate-delay-3 { animation-delay: 0.3s; opacity: 0; }
 
     /* Utility */
     .sr-only {
@@ -386,6 +403,300 @@
       overflow: hidden;
       clip: rect(0, 0, 0, 0);
       border: 0;
+    }
+
+    /* ===== MATCHMAKING OVERLAY ===== */
+
+    /* Backdrop */
+    .qd-mmBackdrop {
+      position: fixed;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      background: radial-gradient(60% 60% at 50% 45%, rgba(0,0,0,0.25), rgba(0,0,0,0.55));
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      z-index: 9999;
+      pointer-events: auto; /* Prevent clicks passing through to background */
+    }
+
+    /* Matchmaking Card */
+    .qd-mmCard {
+      width: min(420px, calc(100vw - 32px));
+      padding: 28px 26px 22px;
+      border-radius: 18px;
+      background: rgba(22, 26, 30, 0.92);
+      border: 1px solid rgba(255,255,255,0.08);
+      box-shadow: 0 28px 70px rgba(0,0,0,0.55);
+      text-align: center;
+    }
+
+    .qd-mmIcon {
+      font-size: 30px;
+      opacity: 0.95;
+      margin-bottom: 10px;
+    }
+
+    .qd-mmTitle {
+      font-weight: 900;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: rgba(226, 186, 92, 0.95);
+      font-size: 20px;
+    }
+
+    .qd-mmTitle.green {
+      color: rgba(80, 200, 120, 0.95);
+    }
+
+    .qd-mmSub {
+      margin-top: 10px;
+      font-size: 13px;
+      color: rgba(255,255,255,0.55);
+    }
+
+    .qd-mmHint {
+      margin-top: 12px;
+      font-size: 12px;
+      color: rgba(255,255,255,0.6);
+      padding: 10px 12px;
+      border-radius: 12px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.06);
+    }
+
+    .qd-mmDots {
+      margin: 14px auto 18px;
+      display: flex;
+      gap: 8px;
+      justify-content: center;
+    }
+
+    .qd-mmDots span {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: rgba(80, 200, 120, 0.5);
+      animation: qdDot 1.1s infinite ease-in-out;
+    }
+
+    .qd-mmDots span:nth-child(2) { animation-delay: 0.15s; opacity: 0.7; }
+    .qd-mmDots span:nth-child(3) { animation-delay: 0.3s; opacity: 0.9; }
+
+    @keyframes qdDot {
+      0%, 80%, 100% { transform: translateY(0); opacity: 0.35; }
+      40% { transform: translateY(-6px); opacity: 0.95; }
+    }
+
+    .qd-mmBtn {
+      pointer-events: auto;
+      padding: 10px 16px;
+      border-radius: 12px;
+      border: 1px solid rgba(255,255,255,0.10);
+      background: rgba(255,255,255,0.06);
+      color: rgba(255,255,255,0.8);
+      font-weight: 700;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .qd-mmBtn:hover {
+      background: rgba(255,255,255,0.09);
+    }
+
+    /* Opponent block */
+    .qd-mmOpponent {
+      margin: 18px auto 6px;
+      padding: 14px 14px;
+      border-radius: 16px;
+      width: min(320px, 100%);
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.06);
+      display: grid;
+      justify-items: center;
+      gap: 10px;
+    }
+
+    .qd-mmAvatar {
+      width: 44px;
+      height: 44px;
+      border-radius: 14px;
+      overflow: hidden;
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.08);
+    }
+
+    .qd-mmAvatar img { width: 100%; height: 100%; object-fit: cover; }
+
+    .qd-mmAvatarFallback {
+      width: 100%;
+      height: 100%;
+      display: grid;
+      place-items: center;
+      font-weight: 900;
+      color: rgba(255,255,255,0.8);
+    }
+
+    .qd-mmName {
+      font-weight: 800;
+      color: rgba(226, 186, 92, 0.95);
+    }
+
+    /* VS Intro Screen */
+    .qd-vsWrap {
+      width: min(920px, calc(100vw - 32px));
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      align-items: center;
+      gap: 32px;
+      padding: 28px 30px;
+      border-radius: 22px;
+      background: rgba(14, 18, 22, 0.78);
+      border: 1px solid rgba(255,255,255,0.08);
+      box-shadow: 0 28px 90px rgba(0,0,0,0.62);
+      animation: qdIntroIn 420ms ease-out;
+    }
+
+    @keyframes qdIntroIn {
+      from { opacity: 0; transform: translateY(8px) scale(0.99); }
+      to   { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    .qd-vsPlayer {
+      display: grid;
+      justify-items: center;
+      gap: 8px;
+      opacity: 0.96;
+    }
+
+    .qd-vsPlayer.left { animation: qdSlideLeft 520ms ease-out; }
+    .qd-vsPlayer.right { animation: qdSlideRight 520ms ease-out; }
+
+    @keyframes qdSlideLeft { from { transform: translateX(-10px); opacity: 0; } to { transform: translateX(0); opacity: 0.96; } }
+    @keyframes qdSlideRight { from { transform: translateX(10px); opacity: 0; } to { transform: translateX(0); opacity: 0.96; } }
+
+    .qd-vsAvatar {
+      width: 74px;
+      height: 74px;
+      border-radius: 22px;
+      overflow: hidden;
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.10);
+      box-shadow: 0 18px 40px rgba(0,0,0,0.45);
+    }
+
+    .qd-vsAvatar img { width: 100%; height: 100%; object-fit: cover; }
+
+    .qd-vsAvatarFallback {
+      width: 100%;
+      height: 100%;
+      display: grid;
+      place-items: center;
+      font-weight: 900;
+      font-size: 28px;
+      color: rgba(255,255,255,0.82);
+    }
+
+    .qd-vsName {
+      font-weight: 900;
+      color: rgba(255,255,255,0.92);
+    }
+
+    .qd-vsLvl {
+      font-size: 12px;
+      letter-spacing: 0.06em;
+      padding: 4px 10px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.08);
+      color: rgba(255,255,255,0.75);
+    }
+
+    .qd-vsCenter {
+      display: grid;
+      justify-items: center;
+      gap: 14px;
+      padding: 10px 0;
+    }
+
+    .qd-vsText {
+      font-size: 40px;
+      font-weight: 900;
+      letter-spacing: 0.08em;
+      color: rgba(226, 186, 92, 0.95);
+      text-shadow: 0 10px 22px rgba(0,0,0,0.55);
+    }
+
+    .qd-vsPot {
+      display: grid;
+      justify-items: center;
+      gap: 6px;
+    }
+
+    .qd-vsChip {
+      animation: qdChipPop 520ms cubic-bezier(.2,.9,.2,1.15);
+      mix-blend-mode: lighten;
+      filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.5));
+    }
+
+    @keyframes qdChipPop {
+      0% { transform: scale(0.92); opacity: 0; }
+      60% { transform: scale(1.04); opacity: 1; }
+      100% { transform: scale(1); }
+    }
+
+    .qd-vsPotLabel {
+      font-size: 11px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: rgba(255,255,255,0.55);
+    }
+
+    .qd-vsPotAmount {
+      font-size: 22px;
+      font-weight: 900;
+      color: rgba(255,255,255,0.92);
+    }
+
+    /* Accessibility - Reduced Motion */
+    @media (prefers-reduced-motion: reduce) {
+      .qd-mmDots span,
+      .qd-vsPlayer,
+      .qd-vsChip,
+      .qd-vsWrap {
+        animation: none;
+      }
+    }
+
+    /* Mobile Responsive */
+    @media (max-width: 640px) {
+      .qd-vsWrap {
+        grid-template-columns: 1fr;
+        gap: 20px;
+        padding: 20px;
+      }
+
+      .qd-vsPlayer.left,
+      .qd-vsPlayer.right {
+        animation: none;
+      }
+
+      .qd-vsCenter {
+        order: -1;
+      }
+
+      .qd-vsText {
+        font-size: 32px;
+      }
+
+      .qd-vsAvatar {
+        width: 60px;
+        height: 60px;
+      }
+
+      .qd-vsAvatarFallback {
+        font-size: 22px;
+      }
     }
   </style>
 </head>
@@ -406,7 +717,8 @@ const {
   useState,
   useRef,
   useEffect,
-  useCallback
+  useCallback,
+  useMemo
 } = React;
 const firebaseConfig = {
   apiKey: "AIzaSyAapEmqdhRMQgRyrXIzhhMGSvNbpfQlaoM",
@@ -588,25 +900,6 @@ const PlayIcon = ({
 }, React.createElement("path", {
   d: "M8 5v14l11-7z"
 }));
-const BookIcon = ({
-  size = 20
-}) => React.createElement("svg", {
-  width: size,
-  height: size,
-  viewBox: "0 0 24 24",
-  fill: "none",
-  "aria-hidden": "true",
-  style: {
-    marginRight: '8px',
-    flexShrink: 0
-  }
-}, React.createElement("path", {
-  d: "M4 19.5A2.5 2.5 0 0 1 6.5 17H20M4 19.5A2.5 2.5 0 0 0 6.5 22H20V2H6.5A2.5 2.5 0 0 0 4 4.5v15z",
-  stroke: "currentColor",
-  strokeWidth: "2",
-  strokeLinecap: "round",
-  strokeLinejoin: "round"
-}));
 const UsersIcon = ({
   size = 20
 }) => React.createElement("svg", {
@@ -628,29 +921,177 @@ const UsersIcon = ({
 }));
 const CoinIcon = ({
   size = 16
-}) => React.createElement("svg", {
+}) => React.createElement("img", {
+  src: "assets/coin-chip.png",
+  alt: "",
+  "aria-hidden": "true",
   width: size,
   height: size,
-  viewBox: "0 0 24 24",
-  fill: "none",
-  "aria-hidden": "true"
-}, React.createElement("circle", {
-  cx: "12",
-  cy: "12",
-  r: "10",
-  stroke: "#D4A03A",
-  strokeWidth: "2",
-  fill: "rgba(212, 160, 58, 0.2)"
-}), React.createElement("text", {
-  x: "12",
-  y: "16",
-  textAnchor: "middle",
-  fontSize: "12",
-  fontWeight: "bold",
-  fill: "#D4A03A"
-}, "$"));
+  style: {
+    objectFit: 'contain'
+  },
+  decoding: "async"
+});
+const StakeChipIcon = ({
+  size = 86,
+  className = ''
+}) => React.createElement("img", {
+  className: className,
+  src: "assets/chip-stack.png",
+  alt: "",
+  "aria-hidden": "true",
+  width: size,
+  height: size,
+  draggable: false,
+  style: {
+    display: 'block',
+    userSelect: 'none',
+    objectFit: 'contain',
+    filter: 'drop-shadow(0 4px 12px rgba(0,0,0,0.5))',
+    mixBlendMode: 'lighten'
+  }
+});
+const MatchmakingOverlay = ({
+  visible,
+  stage,
+  isWagered,
+  stakeAmount,
+  you,
+  opponent,
+  onCancel
+}) => {
+  const backdropRef = useRef(null);
+  const cancelBtnRef = useRef(null);
+  const previousFocusRef = useRef(null);
+  const [youAvatarError, setYouAvatarError] = useState(false);
+  const [opponentAvatarError, setOpponentAvatarError] = useState(false);
+  useEffect(() => {
+    if (visible) {
+      previousFocusRef.current = document.activeElement;
+      if (stage === 'searching' && cancelBtnRef.current) {
+        cancelBtnRef.current.focus();
+      }
+    } else {
+      if (previousFocusRef.current && typeof previousFocusRef.current.focus === 'function') {
+        previousFocusRef.current.focus();
+      }
+    }
+  }, [visible, stage]);
+  useEffect(() => {
+    setOpponentAvatarError(false);
+    setYouAvatarError(false);
+  }, [opponent?.avatarUrl, you?.avatarUrl]);
+  const handleKeyDown = e => {
+    if (e.key === 'Escape' && stage === 'searching') {
+      onCancel();
+    }
+  };
+  const handleBackdropClick = e => {
+    if (e.target === e.currentTarget && stage === 'searching') {
+      onCancel();
+    }
+  };
+  if (!visible) return null;
+  return React.createElement("div", {
+    ref: backdropRef,
+    className: "qd-mmBackdrop",
+    role: "dialog",
+    "aria-modal": "true",
+    "aria-labelledby": "mm-title",
+    onKeyDown: handleKeyDown,
+    onClick: handleBackdropClick
+  }, stage === 'searching' && React.createElement("div", {
+    className: "qd-mmCard"
+  }, React.createElement("div", {
+    className: "qd-mmIcon"
+  }, "\uD83C\uDF0D"), React.createElement("div", {
+    id: "mm-title",
+    className: "qd-mmTitle"
+  }, "FINDING OPPONENT\u2026"), React.createElement("div", {
+    className: "qd-mmSub"
+  }, "Searching for players worldwide"), isWagered && stakeAmount > 0 && React.createElement("div", {
+    className: "qd-mmHint"
+  }, "WAGERED MATCH \u2022 Stake locked: ", React.createElement("strong", null, stakeAmount?.toLocaleString())), React.createElement("div", {
+    className: "qd-mmDots",
+    "aria-hidden": "true"
+  }, React.createElement("span", null), React.createElement("span", null), React.createElement("span", null)), React.createElement("button", {
+    ref: cancelBtnRef,
+    className: "qd-mmBtn",
+    onClick: onCancel
+  }, "CANCEL")), stage === 'found' && opponent && React.createElement("div", {
+    className: "qd-mmCard"
+  }, React.createElement("div", {
+    className: "qd-mmIcon"
+  }, "\u2713"), React.createElement("div", {
+    id: "mm-title",
+    className: "qd-mmTitle green"
+  }, "OPPONENT FOUND!"), React.createElement("div", {
+    className: "qd-mmOpponent"
+  }, React.createElement("div", {
+    className: "qd-mmAvatar"
+  }, opponent.avatarUrl && !opponentAvatarError ? React.createElement("img", {
+    src: opponent.avatarUrl,
+    alt: `${opponent.name}'s avatar`,
+    onError: () => setOpponentAvatarError(true)
+  }) : React.createElement("div", {
+    className: "qd-mmAvatarFallback"
+  }, opponent.name?.slice(0, 1)?.toUpperCase() || '?')), React.createElement("div", {
+    className: "qd-mmName"
+  }, opponent.name)), React.createElement("div", {
+    className: "qd-mmSub"
+  }, "Starting game\u2026")), stage === 'intro' && opponent && isWagered && React.createElement("div", {
+    className: "qd-vsWrap"
+  }, React.createElement("div", {
+    className: "qd-vsPlayer left"
+  }, React.createElement("div", {
+    className: "qd-vsAvatar"
+  }, you.avatarUrl && !youAvatarError ? React.createElement("img", {
+    src: you.avatarUrl,
+    alt: `${you.name}'s avatar`,
+    onError: () => setYouAvatarError(true)
+  }) : React.createElement("div", {
+    className: "qd-vsAvatarFallback"
+  }, you.name?.slice(0, 1)?.toUpperCase() || '?')), React.createElement("div", {
+    className: "qd-vsName"
+  }, you.name), React.createElement("div", {
+    className: "qd-vsLvl"
+  }, "Lv.", you.level)), React.createElement("div", {
+    className: "qd-vsCenter"
+  }, React.createElement("div", {
+    className: "qd-vsText"
+  }, "VS"), React.createElement("div", {
+    className: "qd-vsPot"
+  }, React.createElement(StakeChipIcon, {
+    size: 86,
+    className: "qd-vsChip"
+  }), React.createElement("div", {
+    className: "qd-vsPotLabel"
+  }, "MATCH STAKE"), React.createElement("div", {
+    className: "qd-vsPotAmount"
+  }, stakeAmount?.toLocaleString()))), React.createElement("div", {
+    className: "qd-vsPlayer right"
+  }, React.createElement("div", {
+    className: "qd-vsAvatar"
+  }, opponent.avatarUrl && !opponentAvatarError ? React.createElement("img", {
+    src: opponent.avatarUrl,
+    alt: `${opponent.name}'s avatar`,
+    onError: () => setOpponentAvatarError(true)
+  }) : React.createElement("div", {
+    className: "qd-vsAvatarFallback"
+  }, opponent.name?.slice(0, 1)?.toUpperCase() || '?')), React.createElement("div", {
+    className: "qd-vsName"
+  }, opponent.name), React.createElement("div", {
+    className: "qd-vsLvl"
+  }, "Lv.", opponent.level))));
+};
 const formatCoins = amount => {
   return amount.toLocaleString();
+};
+const formatCompactNumber = num => {
+  if (num >= 1000000) {
+    return (num / 1000000).toFixed(1).replace(/\.0$/, '') + 'M';
+  }
+  return num.toLocaleString('en-US');
 };
 const COLORS = {
   primary: '#1B4332',
@@ -711,6 +1152,10 @@ const DOUBLE_INNER = 200;
 const DOUBLE_OUTER = 215;
 const OUTER_BULL = 20;
 const INNER_BULL = 10;
+const MATCHMAKING_TIMINGS = Object.freeze({
+  FOUND_TO_INTRO_DELAY_MS: 700,
+  INTRO_DURATION_MS: 2500
+});
 const THEME_IDS = Object.freeze({
   CLASSIC: 'classic',
   PRO_WIRE: 'proWire',
@@ -999,6 +1444,39 @@ const ACHIEVEMENTS_DATA = [{
   icon: '💎',
   rarity: 'mythic',
   mode: 'online'
+}, {
+  id: 'perfect9_first',
+  name: 'Perfect 9',
+  description: 'Complete a leg with 9 perfect darts.',
+  icon: '9️⃣',
+  rarity: 'mythic',
+  mode: 'offline',
+  chain: 'perfect9',
+  tier: 1,
+  statKey: 'totalNineDarters',
+  target: 1
+}, {
+  id: 'perfect9_ten',
+  name: 'Perfect 9 Master',
+  description: 'Complete 10 nine-darters.',
+  icon: '9️⃣',
+  rarity: 'mythic',
+  mode: 'offline',
+  chain: 'perfect9',
+  tier: 2,
+  statKey: 'totalNineDarters',
+  target: 10
+}, {
+  id: 'perfect9_hundred',
+  name: 'Perfect 9 Legend',
+  description: 'Complete 100 nine-darters.',
+  icon: '9️⃣',
+  rarity: 'mythic',
+  mode: 'offline',
+  chain: 'perfect9',
+  tier: 3,
+  statKey: 'totalNineDarters',
+  target: 100
 }, {
   id: 'first_bull',
   name: 'Bullseye! I',
@@ -2030,6 +2508,9 @@ const DartsGame = () => {
   const [myAuthId, setMyAuthId] = useState(null);
   const [opponentName, setOpponentName] = useState('');
   const [opponentFlag, setOpponentFlag] = useState('🌍');
+  const [opponentLevel, setOpponentLevel] = useState(1);
+  const [opponentAvatar, setOpponentAvatar] = useState(null);
+  const [pendingGameInfo, setPendingGameInfo] = useState(null);
   const gameRoomRef = useRef(null);
   const opponentWasConnected = useRef(false);
   const earlyDisconnectListenerRef = useRef(null);
@@ -2051,7 +2532,11 @@ const DartsGame = () => {
   const [unlockedAchievements, setUnlockedAchievements] = useState(() => {
     try {
       const saved = localStorage.getItem('quikdarts_achievements');
-      return saved ? JSON.parse(saved) : [];
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        return Array.isArray(parsed) ? parsed.filter(id => typeof id === 'string' && ACHIEVEMENTS_DATA.some(a => a.id === id)) : [];
+      }
+      return [];
     } catch (error) {
       console.error('Failed to load achievements from localStorage:', error);
       return [];
@@ -2059,6 +2544,7 @@ const DartsGame = () => {
   });
   const [achievementPopup, setAchievementPopup] = useState(null);
   const [showAchievements, setShowAchievements] = useState(false);
+  const [achievementTab, setAchievementTab] = useState('offline');
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [currentUser, setCurrentUser] = useState(null);
   const [coinBalance, setCoinBalance] = useState(0);
@@ -2081,10 +2567,11 @@ const DartsGame = () => {
   const [nicknameInput, setNicknameInput] = useState('');
   const [currentEscrowId, setCurrentEscrowId] = useState(null);
   const [isWageredMatch, setIsWageredMatch] = useState(false);
+  const [showLeaveConfirmation, setShowLeaveConfirmation] = useState(false);
   const [isCreatingEscrow, setIsCreatingEscrow] = useState(false);
+  const [escrowData, setEscrowData] = useState(null);
   const [scoreConfirming, setScoreConfirming] = useState(false);
   const [rhythmState, setRhythmState] = useState('neutral');
-  const [pendingDartCorrection, setPendingDartCorrection] = useState(null);
   const [achievementStats, setAchievementStats] = useState(() => {
     try {
       const saved = localStorage.getItem('quikdarts_stats');
@@ -2114,6 +2601,9 @@ const DartsGame = () => {
       };
     }
   });
+  const hasAIOpponent = useMemo(() => {
+    return players.length > 1 && players.some(p => p.isAI);
+  }, [players]);
   const [weeklyChallenge, setWeeklyChallenge] = useState(() => {
     const currentWeek = getCurrentWeekNumber();
     try {
@@ -2220,6 +2710,30 @@ const DartsGame = () => {
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
+  useEffect(() => {
+    if (matchmakingState !== 'found' || !pendingGameInfo) return;
+    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const delay = prefersReducedMotion ? 0 : MATCHMAKING_TIMINGS.FOUND_TO_INTRO_DELAY_MS;
+    const timer = setTimeout(() => {
+      if (isWageredMatch) {
+        setMatchmakingState('intro');
+      } else {
+        startOnlineGame(pendingGameInfo.roomId, pendingGameInfo.playerIndex);
+        setPendingGameInfo(null);
+      }
+    }, delay);
+    return () => clearTimeout(timer);
+  }, [matchmakingState, pendingGameInfo, isWageredMatch]);
+  useEffect(() => {
+    if (matchmakingState !== 'intro' || !pendingGameInfo) return;
+    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const delay = prefersReducedMotion ? 0 : MATCHMAKING_TIMINGS.INTRO_DURATION_MS;
+    const timer = setTimeout(() => {
+      startOnlineGame(pendingGameInfo.roomId, pendingGameInfo.playerIndex);
+      setPendingGameInfo(null);
+    }, delay);
+    return () => clearTimeout(timer);
+  }, [matchmakingState, pendingGameInfo]);
   const boardRef = useRef(null);
   const powerIntervalRef = useRef(null);
   const powerResetTimeoutRef = useRef(null);
@@ -2347,6 +2861,32 @@ const DartsGame = () => {
     const hasEmoji = /[\u{1F1E6}-\u{1F1FF}]|[\u{1F3F4}]|[\u{1F300}-\u{1F9FF}]/u.test(trimmed);
     return hasEmoji ? trimmed : '🌍';
   };
+  const sanitizeAvatarUrl = url => {
+    if (!url || typeof url !== 'string') return null;
+    if (url.length > 500) return null;
+    try {
+      const parsed = new URL(url);
+      if (parsed.protocol !== 'https:') {
+        console.warn('[Security] Rejected non-HTTPS avatar URL');
+        return null;
+      }
+      const allowedHosts = ['firebasestorage.googleapis.com', 'lh3.googleusercontent.com', 'storage.googleapis.com'];
+      if (!allowedHosts.some(h => parsed.host === h || parsed.host.endsWith('.' + h))) {
+        console.warn('[Security] Rejected untrusted avatar domain:', parsed.host);
+        return null;
+      }
+      return url;
+    } catch (e) {
+      console.warn('[Security] Invalid avatar URL:', e.message);
+      return null;
+    }
+  };
+  const sanitizeLevel = level => {
+    const num = parseInt(level, 10);
+    if (isNaN(num) || num < 1) return 1;
+    if (num > 999) return 999;
+    return num;
+  };
   const saveNickname = useCallback(async () => {
     if (!currentUser || currentUser.isAnonymous || !database) return;
     const sanitized = sanitizeName(nicknameInput);
@@ -2452,8 +2992,7 @@ const DartsGame = () => {
     }
     setMatchmakingState('searching');
     setOnlineMode(true);
-    const queueRef = database.ref('matchmaking_queue');
-    const gamesRef = database.ref('games');
+    const queueRef = database.ref('matchmaking_queue/casual');
     const authUser = await authReadyPromise;
     if (!authUser) {
       console.error('Authentication required for online play');
@@ -2473,6 +3012,8 @@ const DartsGame = () => {
               playerId: myPlayerId,
               name: sanitizeName(userProfile?.displayName || currentUser?.displayName) || 'Player',
               flag: sanitizeFlag(userProfile?.flag) || '🌍',
+              level: userProgression?.level || 1,
+              avatarUrl: sanitizeAvatarUrl(userProfile?.avatar) || null,
               timestamp: firebase.database.ServerValue.TIMESTAMP
             };
             queueRef.child(myPlayerId).set(myQueueEntry);
@@ -2505,6 +3046,11 @@ const DartsGame = () => {
             const roomId = result.data.gameId;
             setGameRoomId(roomId);
             gameRoomRef.current = database.ref(`games/${roomId}`);
+            await queueRef.child(opponentData.playerId).update({
+              matchedGameId: roomId,
+              matchedByName: sanitizeName(userProfile?.displayName || currentUser?.displayName) || 'Player',
+              matchedByFlag: sanitizeFlag(userProfile?.flag) || '🌍'
+            });
             gameRoomRef.current.child('player2/connected').onDisconnect().set(false).then(() => {
               startHeartbeat(gameRoomRef.current, 'player2', 'player1', () => {
                 stopHeartbeat();
@@ -2513,14 +3059,24 @@ const DartsGame = () => {
               });
               setOpponentName(sanitizeName(opponentData.name));
               setOpponentFlag(sanitizeFlag(opponentData.flag));
+              setOpponentLevel(sanitizeLevel(opponentData.level));
+              setOpponentAvatar(sanitizeAvatarUrl(opponentData.avatarUrl));
+              setPendingGameInfo({
+                roomId,
+                playerIndex: 1
+              });
               setMatchmakingState('found');
-              setTimeout(() => startOnlineGame(roomId, 1), 1500);
             }).catch(err => {
               console.error('[matchmaking] Failed to register onDisconnect:', err);
               setOpponentName(sanitizeName(opponentData.name));
               setOpponentFlag(sanitizeFlag(opponentData.flag));
+              setOpponentLevel(sanitizeLevel(opponentData.level));
+              setOpponentAvatar(sanitizeAvatarUrl(opponentData.avatarUrl));
+              setPendingGameInfo({
+                roomId,
+                playerIndex: 1
+              });
               setMatchmakingState('found');
-              setTimeout(() => startOnlineGame(roomId, 1), 1500);
             });
           } catch (error) {
             console.error('Error creating game:', error);
@@ -2533,118 +3089,143 @@ const DartsGame = () => {
             playerId: myPlayerId,
             name: sanitizeName(userProfile?.displayName || currentUser?.displayName) || 'Player',
             flag: sanitizeFlag(userProfile?.flag) || '🌍',
+            level: userProgression?.level || 1,
+            avatarUrl: sanitizeAvatarUrl(userProfile?.avatar) || null,
             timestamp: firebase.database.ServerValue.TIMESTAMP
           };
           queueRef.child(myPlayerId).set(myQueueEntry);
           queueRef.child(myPlayerId).onDisconnect().remove();
+          const myQueueEntryRef = queueRef.child(myPlayerId);
+          let isProcessingMatch = false;
+          const queueEntryListener = myQueueEntryRef.on('value', async snapshot => {
+            if (isProcessingMatch) return;
+            if (!snapshot.exists()) return;
+            const myEntry = snapshot.val();
+            if (myEntry.matchedGameId) {
+              console.log('[casualMatchmaking] Found matchedGameId in queue entry:', myEntry.matchedGameId);
+              isProcessingMatch = true;
+              const roomId = myEntry.matchedGameId;
+              const opponentName = myEntry.matchedByName || 'Opponent';
+              const opponentFlag = myEntry.matchedByFlag || '🌍';
+              myQueueEntryRef.off('value', queueEntryListener);
+              if (matchmakingIntervalRef.current) {
+                clearInterval(matchmakingIntervalRef.current);
+                matchmakingIntervalRef.current = null;
+              }
+              await myQueueEntryRef.remove();
+              setGameRoomId(roomId);
+              gameRoomRef.current = database.ref(`games/${roomId}`);
+              let gameData;
+              try {
+                const gameSnap = await gameRoomRef.current.once('value');
+                gameData = gameSnap.val();
+              } catch (readErr) {
+                console.error('[casualMatchmaking] Failed to read game:', readErr);
+                isProcessingMatch = false;
+                return;
+              }
+              if (!gameData || gameData.player1?.id !== myPlayerId) {
+                console.error('[casualMatchmaking] Invalid game data - ignoring');
+                isProcessingMatch = false;
+                return;
+              }
+              gameRoomRef.current.child('player1/connected').onDisconnect().set(false).then(() => {
+                gameRoomRef.current.child('player1/connected').set(true);
+                opponentWasConnected.current = true;
+                startHeartbeat(gameRoomRef.current, 'player1', 'player2', () => {
+                  stopHeartbeat();
+                  alert('Opponent disconnected. Returning to menu.');
+                  cancelMatchmaking();
+                });
+                setOpponentName(sanitizeName(opponentName));
+                setOpponentFlag(sanitizeFlag(opponentFlag));
+                setOpponentLevel(sanitizeLevel(gameData.player2?.level));
+                setOpponentAvatar(sanitizeAvatarUrl(gameData.player2?.avatarUrl));
+                setPendingGameInfo({
+                  roomId,
+                  playerIndex: 0
+                });
+                setMatchmakingState('found');
+              }).catch(err => {
+                console.error('[casualMatchmaking] Failed to register onDisconnect:', err);
+                setOpponentName(sanitizeName(opponentName));
+                setOpponentFlag(sanitizeFlag(opponentFlag));
+                setOpponentLevel(sanitizeLevel(gameData.player2?.level));
+                setOpponentAvatar(sanitizeAvatarUrl(gameData.player2?.avatarUrl));
+                setPendingGameInfo({
+                  roomId,
+                  playerIndex: 0
+                });
+                setMatchmakingState('found');
+              });
+            }
+          });
           matchmakingIntervalRef.current = setInterval(() => {
-            database.ref(`games`).orderByChild('player1/id').equalTo(myPlayerId).once('value', gameSnapshot => {
-              if (gameSnapshot.exists()) {
-                const games = gameSnapshot.val();
-                const now = Date.now();
-                let activeRoomId = null;
-                let activeGameData = null;
-                for (const [roomId, gameData] of Object.entries(games)) {
-                  const gameAge = now - (gameData.createdAt || 0);
-                  const isRecent = gameAge < 30000;
-                  const isVeryRecent = gameAge < 10000;
-                  const isPlayer2Connected = gameData.player2 && gameData.player2.connected === true;
-                  if (isRecent && isPlayer2Connected) {
-                    activeRoomId = roomId;
-                    activeGameData = gameData;
-                    break;
-                  } else if (isVeryRecent && !isPlayer2Connected) {
-                    database.ref(`games/${roomId}`).remove().catch(err => console.error(`Failed to delete game ${roomId}:`, err));
-                    if (matchmakingIntervalRef.current) {
-                      clearInterval(matchmakingIntervalRef.current);
-                      matchmakingIntervalRef.current = null;
-                    }
-                    queueRef.child(myPlayerId).remove();
-                    alert('Opponent disconnected before match could start. Please try again.');
-                    cancelMatchmaking();
-                    return;
-                  } else {
-                    database.ref(`games/${roomId}`).remove().catch(err => console.error(`Failed to delete stale game ${roomId}:`, err));
-                  }
-                }
-                if (!activeRoomId) {
-                  return;
-                }
+            if (isProcessingMatch) return;
+            queueRef.orderByChild('timestamp').limitToFirst(2).once('value', async queueSnapshot => {
+              if (isProcessingMatch) return;
+              if (!queueSnapshot.exists()) return;
+              const queuePlayers = queueSnapshot.val();
+              const otherPlayerId = Object.keys(queuePlayers).find(id => id !== myPlayerId && !queuePlayers[id].matchedGameId);
+              if (otherPlayerId) {
+                const otherPlayer = queuePlayers[otherPlayerId];
+                isProcessingMatch = true;
+                myQueueEntryRef.off('value', queueEntryListener);
                 if (matchmakingIntervalRef.current) {
                   clearInterval(matchmakingIntervalRef.current);
                   matchmakingIntervalRef.current = null;
                 }
                 queueRef.child(myPlayerId).remove();
-                setGameRoomId(activeRoomId);
-                gameRoomRef.current = database.ref(`games/${activeRoomId}`);
-                gameRoomRef.current.child('player1/connected').onDisconnect().set(false).then(() => {
-                  gameRoomRef.current.child('player1/connected').set(true);
-                  opponentWasConnected.current = true;
-                  startHeartbeat(gameRoomRef.current, 'player1', 'player2', () => {
-                    stopHeartbeat();
-                    alert('Opponent disconnected. Returning to menu.');
-                    if (gameRoomRef.current) {
-                      gameRoomRef.current.remove().catch(() => {});
-                    }
-                    cancelMatchmaking();
+                if (!functions) {
+                  console.error('Cloud Functions not available');
+                  isProcessingMatch = false;
+                  return;
+                }
+                try {
+                  const createGameFn = functions.httpsCallable('createGame');
+                  const result = await createGameFn({
+                    player1Id: otherPlayer.playerId,
+                    player1Name: sanitizeName(otherPlayer.name),
+                    player1Flag: sanitizeFlag(otherPlayer.flag),
+                    player2Id: myPlayerId,
+                    player2Name: sanitizeName(userProfile?.displayName || currentUser?.displayName) || 'Player',
+                    player2Flag: sanitizeFlag(userProfile?.flag) || '🌍',
+                    gameMode: playerSetup.gameMode,
+                    isWagered: false
                   });
-                  setOpponentName(sanitizeName(activeGameData.player2.name));
-                  setOpponentFlag(sanitizeFlag(activeGameData.player2.flag));
-                  setMatchmakingState('found');
-                  setTimeout(() => startOnlineGame(activeRoomId, 0), 1500);
-                });
-              } else {
-                queueRef.orderByChild('timestamp').limitToFirst(2).once('value', async queueSnapshot => {
-                  if (queueSnapshot.exists()) {
-                    const queuePlayers = queueSnapshot.val();
-                    const otherPlayerId = Object.keys(queuePlayers).find(id => id !== myPlayerId);
-                    if (otherPlayerId) {
-                      const otherPlayer = queuePlayers[otherPlayerId];
-                      if (matchmakingIntervalRef.current) {
-                        clearInterval(matchmakingIntervalRef.current);
-                        matchmakingIntervalRef.current = null;
-                      }
-                      queueRef.child(myPlayerId).remove();
-                      if (!functions) {
-                        console.error('Cloud Functions not available');
-                        return;
-                      }
-                      try {
-                        const createGameFn = functions.httpsCallable('createGame');
-                        const result = await createGameFn({
-                          player1Id: otherPlayer.playerId,
-                          player1Name: sanitizeName(otherPlayer.name),
-                          player1Flag: sanitizeFlag(otherPlayer.flag),
-                          player2Id: myPlayerId,
-                          player2Name: sanitizeName(userProfile?.displayName || currentUser?.displayName) || 'Player',
-                          player2Flag: sanitizeFlag(userProfile?.flag) || '🌍',
-                          gameMode: playerSetup.gameMode,
-                          isWagered: false
-                        });
-                        if (!result.data.success || !result.data.gameId) {
-                          console.error('Failed to create game:', result.data.error);
-                          return;
-                        }
-                        const roomId = result.data.gameId;
-                        setGameRoomId(roomId);
-                        gameRoomRef.current = database.ref(`games/${roomId}`);
-                        gameRoomRef.current.child('player2/connected').onDisconnect().set(false).then(() => {
-                          startHeartbeat(gameRoomRef.current, 'player2', 'player1', () => {
-                            stopHeartbeat();
-                            alert('Opponent disconnected. Returning to menu.');
-                            cancelMatchmaking();
-                          });
-                          setOpponentName(sanitizeName(otherPlayer.name));
-                          setOpponentFlag(sanitizeFlag(otherPlayer.flag));
-                          setMatchmakingState('found');
-                          setTimeout(() => startOnlineGame(roomId, 1), 1500);
-                        });
-                      } catch (error) {
-                        console.error('Error creating game:', error);
-                      }
-                    }
+                  if (!result.data.success || !result.data.gameId) {
+                    console.error('Failed to create game:', result.data.error);
+                    isProcessingMatch = false;
+                    return;
                   }
-                });
+                  const roomId = result.data.gameId;
+                  await queueRef.child(otherPlayer.playerId).update({
+                    matchedGameId: roomId,
+                    matchedByName: sanitizeName(userProfile?.displayName || currentUser?.displayName) || 'Player',
+                    matchedByFlag: sanitizeFlag(userProfile?.flag) || '🌍'
+                  });
+                  setGameRoomId(roomId);
+                  gameRoomRef.current = database.ref(`games/${roomId}`);
+                  gameRoomRef.current.child('player2/connected').onDisconnect().set(false).then(() => {
+                    startHeartbeat(gameRoomRef.current, 'player2', 'player1', () => {
+                      stopHeartbeat();
+                      alert('Opponent disconnected. Returning to menu.');
+                      cancelMatchmaking();
+                    });
+                    setOpponentName(sanitizeName(otherPlayer.name));
+                    setOpponentFlag(sanitizeFlag(otherPlayer.flag));
+                    setOpponentLevel(sanitizeLevel(otherPlayer.level));
+                    setOpponentAvatar(sanitizeAvatarUrl(otherPlayer.avatarUrl));
+                    setPendingGameInfo({
+                      roomId,
+                      playerIndex: 1
+                    });
+                    setMatchmakingState('found');
+                  });
+                } catch (error) {
+                  console.error('Error creating game:', error);
+                  isProcessingMatch = false;
+                }
               }
             });
           }, 2000);
@@ -2719,7 +3300,10 @@ const DartsGame = () => {
     roomRef.child(`${myPlayerKey}/connected`).onDisconnect().set(false);
     roomRef.on('value', snapshot => {
       const gameData = snapshot.val();
-      if (!gameData) return;
+      if (!gameData || !gameData.player1 || !gameData.player2 || !gameData.gameMode) {
+        console.log('[gameListener] Waiting for complete game data...');
+        return;
+      }
       console.log('[gameListener] Update received:', {
         p1Score: gameData.player1?.score,
         p2Score: gameData.player2?.score,
@@ -2750,7 +3334,7 @@ const DartsGame = () => {
           }).then(result => {
             console.log('[forfeitGame] Result:', result.data);
             if (result.data.success) {
-              const payout = result.data.winnerPayout || 0;
+              const payout = typeof result.data.winnerPayout === 'number' ? result.data.winnerPayout : 0;
               alert(`${sanitizeName(opponent.name)} has disconnected. You win ${payout} coins!`);
               if (payout > 0) {
                 setCoinBalance(prev => prev + payout);
@@ -2760,6 +3344,7 @@ const DartsGame = () => {
             }
             setCurrentEscrowId(null);
             setIsWageredMatch(false);
+            setEscrowData(null);
           }).catch(err => {
             console.error('[forfeitGame] Error:', err);
             alert(`${sanitizeName(opponent.name)} has disconnected. Returning to menu.`);
@@ -2767,25 +3352,34 @@ const DartsGame = () => {
         } else {
           alert(`${sanitizeName(opponent.name)} has disconnected. Returning to menu.`);
         }
-        const gameRefToDelete = gameRoomRef.current;
-        if (gameRefToDelete) {
-          gameRefToDelete.remove().catch(err => console.error('Failed to delete game:', err));
-        }
         cancelMatchmaking();
         return;
       }
       const validatedGameMode = gameData.gameMode === 301 || gameData.gameMode === 501 ? gameData.gameMode : 501;
       setPlayers([{
+        uid: gameData.player1.id,
         name: sanitizeName(gameData.player1.name),
         flag: sanitizeFlag(gameData.player1.flag),
         score: validateScore(gameData.player1.score, validatedGameMode),
+        level: sanitizeLevel(gameData.player1.level) || 1,
+        avatarUrl: sanitizeAvatarUrl(gameData.player1.avatarUrl) || null,
         isAI: false
       }, {
+        uid: gameData.player2.id,
         name: sanitizeName(gameData.player2.name),
         flag: sanitizeFlag(gameData.player2.flag),
         score: validateScore(gameData.player2.score, validatedGameMode),
+        level: sanitizeLevel(gameData.player2.level) || 1,
+        avatarUrl: sanitizeAvatarUrl(gameData.player2.avatarUrl) || null,
         isAI: false
       }]);
+      if (gameData.wager?.escrowId && !escrowData) {
+        database.ref(`escrow/${gameData.wager.escrowId}`).once('value', snap => {
+          if (snap.exists()) {
+            setEscrowData(snap.val());
+          }
+        });
+      }
       setCurrentPlayerIndex(validatePlayerIndex(gameData.currentPlayer));
       setDartsThrown(validateDartsThrown(gameData.dartsThrown));
       setCurrentTurnScore(validateTurnScore(gameData.currentTurnScore));
@@ -2813,21 +3407,18 @@ const DartsGame = () => {
             gameId: roomId
           }).then(result => {
             console.log('[settleGame] Result:', result.data);
-            if (result.data.success && result.data.payout > 0 && isWinner) {
-              alert(`Congratulations! You won ${result.data.payout} coins!`);
-              setCoinBalance(prev => prev + result.data.payout);
+            const payout = typeof result.data.payout === 'number' ? result.data.payout : 0;
+            if (result.data.success && payout > 0 && isWinner) {
+              alert(`Congratulations! You won ${payout} coins!`);
+              setCoinBalance(prev => prev + payout);
             }
             setCurrentEscrowId(null);
             setIsWageredMatch(false);
+            setEscrowData(null);
           }).catch(err => {
             console.error('[settleGame] Error:', err);
           });
         }
-        setTimeout(() => {
-          if (gameRoomRef.current) {
-            gameRoomRef.current.remove().catch(err => console.error('Failed to delete completed game:', err));
-          }
-        }, 10000);
       }
     }, error => {
       console.error('Game listener error:', error);
@@ -2954,11 +3545,20 @@ const DartsGame = () => {
     setMyAuthId(null);
     setCurrentEscrowId(null);
     setIsWageredMatch(false);
+    setEscrowData(null);
+    setShowLeaveConfirmation(false);
     setGameState('menu');
   }, [myAuthId, database, playerId, currentEscrowId, gameRoomId, functions, isWageredMatch]);
   const leaveOnlineGame = useCallback(() => {
     cancelMatchmaking();
   }, [cancelMatchmaking]);
+  const handleLeaveClick = useCallback(() => {
+    if (isWageredMatch && winner === null) {
+      setShowLeaveConfirmation(true);
+    } else {
+      leaveOnlineGame();
+    }
+  }, [isWageredMatch, winner, leaveOnlineGame]);
   const calculateScore = useCallback((x, y) => {
     const dx = x - CENTER;
     const dy = y - CENTER;
@@ -3153,6 +3753,15 @@ const DartsGame = () => {
     if (stats.totalTriples >= 200) {
       unlockAchievement('two_hundred_triples');
     }
+    if (stats.totalNineDarters >= 1) {
+      unlockAchievement('perfect9_first');
+    }
+    if (stats.totalNineDarters >= 10) {
+      unlockAchievement('perfect9_ten');
+    }
+    if (stats.totalNineDarters >= 100) {
+      unlockAchievement('perfect9_hundred');
+    }
   }, [unlockAchievement]);
   const updateAchievementStats = useCallback(update => {
     setAchievementStats(prev => {
@@ -3205,13 +3814,6 @@ const DartsGame = () => {
           completed = true;
           if (!completedChallenges.includes(activeChallenge.id)) {
             completedChallenges.push(activeChallenge.id);
-          }
-          if (database && currentAuthUser) {
-            try {
-              database.ref('weekly_completions/' + activeChallenge.id).transaction(count => (count || 0) + 1);
-            } catch (error) {
-              console.error('Failed to sync weekly completion to Firebase:', error);
-            }
           }
         }
       }
@@ -3281,7 +3883,7 @@ const DartsGame = () => {
       if (!players[playerIndex].isAI) {
         if (onlineMode) {
           unlockAchievement('nine_darter_online');
-        } else if (!practiceMode) {
+        } else if (!practiceMode && hasAIOpponent) {
           unlockAchievement('nine_darter_offline');
           updateAchievementStats({
             totalNineDarters: achievementStats.totalNineDarters + 1
@@ -3303,11 +3905,6 @@ const DartsGame = () => {
         setMatchWinner(players[playerIndex]);
         setWinner(players[playerIndex]);
         if (onlineMode && gameRoomRef.current) {
-          const roomRef = gameRoomRef.current;
-          retryFirebaseOperation(() => roomRef.update({
-            winner: playerIndex,
-            status: 'finished'
-          })).catch(err => console.error('Failed to update winner after retries:', err));
           if (isWageredMatch && currentEscrowId && functions && gameRoomId) {
             console.log('[settleGame] Settling wagered match:', gameRoomId);
             const settleGameFn = functions.httpsCallable('settleGame');
@@ -3315,23 +3912,20 @@ const DartsGame = () => {
               gameId: gameRoomId
             }).then(result => {
               console.log('[settleGame] Result:', result.data);
-              if (result.data.success && result.data.payout > 0) {
+              const payout = typeof result.data.payout === 'number' ? result.data.payout : 0;
+              if (result.data.success && payout > 0) {
                 const isWinner = playerIndex === myPlayerIndex;
                 if (isWinner) {
-                  alert(`Congratulations! You won ${result.data.payout} coins!`);
+                  alert(`Congratulations! You won ${payout} coins!`);
                 }
               }
               setCurrentEscrowId(null);
               setIsWageredMatch(false);
+              setEscrowData(null);
             }).catch(err => {
               console.error('[settleGame] Error:', err);
             });
           }
-          setTimeout(() => {
-            if (gameRoomRef.current) {
-              gameRoomRef.current.remove().catch(err => console.error('Failed to delete completed game:', err));
-            }
-          }, 10000);
         }
         if (!players[playerIndex].isAI && !practiceMode) {
           if (onlineMode) {
@@ -3339,7 +3933,7 @@ const DartsGame = () => {
               totalOnlineGames: achievementStats.totalOnlineGames + 1,
               totalOnlineWins: achievementStats.totalOnlineWins + 1
             });
-          } else {
+          } else if (hasAIOpponent) {
             updateAchievementStats({
               totalGamesPlayed: achievementStats.totalGamesPlayed + 1,
               totalGamesWon: achievementStats.totalGamesWon + 1
@@ -3357,7 +3951,7 @@ const DartsGame = () => {
             updateAchievementStats({
               totalOnlineGames: achievementStats.totalOnlineGames + 1
             });
-          } else {
+          } else if (hasAIOpponent) {
             updateAchievementStats({
               totalGamesPlayed: achievementStats.totalGamesPlayed + 1
             });
@@ -3567,7 +4161,7 @@ const DartsGame = () => {
           position: finalPosition
         });
         setTimeout(() => setShowScorePopup(null), 2000);
-        if (!onlineMode && !practiceMode) {
+        if (!onlineMode && !practiceMode && hasAIOpponent) {
           updateAchievementStats({
             total180s: achievementStats.total180s + 1
           });
@@ -3581,7 +4175,7 @@ const DartsGame = () => {
       } else {
         if (result.score === 50) {
           playSound('bullseye');
-          if (!onlineMode && !practiceMode) {
+          if (!onlineMode && !practiceMode && hasAIOpponent) {
             updateAchievementStats({
               totalBulls: achievementStats.totalBulls + 1
             });
@@ -3595,7 +4189,7 @@ const DartsGame = () => {
         } else if (result.score > 0) {
           playSound('hit');
         }
-        if (result.multiplier === 3 && !onlineMode && !practiceMode) {
+        if (result.multiplier === 3 && !onlineMode && !practiceMode && hasAIOpponent) {
           updateAchievementStats({
             totalTriples: achievementStats.totalTriples + 1
           });
@@ -3612,7 +4206,7 @@ const DartsGame = () => {
         });
         setTimeout(() => setShowScorePopup(null), 1000);
       }
-      if (!onlineMode && !practiceMode && result.score > 0) {
+      if (!onlineMode && !practiceMode && hasAIOpponent && result.score > 0) {
         updateDailyChallengeStats({
           dailyScore: result.score
         });
@@ -3671,7 +4265,7 @@ const DartsGame = () => {
         setPlayers(newPlayers);
         updateStats(currentPlayerIndex, result);
         const checkoutValue = currentPlayer.score;
-        if (!players[currentPlayerIndex].isAI && !practiceMode) {
+        if (!players[currentPlayerIndex].isAI && !practiceMode && hasAIOpponent) {
           if (checkoutValue > (achievementStats.highestCheckout || 0)) {
             updateAchievementStats({
               highestCheckout: checkoutValue
@@ -4184,16 +4778,14 @@ const DartsGame = () => {
     const walletRef = database.ref(`users/${currentUser.uid}/wallet`);
     const walletListener = walletRef.on('value', async snapshot => {
       const wallet = snapshot.val();
-      console.log('[walletListener] Wallet update:', wallet);
+      console.log('[walletListener] Wallet updated');
       if (!wallet) {
-        console.log('[walletListener] No wallet found for user', currentUser.uid);
-        console.log('[walletListener] Functions available:', !!functions);
+        console.log('[walletListener] No wallet found, initializing...');
         if (functions) {
           try {
-            console.log('[walletListener] Calling initializeNewUser...');
             const initFn = functions.httpsCallable('initializeNewUser');
             const result = await initFn();
-            console.log('[walletListener] initializeNewUser result:', result.data);
+            console.log('[walletListener] Wallet initialized:', result.data?.success ? 'success' : 'failed');
           } catch (error) {
             console.error('[walletListener] Failed to initialize user wallet:', error);
             console.error('[walletListener] Error code:', error.code);
@@ -4209,17 +4801,17 @@ const DartsGame = () => {
         setCoinBalance(wallet.coins || 0);
         const lastBonus = wallet.lastDailyBonus || 0;
         const now = Date.now();
-        const twentyFourHours = 24 * 60 * 60 * 1000;
-        const bonusAvailable = now - lastBonus >= twentyFourHours;
-        console.log('[walletListener] Daily bonus check:', {
-          lastBonus,
-          now,
-          diff: now - lastBonus,
-          twentyFourHours,
-          bonusAvailable
-        });
+        const getLocalDateString = timestamp => {
+          if (!timestamp) return '';
+          return new Date(timestamp).toLocaleDateString('en-CA');
+        };
+        const lastClaimDate = getLocalDateString(lastBonus);
+        const todayDate = getLocalDateString(now);
+        const bonusAvailable = !lastBonus || lastClaimDate !== todayDate;
+        console.log('[walletListener] Daily bonus available:', bonusAvailable);
         setDailyBonusAvailable(bonusAvailable);
         const lastAdReward = wallet.lastAdReward || 0;
+        const twentyFourHours = 24 * 60 * 60 * 1000;
         const lastAdDay = Math.floor(lastAdReward / twentyFourHours);
         const currentDay = Math.floor(now / twentyFourHours);
         const adsUsedToday = currentDay > lastAdDay ? 0 : wallet.adRewardsToday || 0;
@@ -4283,11 +4875,16 @@ const DartsGame = () => {
     try {
       const claimFn = functions.httpsCallable('claimDailyBonus');
       console.log('[claimDailyBonus] Calling function...');
-      const result = await claimFn();
+      const result = await claimFn({
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone
+      });
       console.log('[claimDailyBonus] Response:', result.data);
       if (result.data.success) {
         setDailyBonusAvailable(false);
-        console.log('[claimDailyBonus] Bonus claimed successfully!');
+        console.log('[claimDailyBonus] Bonus claimed successfully! New balance:', result.data.newBalance);
+        const coins = typeof result.data.coinsAwarded === 'number' ? result.data.coinsAwarded : 0;
+        const balance = typeof result.data.newBalance === 'number' ? result.data.newBalance : 0;
+        alert(`+${coins} coins claimed! New balance: ${balance}`);
       } else {
         const errorMsg = result.data.error || 'Failed to claim bonus';
         console.log('[claimDailyBonus] Claim failed:', errorMsg);
@@ -4511,14 +5108,24 @@ const DartsGame = () => {
               });
               setOpponentName(sanitizeName(opponentData.name));
               setOpponentFlag(sanitizeFlag(opponentData.flag));
+              setOpponentLevel(sanitizeLevel(opponentData.level));
+              setOpponentAvatar(sanitizeAvatarUrl(opponentData.avatarUrl));
+              setPendingGameInfo({
+                roomId,
+                playerIndex: 1
+              });
               setMatchmakingState('found');
-              setTimeout(() => startOnlineGame(roomId, 1), 1500);
             }).catch(err => {
               console.error('[wageredMatchmaking] Failed to register onDisconnect:', err);
               setOpponentName(sanitizeName(opponentData.name));
               setOpponentFlag(sanitizeFlag(opponentData.flag));
+              setOpponentLevel(sanitizeLevel(opponentData.level));
+              setOpponentAvatar(sanitizeAvatarUrl(opponentData.avatarUrl));
+              setPendingGameInfo({
+                roomId,
+                playerIndex: 1
+              });
               setMatchmakingState('found');
-              setTimeout(() => startOnlineGame(roomId, 1), 1500);
             });
             setIsCreatingEscrow(false);
             return;
@@ -4544,6 +5151,8 @@ const DartsGame = () => {
         playerId: myPlayerId,
         name: sanitizeName(userProfile?.displayName || currentUser?.displayName) || 'Player',
         flag: sanitizeFlag(userProfile?.flag) || '🌍',
+        level: userProgression?.level || 1,
+        avatarUrl: sanitizeAvatarUrl(userProfile?.avatar) || null,
         timestamp: firebase.database.ServerValue.TIMESTAMP,
         escrowId: escrowId,
         stakeAmount: selectedStake
@@ -4553,11 +5162,12 @@ const DartsGame = () => {
       listenForWageredMatch(myPlayerId, wageredQueueRef, escrowId);
     } catch (error) {
       console.error('[wageredMatchmaking] Error:', error);
-      alert(error.message || 'Failed to start wagered match. Please try again.');
+      alert('Failed to start wagered match. Please try again.');
       setMatchmakingState('idle');
       setOnlineMode(false);
       setIsWageredMatch(false);
       setCurrentEscrowId(null);
+      setEscrowData(null);
     } finally {
       setIsCreatingEscrow(false);
     }
@@ -4578,8 +5188,10 @@ const DartsGame = () => {
         console.log('[wageredMatchmaking] Found matchedGameId in queue entry:', myEntry.matchedGameId);
         isProcessingMatch = true;
         const roomId = myEntry.matchedGameId;
-        const opponentName = myEntry.matchedByName || 'Opponent';
-        const opponentFlag = myEntry.matchedByFlag || '🌍';
+        const matchedOpponentName = myEntry.matchedByName || 'Opponent';
+        const matchedOpponentFlag = myEntry.matchedByFlag || '🌍';
+        const matchedOpponentLevel = myEntry.matchedByLevel || 1;
+        const matchedOpponentAvatar = myEntry.matchedByAvatar || null;
         myQueueEntryRef.off('value', queueEntryListener);
         clearInterval(matchmakingIntervalRef.current);
         if (wageredListenerRef.current && wageredListenerRef.current.timeoutId) {
@@ -4612,21 +5224,28 @@ const DartsGame = () => {
           startHeartbeat(gameRoomRef.current, 'player1', 'player2', () => {
             stopHeartbeat();
             alert('Opponent disconnected. Returning to menu.');
-            if (gameRoomRef.current) {
-              gameRoomRef.current.remove().catch(() => {});
-            }
             cancelMatchmaking();
           });
-          setOpponentName(sanitizeName(opponentName));
-          setOpponentFlag(sanitizeFlag(opponentFlag));
+          setOpponentName(sanitizeName(matchedOpponentName));
+          setOpponentFlag(sanitizeFlag(matchedOpponentFlag));
+          setOpponentLevel(sanitizeLevel(matchedOpponentLevel));
+          setOpponentAvatar(sanitizeAvatarUrl(matchedOpponentAvatar));
+          setPendingGameInfo({
+            roomId,
+            playerIndex: 0
+          });
           setMatchmakingState('found');
-          setTimeout(() => startOnlineGame(roomId, 0), 1500);
         }).catch(err => {
           console.error('[wageredMatchmaking] Failed to register onDisconnect:', err);
-          setOpponentName(sanitizeName(opponentName));
-          setOpponentFlag(sanitizeFlag(opponentFlag));
+          setOpponentName(sanitizeName(matchedOpponentName));
+          setOpponentFlag(sanitizeFlag(matchedOpponentFlag));
+          setOpponentLevel(sanitizeLevel(matchedOpponentLevel));
+          setOpponentAvatar(sanitizeAvatarUrl(matchedOpponentAvatar));
+          setPendingGameInfo({
+            roomId,
+            playerIndex: 0
+          });
           setMatchmakingState('found');
-          setTimeout(() => startOnlineGame(roomId, 0), 1500);
         });
         return;
       }
@@ -4682,8 +5301,10 @@ const DartsGame = () => {
                 await new Promise(r => setTimeout(r, 500));
               }
             }
+            console.log('[wageredMatchmaking] Joined escrow successfully:', escrowResult.data);
             setCurrentEscrowId(opponent.escrowId);
             setCoinBalance(escrowResult.data.newBalance);
+            console.log('[wageredMatchmaking] Creating game with opponent:', opponent.playerId);
             const createGameFn = functions.httpsCallable('createGame');
             const result = await createGameFn({
               player1Id: opponent.playerId,
@@ -4700,11 +5321,14 @@ const DartsGame = () => {
             if (!result.data.success || !result.data.gameId) {
               throw new Error(result.data.error || 'Failed to create game');
             }
+            console.log('[wageredMatchmaking] Game created successfully:', result.data.gameId);
             const roomId = result.data.gameId;
             await wageredQueueRef.child(opponent.playerId).update({
               matchedGameId: roomId,
               matchedByName: sanitizeName(userProfile?.displayName || currentUser?.displayName) || 'Player',
-              matchedByFlag: sanitizeFlag(userProfile?.flag) || '🌍'
+              matchedByFlag: sanitizeFlag(userProfile?.flag) || '🌍',
+              matchedByLevel: userProgression?.level || 1,
+              matchedByAvatar: sanitizeAvatarUrl(userProfile?.avatar) || null
             });
             myQueueEntryRef.off('value', queueEntryListener);
             clearInterval(matchmakingIntervalRef.current);
@@ -4723,14 +5347,24 @@ const DartsGame = () => {
               });
               setOpponentName(sanitizeName(opponent.name));
               setOpponentFlag(sanitizeFlag(opponent.flag));
+              setOpponentLevel(sanitizeLevel(opponent.level));
+              setOpponentAvatar(sanitizeAvatarUrl(opponent.avatarUrl));
+              setPendingGameInfo({
+                roomId,
+                playerIndex: 1
+              });
               setMatchmakingState('found');
-              setTimeout(() => startOnlineGame(roomId, 1), 1500);
             }).catch(err => {
               console.error('[wageredMatchmaking] Failed to register onDisconnect:', err);
               setOpponentName(sanitizeName(opponent.name));
               setOpponentFlag(sanitizeFlag(opponent.flag));
+              setOpponentLevel(sanitizeLevel(opponent.level));
+              setOpponentAvatar(sanitizeAvatarUrl(opponent.avatarUrl));
+              setPendingGameInfo({
+                roomId,
+                playerIndex: 1
+              });
               setMatchmakingState('found');
-              setTimeout(() => startOnlineGame(roomId, 1), 1500);
             });
           } catch (error) {
             console.error('[wageredMatchmaking] Error matching from queue:', error);
@@ -4788,6 +5422,7 @@ const DartsGame = () => {
       setOnlineMode(false);
       setIsWageredMatch(false);
       setCurrentEscrowId(null);
+      setEscrowData(null);
       alert('No opponent found. Your coins have been refunded. Please try again.');
     }, 60000);
     if (wageredListenerRef.current) {
@@ -4806,17 +5441,6 @@ const DartsGame = () => {
   const signInWithFacebook = async () => {
     try {
       const provider = new firebase.auth.FacebookAuthProvider();
-      await auth.signInWithPopup(provider);
-      setShowLoginModal(false);
-    } catch (error) {
-      alert('Unable to sign in. Please try again or use a different method.');
-    }
-  };
-  const signInWithApple = async () => {
-    try {
-      const provider = new firebase.auth.OAuthProvider('apple.com');
-      provider.addScope('email');
-      provider.addScope('name');
       await auth.signInWithPopup(provider);
       setShowLoginModal(false);
     } catch (error) {
@@ -5645,151 +6269,24 @@ const DartsGame = () => {
       }
     }, "Back to Menu")));
   }
-  if (matchmakingState === 'searching' || matchmakingState === 'found') {
-    return React.createElement("div", {
-      style: {
-        minHeight: '100vh',
-        background: COLORS.background,
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: '20px',
-        fontFamily: "'Inter', sans-serif",
-        position: 'relative'
-      }
-    }, React.createElement("div", {
-      style: {
-        position: 'absolute',
-        inset: 0,
-        background: `radial-gradient(ellipse at 30% 20%, ${COLORS.primary}40 0%, transparent 50%), radial-gradient(ellipse at 70% 80%, ${COLORS.accent}20 0%, transparent 40%)`,
-        zIndex: 0,
-        pointerEvents: 'none'
-      }
-    }), React.createElement("div", {
-      style: {
-        background: COLORS.backgroundCard,
-        borderRadius: '16px',
-        padding: '60px 40px',
-        backdropFilter: 'blur(10px)',
-        border: `1px solid ${COLORS.accent}30`,
-        maxWidth: '500px',
-        textAlign: 'center',
-        position: 'relative',
-        zIndex: 1
-      }
-    }, matchmakingState === 'searching' && React.createElement(React.Fragment, null, React.createElement("div", {
-      style: {
-        fontSize: '64px',
-        marginBottom: '30px',
-        animation: 'spin 2s linear infinite'
-      }
-    }, "\uD83C\uDF0D"), React.createElement("h2", {
-      style: {
-        color: COLORS.accent,
-        fontSize: '28px',
-        marginBottom: '20px',
-        letterSpacing: '2px',
-        fontWeight: '700'
-      }
-    }, "FINDING OPPONENT..."), React.createElement("p", {
-      style: {
-        color: COLORS.textMuted,
-        fontSize: '15px',
-        marginBottom: '40px'
-      }
-    }, "Searching for players worldwide"), React.createElement("div", {
-      style: {
-        display: 'flex',
-        gap: '10px',
-        justifyContent: 'center',
-        marginBottom: '30px'
-      }
-    }, React.createElement("div", {
-      style: {
-        width: '12px',
-        height: '12px',
-        borderRadius: '50%',
-        background: COLORS.primaryLight,
-        animation: 'pulse 1.5s ease-in-out infinite'
-      }
-    }), React.createElement("div", {
-      style: {
-        width: '12px',
-        height: '12px',
-        borderRadius: '50%',
-        background: COLORS.primaryLight,
-        animation: 'pulse 1.5s ease-in-out infinite 0.2s'
-      }
-    }), React.createElement("div", {
-      style: {
-        width: '12px',
-        height: '12px',
-        borderRadius: '50%',
-        background: COLORS.primaryLight,
-        animation: 'pulse 1.5s ease-in-out infinite 0.4s'
-      }
-    })), React.createElement("button", {
-      onClick: cancelMatchmaking,
-      style: {
-        padding: '15px 40px',
-        background: 'rgba(255, 255, 255, 0.05)',
-        color: COLORS.text,
-        border: `1px solid ${COLORS.accent}40`,
-        borderRadius: '10px',
-        fontSize: '14px',
-        fontWeight: '600',
-        cursor: 'pointer',
-        fontFamily: "'Inter', sans-serif",
-        letterSpacing: '1px'
-      }
-    }, "CANCEL")), matchmakingState === 'found' && React.createElement(React.Fragment, null, React.createElement("div", {
-      style: {
-        fontSize: '64px',
-        marginBottom: '30px'
-      }
-    }, "\u2713"), React.createElement("h2", {
-      style: {
-        color: COLORS.success,
-        fontSize: '28px',
-        marginBottom: '20px',
-        letterSpacing: '2px',
-        fontWeight: '700'
-      }
-    }, "OPPONENT FOUND!"), React.createElement("div", {
-      style: {
-        background: 'rgba(255, 255, 255, 0.03)',
-        padding: '20px',
-        borderRadius: '10px',
-        marginBottom: '20px',
-        border: '1px solid rgba(255, 255, 255, 0.05)'
-      }
-    }, React.createElement("div", {
-      style: {
-        fontSize: '40px',
-        marginBottom: '10px'
-      }
-    }, opponentFlag), React.createElement("div", {
-      style: {
-        color: COLORS.accent,
-        fontSize: '22px',
-        fontWeight: '600'
-      }
-    }, opponentName)), React.createElement("p", {
-      style: {
-        color: COLORS.textMuted,
-        fontSize: '15px'
-      }
-    }, "Starting game..."))), React.createElement("style", null, `
-              @keyframes spin {
-                0% { transform: rotate(0deg); }
-                100% { transform: rotate(360deg); }
-              }
-              @keyframes pulse {
-                0%, 100% { opacity: 0.3; transform: scale(0.8); }
-                50% { opacity: 1; transform: scale(1.2); }
-              }
-            `));
+  if (matchmakingState === 'searching' || matchmakingState === 'found' || matchmakingState === 'intro') {
+    return React.createElement(MatchmakingOverlay, {
+      visible: true,
+      stage: matchmakingState,
+      isWagered: isWageredMatch,
+      stakeAmount: selectedStake * 2,
+      you: {
+        name: sanitizeName(userProfile?.displayName) || 'You',
+        level: sanitizeLevel(userProgression?.level) || 1,
+        avatarUrl: sanitizeAvatarUrl(userProfile?.avatar)
+      },
+      opponent: opponentName ? {
+        name: opponentName,
+        level: opponentLevel,
+        avatarUrl: opponentAvatar
+      } : null,
+      onCancel: cancelMatchmaking
+    });
   }
   if (showLoginModal) {
     return React.createElement("div", {
@@ -6177,6 +6674,114 @@ const DartsGame = () => {
         fontFamily: 'var(--font-primary)'
       }
     }, "Play Free (No Stakes)")));
+  }
+  if (showLeaveConfirmation) {
+    return React.createElement("div", {
+      style: {
+        position: 'fixed',
+        inset: 0,
+        background: 'rgba(0, 0, 0, 0.85)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 1001,
+        padding: '20px'
+      }
+    }, React.createElement("div", {
+      style: {
+        background: COLORS.backgroundCard,
+        borderRadius: '16px',
+        padding: '32px',
+        maxWidth: '400px',
+        width: '100%',
+        position: 'relative',
+        border: '1px solid rgba(255, 255, 255, 0.1)',
+        textAlign: 'center'
+      }
+    }, React.createElement("div", {
+      style: {
+        width: '64px',
+        height: '64px',
+        borderRadius: '50%',
+        background: `${COLORS.error}20`,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        margin: '0 auto 20px'
+      }
+    }, React.createElement("span", {
+      style: {
+        fontSize: '32px'
+      }
+    }, "\u26A0\uFE0F")), React.createElement("h2", {
+      style: {
+        color: COLORS.text,
+        fontSize: '1.3rem',
+        fontWeight: '700',
+        marginBottom: '12px'
+      }
+    }, "Leave Match?"), React.createElement("p", {
+      style: {
+        color: COLORS.textMuted,
+        fontSize: '1rem',
+        marginBottom: '24px',
+        lineHeight: '1.5'
+      }
+    }, "Are you sure you want to leave? You will forfeit your coins."), escrowData && React.createElement("div", {
+      style: {
+        background: 'rgba(255, 255, 255, 0.05)',
+        borderRadius: '8px',
+        padding: '12px',
+        marginBottom: '24px',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: '8px'
+      }
+    }, React.createElement(CoinIcon, {
+      size: 18
+    }), React.createElement("span", {
+      style: {
+        color: '#D4A03A',
+        fontWeight: '600'
+      }
+    }, formatCoins(escrowData.stakeLevel || 0), " at stake")), React.createElement("div", {
+      style: {
+        display: 'flex',
+        gap: '12px'
+      }
+    }, React.createElement("button", {
+      onClick: () => setShowLeaveConfirmation(false),
+      style: {
+        flex: 1,
+        padding: '14px 20px',
+        borderRadius: '10px',
+        border: '1px solid rgba(255, 255, 255, 0.2)',
+        background: 'transparent',
+        color: COLORS.text,
+        fontSize: '1rem',
+        fontWeight: '600',
+        cursor: 'pointer',
+        fontFamily: 'var(--font-primary)'
+      }
+    }, "No, Stay"), React.createElement("button", {
+      onClick: () => {
+        setShowLeaveConfirmation(false);
+        leaveOnlineGame();
+      },
+      style: {
+        flex: 1,
+        padding: '14px 20px',
+        borderRadius: '10px',
+        border: 'none',
+        background: COLORS.error,
+        color: 'white',
+        fontSize: '1rem',
+        fontWeight: '600',
+        cursor: 'pointer',
+        fontFamily: 'var(--font-primary)'
+      }
+    }, "Yes, Leave"))));
   }
   if (showCoinShop) {
     return React.createElement("div", {
@@ -6938,46 +7543,99 @@ const DartsGame = () => {
       }
     }, "Back")), React.createElement("div", {
       style: {
+        display: 'flex',
+        gap: '8px',
+        marginBottom: '24px',
         background: COLORS.backgroundCard,
         borderRadius: '12px',
-        padding: '24px',
-        marginBottom: '32px',
+        padding: '6px',
         border: '1px solid rgba(255, 255, 255, 0.05)'
       }
-    }, React.createElement("div", {
-      style: {
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: '12px'
-      }
-    }, React.createElement("span", {
-      style: {
-        color: COLORS.textMuted,
-        fontSize: '0.9rem'
-      }
-    }, "Progress"), React.createElement("span", {
-      style: {
-        color: COLORS.accent,
-        fontSize: '1rem',
-        fontWeight: '600'
-      }
-    }, unlockedAchievements.length, " / ", ACHIEVEMENTS_DATA.length)), React.createElement("div", {
-      style: {
-        background: 'rgba(255, 255, 255, 0.1)',
-        borderRadius: '8px',
-        height: '8px',
-        overflow: 'hidden'
-      }
-    }, React.createElement("div", {
-      style: {
-        background: `linear-gradient(90deg, ${COLORS.accent}, ${COLORS.accentLight})`,
-        height: '100%',
-        width: `${unlockedAchievements.length / ACHIEVEMENTS_DATA.length * 100}%`,
-        transition: 'width 0.5s',
-        borderRadius: '8px'
-      }
-    }))), (() => {
+    }, ['offline', 'online'].map(tab => {
+      const isActive = achievementTab === tab;
+      const tabAchievements = ACHIEVEMENTS_DATA.filter(a => a.mode === tab);
+      const tabUnlocked = unlockedAchievements.filter(id => ACHIEVEMENTS_DATA.find(a => a.id === id)?.mode === tab);
+      return React.createElement("button", {
+        key: tab,
+        onClick: () => setAchievementTab(tab),
+        style: {
+          flex: 1,
+          padding: '14px 20px',
+          borderRadius: '8px',
+          border: 'none',
+          cursor: 'pointer',
+          fontWeight: '600',
+          fontSize: '0.95rem',
+          fontFamily: "'Inter', sans-serif",
+          transition: 'all 0.2s ease',
+          background: isActive ? tab === 'offline' ? `linear-gradient(135deg, ${COLORS.accent}, ${COLORS.accentDark})` : 'linear-gradient(135deg, #60a5fa, #3b82f6)' : 'transparent',
+          color: isActive ? tab === 'offline' ? COLORS.textDark : '#fff' : COLORS.textMuted
+        }
+      }, React.createElement("span", {
+        style: {
+          marginRight: '8px'
+        }
+      }, tab === 'offline' ? '🎮' : '🌍'), tab === 'offline' ? 'Offline' : 'Online', React.createElement("span", {
+        style: {
+          marginLeft: '8px',
+          fontSize: '0.8rem',
+          opacity: 0.9
+        }
+      }, tabUnlocked.length, "/", tabAchievements.length));
+    })), (() => {
+      const tabAchievements = ACHIEVEMENTS_DATA.filter(a => a.mode === achievementTab);
+      const tabUnlocked = unlockedAchievements.filter(id => ACHIEVEMENTS_DATA.find(a => a.id === id)?.mode === achievementTab);
+      const progress = tabAchievements.length > 0 ? tabUnlocked.length / tabAchievements.length * 100 : 0;
+      return React.createElement("div", {
+        style: {
+          background: COLORS.backgroundCard,
+          borderRadius: '12px',
+          padding: '24px',
+          marginBottom: '32px',
+          border: '1px solid rgba(255, 255, 255, 0.05)'
+        }
+      }, React.createElement("div", {
+        style: {
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          marginBottom: '12px'
+        }
+      }, React.createElement("span", {
+        style: {
+          color: COLORS.textMuted,
+          fontSize: '0.9rem'
+        }
+      }, achievementTab === 'offline' ? 'Offline Progress' : 'Online Progress'), React.createElement("span", {
+        style: {
+          color: achievementTab === 'offline' ? COLORS.accent : '#60a5fa',
+          fontSize: '1rem',
+          fontWeight: '600'
+        }
+      }, tabUnlocked.length, " / ", tabAchievements.length)), React.createElement("div", {
+        style: {
+          background: 'rgba(255, 255, 255, 0.1)',
+          borderRadius: '8px',
+          height: '8px',
+          overflow: 'hidden'
+        }
+      }, React.createElement("div", {
+        style: {
+          background: achievementTab === 'offline' ? `linear-gradient(90deg, ${COLORS.accent}, ${COLORS.accentLight})` : 'linear-gradient(90deg, #60a5fa, #93c5fd)',
+          height: '100%',
+          width: `${progress}%`,
+          transition: 'width 0.5s',
+          borderRadius: '8px'
+        }
+      })), React.createElement("div", {
+        style: {
+          marginTop: '8px',
+          fontSize: '0.75rem',
+          color: COLORS.textMuted,
+          textAlign: 'right'
+        }
+      }, "Total: ", unlockedAchievements.length, " / ", ACHIEVEMENTS_DATA.length));
+    })(), (() => {
       const activeChallenge = getActiveTimeLimitedAchievement();
       if (!activeChallenge) return null;
       const current = weeklyChallenge.stats[activeChallenge.statKey] || 0;
@@ -7254,7 +7912,7 @@ const DartsGame = () => {
         }
       }, "Complete!")));
     }))), (() => {
-      const almostThereAchievements = ACHIEVEMENTS_DATA.filter(achievement => {
+      const almostThereAchievements = ACHIEVEMENTS_DATA.filter(a => a.mode === achievementTab).filter(achievement => {
         if (unlockedAchievements.includes(achievement.id)) return false;
         const progress = getAchievementProgress(achievement, achievementStats);
         return progress && progress.progress >= 0.7 && progress.progress < 1;
@@ -7352,11 +8010,29 @@ const DartsGame = () => {
       })));
     })(), React.createElement("div", {
       style: {
+        display: 'flex',
+        alignItems: 'center',
+        gap: '10px',
+        marginBottom: '16px'
+      }
+    }, React.createElement("span", {
+      style: {
+        fontSize: '1.25rem'
+      }
+    }, achievementTab === 'offline' ? '🎮' : '🌍'), React.createElement("h2", {
+      style: {
+        color: COLORS.text,
+        fontSize: '1.1rem',
+        fontWeight: '600',
+        margin: 0
+      }
+    }, achievementTab === 'offline' ? 'Offline Achievements' : 'Online Achievements')), React.createElement("div", {
+      style: {
         display: 'grid',
         gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
         gap: '16px'
       }
-    }, ACHIEVEMENTS_DATA.map(achievement => {
+    }, ACHIEVEMENTS_DATA.filter(a => a.mode === achievementTab).map(achievement => {
       const isUnlocked = unlockedAchievements.includes(achievement.id);
       const progressData = !isUnlocked ? getAchievementProgress(achievement, achievementStats) : null;
       const rarityStyle = getRarityCardStyle(achievement.rarity, isUnlocked);
@@ -7819,6 +8495,234 @@ const DartsGame = () => {
       marginTop: '8px'
     }
   }, "Login")))));
+  const WageredMatchHeader = ({
+    pot,
+    player1,
+    player2,
+    phase,
+    winnerUid,
+    isWagered,
+    currentUserId
+  }) => {
+    if (!isWagered) return null;
+    const [showWinAnimation, setShowWinAnimation] = useState(false);
+    const [animationDirection, setAnimationDirection] = useState(0);
+    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const userWon = winnerUid && winnerUid === currentUserId;
+    useEffect(() => {
+      if (phase === 'end' && winnerUid) {
+        const winnerIsPlayer1 = winnerUid === player1?.uid;
+        setAnimationDirection(winnerIsPlayer1 ? -150 : 150);
+        setShowWinAnimation(true);
+      }
+    }, [phase, winnerUid, player1]);
+    const getInitials = name => {
+      if (!name) return '?';
+      return name.slice(0, 2).toUpperCase();
+    };
+    const truncateName = name => {
+      if (!name) return 'Player';
+      return name.length > 14 ? name.slice(0, 14) + '…' : name;
+    };
+    const PlayerCard = ({
+      player,
+      isLeft
+    }) => {
+      const isLoading = !player?.name;
+      const isMobile = window.innerWidth < 768;
+      if (isLoading) {
+        return React.createElement("div", {
+          style: {
+            display: 'flex',
+            alignItems: 'center',
+            gap: isMobile ? '8px' : '12px',
+            flexDirection: isLeft ? 'row' : 'row-reverse',
+            maxWidth: isMobile ? '140px' : '200px'
+          }
+        }, React.createElement("div", {
+          style: {
+            width: isMobile ? '36px' : '44px',
+            height: isMobile ? '36px' : '44px',
+            borderRadius: '50%',
+            background: 'rgba(255,255,255,0.1)',
+            animation: 'skeletonPulse 1.5s ease-in-out infinite',
+            flexShrink: 0
+          }
+        }), React.createElement("div", {
+          style: {
+            overflow: 'hidden'
+          }
+        }, React.createElement("div", {
+          style: {
+            width: '70px',
+            height: '14px',
+            background: 'rgba(255,255,255,0.1)',
+            borderRadius: '4px',
+            marginBottom: '4px'
+          }
+        }), React.createElement("div", {
+          style: {
+            width: '50px',
+            height: '10px',
+            background: 'rgba(255,255,255,0.05)',
+            borderRadius: '4px'
+          }
+        })));
+      }
+      return React.createElement("div", {
+        style: {
+          display: 'flex',
+          alignItems: 'center',
+          gap: isMobile ? '8px' : '12px',
+          flexDirection: isLeft ? 'row' : 'row-reverse',
+          maxWidth: isMobile ? '140px' : '200px'
+        }
+      }, React.createElement("div", {
+        style: {
+          width: isMobile ? '36px' : '44px',
+          height: isMobile ? '36px' : '44px',
+          borderRadius: '50%',
+          background: player.avatarUrl ? `url(${player.avatarUrl}) center/cover` : `linear-gradient(135deg, ${COLORS.primary}, ${COLORS.primaryLight})`,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          color: COLORS.text,
+          fontWeight: '700',
+          fontSize: isMobile ? '12px' : '14px',
+          border: `2px solid ${COLORS.accent}40`,
+          flexShrink: 0
+        }
+      }, !player.avatarUrl && getInitials(player.name)), React.createElement("div", {
+        style: {
+          textAlign: isLeft ? 'left' : 'right',
+          overflow: 'hidden',
+          minWidth: 0
+        }
+      }, React.createElement("div", {
+        style: {
+          display: 'flex',
+          alignItems: 'center',
+          gap: '6px',
+          flexDirection: isLeft ? 'row' : 'row-reverse'
+        }
+      }, React.createElement("span", {
+        style: {
+          color: COLORS.text,
+          fontSize: isMobile ? '13px' : '15px',
+          fontWeight: '600',
+          whiteSpace: 'nowrap',
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          maxWidth: isMobile ? '80px' : '100px'
+        }
+      }, truncateName(player.name)), React.createElement("span", {
+        style: {
+          background: 'linear-gradient(135deg, rgba(255, 215, 0, 0.2), rgba(255, 180, 0, 0.15))',
+          color: '#FFD700',
+          fontSize: isMobile ? '9px' : '10px',
+          fontWeight: '700',
+          padding: '2px 6px',
+          borderRadius: '8px',
+          border: '1px solid rgba(255, 215, 0, 0.2)',
+          flexShrink: 0
+        }
+      }, "Lv.", player.level || '?')), React.createElement("div", {
+        style: {
+          color: COLORS.textMuted,
+          fontSize: isMobile ? '10px' : '11px',
+          marginTop: '3px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '4px',
+          justifyContent: isLeft ? 'flex-start' : 'flex-end'
+        }
+      }, React.createElement(CoinIcon, {
+        size: isMobile ? 10 : 11
+      }), React.createElement("span", {
+        style: {
+          fontWeight: '600'
+        }
+      }, formatCompactNumber(player.stake || 0)))));
+    };
+    return React.createElement("div", {
+      style: {
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        height: window.innerWidth < 768 ? '70px' : '76px',
+        background: `linear-gradient(180deg, ${COLORS.background} 0%, ${COLORS.backgroundLight} 100%)`,
+        borderBottom: `1px solid ${COLORS.accent}30`,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        padding: '0 24px',
+        paddingTop: 'env(safe-area-inset-top)',
+        zIndex: 1000,
+        boxSizing: 'border-box'
+      }
+    }, React.createElement(PlayerCard, {
+      player: player1,
+      isLeft: true
+    }), React.createElement("div", {
+      style: {
+        position: 'absolute',
+        left: '50%',
+        top: '50%',
+        transform: `translate(-50%, -50%) ${showWinAnimation && !prefersReducedMotion ? `translateX(${animationDirection}px)` : ''}`,
+        transition: showWinAnimation ? 'transform 900ms cubic-bezier(0.4, 0, 0.2, 1)' : 'none',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        animation: phase === 'prematch' ? 'potPulse 650ms cubic-bezier(0.34, 1.56, 0.64, 1), potGlow 650ms ease-out' : 'none',
+        zIndex: 10
+      }
+    }, React.createElement("div", {
+      style: {
+        display: 'flex',
+        alignItems: 'center',
+        gap: '10px',
+        background: 'linear-gradient(135deg, rgba(255, 215, 0, 0.2) 0%, rgba(255, 180, 0, 0.15) 100%)',
+        padding: '10px 20px',
+        borderRadius: '24px',
+        border: '1px solid rgba(255, 215, 0, 0.3)',
+        boxShadow: phase === 'inmatch' ? '0 0 20px rgba(255, 215, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.1)' : '0 0 30px rgba(255, 215, 0, 0.6), 0 4px 20px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.1)'
+      }
+    }, React.createElement(CoinIcon, {
+      size: 28
+    }), React.createElement("span", {
+      style: {
+        color: '#FFD700',
+        fontSize: '24px',
+        fontWeight: '700',
+        fontFamily: "'Roboto Mono', monospace",
+        textShadow: '0 0 15px rgba(255, 215, 0, 0.6), 0 2px 4px rgba(0, 0, 0, 0.3)'
+      }
+    }, formatCompactNumber(pot || 0))), React.createElement("span", {
+      style: {
+        color: '#FFD700',
+        fontSize: '9px',
+        fontWeight: '700',
+        letterSpacing: '2px',
+        marginTop: '4px',
+        textShadow: '0 0 8px rgba(255, 215, 0, 0.4)'
+      }
+    }, "PRIZE POT"), showWinAnimation && userWon && React.createElement("div", {
+      style: {
+        position: 'absolute',
+        top: '100%',
+        marginTop: '8px',
+        color: COLORS.success,
+        fontSize: '16px',
+        fontWeight: '700',
+        animation: prefersReducedMotion ? 'none' : 'wagerFadeInUp 400ms ease-out',
+        opacity: 1
+      }
+    }, "+", formatCompactNumber(pot))), React.createElement(PlayerCard, {
+      player: player2,
+      isLeft: false
+    }));
+  };
   const Footer = ({
     onNavigate
   }) => React.createElement("footer", {
@@ -9491,10 +10395,31 @@ const DartsGame = () => {
       minHeight: '100vh',
       background: COLORS.background,
       padding: '20px',
+      paddingTop: onlineMode && isWageredMatch ? window.innerWidth < 768 ? '84px' : '92px' : '20px',
       fontFamily: "'Inter', sans-serif",
       position: 'relative'
     }
-  }, React.createElement("div", {
+  }, onlineMode && isWageredMatch && React.createElement(WageredMatchHeader, {
+    pot: escrowData?.totalPot || selectedStake * 2,
+    player1: {
+      uid: players[0]?.uid || '',
+      name: players[0]?.name || '',
+      level: players[0]?.level || userProgression?.level || 1,
+      avatarUrl: players[0]?.avatarUrl,
+      stake: selectedStake
+    },
+    player2: {
+      uid: players[1]?.uid || '',
+      name: players[1]?.name || opponentName || 'Opponent',
+      level: players[1]?.level || 1,
+      avatarUrl: players[1]?.avatarUrl,
+      stake: selectedStake
+    },
+    phase: matchWinner ? 'end' : 'inmatch',
+    winnerUid: matchWinner !== null ? matchWinner === 0 ? players[0]?.uid : players[1]?.uid : null,
+    isWagered: isWageredMatch,
+    currentUserId: currentUser?.uid
+  }), React.createElement("div", {
     style: {
       position: 'absolute',
       inset: 0,
@@ -9920,7 +10845,7 @@ const DartsGame = () => {
       fontWeight: '500'
     }
   }, "STATS"), React.createElement("button", {
-    onClick: onlineMode ? leaveOnlineGame : resetGame,
+    onClick: onlineMode ? handleLeaveClick : resetGame,
     style: {
       flex: 1,
       padding: '12px',
@@ -10686,13 +11611,6 @@ const DartsGame = () => {
             @keyframes confirmingPulse {
               0%, 100% { opacity: 0.5; }
               50% { opacity: 1; }
-            }
-
-            /* Dart Position Correction Animation */
-            @keyframes dartCorrection {
-              0% { transform: translate(0, 0); }
-              50% { transform: translate(var(--correction-dx), var(--correction-dy)); opacity: 0.7; }
-              100% { transform: translate(var(--correction-dx), var(--correction-dy)); opacity: 1; }
             }
 
             /* Epic Nine-Darter Star Animations */
