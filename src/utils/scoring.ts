@@ -7,7 +7,6 @@
 
 import type { Position, ThrowResult } from '../types';
 import {
-  BOARD_SIZE,
   CENTER,
   SEGMENTS,
   INNER_BULL,
@@ -107,7 +106,7 @@ export function getSegmentPosition(
   segmentValue: number,
   multiplier: 1 | 2 | 3 = 1
 ): Position {
-  const segmentIndex = SEGMENTS.indexOf(segmentValue);
+  const segmentIndex = SEGMENTS.indexOf(segmentValue as typeof SEGMENTS[number]);
   if (segmentIndex === -1) {
     return { x: CENTER, y: CENTER };
   }

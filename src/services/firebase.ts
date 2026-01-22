@@ -67,7 +67,7 @@ export const initializeFirebase = (): {
     }
   }
 
-  return { app, auth, database, functions };
+  return { app, auth: auth!, database: database!, functions: functions! };
 };
 
 // Get Firebase services (lazy initialization)

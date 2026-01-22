@@ -11,7 +11,7 @@ import {
   signOut as firebaseSignOut,
   User,
 } from 'firebase/auth';
-import { getFirebaseAuth, isFirebaseConfigured } from '../services/firebase';
+import { getFirebaseAuth } from '../services/firebase';
 
 export interface AuthState {
   user: User | null;

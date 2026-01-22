@@ -5,12 +5,10 @@
  * Ported from V1 single-file to Vite + React + TypeScript.
  */
 
-import React, { useState, useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { Dartboard, ScoreDisplay, PowerBar } from './components/game';
-import { useGameState, useSound, useAuth } from './hooks';
+import { useGameState, useSound } from './hooks';
 import { DartIcon, GlobeIcon, TargetIcon, TrophyIcon } from './components/icons';
-import type { GameState, Position } from './types';
-import { CENTER } from './constants';
 import './styles/index.css';
 import './App.css';
 
@@ -26,8 +24,6 @@ function App() {
     dartPositions,
     aimPosition,
     setAimPosition,
-    isAiming,
-    setIsAiming,
     power,
     setPower,
     isPowerCharging,
@@ -39,7 +35,6 @@ function App() {
     setScores,
     playerSetup,
     setPlayerSetup,
-    currentPlayer,
     startGame,
     throwDart,
     endTurn,
@@ -47,7 +42,7 @@ function App() {
   } = useGameState();
 
   // Sound effects
-  const { soundEnabled, setSoundEnabled, playSound } = useSound();
+  const { playSound } = useSound();
 
   // Power bar animation
   const powerIntervalRef = useRef<NodeJS.Timeout | null>(null);

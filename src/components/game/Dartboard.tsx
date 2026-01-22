@@ -50,7 +50,7 @@ export const Dartboard: React.FC<DartboardProps> = ({
     const paths: React.ReactNode[] = [];
     const segmentAngle = 360 / 20;
 
-    SEGMENTS.forEach((value, index) => {
+    SEGMENTS.forEach((_value, index) => {
       const startAngle = ((index * segmentAngle - segmentAngle / 2 - 90) * Math.PI) / 180;
       const endAngle = ((index * segmentAngle + segmentAngle / 2 - 90) * Math.PI) / 180;
 

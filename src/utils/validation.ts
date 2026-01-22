@@ -5,7 +5,7 @@
  * These prevent cheating and ensure data consistency.
  */
 
-import type { GameMode, ThrowResult, DartPosition } from '../types';
+import type { GameMode, DartPosition } from '../types';
 
 /**
  * Validate a player's score against game rules

@@ -5,7 +5,7 @@
  */
 
 import type { Position, AIDifficulty } from '../types';
-import { CENTER, SEGMENTS, CHECKOUT_ROUTES } from '../constants';
+import { CHECKOUT_ROUTES } from '../constants';
 import { getSegmentPosition, parseDartNotation } from './scoring';
 
 /**

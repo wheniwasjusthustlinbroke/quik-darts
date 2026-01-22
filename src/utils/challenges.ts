@@ -4,8 +4,7 @@
  * Daily and weekly challenge management.
  */
 
-import type { DailyChallenge, ChallengeDifficulty } from '../types';
-import { getTodayString } from './formatting';
+import type { ChallengeDifficulty } from '../types';
 
 // ============================================
 // DAILY CHALLENGES POOL

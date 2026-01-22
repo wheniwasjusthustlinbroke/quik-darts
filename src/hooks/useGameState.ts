@@ -14,20 +14,13 @@ import type {
   DartPosition,
   ThrowResult,
   PlayerStats,
-  MatchScores,
   AIDifficulty,
 } from '../types';
-import { CENTER, SEGMENTS } from '../constants';
+import { CENTER } from '../constants';
 import {
   calculateScore,
   wouldBust,
-  getCheckoutSuggestion,
 } from '../utils/scoring';
-import {
-  validateScore,
-  validatePlayerIndex,
-  validateDartsThrown,
-} from '../utils/validation';
 
 export interface GameConfig {
   gameMode: GameMode;
@@ -81,7 +74,7 @@ export interface UseGameStateReturn {
   endTurn: () => void;
   setAimPosition: (pos: Position) => void;
   setIsAiming: (aiming: boolean) => void;
-  setPower: (power: number) => void;
+  setPower: (power: number | ((prev: number) => number)) => void;
   setIsPowerCharging: (charging: boolean) => void;
   resetGame: () => void;
   resetLeg: () => void;
@@ -159,15 +152,6 @@ export function useGameState(): UseGameStateReturn {
   const isCheckoutPosition = useMemo(() => {
     if (!currentPlayer) return false;
     return currentPlayer.score <= 170 && currentPlayer.score >= 2;
-  }, [currentPlayer]);
-
-  // Update checkout suggestion when score changes
-  const updateCheckout = useCallback(() => {
-    if (currentPlayer && currentPlayer.score <= 170) {
-      setCheckout(getCheckoutSuggestion(currentPlayer.score));
-    } else {
-      setCheckout(null);
-    }
   }, [currentPlayer]);
 
   // Start a new game
