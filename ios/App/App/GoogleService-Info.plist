@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CLIENT_ID</key>
+	<string>287454496132-saq7n32e10s7pcfj5jkm4f49va532v7v.apps.googleusercontent.com</string>
+	<key>REVERSED_CLIENT_ID</key>
+	<string>com.googleusercontent.apps.287454496132-saq7n32e10s7pcfj5jkm4f49va532v7v</string>
+	<key>API_KEY</key>
+	<string>AIzaSyCXuk3ykSsHOsfJ7mMb_UUcOSZYfv45F6U</string>
+	<key>GCM_SENDER_ID</key>
+	<string>287454496132</string>
+	<key>PLIST_VERSION</key>
+	<string>1</string>
+	<key>BUNDLE_ID</key>
+	<string>com.quikdarts.app</string>
+	<key>PROJECT_ID</key>
+	<string>quikdarts</string>
+	<key>STORAGE_BUCKET</key>
+	<string>quikdarts.firebasestorage.app</string>
+	<key>IS_ADS_ENABLED</key>
+	<false></false>
+	<key>IS_ANALYTICS_ENABLED</key>
+	<false></false>
+	<key>IS_APPINVITE_ENABLED</key>
+	<true></true>
+	<key>IS_GCM_ENABLED</key>
+	<true></true>
+	<key>IS_SIGNIN_ENABLED</key>
+	<true></true>
+	<key>GOOGLE_APP_ID</key>
+	<string>1:287454496132:ios:7d004a59c30cddb17f89d1</string>
+	<key>DATABASE_URL</key>
+	<string>https://quikdarts-default-rtdb.europe-west1.firebasedatabase.app</string>
+</dict>
+</plist>

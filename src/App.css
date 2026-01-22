@@ -1,0 +1,261 @@
+/**
+ * App Component Styles
+ */
+
+.app {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Landing Page */
+.landing {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  text-align: center;
+}
+
+.landing__header {
+  margin-bottom: 48px;
+}
+
+.landing__title {
+  font-size: clamp(2.5rem, 8vw, 4rem);
+  font-weight: 800;
+  color: var(--color-accent);
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  text-shadow: 0 4px 12px rgba(212, 160, 58, 0.3);
+}
+
+.landing__subtitle {
+  font-size: 1rem;
+  color: var(--color-text-muted);
+  margin-top: 8px;
+  letter-spacing: 4px;
+  text-transform: uppercase;
+}
+
+.landing__menu {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
+  max-width: 320px;
+}
+
+.landing__btn {
+  width: 100%;
+  justify-content: flex-start;
+  padding-left: 24px;
+  position: relative;
+}
+
+.landing__btn svg {
+  margin-right: 12px;
+}
+
+.landing__coming-soon {
+  position: absolute;
+  right: 12px;
+  font-size: 0.65rem;
+  padding: 2px 8px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.landing__footer {
+  margin-top: 48px;
+  color: var(--color-text-muted);
+  font-size: 0.8rem;
+}
+
+/* Setup Screen */
+.setup {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.setup__title {
+  font-size: 1.75rem;
+  margin-bottom: 32px;
+  color: var(--color-accent);
+}
+
+.setup__options {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  width: 100%;
+  max-width: 400px;
+  margin-bottom: 32px;
+}
+
+.setup__option {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.setup__label {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.setup__buttons {
+  display: flex;
+  gap: 8px;
+}
+
+.setup__btn {
+  flex: 1;
+  padding: 12px 16px;
+  background: var(--color-background-card);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: var(--radius-sm);
+  color: var(--color-text);
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.setup__btn:hover {
+  background: var(--color-background-light);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.setup__btn--active {
+  background: var(--color-primary);
+  border-color: var(--color-primary-light);
+}
+
+.setup__actions {
+  display: flex;
+  gap: 16px;
+}
+
+/* Game Screen */
+.game {
+  flex: 1;
+  display: flex;
+  padding: 16px;
+  gap: 16px;
+}
+
+.game__sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.game__sidebar--left {
+  width: 280px;
+}
+
+.game__sidebar--right {
+  width: 80px;
+  align-items: center;
+  justify-content: center;
+}
+
+.game__board {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+}
+
+.game__controls {
+  display: flex;
+  gap: 12px;
+}
+
+.game__throw-btn {
+  min-width: 200px;
+}
+
+.game__quit {
+  margin-top: auto;
+}
+
+/* Game Over Screen */
+.game-over {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  text-align: center;
+}
+
+.game-over__title {
+  font-size: 2rem;
+  color: var(--color-accent);
+  margin-bottom: 16px;
+}
+
+.game-over__winner {
+  font-size: 1.5rem;
+  margin-bottom: 32px;
+}
+
+.game-over__flag {
+  font-size: 2rem;
+  margin-right: 12px;
+}
+
+.game-over__actions {
+  display: flex;
+  gap: 16px;
+}
+
+/* Loading */
+.loading {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text-muted);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .game {
+    flex-direction: column;
+  }
+
+  .game__sidebar--left {
+    width: 100%;
+    order: 2;
+  }
+
+  .game__sidebar--right {
+    width: 100%;
+    order: 3;
+  }
+
+  .game__board {
+    order: 1;
+  }
+
+  .game__sidebar--right .power-bar {
+    width: 100%;
+    height: 40px;
+  }
+}

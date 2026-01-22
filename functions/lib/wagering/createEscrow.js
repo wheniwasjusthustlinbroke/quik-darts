@@ -78,43 +78,42 @@ exports.createEscrow = functions
         throw new functions.https.HttpsError('invalid-argument', `Invalid stake amount. Valid stakes: ${VALID_STAKES.join(', ')}`);
     }
     const now = Date.now();
-    // SECURITY: Rate limiting - prevent escrow lockup attacks
-    // Users can only create a limited number of escrows per hour
     const isJoiningExisting = !!escrowId;
-    if (!isJoiningExisting) {
-        const rateLimitRef = db.ref(`escrowRateLimits/${userId}`);
-        const rateLimitResult = await rateLimitRef.transaction((rateLimit) => {
-            if (!rateLimit) {
-                // First escrow - initialize rate limit tracking
-                return {
-                    count: 1,
-                    windowStart: now,
-                };
-            }
-            // Check if we're in a new window
-            if (now - rateLimit.windowStart > RATE_LIMIT_WINDOW_MS) {
-                // New window - reset count
-                return {
-                    count: 1,
-                    windowStart: now,
-                };
-            }
-            // Same window - check limit
-            if (rateLimit.count >= MAX_ESCROWS_PER_HOUR) {
-                return; // Abort - rate limit exceeded
-            }
-            // Increment count
+    // SECURITY: Rate limiting - prevent escrow lockup and spam attacks
+    // Users can only create OR JOIN a limited number of escrows per hour
+    // (Rate limit applies to both create and join to prevent abuse)
+    const rateLimitRef = db.ref(`escrowRateLimits/${userId}`);
+    const rateLimitResult = await rateLimitRef.transaction((rateLimit) => {
+        if (!rateLimit) {
+            // First escrow - initialize rate limit tracking
             return {
-                count: rateLimit.count + 1,
-                windowStart: rateLimit.windowStart,
+                count: 1,
+                windowStart: now,
             };
-        });
-        if (!rateLimitResult.committed) {
-            console.warn(`[createEscrow] Rate limit exceeded for user ${userId}`);
-            throw new functions.https.HttpsError('resource-exhausted', `Too many wagered matches. You can create up to ${MAX_ESCROWS_PER_HOUR} matches per hour. Please try again later.`);
         }
-        console.log(`[createEscrow] Rate limit check passed: ${rateLimitResult.snapshot.val()?.count}/${MAX_ESCROWS_PER_HOUR}`);
+        // Check if we're in a new window
+        if (now - rateLimit.windowStart > RATE_LIMIT_WINDOW_MS) {
+            // New window - reset count
+            return {
+                count: 1,
+                windowStart: now,
+            };
+        }
+        // Same window - check limit
+        if (rateLimit.count >= MAX_ESCROWS_PER_HOUR) {
+            return; // Abort - rate limit exceeded
+        }
+        // Increment count
+        return {
+            count: rateLimit.count + 1,
+            windowStart: rateLimit.windowStart,
+        };
+    });
+    if (!rateLimitResult.committed) {
+        console.warn(`[createEscrow] Rate limit exceeded for user ${userId} (${isJoiningExisting ? 'join' : 'create'})`);
+        throw new functions.https.HttpsError('resource-exhausted', `Too many wagered matches. You can create or join up to ${MAX_ESCROWS_PER_HOUR} matches per hour. Please try again later.`);
     }
+    console.log(`[createEscrow] Rate limit check passed: ${rateLimitResult.snapshot.val()?.count}/${MAX_ESCROWS_PER_HOUR} (${isJoiningExisting ? 'join' : 'create'})`);
     // SECURITY: If escrowId is provided (joining existing), validate format
     // If not provided (creating new), generate a cryptographically secure ID server-side
     if (isJoiningExisting) {

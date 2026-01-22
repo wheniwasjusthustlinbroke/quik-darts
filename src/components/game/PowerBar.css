@@ -1,0 +1,144 @@
+/**
+ * PowerBar Component Styles
+ */
+
+.power-bar {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.power-bar--vertical {
+  width: 40px;
+  height: 200px;
+}
+
+.power-bar--horizontal {
+  width: 200px;
+  height: 40px;
+  flex-direction: row;
+}
+
+.power-bar__track {
+  position: relative;
+  background: var(--color-background-light);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.power-bar--vertical .power-bar__track {
+  width: 100%;
+  height: 100%;
+}
+
+.power-bar--horizontal .power-bar__track {
+  width: 100%;
+  height: 100%;
+}
+
+.power-bar__perfect-zone {
+  position: absolute;
+  background: rgba(45, 138, 45, 0.2);
+  border: 1px dashed var(--color-success);
+}
+
+.power-bar--vertical .power-bar__perfect-zone {
+  left: 0;
+  right: 0;
+}
+
+.power-bar--horizontal .power-bar__perfect-zone {
+  top: 0;
+  bottom: 0;
+}
+
+.power-bar__fill {
+  position: absolute;
+  transition: all 0.05s linear;
+  border-radius: var(--radius-sm);
+}
+
+.power-bar--vertical .power-bar__fill {
+  bottom: 0;
+  left: 0;
+  right: 0;
+}
+
+.power-bar--horizontal .power-bar__fill {
+  top: 0;
+  bottom: 0;
+  left: 0;
+}
+
+.power-bar--charging .power-bar__fill {
+  box-shadow: 0 0 10px currentColor;
+}
+
+.power-bar__indicator {
+  position: absolute;
+  background: white;
+  box-shadow: 0 0 4px rgba(255, 255, 255, 0.5);
+  transition: all 0.05s linear;
+}
+
+.power-bar--vertical .power-bar__indicator {
+  left: 0;
+  right: 0;
+  height: 2px;
+  transform: translateY(50%);
+}
+
+.power-bar--horizontal .power-bar__indicator {
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  transform: translateX(-50%);
+}
+
+.power-bar__label {
+  display: flex;
+  align-items: baseline;
+  gap: 2px;
+  font-family: var(--font-mono);
+}
+
+.power-bar__value {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+.power-bar__unit {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+}
+
+.power-bar__perfect-label {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  padding: 4px 8px;
+  background: var(--color-success);
+  color: white;
+  font-size: 0.7rem;
+  font-weight: 700;
+  border-radius: var(--radius-sm);
+  text-transform: uppercase;
+  animation: perfectPulse 0.5s ease-in-out infinite;
+  white-space: nowrap;
+}
+
+@keyframes perfectPulse {
+  0%, 100% {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: translate(-50%, -50%) scale(1.1);
+    opacity: 0.9;
+  }
+}

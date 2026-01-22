@@ -90,8 +90,25 @@ exports.claimDailyBonus = functions
     const walletRef = db.ref(`users/${userId}/wallet`);
     const transactionsRef = db.ref(`users/${userId}/transactions`);
     // 3. Get and validate timezone from client (default to UTC)
+    // SECURITY: Strict IANA timezone validation to prevent injection
     const { timezone = 'UTC' } = data || {};
-    const validTimezone = /^[A-Za-z_\/\-+0-9]+$/.test(timezone) ? timezone : 'UTC';
+    let validTimezone = 'UTC';
+    // Validate timezone format: must be valid IANA format (e.g., "America/New_York", "Europe/London")
+    // Pattern: Region/City or single word like UTC, GMT
+    if (typeof timezone === 'string' && timezone.length <= 50) {
+        const ianaPattern = /^[A-Z][a-z]+(?:\/[A-Z][a-z_]+)*$|^(?:UTC|GMT)(?:[+-]\d{1,2})?$/;
+        if (ianaPattern.test(timezone)) {
+            // Double-check by actually trying to use it
+            try {
+                Intl.DateTimeFormat('en-US', { timeZone: timezone });
+                validTimezone = timezone;
+            }
+            catch {
+                // Invalid timezone - keep UTC default
+                console.warn(`[claimDailyBonus] Invalid timezone rejected: ${timezone}`);
+            }
+        }
+    }
     // 4. Read wallet to check existence BEFORE transaction
     const walletSnap = await walletRef.once('value');
     const currentWallet = walletSnap.val();
