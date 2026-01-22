@@ -40,10 +40,6 @@
   "devDependencies": {
     "@babel/core": "^7.23.7",
     "@babel/preset-react": "^7.23.3",
-    "@capacitor-community/admob": "^6.0.0",
-    "@capacitor/cli": "^8.0.0",
-    "@capacitor/core": "^8.0.0",
-    "@capacitor/ios": "^8.0.0",
     "@playwright/test": "^1.57.0",
     "javascript-obfuscator": "^4.1.0"
   }
