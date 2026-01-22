@@ -147,15 +147,16 @@ export const settleGame = functions
         }
 
         // SECURITY: Check if another request is already settling this escrow
-        // If settlement started but not completed, allow retry after 30 seconds
+        // If settlement started but not completed, allow retry after 120 seconds
+        // (increased from 30s to handle server load and network latency)
         if (escrow.settlementRequestId) {
           const settlementAge = now - (escrow.settlementStartedAt || 0);
-          if (settlementAge < 30000) {
+          if (settlementAge < 120000) {
             console.log(`[settleGame] Escrow ${game.wager.escrowId} already being settled by ${escrow.settlementRequestId}`);
             return; // Abort - another request is settling
           }
           // Stale settlement lock - allow retry
-          console.log(`[settleGame] Stale settlement lock, allowing retry`);
+          console.log(`[settleGame] Stale settlement lock (>120s), allowing retry`);
         }
 
         // Atomically acquire settlement lock
