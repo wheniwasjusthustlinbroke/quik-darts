@@ -32,7 +32,7 @@
   "author": "Quik Darts",
   "license": "UNLICENSED",
   "dependencies": {
-    "@capacitor-community/admob": "^6.0.0",
+    "@capacitor-community/admob": "^8.0.0",
     "@capacitor/cli": "^8.0.0",
     "@capacitor/core": "^8.0.0",
     "@capacitor/ios": "^8.0.0"
