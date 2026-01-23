@@ -8,6 +8,7 @@
     "scrollEnabled": true
   },
   "server": {
-    "allowNavigation": ["quikdarts.com", "*.quikdarts.com"]
+    "allowNavigation": ["quikdarts.com", "*.quikdarts.com"],
+    "iosScheme": "https"
   }
 }
