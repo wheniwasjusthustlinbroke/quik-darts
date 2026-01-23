@@ -71,7 +71,7 @@ export interface UseGameStateReturn {
   setPlayerSetup: (setup: PlayerSetupData | ((prev: PlayerSetupData) => PlayerSetupData)) => void;
   startGame: () => void;
   throwDart: (x: number, y: number) => ThrowResult;
-  endTurn: () => void;
+  endTurn: (busted?: boolean) => void;
   setAimPosition: (pos: Position) => void;
   setIsAiming: (aiming: boolean) => void;
   setPower: (power: number | ((prev: number) => number)) => void;
@@ -215,42 +215,51 @@ export function useGameState(): UseGameStateReturn {
       setCurrentTurnThrows((prev) => [...prev, result]);
       setDartsThrown((prev) => prev + 1);
 
-      if (!result.isBust) {
-        setCurrentTurnScore((prev) => prev + result.score);
+      if (result.isBust) {
+        // Bust! Show popup and end turn after delay (restores score)
+        setShowScorePopup(result);
+        setTimeout(() => {
+          setShowScorePopup(null);
+          endTurn(true); // Pass true to restore turn score
+        }, 1500);
+        return result;
+      }
 
-        // Update player score
-        if (currentPlayer) {
-          setPlayers((prev) =>
-            prev.map((p) =>
-              p.id === currentPlayer.id
-                ? { ...p, score: p.score - result.score }
-                : p
-            )
-          );
+      // Not bust - update scores normally
+      setCurrentTurnScore((prev) => prev + result.score);
 
-          // Update stats
-          setGameStats((prev) => {
-            const stats = prev[currentPlayer.id] || createInitialStats();
-            return {
-              ...prev,
-              [currentPlayer.id]: {
-                ...stats,
-                dartsThrown: stats.dartsThrown + 1,
-                totalScore: stats.totalScore + result.score,
-                triples: stats.triples + (result.multiplier === 3 ? 1 : 0),
-                doubles: stats.doubles + (result.multiplier === 2 ? 1 : 0),
-                bulls:
-                  stats.bulls +
-                  (result.segment === 'BULL' || result.segment === '25' ? 1 : 0),
-              },
-            };
-          });
+      // Update player score
+      if (currentPlayer) {
+        setPlayers((prev) =>
+          prev.map((p) =>
+            p.id === currentPlayer.id
+              ? { ...p, score: p.score - result.score }
+              : p
+          )
+        );
 
-          // Check for checkout (won the leg)
-          if (currentPlayer.score - result.score === 0) {
-            // Player wins this leg
-            handleLegWon();
-          }
+        // Update stats
+        setGameStats((prev) => {
+          const stats = prev[currentPlayer.id] || createInitialStats();
+          return {
+            ...prev,
+            [currentPlayer.id]: {
+              ...stats,
+              dartsThrown: stats.dartsThrown + 1,
+              totalScore: stats.totalScore + result.score,
+              triples: stats.triples + (result.multiplier === 3 ? 1 : 0),
+              doubles: stats.doubles + (result.multiplier === 2 ? 1 : 0),
+              bulls:
+                stats.bulls +
+                (result.segment === 'BULL' || result.segment === '25' ? 1 : 0),
+            },
+          };
+        });
+
+        // Check for checkout (won the leg)
+        if (currentPlayer.score - result.score === 0) {
+          // Player wins this leg
+          handleLegWon();
         }
       }
 
@@ -260,32 +269,27 @@ export function useGameState(): UseGameStateReturn {
 
       return result;
     },
-    [currentPlayer]
+    [currentPlayer, endTurn, handleLegWon]
   );
 
   // Handle leg won
   const handleLegWon = useCallback(() => {
     if (!currentPlayer) return;
 
-    setLegScores((prev) => {
-      const newScores = [...prev];
-      newScores[currentPlayerIndex]++;
-      return newScores;
-    });
+    // Create updated leg scores first, then use that value consistently
+    const newLegScores = [...legScores];
+    newLegScores[currentPlayerIndex] = (newLegScores[currentPlayerIndex] || 0) + 1;
+    setLegScores(newLegScores);
 
-    // Check if set is won
-    const newLegScore = legScores[currentPlayerIndex] + 1;
-    if (newLegScore >= playerSetup.legsPerSet) {
-      // Set won
-      setSetScores((prev) => {
-        const newScores = [...prev];
-        newScores[currentPlayerIndex]++;
-        return newScores;
-      });
+    // Check if set is won (first to legsPerSet wins)
+    if (newLegScores[currentPlayerIndex] >= playerSetup.legsPerSet) {
+      // Player won the set - create updated set scores
+      const newSetScores = [...setScores];
+      newSetScores[currentPlayerIndex] = (newSetScores[currentPlayerIndex] || 0) + 1;
+      setSetScores(newSetScores);
 
-      // Check if match is won
-      const newSetScore = setScores[currentPlayerIndex] + 1;
-      if (newSetScore >= playerSetup.setsToWin) {
+      // Check if match is won (first to setsToWin wins)
+      if (newSetScores[currentPlayerIndex] >= playerSetup.setsToWin) {
         // Match won
         setMatchWinner(currentPlayer);
         setWinner(currentPlayer);
@@ -309,9 +313,21 @@ export function useGameState(): UseGameStateReturn {
   ]);
 
   // End turn
-  const endTurn = useCallback(() => {
-    // Update highest 3-dart score
-    if (currentPlayer && currentTurnScore > 0) {
+  const endTurn = useCallback((busted = false) => {
+    // If busted, restore player's score by adding back currentTurnScore
+    // (Dart rules: when you bust, your ENTIRE turn is void)
+    if (busted && currentPlayer && currentTurnScore > 0) {
+      setPlayers((prev) =>
+        prev.map((p) =>
+          p.id === currentPlayer.id
+            ? { ...p, score: p.score + currentTurnScore }
+            : p
+        )
+      );
+    }
+
+    // Update highest 3-dart score (only if not busted)
+    if (!busted && currentPlayer && currentTurnScore > 0) {
       setGameStats((prev) => {
         const stats = prev[currentPlayer.id] || createInitialStats();
         return {
