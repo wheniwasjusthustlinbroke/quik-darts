@@ -733,9 +733,44 @@
         firebase.initializeApp(firebaseConfig);
       }
       database = firebase.database();
-      auth = firebase.auth();
       // Initialize Firebase Functions with europe-west1 region (matches deployed functions)
       functions = firebase.app().functions('europe-west1');
+
+      // Check if running on native iOS/Android with Capacitor
+      const isNativePlatform = window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform();
+      const hasNativeAuth = isNativePlatform && window.Capacitor.Plugins && window.Capacitor.Plugins.FirebaseAuthentication;
+
+      if (hasNativeAuth) {
+        // Use native Firebase Auth plugin on mobile (bypasses capacitor:// scheme issue)
+        console.log('⚡️ Using native Firebase Authentication plugin');
+        const FirebaseAuth = window.Capacitor.Plugins.FirebaseAuthentication;
+
+        // Create auth-like interface for compatibility with existing code
+        auth = {
+          signInAnonymously: async () => {
+            const result = await FirebaseAuth.signInAnonymously();
+            auth.currentUser = result.user;
+            return result;
+          },
+          signOut: () => FirebaseAuth.signOut(),
+          currentUser: null,
+          onAuthStateChanged: (callback) => {
+            // Get current user immediately
+            FirebaseAuth.getCurrentUser().then(result => {
+              auth.currentUser = result.user;
+              callback(result.user);
+            }).catch(() => callback(null));
+            // Listen for future changes
+            FirebaseAuth.addListener('authStateChange', (change) => {
+              auth.currentUser = change.user;
+              callback(change.user);
+            });
+          }
+        };
+      } else {
+        // Use web Firebase Auth on browser
+        auth = firebase.auth();
+      }
 
       // Listen for auth state changes
       auth.onAuthStateChanged((user) => {

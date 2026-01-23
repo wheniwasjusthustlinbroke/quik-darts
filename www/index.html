@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Production Build - 2026-01-22T20:59:17.026Z -->
+<!-- Production Build - 2026-01-23T20:38:53.055Z -->
 <!-- Quik Darts v1.1 - January 2026 -->
 <html lang="en">
 <head>
@@ -743,8 +743,34 @@ try {
     firebase.initializeApp(firebaseConfig);
   }
   database = firebase.database();
-  auth = firebase.auth();
   functions = firebase.app().functions('europe-west1');
+  const isNativePlatform = window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform();
+  const hasNativeAuth = isNativePlatform && window.Capacitor.Plugins && window.Capacitor.Plugins.FirebaseAuthentication;
+  if (hasNativeAuth) {
+    console.log('⚡️ Using native Firebase Authentication plugin');
+    const FirebaseAuth = window.Capacitor.Plugins.FirebaseAuthentication;
+    auth = {
+      signInAnonymously: async () => {
+        const result = await FirebaseAuth.signInAnonymously();
+        auth.currentUser = result.user;
+        return result;
+      },
+      signOut: () => FirebaseAuth.signOut(),
+      currentUser: null,
+      onAuthStateChanged: callback => {
+        FirebaseAuth.getCurrentUser().then(result => {
+          auth.currentUser = result.user;
+          callback(result.user);
+        }).catch(() => callback(null));
+        FirebaseAuth.addListener('authStateChange', change => {
+          auth.currentUser = change.user;
+          callback(change.user);
+        });
+      }
+    };
+  } else {
+    auth = firebase.auth();
+  }
   auth.onAuthStateChanged(user => {
     if (user) {
       currentAuthUser = user;
