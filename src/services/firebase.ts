@@ -6,7 +6,14 @@
  */
 
 import { initializeApp, FirebaseApp } from 'firebase/app';
-import { getAuth, Auth, connectAuthEmulator } from 'firebase/auth';
+import { Capacitor } from '@capacitor/core';
+import {
+  getAuth,
+  Auth,
+  connectAuthEmulator,
+  initializeAuth,
+  indexedDBLocalPersistence,
+} from 'firebase/auth';
 import {
   getDatabase,
   Database,
@@ -55,7 +62,17 @@ export const initializeFirebase = (): {
 
   if (!app) {
     app = initializeApp(firebaseConfig);
-    auth = getAuth(app);
+
+    // Use initializeAuth with indexedDBLocalPersistence for native platforms
+    // This fixes Firebase Auth on Capacitor iOS where capacitor:// scheme is blocked
+    if (Capacitor.isNativePlatform()) {
+      auth = initializeAuth(app, {
+        persistence: indexedDBLocalPersistence,
+      });
+    } else {
+      auth = getAuth(app);
+    }
+
     database = getDatabase(app);
     functions = getFunctions(app);
 
