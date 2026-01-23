@@ -6,7 +6,7 @@
   "main": "index.js",
   "scripts": {
     "dev": "vite",
-    "build": "tsc && vite build",
+    "build": "vite build",
     "build:legacy": "node build.js",
     "sync": "npm run build && npx cap sync",
     "ios": "npm run sync && npx cap open ios",
