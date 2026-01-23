@@ -201,7 +201,7 @@ export const Dartboard: React.FC<DartboardProps> = ({
   const numberLabels = useMemo(() => {
     const labels: React.ReactNode[] = [];
     const segmentAngle = 360 / 20;
-    const labelRadius = DOUBLE_OUTER + 20;
+    const labelRadius = DOUBLE_OUTER + 16; // Match index.html: numberRadius = DOUBLE_OUTER + 16
 
     SEGMENTS.forEach((value, index) => {
       const angle = ((index * segmentAngle - 90) * Math.PI) / 180;
@@ -214,10 +214,11 @@ export const Dartboard: React.FC<DartboardProps> = ({
           x={x}
           y={y}
           fill={colors.numbers}
-          fontSize="14"
+          fontSize="16"
           fontWeight="bold"
           textAnchor="middle"
           dominantBaseline="middle"
+          style={{ fontFamily: "'Oswald', sans-serif" }}
         >
           {value}
         </text>
