@@ -298,3 +298,148 @@
     height: 40px;
   }
 }
+
+/* Stake Selector Modal - Layout only */
+.stake-selector-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.85);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 20px;
+}
+
+.stake-selector {
+  background: var(--color-background-card);
+  border-radius: 16px;
+  padding: 32px;
+  max-width: 450px;
+  width: 100%;
+  position: relative;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.stake-selector__close {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  background: none;
+  border: none;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  padding: 4px;
+}
+
+.stake-selector__header {
+  text-align: center;
+  margin-bottom: 24px;
+}
+
+.stake-selector__title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.stake-selector__balance {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: var(--color-accent);
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.stake-selector__subtitle {
+  color: var(--color-text-muted);
+  font-size: 0.9rem;
+}
+
+.stake-selector__options {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.stake-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: var(--color-background-card);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.stake-option--selected {
+  border-color: var(--color-accent);
+  background: var(--color-background-light);
+}
+
+.stake-option--disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.stake-option__left {
+  text-align: left;
+}
+
+.stake-option__label-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.stake-option__label {
+  font-weight: 600;
+}
+
+.stake-option__need-more {
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 2px 6px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+}
+
+.stake-option__description {
+  color: var(--color-text-muted);
+  font-size: 0.8rem;
+  margin: 4px 0 0 0;
+}
+
+.stake-option__right {
+  text-align: right;
+}
+
+.stake-option__amount {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--color-accent);
+  font-weight: 700;
+}
+
+.stake-option__win {
+  font-size: 0.75rem;
+  margin: 4px 0 0 0;
+}
+
+.stake-selector__actions {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.stake-selector__confirm,
+.stake-selector__free {
+  width: 100%;
+  justify-content: center;
+}
