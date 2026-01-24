@@ -57,6 +57,7 @@ export interface MatchmakingCallbacks {
 
 export interface GameRoomCallbacks {
   onGameUpdate?: (gameData: any) => void;
+  onOpponentDisconnect?: (opponentName: string) => void;
   onError?: (error: string) => void;
 }
 
@@ -67,6 +68,9 @@ let queueValueUnsubscribe: (() => void) | null = null;
 let matchmakingTimeout: ReturnType<typeof setTimeout> | null = null;
 let gameRoomRef: DatabaseReference | null = null;
 let gameRoomUnsubscribe: (() => void) | null = null;
+let gameRoomOnDisconnect: ReturnType<typeof onDisconnect> | null = null;
+let heartbeatInterval: ReturnType<typeof setInterval> | null = null;
+let opponentWasConnected = false;
 let isProcessingMatch = false;
 let myPlayerId: string | null = null;
 let myPlayerIndex: 0 | 1 | null = null;
@@ -355,6 +359,10 @@ async function cleanupMatchmaking(): Promise<void> {
   }
 }
 
+// Heartbeat constants (match index.html lines 2654, 2668)
+const HEARTBEAT_INTERVAL_MS = 3000;
+const HEARTBEAT_STALE_THRESHOLD_MS = 15000;
+
 /**
  * Subscribe to a game room for real-time updates
  */
@@ -370,14 +378,69 @@ export function subscribeToGameRoom(
   }
 
   myPlayerIndex = playerIndex;
+  opponentWasConnected = false;
   const roomRef = ref(database, `${FIREBASE_PATHS.GAMES}/${roomId}`);
   gameRoomRef = roomRef;
+
+  const myPlayerKey = playerIndex === 0 ? 'player1' : 'player2';
+  const opponentKey = playerIndex === 0 ? 'player2' : 'player1';
+  const myPlayerRef = child(roomRef, myPlayerKey);
+  const myConnectedRef = child(roomRef, `${myPlayerKey}/connected`);
+
+  // Set my presence as connected + initial heartbeat together (atomic)
+  void update(myPlayerRef, {
+    connected: true,
+    lastHeartbeat: Date.now()
+  }).catch((err) => {
+    callbacks.onError?.('Failed to set presence: ' + err.message);
+  });
+
+  // Auto-set connected=false when I disconnect (matches index.html line 2726)
+  gameRoomOnDisconnect = onDisconnect(myConnectedRef);
+  void gameRoomOnDisconnect.set(false).catch((err) => {
+    console.error('[gameRoom] Failed to register onDisconnect:', err);
+  });
+
+  // Start heartbeat interval (every 3s, matches index.html line 2654)
+  let heartbeatFailed = false;
+  heartbeatInterval = setInterval(() => {
+    if (heartbeatFailed) return;
+    void update(myPlayerRef, { lastHeartbeat: Date.now() }).catch((err) => {
+      if (!heartbeatFailed) {
+        heartbeatFailed = true;
+        callbacks.onError?.('Heartbeat failed: ' + err.message);
+      }
+    });
+  }, HEARTBEAT_INTERVAL_MS);
 
   gameRoomUnsubscribe = onValue(roomRef, (snapshot) => {
     const gameData = snapshot.val();
 
     if (!gameData || !gameData.player1 || !gameData.player2 || !gameData.gameMode) {
       return;
+    }
+
+    const opponent = gameData[opponentKey];
+    if (!opponent) {
+      return;
+    }
+
+    // Track if opponent was ever connected (matches index.html line 2751-2753)
+    if (opponent.connected === true) {
+      opponentWasConnected = true;
+    }
+
+    // Detect opponent disconnect (matches index.html line 2756-2799)
+    // Fire callback but continue to allow onGameUpdate
+    if (opponentWasConnected && !gameData.winner) {
+      const isDisconnected = opponent.connected === false;
+      const isHeartbeatStale = opponent.lastHeartbeat &&
+        (Date.now() - opponent.lastHeartbeat > HEARTBEAT_STALE_THRESHOLD_MS);
+
+      if (isDisconnected || isHeartbeatStale) {
+        opponentWasConnected = false; // Prevent repeat callbacks
+        callbacks.onOpponentDisconnect?.(sanitizeName(opponent.name));
+      }
     }
 
     callbacks.onGameUpdate?.(gameData);
@@ -391,10 +454,31 @@ export function subscribeToGameRoom(
  * Unsubscribe from game room
  */
 export function unsubscribeFromGameRoom(): void {
+  // Clear heartbeat interval
+  if (heartbeatInterval) {
+    clearInterval(heartbeatInterval);
+    heartbeatInterval = null;
+  }
+
+  // Cancel onDisconnect handler
+  if (gameRoomOnDisconnect) {
+    void gameRoomOnDisconnect.cancel().catch(() => {});
+    gameRoomOnDisconnect = null;
+  }
+
+  // Set connected=false before leaving (if we still have refs)
+  if (gameRoomRef && myPlayerIndex !== null) {
+    const myPlayerKey = myPlayerIndex === 0 ? 'player1' : 'player2';
+    void set(child(gameRoomRef, `${myPlayerKey}/connected`), false).catch(() => {});
+  }
+
+  // Unsubscribe from game room listener
   if (gameRoomUnsubscribe) {
     gameRoomUnsubscribe();
     gameRoomUnsubscribe = null;
   }
+
   gameRoomRef = null;
   myPlayerIndex = null;
+  opponentWasConnected = false;
 }
