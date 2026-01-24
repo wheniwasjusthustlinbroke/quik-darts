@@ -61,6 +61,24 @@ export interface GameRoomCallbacks {
   onError?: (error: string) => void;
 }
 
+export interface ThrowPayload {
+  gameId: string;
+  dartPosition: { x: number; y: number };
+  aimPoint?: { x: number; y: number };
+  powerValue?: number;
+  throwId?: string;
+}
+
+export interface ThrowResult {
+  success: boolean;
+  label?: string;
+  score?: number;
+  rhythm?: string;
+  positionAdjusted?: boolean;
+  adjustedPosition?: { x: number; y: number };
+  error?: string;
+}
+
 // State
 let queueEntryRef: DatabaseReference | null = null;
 let queueOnDisconnect: ReturnType<typeof onDisconnect> | null = null;
@@ -481,4 +499,50 @@ export function unsubscribeFromGameRoom(): void {
   gameRoomRef = null;
   myPlayerIndex = null;
   opponentWasConnected = false;
+}
+
+/**
+ * Submit a dart throw to the server
+ */
+export async function submitThrow(payload: ThrowPayload): Promise<ThrowResult | null> {
+  const functions = getFirebaseFunctions();
+  if (!functions) {
+    console.error('[submitThrow] Cloud Functions not available');
+    return null;
+  }
+
+  const submitThrowFn = httpsCallable(functions, 'submitThrow');
+  const maxRetries = 3;
+  let lastError: any = null;
+
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    try {
+      console.log(`[submitThrow] Attempt ${attempt + 1}:`, payload.dartPosition);
+      const result = await submitThrowFn(payload);
+      const data = result.data as ThrowResult;
+
+      if (!data.success) {
+        console.error('[submitThrow] Rejected by server:', data.error);
+        return null;
+      }
+
+      console.log('[submitThrow] Accepted:', data.label, data.score, 'pts');
+      return data;
+    } catch (error: any) {
+      lastError = error;
+      console.error(`[submitThrow] Attempt ${attempt + 1} failed:`, error.message);
+
+      if (error.code === 'functions/failed-precondition' ||
+          error.code === 'functions/permission-denied') {
+        return null;
+      }
+
+      if (attempt < maxRetries - 1) {
+        await new Promise(r => setTimeout(r, 200 * (attempt + 1)));
+      }
+    }
+  }
+
+  console.error('[submitThrow] All retries failed:', lastError);
+  return null;
 }
