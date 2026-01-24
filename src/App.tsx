@@ -5,9 +5,11 @@
  * Ported from V1 single-file to Vite + React + TypeScript.
  */
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Dartboard, ScoreDisplay, PowerBar } from './components/game';
 import { useGameState, useSound, useAuth } from './hooks';
+import type { AchievementCallbacks } from './hooks/useGameState';
+import { useAchievements } from './hooks/useAchievements';
 import { useWallet } from './hooks/useWallet';
 import { CoinDisplay } from './components/CoinDisplay';
 import { StakeSelector } from './components/StakeSelector';
@@ -28,7 +30,60 @@ import './styles/index.css';
 import './App.css';
 
 function App() {
-  // Game state
+  // === Achievement Context State ===
+  // Track game context for achievement tracking decisions
+  const [isOnlineGame, setIsOnlineGame] = useState(false);
+  const [isPracticeMode, setIsPracticeMode] = useState(false);
+  const [hasAIOpponent, setHasAIOpponent] = useState(false);
+
+  // === Matchmaking State (declared early for useAchievements) ===
+  const [isSearching, setIsSearching] = useState(false);
+  const [errorText, setErrorText] = useState<string | null>(null);
+  const [matchData, setMatchData] = useState<MatchFoundData | null>(null);
+  const [gameSnapshot, setGameSnapshot] = useState<any>(null);
+  const [isSubmittingThrow, setIsSubmittingThrow] = useState(false);
+  const [showStakeSelection, setShowStakeSelection] = useState(false);
+  const [selectedStake, setSelectedStake] = useState(50);
+  const [isWageredMatch, setIsWageredMatch] = useState(false);
+  const [isCreatingEscrow, setIsCreatingEscrow] = useState(false);
+  const [wageredPrize, setWageredPrize] = useState<number | null>(null);
+
+  // Ref to prevent duplicate settleGame calls (UI guard)
+  const settledGameRef = useRef<string | null>(null);
+
+  // === Achievement System ===
+  // Initialize achievement system (reads context from refs for reactivity)
+  const achievements = useAchievements({
+    isOnline: isOnlineGame,
+    isPractice: isPracticeMode,
+    hasAIOpponent: hasAIOpponent,
+    isWagered: isWageredMatch,
+    onUnlock: (achievementIds) => {
+      // TODO: Replace with toast/notification UI in PR 6.3
+      console.log('[Achievements] Unlocked:', achievementIds);
+    },
+  });
+
+  // Create callbacks to wire useGameState → useAchievements
+  const achievementCallbacks = useMemo<AchievementCallbacks>(() => ({
+    onMatchStart: achievements.startMatch,
+    onLegStart: achievements.startLeg,
+    onThrow: achievements.emitThrow,
+    onTurnComplete: achievements.emitTurnComplete,
+    onCheckout: achievements.emitCheckout,
+    onLegComplete: achievements.emitLegComplete,
+    onGameComplete: achievements.emitGameComplete,
+  }), [
+    achievements.startMatch,
+    achievements.startLeg,
+    achievements.emitThrow,
+    achievements.emitTurnComplete,
+    achievements.emitCheckout,
+    achievements.emitLegComplete,
+    achievements.emitGameComplete,
+  ]);
+
+  // === Game State ===
   const {
     gameState,
     setGameState,
@@ -60,7 +115,7 @@ function App() {
     throwDart,
     endTurn,
     resetGame,
-  } = useGameState();
+  } = useGameState(achievementCallbacks);
 
   // Sound effects
   const { playSound } = useSound();
@@ -70,23 +125,6 @@ function App() {
 
   // Auth state (for user profile)
   const { user } = useAuth();
-
-  // Matchmaking state
-  const [isSearching, setIsSearching] = useState(false);
-  const [errorText, setErrorText] = useState<string | null>(null);
-  const [matchData, setMatchData] = useState<MatchFoundData | null>(null);
-  const [gameSnapshot, setGameSnapshot] = useState<any>(null);
-  const [isSubmittingThrow, setIsSubmittingThrow] = useState(false);
-
-  // Wagered match state
-  const [showStakeSelection, setShowStakeSelection] = useState(false);
-  const [selectedStake, setSelectedStake] = useState(50);
-  const [isWageredMatch, setIsWageredMatch] = useState(false);
-  const [isCreatingEscrow, setIsCreatingEscrow] = useState(false);
-  const [wageredPrize, setWageredPrize] = useState<number | null>(null);
-
-  // Ref to prevent duplicate settleGame calls (UI guard)
-  const settledGameRef = useRef<string | null>(null);
 
   // Cleanup matchmaking on unmount
   useEffect(() => {
@@ -111,6 +149,10 @@ function App() {
     setErrorText(null);
     setWageredPrize(null);
     settledGameRef.current = null;
+    // Reset achievement context
+    setIsOnlineGame(false);
+    setIsPracticeMode(false);
+    setHasAIOpponent(false);
     resetGame();
   }, [resetGame]);
 
@@ -211,6 +253,7 @@ function App() {
     setIsSearching(true);
     setErrorText(null);
     setIsWageredMatch(false);
+    setIsOnlineGame(true);
 
     // TODO: Pull flag/level from user profile when available
     const profile = {
@@ -282,6 +325,7 @@ function App() {
     setIsCreatingEscrow(true);
     setErrorText(null);
     setIsWageredMatch(true);
+    setIsOnlineGame(true);
 
     // Leave casual queue before starting wagered
     await leaveCasualQueue();
@@ -545,6 +589,8 @@ function App() {
                   aiPlayers: [false],
                   aiDifficulty: [null],
                 }));
+                setIsPracticeMode(true);
+                setIsOnlineGame(false);
                 setGameState('practice');
               }}
             >
@@ -679,7 +725,17 @@ function App() {
             <button className="btn btn-ghost" onClick={() => setGameState('landing')}>
               Back
             </button>
-            <button className="btn btn-primary" onClick={startGame}>
+            <button
+              className="btn btn-primary"
+              onClick={() => {
+                // Track AI opponent for achievement system
+                const hasAI = playerSetup.aiPlayers.some(Boolean);
+                setHasAIOpponent(hasAI);
+                setIsPracticeMode(false);
+                setIsOnlineGame(false);
+                startGame();
+              }}
+            >
               Start Game
             </button>
           </div>
