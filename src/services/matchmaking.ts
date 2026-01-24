@@ -18,6 +18,7 @@ import {
   limitToFirst,
   onDisconnect,
   serverTimestamp,
+  runTransaction,
   DatabaseReference,
 } from 'firebase/database';
 import { httpsCallable } from 'firebase/functions';
@@ -698,4 +699,432 @@ export async function forfeitGame(params: ForfeitGameParams): Promise<ForfeitGam
     console.error('[forfeitGame] Error:', error.message);
     return { success: false, error: error.message || 'Failed to forfeit game' };
   }
+}
+
+// === Wagered Matchmaking Types ===
+
+export interface WageredQueueEntry extends QueueEntry {
+  escrowId: string;
+  stakeAmount: number;
+  claimedBy?: string; // UID of player who claimed this entry
+}
+
+export interface WageredMatchCallbacks {
+  onSearching?: () => void;
+  onEscrowCreated?: (escrowId: string, newBalance: number) => void;
+  onFound?: (data: MatchFoundData & { escrowId: string; stakeAmount: number }) => void;
+  onError?: (error: string) => void;
+  onTimeout?: () => void;
+}
+
+// === Wagered Matchmaking State ===
+
+let wageredQueueEntryRef: DatabaseReference | null = null;
+let wageredQueueOnDisconnect: ReturnType<typeof onDisconnect> | null = null;
+let wageredQueueValueUnsubscribe: (() => void) | null = null;
+let wageredMatchmakingTimeout: ReturnType<typeof setTimeout> | null = null;
+let currentEscrowId: string | null = null;
+let currentStakeAmount: number | null = null;
+let currentIdempotencyKey: string | null = null;
+let isProcessingWageredMatch = false;
+
+/**
+ * Generate a unique idempotency key for this matchmaking attempt
+ */
+function generateIdempotencyKey(): string {
+  return `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
+}
+
+/**
+ * Atomically claim an opponent's queue entry.
+ * Returns true if we won the claim, false if someone else did.
+ */
+async function tryClaimOpponent(opponentEntryRef: DatabaseReference, myUid: string): Promise<boolean> {
+  try {
+    const result = await runTransaction(opponentEntryRef, (currentData) => {
+      if (!currentData) {
+        // Entry was removed - abort
+        return undefined;
+      }
+      if (currentData.claimedBy || currentData.matchedGameId) {
+        // Already claimed or matched - abort
+        return undefined;
+      }
+      // Claim it
+      return { ...currentData, claimedBy: myUid };
+    });
+
+    // Verify we actually won: committed AND claimedBy matches our uid
+    return result.committed && result.snapshot.val()?.claimedBy === myUid;
+  } catch (error) {
+    console.error('[tryClaimOpponent] Transaction failed:', error);
+    return false;
+  }
+}
+
+/**
+ * Join the wagered matchmaking queue.
+ * Creates escrow, checks for opponent, or adds self to queue.
+ */
+export async function joinWageredQueue(
+  profile: { displayName?: string; flag?: string; level?: number; avatarUrl?: string | null },
+  stakeAmount: number,
+  gameMode: 301 | 501,
+  callbacks: WageredMatchCallbacks
+): Promise<void> {
+  // Clean up any previous wagered matchmaking state
+  await cleanupWageredMatchmaking();
+
+  const database = getFirebaseDatabase();
+  const functions = getFirebaseFunctions();
+
+  if (!database || !functions) {
+    callbacks.onError?.('Firebase not configured');
+    return;
+  }
+
+  const authUser = await authReadyPromise;
+  if (!authUser || authUser.isAnonymous) {
+    callbacks.onError?.('Please sign in to play wagered matches');
+    return;
+  }
+
+  myPlayerId = authUser.uid;
+  currentStakeAmount = stakeAmount;
+  currentIdempotencyKey = generateIdempotencyKey();
+  isProcessingWageredMatch = false;
+
+  callbacks.onSearching?.();
+
+  const wageredQueueRef = ref(database, `matchmaking_queue/wagered/${stakeAmount}`);
+
+  try {
+    // Background cleanup of stale escrows for this user (fire-and-forget)
+    // Matches index.html lines 5078-5083
+    void refundEscrow({
+      escrowId: 'cleanup_pending',
+      reason: 'cleanup_before_new_match',
+      idempotencyKey: `${currentIdempotencyKey}-cleanup`,
+    });
+
+    // Check queue for opponents
+    const queueQuery = query(wageredQueueRef, orderByChild('timestamp'), limitToFirst(5));
+    const snapshot = await get(queueQuery);
+
+    if (snapshot.exists()) {
+      const entries = snapshot.val();
+
+      // Try to claim an opponent atomically
+      for (const [opponentKey, opponentData] of Object.entries(entries) as [string, WageredQueueEntry][]) {
+        // Skip self, already claimed, or already matched entries
+        if (opponentKey === myPlayerId) continue;
+        if (opponentData.claimedBy || opponentData.matchedGameId) continue;
+        if (!opponentData.escrowId) continue;
+
+        const opponentEntryRef = child(wageredQueueRef, opponentKey);
+        const claimed = await tryClaimOpponent(opponentEntryRef, myPlayerId);
+
+        if (claimed) {
+          // We won the claim - join their escrow
+          const joinResult = await createEscrow({
+            escrowId: opponentData.escrowId,
+            stakeAmount,
+            idempotencyKey: currentIdempotencyKey,
+          });
+
+          if (joinResult.success) {
+            currentEscrowId = opponentData.escrowId;
+            callbacks.onEscrowCreated?.(opponentData.escrowId, joinResult.newBalance ?? 0);
+
+            await createWageredGameWithOpponent(
+              opponentKey,
+              opponentData,
+              profile,
+              gameMode,
+              stakeAmount,
+              wageredQueueRef,
+              callbacks,
+              functions
+            );
+            return;
+          }
+
+          // Failed to join escrow - release claim and try next
+          // Note: update({ claimedBy: null }) deletes the key in RTDB
+          await update(opponentEntryRef, { claimedBy: null });
+        }
+      }
+    }
+
+    // No opponent claimed - create own escrow and add to queue
+    const escrowResult = await createEscrow({
+      stakeAmount,
+      idempotencyKey: currentIdempotencyKey,
+    });
+
+    if (!escrowResult.success || !escrowResult.escrowId) {
+      callbacks.onError?.(escrowResult.error || 'Failed to create escrow');
+      return;
+    }
+
+    currentEscrowId = escrowResult.escrowId;
+    callbacks.onEscrowCreated?.(escrowResult.escrowId, escrowResult.newBalance ?? 0);
+
+    await addSelfToWageredQueue(
+      database,
+      profile,
+      stakeAmount,
+      escrowResult.escrowId,
+      wageredQueueRef,
+      gameMode,
+      callbacks,
+      functions
+    );
+  } catch (error: any) {
+    console.error('[wageredMatchmaking] Error:', error);
+    callbacks.onError?.(error.message || 'Failed to start wagered match');
+    await cleanupWageredMatchmaking();
+  }
+}
+
+/**
+ * Add self to wagered queue and listen for match
+ */
+async function addSelfToWageredQueue(
+  database: any,
+  profile: { displayName?: string; flag?: string; level?: number; avatarUrl?: string | null },
+  stakeAmount: number,
+  escrowId: string,
+  wageredQueueRef: DatabaseReference,
+  gameMode: 301 | 501,
+  callbacks: WageredMatchCallbacks,
+  functions: any
+): Promise<void> {
+  if (!myPlayerId) return;
+
+  const myEntryRef = child(wageredQueueRef, myPlayerId);
+  wageredQueueEntryRef = myEntryRef;
+
+  const myQueueEntry: WageredQueueEntry = {
+    playerId: myPlayerId,
+    name: sanitizeName(profile.displayName) || 'Player',
+    flag: sanitizeFlag(profile.flag) || '🌍',
+    level: profile.level || 1,
+    avatarUrl: sanitizeAvatarUrl(profile.avatarUrl) || null,
+    timestamp: serverTimestamp(),
+    escrowId,
+    stakeAmount,
+  };
+
+  await set(myEntryRef, myQueueEntry);
+
+  // Auto-remove from queue on disconnect
+  wageredQueueOnDisconnect = onDisconnect(myEntryRef);
+  await wageredQueueOnDisconnect.remove();
+
+  // Listen for matchedGameId or claimedBy
+  wageredQueueValueUnsubscribe = onValue(myEntryRef, async (snapshot) => {
+    if (isProcessingWageredMatch) return;
+    if (!snapshot.exists()) return;
+
+    const myEntry = snapshot.val() as WageredQueueEntry & { matchedGameId?: string; matchedByName?: string; matchedByFlag?: string };
+
+    if (myEntry.matchedGameId) {
+      isProcessingWageredMatch = true;
+
+      await cleanupWageredMatchmaking();
+
+      const roomId = myEntry.matchedGameId;
+      const opponentName = myEntry.matchedByName || 'Opponent';
+      const opponentFlag = myEntry.matchedByFlag || '🌍';
+
+      // Validate game
+      const gameRef = ref(database, `${FIREBASE_PATHS.GAMES}/${roomId}`);
+      try {
+        const gameSnap = await get(gameRef);
+        const gameData = gameSnap.val();
+
+        if (!gameData || gameData.player1?.id !== myPlayerId) {
+          isProcessingWageredMatch = false;
+          callbacks.onError?.('Invalid game data');
+          return;
+        }
+
+        myPlayerIndex = 0; // We're player1
+
+        callbacks.onFound?.({
+          roomId,
+          playerIndex: 0,
+          opponent: {
+            name: sanitizeName(opponentName),
+            flag: sanitizeFlag(opponentFlag),
+            level: sanitizeLevel(gameData.player2?.level),
+            avatarUrl: sanitizeAvatarUrl(gameData.player2?.avatarUrl),
+          },
+          escrowId: gameData.wager?.escrowId || escrowId,
+          stakeAmount,
+        });
+      } catch (err: any) {
+        isProcessingWageredMatch = false;
+        callbacks.onError?.('Failed to join game');
+      }
+    }
+  });
+
+  // Timeout after 90 seconds for wagered matches
+  wageredMatchmakingTimeout = setTimeout(async () => {
+    if (!isProcessingWageredMatch) {
+      await leaveWageredQueue();
+      callbacks.onTimeout?.();
+    }
+  }, 90000);
+}
+
+/**
+ * Create wagered game with found opponent
+ */
+async function createWageredGameWithOpponent(
+  opponentKey: string,
+  opponent: WageredQueueEntry,
+  profile: { displayName?: string; flag?: string; level?: number; avatarUrl?: string | null },
+  gameMode: 301 | 501,
+  stakeAmount: number,
+  wageredQueueRef: DatabaseReference,
+  callbacks: WageredMatchCallbacks,
+  functions: any
+): Promise<void> {
+  if (!myPlayerId || !currentEscrowId) {
+    callbacks.onError?.('Not authenticated');
+    return;
+  }
+
+  isProcessingWageredMatch = true;
+  const opponentEntryRef = child(wageredQueueRef, opponentKey);
+
+  try {
+    const createGameFn = httpsCallable(functions, 'createGame');
+    const result = await createGameFn({
+      player1Id: opponentKey,
+      player1Name: sanitizeName(opponent.name),
+      player1Flag: sanitizeFlag(opponent.flag),
+      player2Id: myPlayerId,
+      player2Name: sanitizeName(profile.displayName) || 'Player',
+      player2Flag: sanitizeFlag(profile.flag) || '🌍',
+      gameMode,
+      isWagered: true,
+      escrowId: currentEscrowId,
+      stakeAmount,
+    });
+
+    const data = result.data as any;
+    if (!data.success || !data.gameId) {
+      // createGame failed - refund escrow to prevent locked stake
+      if (currentEscrowId && currentIdempotencyKey) {
+        await refundEscrow({
+          escrowId: currentEscrowId,
+          reason: 'create_game_failed',
+          idempotencyKey: `${currentIdempotencyKey}-refund-create-game`,
+        });
+      }
+      // Release claim to avoid stuck opponents
+      // Note: update({ claimedBy: null }) deletes the key in RTDB
+      await update(opponentEntryRef, { claimedBy: null });
+      callbacks.onError?.(data.error || 'Failed to create game');
+      isProcessingWageredMatch = false;
+      return;
+    }
+
+    const roomId = data.gameId;
+
+    // Notify opponent via matchedGameId
+    await update(opponentEntryRef, {
+      matchedGameId: roomId,
+      matchedByName: sanitizeName(profile.displayName) || 'Player',
+      matchedByFlag: sanitizeFlag(profile.flag) || '🌍',
+    });
+
+    myPlayerIndex = 1; // We're player2
+
+    callbacks.onFound?.({
+      roomId,
+      playerIndex: 1,
+      opponent: {
+        name: sanitizeName(opponent.name),
+        flag: sanitizeFlag(opponent.flag),
+        level: sanitizeLevel(opponent.level),
+        avatarUrl: sanitizeAvatarUrl(opponent.avatarUrl),
+      },
+      escrowId: currentEscrowId,
+      stakeAmount,
+    });
+  } catch (error: any) {
+    console.error('[wageredMatchmaking] Error creating game:', error);
+    // createGame threw - refund escrow to prevent locked stake
+    if (currentEscrowId && currentIdempotencyKey) {
+      await refundEscrow({
+        escrowId: currentEscrowId,
+        reason: 'create_game_failed',
+        idempotencyKey: `${currentIdempotencyKey}-refund-create-game`,
+      });
+    }
+    // Release claim to avoid stuck opponents
+    // Note: update({ claimedBy: null }) deletes the key in RTDB
+    await update(opponentEntryRef, { claimedBy: null });
+    callbacks.onError?.(error.message || 'Failed to create game');
+    isProcessingWageredMatch = false;
+  }
+}
+
+/**
+ * Leave wagered queue and refund escrow
+ */
+export async function leaveWageredQueue(): Promise<void> {
+  // Refund escrow if we have one
+  if (currentEscrowId && currentIdempotencyKey) {
+    await refundEscrow({
+      escrowId: currentEscrowId,
+      reason: 'user_cancelled',
+      idempotencyKey: `${currentIdempotencyKey}-refund`,
+    });
+  }
+
+  await cleanupWageredMatchmaking();
+}
+
+/**
+ * Cleanup wagered matchmaking state
+ */
+async function cleanupWageredMatchmaking(): Promise<void> {
+  isProcessingWageredMatch = false;
+
+  if (wageredMatchmakingTimeout) {
+    clearTimeout(wageredMatchmakingTimeout);
+    wageredMatchmakingTimeout = null;
+  }
+
+  if (wageredQueueValueUnsubscribe) {
+    wageredQueueValueUnsubscribe();
+    wageredQueueValueUnsubscribe = null;
+  }
+
+  if (wageredQueueOnDisconnect) {
+    await wageredQueueOnDisconnect.cancel();
+    wageredQueueOnDisconnect = null;
+  }
+
+  if (wageredQueueEntryRef) {
+    await remove(wageredQueueEntryRef);
+    wageredQueueEntryRef = null;
+  }
+
+  currentEscrowId = null;
+  currentStakeAmount = null;
+  currentIdempotencyKey = null;
+}
+
+/**
+ * Get current escrow ID (for settlement/forfeit)
+ */
+export function getCurrentEscrowId(): string | null {
+  return currentEscrowId;
 }
