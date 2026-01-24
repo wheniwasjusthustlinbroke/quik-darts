@@ -92,6 +92,12 @@ function App() {
             onGameUpdate: (gameData) => {
               setGameSnapshot(gameData);
             },
+            onOpponentDisconnect: (opponentName) => {
+              unsubscribeFromGameRoom();
+              setMatchData(null);
+              setGameSnapshot(null);
+              setErrorText(`${opponentName} disconnected`);
+            },
             onError: (error) => {
               setErrorText(error);
             },
