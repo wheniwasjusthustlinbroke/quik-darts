@@ -5,10 +5,17 @@
  * Ported from V1 single-file to Vite + React + TypeScript.
  */
 
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Dartboard, ScoreDisplay, PowerBar } from './components/game';
 import { useGameState, useSound } from './hooks';
 import { DartIcon, GlobeIcon, TargetIcon, TrophyIcon } from './components/icons';
+import {
+  joinCasualQueue,
+  leaveCasualQueue,
+  subscribeToGameRoom,
+  unsubscribeFromGameRoom,
+  MatchFoundData,
+} from './services/matchmaking';
 import './styles/index.css';
 import './App.css';
 
@@ -43,6 +50,64 @@ function App() {
 
   // Sound effects
   const { playSound } = useSound();
+
+  // Matchmaking state
+  const [isSearching, setIsSearching] = useState(false);
+  const [errorText, setErrorText] = useState<string | null>(null);
+  const [matchData, setMatchData] = useState<MatchFoundData | null>(null);
+  const [gameSnapshot, setGameSnapshot] = useState<any>(null);
+
+  // Cleanup matchmaking on unmount
+  useEffect(() => {
+    return () => {
+      void leaveCasualQueue();
+      unsubscribeFromGameRoom();
+    };
+  }, []);
+
+  // Handle Play Online button
+  const handlePlayOnline = useCallback(() => {
+    if (isSearching) {
+      // Cancel
+      void leaveCasualQueue();
+      unsubscribeFromGameRoom();
+      setIsSearching(false);
+      setErrorText(null);
+      setMatchData(null);
+      setGameSnapshot(null);
+      return;
+    }
+
+    setIsSearching(true);
+    setErrorText(null);
+
+    joinCasualQueue(
+      { displayName: 'Player', flag: '🌍', level: 1 },
+      playerSetup.gameMode,
+      {
+        onFound: (data) => {
+          setIsSearching(false);
+          setMatchData(data);
+          subscribeToGameRoom(data.roomId, data.playerIndex, {
+            onGameUpdate: (gameData) => {
+              setGameSnapshot(gameData);
+            },
+            onError: (error) => {
+              setErrorText(error);
+            },
+          });
+        },
+        onError: (error) => {
+          setIsSearching(false);
+          setErrorText(error);
+        },
+        onTimeout: () => {
+          setIsSearching(false);
+          setErrorText('No opponent found');
+        },
+      }
+    );
+  }, [isSearching, playerSetup.gameMode]);
 
   // Power bar animation
   const powerIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -171,10 +236,9 @@ function App() {
               Practice Mode
             </button>
 
-            <button className="btn btn-ghost landing__btn" disabled>
+            <button className="btn btn-ghost landing__btn" onClick={handlePlayOnline}>
               <GlobeIcon size={24} />
-              Play Online
-              <span className="landing__coming-soon">Coming Soon</span>
+              {isSearching ? 'Searching... (tap to cancel)' : errorText || 'Play Online'}
             </button>
 
             <button className="btn btn-ghost landing__btn" disabled>
