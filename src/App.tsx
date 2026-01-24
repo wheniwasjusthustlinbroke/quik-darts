@@ -61,7 +61,7 @@ function App() {
   const { playSound } = useSound();
 
   // Wallet state
-  const { coinBalance, dailyBonusAvailable, isLoading: walletLoading } = useWallet();
+  const { coinBalance, dailyBonusAvailable, isLoading: walletLoading, isClaimingBonus, claimDailyBonus } = useWallet();
 
   // Matchmaking state
   const [isSearching, setIsSearching] = useState(false);
@@ -343,6 +343,8 @@ function App() {
                 coinBalance={coinBalance}
                 dailyBonusAvailable={dailyBonusAvailable}
                 isLoading={walletLoading}
+                isClaimingBonus={isClaimingBonus}
+                onClaimBonus={claimDailyBonus}
               />
             </div>
             <h1 className="landing__title">Quik Darts</h1>
