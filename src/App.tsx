@@ -14,6 +14,7 @@ import {
   leaveCasualQueue,
   subscribeToGameRoom,
   unsubscribeFromGameRoom,
+  submitThrow,
   MatchFoundData,
 } from './services/matchmaking';
 import './styles/index.css';
@@ -56,6 +57,7 @@ function App() {
   const [errorText, setErrorText] = useState<string | null>(null);
   const [matchData, setMatchData] = useState<MatchFoundData | null>(null);
   const [gameSnapshot, setGameSnapshot] = useState<any>(null);
+  const [isSubmittingThrow, setIsSubmittingThrow] = useState(false);
 
   // Cleanup matchmaking on unmount
   useEffect(() => {
@@ -121,8 +123,27 @@ function App() {
 
   // Handle board click (throw dart)
   const handleBoardClick = useCallback(
-    (x: number, y: number) => {
+    async (x: number, y: number) => {
       if (gameState !== 'playing' || dartsThrown >= 3) return;
+      if (isSubmittingThrow) return;
+
+      // Online mode: send to server
+      if (matchData) {
+        try {
+          setIsSubmittingThrow(true);
+          const res = await submitThrow({
+            gameId: matchData.roomId,
+            dartPosition: { x, y },
+          });
+
+          if (!res) {
+            console.warn('[handleBoardClick] submitThrow failed');
+          }
+        } finally {
+          setIsSubmittingThrow(false);
+        }
+        return;
+      }
 
       const result = throwDart(x, y);
 
@@ -149,7 +170,7 @@ function App() {
         setTimeout(() => endTurn(), 1000);
       }
     },
-    [gameState, dartsThrown, throwDart, playSound, currentTurnScore, endTurn]
+    [gameState, dartsThrown, throwDart, playSound, currentTurnScore, endTurn, matchData, isSubmittingThrow]
   );
 
   // Handle aim position
