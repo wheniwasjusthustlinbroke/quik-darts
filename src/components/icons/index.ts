@@ -12,3 +12,4 @@ export { PlayIcon } from './PlayIcon';
 export { UsersIcon } from './UsersIcon';
 export { CoinIcon } from './CoinIcon';
 export { StakeChipIcon } from './StakeChipIcon';
+export { UserIcon } from './UserIcon';

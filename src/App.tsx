@@ -10,12 +10,14 @@ import { Dartboard, ScoreDisplay, PowerBar } from './components/game';
 import { useGameState, useSound, useAuth } from './hooks';
 import type { AchievementCallbacks } from './hooks/useGameState';
 import { useAchievements } from './hooks/useAchievements';
+import { ACHIEVEMENTS } from './services/achievements';
 import { useWallet } from './hooks/useWallet';
 import { CoinDisplay } from './components/CoinDisplay';
 import { StakeSelector } from './components/StakeSelector';
 import { AchievementToast } from './components/AchievementToast';
 import { AchievementGallery } from './components/AchievementGallery';
-import { DartIcon, GlobeIcon, TargetIcon, TrophyIcon, CoinIcon } from './components/icons';
+import { ProfileScreen } from './components/ProfileScreen';
+import { DartIcon, GlobeIcon, TargetIcon, TrophyIcon, CoinIcon, UserIcon } from './components/icons';
 import {
   joinCasualQueue,
   leaveCasualQueue,
@@ -577,6 +579,13 @@ function App() {
                 onClaimBonus={claimDailyBonus}
               />
             </div>
+            <button
+              className="landing__profile-btn"
+              onClick={() => setGameState('profile')}
+              title="Profile"
+            >
+              <UserIcon size={24} />
+            </button>
             <h1 className="landing__title">Quik Darts</h1>
             <p className="landing__subtitle">Championship Edition</p>
           </header>
@@ -772,6 +781,24 @@ function App() {
           achievementsState={achievements.getState()}
           weeklyState={achievements.getWeeklyState()}
           onClose={() => setGameState('landing')}
+        />
+        <AchievementToast
+          unlockedIds={recentUnlocks}
+          onDismissed={handleAchievementsDismissed}
+        />
+      </div>
+    );
+  }
+
+  // Render profile screen
+  if (gameState === 'profile') {
+    return (
+      <div className="app">
+        <ProfileScreen
+          onClose={() => setGameState('landing')}
+          onViewAchievements={() => setGameState('achievements')}
+          unlockedAchievementCount={achievements.getState().unlockedIds.size}
+          totalAchievementCount={ACHIEVEMENTS.length}
         />
         <AchievementToast
           unlockedIds={recentUnlocks}
