@@ -5,7 +5,7 @@
  * Server is single source of truth for all balance changes.
  */
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { ref, onValue, Unsubscribe } from 'firebase/database';
 import { onAuthStateChanged } from 'firebase/auth';
 import { httpsCallable } from 'firebase/functions';
@@ -16,6 +16,8 @@ export interface WalletState {
   dailyBonusAvailable: boolean;
   adsRemainingToday: number;
   isLoading: boolean;
+  isClaimingBonus: boolean;
+  claimDailyBonus: () => Promise<void>;
 }
 
 // Track which users have had initialization attempted (session-scoped, keyed by uid)
@@ -26,6 +28,10 @@ export function useWallet(): WalletState {
   const [dailyBonusAvailable, setDailyBonusAvailable] = useState(false);
   const [adsRemainingToday, setAdsRemainingToday] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
+  const [isClaimingBonus, setIsClaimingBonus] = useState(false);
+
+  // Ref-based lock to prevent double submit on rapid taps
+  const claimingRef = useRef(false);
 
   // Store unsubscribe function for current wallet listener
   const walletUnsubscribeRef = useRef<Unsubscribe | null>(null);
@@ -136,11 +142,65 @@ export function useWallet(): WalletState {
     };
   }, []);
 
+  // Claim daily bonus - server validates, balance updates via listener
+  const claimDailyBonus = useCallback(async () => {
+    // Ref-based guard for rapid taps
+    if (claimingRef.current) return;
+    claimingRef.current = true;
+
+    const auth = getFirebaseAuth();
+    const functions = getFirebaseFunctions();
+
+    if (!auth || !functions) {
+      claimingRef.current = false;
+      return;
+    }
+
+    const user = auth.currentUser;
+    if (!user || user.isAnonymous) {
+      claimingRef.current = false;
+      return;
+    }
+
+    setIsClaimingBonus(true);
+    try {
+      const claimFn = httpsCallable(functions, 'claimDailyBonus');
+      const result = await claimFn({
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+      });
+
+      const data = result.data as any;
+      if (data.success) {
+        // Balance updates via RTDB listener - only update UI hint state
+        setDailyBonusAvailable(false);
+        const coins = typeof data.coinsAwarded === 'number' ? data.coinsAwarded : 0;
+        // TODO: Replace alert with toast/notification component
+        alert(`+${coins} coins claimed!`);
+      } else {
+        const errorMsg = data.error || 'Failed to claim bonus';
+        if (data.nextClaimTime) {
+          const nextTime = new Date(data.nextClaimTime);
+          alert(`${errorMsg}. Next claim available: ${nextTime.toLocaleString()}`);
+        } else {
+          alert(errorMsg);
+        }
+      }
+    } catch (error: any) {
+      console.error('[useWallet] claimDailyBonus error:', error.message);
+      alert('Failed to claim daily bonus. Please try again.');
+    } finally {
+      setIsClaimingBonus(false);
+      claimingRef.current = false;
+    }
+  }, []);
+
   return {
     coinBalance,
     dailyBonusAvailable,
     adsRemainingToday,
     isLoading,
+    isClaimingBonus,
+    claimDailyBonus,
   };
 }
 

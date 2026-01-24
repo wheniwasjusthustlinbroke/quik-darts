@@ -11,6 +11,8 @@ interface CoinDisplayProps {
   coinBalance: number;
   dailyBonusAvailable?: boolean;
   isLoading?: boolean;
+  isClaimingBonus?: boolean;
+  onClaimBonus?: () => void;
 }
 
 // Format large numbers (matches index.html formatCoins)
@@ -24,7 +26,7 @@ function formatCoins(num: number): string {
   return num.toString();
 }
 
-export function CoinDisplay({ coinBalance, dailyBonusAvailable, isLoading }: CoinDisplayProps) {
+export function CoinDisplay({ coinBalance, dailyBonusAvailable, isLoading, isClaimingBonus, onClaimBonus }: CoinDisplayProps) {
   if (isLoading) {
     return (
       <div className="coin-display coin-display--loading">
@@ -49,10 +51,11 @@ export function CoinDisplay({ coinBalance, dailyBonusAvailable, isLoading }: Coi
       {dailyBonusAvailable && (
         <button
           className="coin-display__bonus-badge"
-          disabled
-          title="Daily bonus available (coming soon)"
+          disabled={isClaimingBonus || !onClaimBonus}
+          onClick={onClaimBonus}
+          title="Claim daily bonus"
         >
-          +50 Free!
+          {isClaimingBonus ? '...' : '+50 Free!'}
         </button>
       )}
     </div>
