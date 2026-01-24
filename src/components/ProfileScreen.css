@@ -1,0 +1,445 @@
+/**
+ * Profile Screen Styles
+ *
+ * Full-screen profile with avatar, stats, and level progress.
+ */
+
+/* === Screen Container === */
+
+.profile-screen {
+  min-height: 100vh;
+  background: var(--color-background);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 80px 20px 40px;
+  position: relative;
+}
+
+.profile-screen__bg {
+  position: fixed;
+  inset: 0;
+  background:
+    radial-gradient(ellipse at 30% 20%, rgba(59, 130, 246, 0.15) 0%, transparent 50%),
+    radial-gradient(ellipse at 70% 80%, rgba(212, 160, 58, 0.1) 0%, transparent 40%),
+    linear-gradient(180deg, var(--color-background) 0%, var(--color-background-light) 100%);
+  z-index: 0;
+}
+
+.profile-screen__container {
+  max-width: 900px;
+  width: 100%;
+  position: relative;
+  z-index: 1;
+}
+
+/* === Header === */
+
+.profile-screen__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 32px;
+}
+
+.profile-screen__title {
+  font-size: clamp(1.75rem, 4vw, 2.5rem);
+  font-weight: 700;
+  color: var(--color-text);
+  margin: 0;
+}
+
+/* === Content Grid === */
+
+.profile-screen__content {
+  display: grid;
+  grid-template-columns: minmax(280px, 1fr) 2fr;
+  gap: 24px;
+}
+
+/* === Profile Card (Left Column) === */
+
+.profile-card {
+  background: var(--color-background-card);
+  border-radius: 16px;
+  padding: 32px 24px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  text-align: center;
+}
+
+/* Avatar */
+.profile-card__avatar-wrapper {
+  position: relative;
+  width: 120px;
+  height: 120px;
+  margin: 0 auto 20px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--color-accent), var(--color-accent-dark));
+  padding: 4px;
+  box-shadow: 0 0 20px rgba(212, 160, 58, 0.4);
+}
+
+.profile-card__avatar-img {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.profile-card__avatar-initial {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background: var(--color-background-light);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 48px;
+  font-weight: 700;
+  color: var(--color-accent);
+}
+
+.profile-card__level-badge {
+  position: absolute;
+  bottom: -5px;
+  right: -5px;
+  background: linear-gradient(135deg, var(--color-accent), var(--color-accent-dark));
+  border-radius: 50%;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--color-text-dark);
+  border: 3px solid var(--color-background);
+}
+
+/* Name and Edit */
+.profile-card__name-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.profile-card__name {
+  color: var(--color-text);
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin: 0;
+}
+
+.profile-card__edit-btn {
+  background: none;
+  border: none;
+  color: var(--color-accent);
+  cursor: pointer;
+  padding: 4px 8px;
+  font-size: 14px;
+}
+
+.profile-card__edit-btn:hover {
+  opacity: 0.8;
+}
+
+/* Nickname Edit */
+.profile-card__nickname-edit {
+  margin-bottom: 16px;
+}
+
+.profile-card__nickname-input {
+  width: 100%;
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--color-accent);
+  border-radius: 8px;
+  color: var(--color-text);
+  font-size: 1rem;
+  text-align: center;
+  margin-bottom: 10px;
+  outline: none;
+  font-family: 'Inter', sans-serif;
+}
+
+.profile-card__nickname-input:focus {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 2px rgba(212, 160, 58, 0.2);
+}
+
+.profile-card__nickname-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+}
+
+.profile-card__save-btn {
+  padding: 8px 16px;
+  background: #22C55E;
+  color: var(--color-text);
+  border: none;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.profile-card__save-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.profile-card__cancel-btn {
+  padding: 8px 16px;
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--color-text-muted);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+/* Rank */
+.profile-card__rank {
+  color: var(--color-text-muted);
+  font-size: 1rem;
+  margin-bottom: 16px;
+}
+
+/* Unique ID */
+.profile-card__id-box {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 20px;
+}
+
+.profile-card__id-label {
+  color: var(--color-text-muted);
+  font-size: 0.75rem;
+  margin-bottom: 4px;
+}
+
+.profile-card__id-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.profile-card__id-value {
+  color: var(--color-accent);
+  font-weight: 600;
+  font-family: monospace;
+  font-size: 1rem;
+}
+
+.profile-card__copy-btn {
+  background: none;
+  border: none;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  padding: 4px;
+  font-size: 16px;
+}
+
+.profile-card__copy-btn:hover {
+  opacity: 0.8;
+}
+
+/* Coins */
+.profile-card__coins {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: rgba(212, 160, 58, 0.1);
+  border-radius: 8px;
+  padding: 12px;
+  border: 1px solid rgba(212, 160, 58, 0.2);
+}
+
+.profile-card__coins-value {
+  color: var(--color-accent);
+  font-weight: 700;
+  font-size: 1.25rem;
+}
+
+/* === Stats Column (Right) === */
+
+.profile-stats {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* Stats Card */
+.stats-card {
+  background: var(--color-background-card);
+  border-radius: 12px;
+  padding: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.stats-card__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.stats-card__title {
+  color: var(--color-text);
+  font-size: 1rem;
+  font-weight: 600;
+  margin: 0 0 16px 0;
+}
+
+.stats-card__label {
+  color: var(--color-text-muted);
+  font-size: 0.85rem;
+}
+
+.stats-card__value-accent {
+  color: var(--color-accent);
+  font-weight: 600;
+}
+
+.stats-card__footer {
+  display: flex;
+  justify-content: space-between;
+  color: var(--color-text-muted);
+  font-size: 0.8rem;
+  margin-top: 8px;
+}
+
+.stats-card__link {
+  background: none;
+  border: none;
+  color: var(--color-accent);
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+.stats-card__link:hover {
+  text-decoration: underline;
+}
+
+/* Progress Bar */
+.progress-bar--large {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  height: 12px;
+  overflow: hidden;
+}
+
+.progress-bar--small {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  height: 8px;
+  overflow: hidden;
+}
+
+.progress-bar__fill--accent {
+  background: linear-gradient(90deg, var(--color-accent), var(--color-accent-light));
+  height: 100%;
+  border-radius: 8px;
+  transition: width 0.5s ease;
+}
+
+/* Stats Grid */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+}
+
+.stats-grid--half {
+  grid-template-columns: repeat(2, 1fr);
+}
+
+.stats-grid__item {
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 8px;
+  padding: 12px;
+}
+
+.stats-grid__label {
+  color: var(--color-text-muted);
+  font-size: 0.75rem;
+  margin-bottom: 4px;
+}
+
+.stats-grid__value {
+  color: var(--color-text);
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+.stats-grid__value--success {
+  color: #22C55E;
+}
+
+.stats-grid__value--accent {
+  color: var(--color-accent);
+}
+
+/* === Mobile Responsive === */
+
+@media (max-width: 768px) {
+  .profile-screen {
+    padding: 60px 16px 32px;
+  }
+
+  .profile-screen__content {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+
+  .profile-card {
+    padding: 24px 20px;
+  }
+
+  .profile-card__avatar-wrapper {
+    width: 100px;
+    height: 100px;
+  }
+
+  .profile-card__avatar-initial {
+    font-size: 40px;
+  }
+
+  .profile-card__level-badge {
+    width: 32px;
+    height: 32px;
+    font-size: 12px;
+  }
+
+  .profile-card__name {
+    font-size: 1.25rem;
+  }
+
+  .stats-card {
+    padding: 16px;
+  }
+
+  .stats-grid__value {
+    font-size: 1.1rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .profile-screen__header {
+    flex-direction: column;
+    gap: 12px;
+    text-align: center;
+  }
+
+  .stats-grid {
+    grid-template-columns: 1fr;
+  }
+}
