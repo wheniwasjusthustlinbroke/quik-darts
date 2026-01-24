@@ -64,6 +64,17 @@
   display: flex;
   align-items: center;
   gap: 6px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 8px;
+  transition: background 0.2s ease;
+  color: inherit;
+}
+
+.coin-display__balance-container:hover {
+  background: rgba(255, 255, 255, 0.1);
 }
 
 .coin-display__icon {

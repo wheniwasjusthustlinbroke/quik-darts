@@ -17,6 +17,7 @@ import { StakeSelector } from './components/StakeSelector';
 import { AchievementToast } from './components/AchievementToast';
 import { AchievementGallery } from './components/AchievementGallery';
 import { ProfileScreen } from './components/ProfileScreen';
+import { CoinShop } from './components/CoinShop';
 import { DartIcon, GlobeIcon, TargetIcon, TrophyIcon, CoinIcon, UserIcon } from './components/icons';
 import {
   joinCasualQueue,
@@ -50,6 +51,7 @@ function App() {
   const [gameSnapshot, setGameSnapshot] = useState<any>(null);
   const [isSubmittingThrow, setIsSubmittingThrow] = useState(false);
   const [showStakeSelection, setShowStakeSelection] = useState(false);
+  const [showCoinShop, setShowCoinShop] = useState(false);
   const [selectedStake, setSelectedStake] = useState(50);
   const [isWageredMatch, setIsWageredMatch] = useState(false);
   const [isCreatingEscrow, setIsCreatingEscrow] = useState(false);
@@ -577,6 +579,7 @@ function App() {
                 isLoading={walletLoading}
                 isClaimingBonus={isClaimingBonus}
                 onClaimBonus={claimDailyBonus}
+                onOpenShop={() => setShowCoinShop(true)}
               />
             </div>
             <button
@@ -658,6 +661,12 @@ function App() {
             onPlayFree={handlePlayFreeFromModal}
             onClose={handleCloseStakeSelection}
             isLoading={isCreatingEscrow}
+          />
+        )}
+        {showCoinShop && (
+          <CoinShop
+            coinBalance={coinBalance}
+            onClose={() => setShowCoinShop(false)}
           />
         )}
         <AchievementToast
