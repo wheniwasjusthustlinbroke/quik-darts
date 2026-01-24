@@ -125,6 +125,10 @@ function App() {
     if (status === 'finished' && serverWinner !== undefined) {
       const winnerData = serverWinner === 0 ? player1 : player2;
       setWinner({ name: winnerData.name, flag: winnerData.flag });
+
+      if (gameState !== 'gameOver') {
+        setGameState('gameOver');
+      }
     }
   }, [gameSnapshot, matchData, gameState, setGameState, setPlayers, setCurrentPlayerIndex, setDartsThrown, setCurrentTurnScore, setDartPositions, setWinner]);
 
