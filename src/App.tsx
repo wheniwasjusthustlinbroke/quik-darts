@@ -224,6 +224,19 @@ function App() {
 
           if (!res) {
             console.warn('[handleBoardClick] submitThrow failed');
+          } else {
+            // Play sound based on result
+            if (res.score === 0) {
+              playSound('miss');
+            } else if (res.label?.startsWith('T')) {
+              playSound('triple');
+            } else if (res.label?.startsWith('D')) {
+              playSound('double');
+            } else if (res.label === 'BULL') {
+              playSound('bull');
+            } else {
+              playSound('hit');
+            }
           }
         } finally {
           setIsSubmittingThrow(false);
