@@ -546,3 +546,156 @@ export async function submitThrow(payload: ThrowPayload): Promise<ThrowResult | 
   console.error('[submitThrow] All retries failed:', lastError);
   return null;
 }
+
+// === Escrow Types ===
+
+export interface CreateEscrowParams {
+  stakeAmount: number;
+  escrowId?: string; // If provided, join existing escrow
+  idempotencyKey?: string;
+}
+
+export interface CreateEscrowResult {
+  success: boolean;
+  escrowId?: string;
+  newBalance?: number;
+  error?: string;
+}
+
+export interface RefundEscrowParams {
+  escrowId: string;
+  reason: string;
+  idempotencyKey?: string;
+}
+
+export interface RefundEscrowResult {
+  success: boolean;
+  newBalance?: number;
+  error?: string;
+}
+
+export interface SettleGameParams {
+  gameId: string;
+}
+
+export interface SettleGameResult {
+  success: boolean;
+  winnerId?: string;
+  winnerPayout?: number;
+  error?: string;
+}
+
+export interface ForfeitGameParams {
+  gameId: string;
+  forfeitPlayerId: string;
+}
+
+export interface ForfeitGameResult {
+  success: boolean;
+  winnerId?: string;
+  winnerPayout?: number;
+  error?: string;
+}
+
+// === Escrow Cloud Function Wrappers ===
+
+/**
+ * Create or join an escrow for wagered matches.
+ * If escrowId is provided, joins existing escrow. Otherwise creates new one.
+ */
+export async function createEscrow(params: CreateEscrowParams): Promise<CreateEscrowResult> {
+  const functions = getFirebaseFunctions();
+  if (!functions) {
+    return { success: false, error: 'Cloud Functions not available' };
+  }
+
+  try {
+    const createEscrowFn = httpsCallable(functions, 'createEscrow');
+    const result = await createEscrowFn(params);
+    const data = result.data as CreateEscrowResult;
+
+    if (!data.success) {
+      console.error('[createEscrow] Failed:', data.error);
+    }
+
+    return data;
+  } catch (error: any) {
+    console.error('[createEscrow] Error:', error.message);
+    return { success: false, error: error.message || 'Failed to create escrow' };
+  }
+}
+
+/**
+ * Refund an escrow (cancel wagered matchmaking).
+ */
+export async function refundEscrow(params: RefundEscrowParams): Promise<RefundEscrowResult> {
+  const functions = getFirebaseFunctions();
+  if (!functions) {
+    return { success: false, error: 'Cloud Functions not available' };
+  }
+
+  try {
+    const refundEscrowFn = httpsCallable(functions, 'refundEscrow');
+    const result = await refundEscrowFn(params);
+    const data = result.data as RefundEscrowResult;
+
+    if (!data.success) {
+      console.error('[refundEscrow] Failed:', data.error);
+    }
+
+    return data;
+  } catch (error: any) {
+    console.error('[refundEscrow] Error:', error.message);
+    return { success: false, error: error.message || 'Failed to refund escrow' };
+  }
+}
+
+/**
+ * Settle a completed wagered game (award winner).
+ */
+export async function settleGame(params: SettleGameParams): Promise<SettleGameResult> {
+  const functions = getFirebaseFunctions();
+  if (!functions) {
+    return { success: false, error: 'Cloud Functions not available' };
+  }
+
+  try {
+    const settleGameFn = httpsCallable(functions, 'settleGame');
+    const result = await settleGameFn(params);
+    const data = result.data as SettleGameResult;
+
+    if (!data.success) {
+      console.error('[settleGame] Failed:', data.error);
+    }
+
+    return data;
+  } catch (error: any) {
+    console.error('[settleGame] Error:', error.message);
+    return { success: false, error: error.message || 'Failed to settle game' };
+  }
+}
+
+/**
+ * Forfeit a wagered game (opponent disconnected).
+ */
+export async function forfeitGame(params: ForfeitGameParams): Promise<ForfeitGameResult> {
+  const functions = getFirebaseFunctions();
+  if (!functions) {
+    return { success: false, error: 'Cloud Functions not available' };
+  }
+
+  try {
+    const forfeitGameFn = httpsCallable(functions, 'forfeitGame');
+    const result = await forfeitGameFn(params);
+    const data = result.data as ForfeitGameResult;
+
+    if (!data.success) {
+      console.error('[forfeitGame] Failed:', data.error);
+    }
+
+    return data;
+  } catch (error: any) {
+    console.error('[forfeitGame] Error:', error.message);
+    return { success: false, error: error.message || 'Failed to forfeit game' };
+  }
+}
