@@ -88,14 +88,23 @@ function App() {
       setGameState('playing');
     }
 
-    // Update players using functional update to avoid stale closure
-    setPlayers(prev => {
-      if (!prev?.[0] || !prev?.[1]) return prev;
-      return [
-        { ...prev[0], score: player1.score ?? prev[0].score },
-        { ...prev[1], score: player2.score ?? prev[1].score },
-      ];
-    });
+    // Update players with full data from server
+    setPlayers([
+      {
+        id: player1.id ?? 'player1',
+        name: player1.name ?? 'Player 1',
+        flag: player1.flag ?? '🌍',
+        score: typeof player1.score === 'number' ? player1.score : 0,
+        isAI: false,
+      },
+      {
+        id: player2.id ?? 'player2',
+        name: player2.name ?? 'Player 2',
+        flag: player2.flag ?? '🌍',
+        score: typeof player2.score === 'number' ? player2.score : 0,
+        isAI: false,
+      },
+    ]);
 
     setCurrentPlayerIndex(currentPlayer ?? 0);
     setDartsThrown(serverDarts ?? 0);
