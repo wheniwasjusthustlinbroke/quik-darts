@@ -21,6 +21,7 @@ import {
   unsubscribeFromGameRoom,
   submitThrow,
   settleGame,
+  forfeitGame,
   MatchFoundData,
 } from './services/matchmaking';
 import './styles/index.css';
@@ -310,11 +311,34 @@ function App() {
               setGameSnapshot(gameData);
             },
             onOpponentDisconnect: (opponentName) => {
+              // Capture gameId before clearing state
+              const gameId = matchData?.roomId;
+
               unsubscribeFromGameRoom();
               setMatchData(null);
               setGameSnapshot(null);
-              // TODO: Call forfeitGame for wagered matches to award coins
-              setErrorText(`${opponentName} disconnected`);
+
+              if (!isWageredMatch || !gameId) {
+                setErrorText(`${opponentName} disconnected`);
+                return;
+              }
+
+              // Claim forfeit win for wagered match
+              forfeitGame({ gameId, reason: 'disconnect', claimWin: true })
+                .then((result) => {
+                  if (result.success && result.winnerPayout !== undefined) {
+                    setWageredPrize(result.winnerPayout);
+                    setErrorText(`${opponentName} disconnected. You won ${result.winnerPayout} coins!`);
+                    setGameState('gameOver');
+                  } else {
+                    setErrorText(`${opponentName} disconnected`);
+                  }
+                })
+                .catch((err) => {
+                  // Don't alert - forfeit might have been claimed already
+                  console.error('[forfeitGame] Error:', err);
+                  setErrorText(`${opponentName} disconnected`);
+                });
             },
             onError: (error) => {
               setErrorText(error);

@@ -586,9 +586,11 @@ export interface SettleGameResult {
   error?: string;
 }
 
+// TODO: verify Cloud Function forfeitGame is idempotent/transactional and enforces auth
 export interface ForfeitGameParams {
   gameId: string;
-  forfeitPlayerId: string;
+  reason: string;
+  claimWin: boolean;
 }
 
 export interface ForfeitGameResult {
