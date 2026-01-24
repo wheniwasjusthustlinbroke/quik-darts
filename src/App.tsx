@@ -26,10 +26,15 @@ function App() {
     gameState,
     setGameState,
     players,
+    setPlayers,
     currentPlayerIndex,
+    setCurrentPlayerIndex,
     dartsThrown,
+    setDartsThrown,
     currentTurnScore,
+    setCurrentTurnScore,
     dartPositions,
+    setDartPositions,
     aimPosition,
     setAimPosition,
     power,
@@ -38,6 +43,7 @@ function App() {
     setIsPowerCharging,
     gameStats,
     winner,
+    setWinner,
     checkout,
     legScores,
     setScores,
@@ -66,6 +72,47 @@ function App() {
       unsubscribeFromGameRoom();
     };
   }, []);
+
+  // Sync online game state from server
+  useEffect(() => {
+    if (!gameSnapshot || !matchData) return;
+
+    const { player1, player2, currentPlayer, dartsThrown: serverDarts,
+            currentTurnScore: serverTurnScore, dartPositions: serverDartPositions,
+            status, winner: serverWinner } = gameSnapshot;
+
+    if (!player1 || !player2) return;
+
+    // Update players using functional update to avoid stale closure
+    setPlayers(prev => {
+      if (!prev?.[0] || !prev?.[1]) return prev;
+      return [
+        { ...prev[0], score: player1.score ?? prev[0].score },
+        { ...prev[1], score: player2.score ?? prev[1].score },
+      ];
+    });
+
+    setCurrentPlayerIndex(currentPlayer ?? 0);
+    setDartsThrown(serverDarts ?? 0);
+    setCurrentTurnScore(serverTurnScore ?? 0);
+
+    // dartPositions: server stores as object with keys "0", "1", "2"
+    // Sort by key to preserve throw order
+    if (serverDartPositions) {
+      const entries = Object.entries(serverDartPositions);
+      entries.sort((a, b) => parseInt(a[0]) - parseInt(b[0]));
+      const positions = entries.map(([, pos]) => pos as { x: number; y: number });
+      setDartPositions(positions);
+    } else {
+      setDartPositions([]);
+    }
+
+    // Handle game finished
+    if (status === 'finished' && serverWinner !== undefined) {
+      const winnerData = serverWinner === 0 ? player1 : player2;
+      setWinner({ name: winnerData.name, flag: winnerData.flag });
+    }
+  }, [gameSnapshot, matchData, setPlayers, setCurrentPlayerIndex, setDartsThrown, setCurrentTurnScore, setDartPositions, setWinner]);
 
   // Handle Play Online button
   const handlePlayOnline = useCallback(() => {
