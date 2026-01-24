@@ -73,6 +73,15 @@ function App() {
     };
   }, []);
 
+  // Cleanup online state and return to menu
+  const handleReturnToMenu = useCallback(() => {
+    void leaveCasualQueue();
+    unsubscribeFromGameRoom();
+    setMatchData(null);
+    setGameSnapshot(null);
+    resetGame();
+  }, [resetGame]);
+
   // Sync online game state from server
   useEffect(() => {
     if (!gameSnapshot || !matchData) return;
@@ -527,7 +536,7 @@ function App() {
             <button className="btn btn-primary" onClick={startGame}>
               Play Again
             </button>
-            <button className="btn btn-ghost" onClick={resetGame}>
+            <button className="btn btn-ghost" onClick={handleReturnToMenu}>
               Main Menu
             </button>
           </div>
