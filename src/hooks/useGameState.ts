@@ -39,6 +39,22 @@ export interface PlayerSetupData {
   flags: string[];
 }
 
+export interface AchievementCallbacks {
+  onMatchStart?: (matchId: string) => void;
+  onLegStart?: (legId: string) => void;
+  onThrow?: (params: {
+    score: number;
+    segment: string;
+    multiplier: number;
+    isBull: boolean;
+    isTriple: boolean;
+  }) => void;
+  onTurnComplete?: (params: { turnScore: number; is180: boolean }) => void;
+  onCheckout?: (checkoutValue: number) => void;
+  onLegComplete?: (params: { won: boolean; dartsUsed: number }) => void;
+  onGameComplete?: (won: boolean) => void;
+}
+
 export interface UseGameStateReturn {
   // State
   gameState: GameState;
@@ -104,7 +120,7 @@ const createInitialStats = (): PlayerStats => ({
   one80s: 0,
 });
 
-export function useGameState(): UseGameStateReturn {
+export function useGameState(callbacks?: AchievementCallbacks): UseGameStateReturn {
   // Core state
   const [gameState, setGameState] = useState<GameState>('landing');
   const [players, setPlayers] = useState<Player[]>([]);
@@ -113,6 +129,7 @@ export function useGameState(): UseGameStateReturn {
   const [currentTurnScore, setCurrentTurnScore] = useState(0);
   const [dartPositions, setDartPositions] = useState<DartPosition[]>([]);
   const [currentTurnThrows, setCurrentTurnThrows] = useState<ThrowResult[]>([]);
+  const [legDartsThrown, setLegDartsThrown] = useState(0);
 
   // Aiming state
   const [aimPosition, setAimPosition] = useState<Position>({
@@ -156,6 +173,9 @@ export function useGameState(): UseGameStateReturn {
 
   // Start a new game
   const startGame = useCallback(() => {
+    const matchId = `match_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    const legId = `leg_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+
     const newPlayers: Player[] = [];
     const newStats: Record<string, PlayerStats> = {};
 
@@ -179,12 +199,17 @@ export function useGameState(): UseGameStateReturn {
     setCurrentTurnScore(0);
     setDartPositions([]);
     setCurrentTurnThrows([]);
+    setLegDartsThrown(0);
     setWinner(null);
     setMatchWinner(null);
     setLegScores(new Array(playerSetup.count).fill(0));
     setSetScores(new Array(playerSetup.count).fill(0));
     setGameState('playing');
-  }, [playerSetup]);
+
+    // Achievement callbacks
+    callbacks?.onMatchStart?.(matchId);
+    callbacks?.onLegStart?.(legId);
+  }, [playerSetup, callbacks]);
 
   // Throw a dart
   const throwDart = useCallback(
@@ -214,6 +239,16 @@ export function useGameState(): UseGameStateReturn {
       setDartPositions((prev) => [...prev, dartPos]);
       setCurrentTurnThrows((prev) => [...prev, result]);
       setDartsThrown((prev) => prev + 1);
+      setLegDartsThrown((prev) => prev + 1);
+
+      // Achievement callback: emit throw
+      callbacks?.onThrow?.({
+        score: result.score,
+        segment: result.segment,
+        multiplier: result.multiplier,
+        isBull: result.segment === 'BULL',
+        isTriple: result.multiplier === 3,
+      });
 
       if (result.isBust) {
         // Bust! Show popup and end turn after delay (restores score)
@@ -258,8 +293,9 @@ export function useGameState(): UseGameStateReturn {
 
         // Check for checkout (won the leg)
         if (currentPlayer.score - result.score === 0) {
-          // Player wins this leg
-          handleLegWon();
+          // Player wins this leg - pass checkout value (turn total)
+          const checkoutValue = currentTurnScore + result.score;
+          handleLegWon(checkoutValue);
         }
       }
 
@@ -269,12 +305,19 @@ export function useGameState(): UseGameStateReturn {
 
       return result;
     },
-    [currentPlayer, endTurn, handleLegWon]
+    [currentPlayer, currentTurnScore, callbacks, endTurn, handleLegWon]
   );
 
   // Handle leg won
-  const handleLegWon = useCallback(() => {
+  const handleLegWon = useCallback((checkoutValue: number) => {
     if (!currentPlayer) return;
+
+    // Achievement callbacks: checkout and leg complete
+    callbacks?.onCheckout?.(checkoutValue);
+    callbacks?.onLegComplete?.({
+      won: true,
+      dartsUsed: legDartsThrown,
+    });
 
     // Create updated leg scores first, then use that value consistently
     const newLegScores = [...legScores];
@@ -291,6 +334,7 @@ export function useGameState(): UseGameStateReturn {
       // Check if match is won (first to setsToWin wins)
       if (newSetScores[currentPlayerIndex] >= playerSetup.setsToWin) {
         // Match won
+        callbacks?.onGameComplete?.(true);
         setMatchWinner(currentPlayer);
         setWinner(currentPlayer);
         setGameState('gameOver');
@@ -308,6 +352,8 @@ export function useGameState(): UseGameStateReturn {
     currentPlayerIndex,
     legScores,
     setScores,
+    legDartsThrown,
+    callbacks,
     playerSetup,
     players.length,
   ]);
@@ -342,6 +388,12 @@ export function useGameState(): UseGameStateReturn {
           },
         };
       });
+
+      // Achievement callback: turn complete
+      callbacks?.onTurnComplete?.({
+        turnScore: currentTurnScore,
+        is180: currentTurnScore === 180,
+      });
     }
 
     // Move to next player
@@ -350,10 +402,12 @@ export function useGameState(): UseGameStateReturn {
     setCurrentTurnScore(0);
     setDartPositions([]);
     setCurrentTurnThrows([]);
-  }, [currentPlayer, currentTurnScore, players.length]);
+  }, [currentPlayer, currentTurnScore, players.length, callbacks]);
 
   // Reset leg (for new leg in same match)
   const resetLeg = useCallback(() => {
+    const newLegId = `leg_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+
     setPlayers((prev) =>
       prev.map((p) => ({ ...p, score: playerSetup.gameMode }))
     );
@@ -362,8 +416,12 @@ export function useGameState(): UseGameStateReturn {
     setCurrentTurnScore(0);
     setDartPositions([]);
     setCurrentTurnThrows([]);
+    setLegDartsThrown(0);
     setWinner(null);
-  }, [playerSetup.gameMode]);
+
+    // Achievement callback
+    callbacks?.onLegStart?.(newLegId);
+  }, [playerSetup.gameMode, callbacks]);
 
   // Reset entire game
   const resetGame = useCallback(() => {
