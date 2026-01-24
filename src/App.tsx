@@ -20,6 +20,7 @@ import {
   subscribeToGameRoom,
   unsubscribeFromGameRoom,
   submitThrow,
+  settleGame,
   MatchFoundData,
 } from './services/matchmaking';
 import './styles/index.css';
@@ -81,6 +82,10 @@ function App() {
   const [selectedStake, setSelectedStake] = useState(50);
   const [isWageredMatch, setIsWageredMatch] = useState(false);
   const [isCreatingEscrow, setIsCreatingEscrow] = useState(false);
+  const [wageredPrize, setWageredPrize] = useState<number | null>(null);
+
+  // Ref to prevent duplicate settleGame calls (UI guard)
+  const settledGameRef = useRef<string | null>(null);
 
   // Cleanup matchmaking on unmount
   useEffect(() => {
@@ -103,6 +108,8 @@ function App() {
     setIsSearching(false);
     setIsCreatingEscrow(false);
     setErrorText(null);
+    setWageredPrize(null);
+    settledGameRef.current = null;
     resetGame();
   }, [resetGame]);
 
@@ -158,6 +165,22 @@ function App() {
     if (status === 'finished' && serverWinner !== undefined) {
       const winnerData = serverWinner === 0 ? player1 : player2;
       setWinner({ name: winnerData.name, flag: winnerData.flag });
+
+      // Settle wagered match (only once per game via UI guard)
+      // TODO: verify Cloud Function settlement is idempotent/transactional
+      if (isWageredMatch && matchData && settledGameRef.current !== matchData.roomId) {
+        settledGameRef.current = matchData.roomId;
+        settleGame({ gameId: matchData.roomId })
+          .then((result) => {
+            if (result.success && result.winnerPayout) {
+              setWageredPrize(result.winnerPayout);
+            }
+          })
+          .catch((err) => {
+            // Don't alert - settlement might have been done by opponent (parity with index.html)
+            console.error('[settleGame] Error:', err);
+          });
+      }
 
       if (gameState !== 'gameOver') {
         setGameState('gameOver');
@@ -712,6 +735,12 @@ function App() {
             <span className="game-over__flag">{winner.flag}</span>
             {winner.name} Wins!
           </p>
+          {wageredPrize !== null && (
+            <p className="game-over__prize">
+              <CoinIcon size={20} />
+              <span>Won {wageredPrize} coins!</span>
+            </p>
+          )}
 
           <div className="game-over__actions">
             <button className="btn btn-primary" onClick={startGame}>
