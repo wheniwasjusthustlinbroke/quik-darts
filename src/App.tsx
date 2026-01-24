@@ -493,7 +493,7 @@ function App() {
 
             <button
               className="btn btn-ghost game__quit"
-              onClick={resetGame}
+              onClick={handleReturnToMenu}
             >
               Quit Game
             </button>
