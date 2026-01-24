@@ -39,19 +39,26 @@ export function useAuth(): UseAuthReturn {
       return;
     }
 
-    const unsubscribe = onAuthStateChanged(
-      auth,
-      (firebaseUser) => {
-        setUser(firebaseUser);
-        setIsLoading(false);
-        setError(null);
-      },
-      (err) => {
-        console.error('Auth state error:', err);
-        setError(err.message);
-        setIsLoading(false);
-      }
-    );
+    // Native wrapper has onAuthStateChanged as method; web modular SDK uses function
+    const unsubscribe = typeof auth.onAuthStateChanged === 'function'
+      ? auth.onAuthStateChanged((firebaseUser: any) => {
+          setUser(firebaseUser);
+          setIsLoading(false);
+          setError(null);
+        })
+      : onAuthStateChanged(
+          auth,
+          (firebaseUser) => {
+            setUser(firebaseUser);
+            setIsLoading(false);
+            setError(null);
+          },
+          (err) => {
+            console.error('Auth state error:', err);
+            setError(err.message);
+            setIsLoading(false);
+          }
+        );
 
     return () => unsubscribe();
   }, []);
@@ -67,7 +74,10 @@ export function useAuth(): UseAuthReturn {
     try {
       setIsLoading(true);
       setError(null);
-      const result = await signInAnonymously(auth);
+      // Native wrapper has signInAnonymously as method; web modular SDK uses function
+      const result = typeof auth.signInAnonymously === 'function'
+        ? await auth.signInAnonymously()
+        : await signInAnonymously(auth);
       setUser(result.user);
       return result.user;
     } catch (err) {
@@ -86,7 +96,10 @@ export function useAuth(): UseAuthReturn {
     if (!auth) return;
 
     try {
-      await firebaseSignOut(auth);
+      // Native wrapper has signOut as method; web modular SDK uses function
+      typeof auth.signOut === 'function'
+        ? await auth.signOut()
+        : await firebaseSignOut(auth);
       setUser(null);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Sign out failed';

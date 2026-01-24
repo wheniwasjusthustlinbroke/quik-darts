@@ -11,8 +11,6 @@ import {
   getAuth,
   Auth,
   connectAuthEmulator,
-  initializeAuth,
-  indexedDBLocalPersistence,
 } from 'firebase/auth';
 import {
   getDatabase,
@@ -43,9 +41,15 @@ export const isFirebaseConfigured = (): boolean => {
 
 // Initialize Firebase app
 let app: FirebaseApp | null = null;
-let auth: Auth | null = null;
+let auth: any = null;
 let database: Database | null = null;
 let functions: Functions | null = null;
+let currentAuthUser: any = null;
+
+// Promise that resolves when auth is ready
+let authReadyResolve: (user: any) => void;
+export const authReadyPromise = new Promise<any>(resolve => { authReadyResolve = resolve; });
+let authReady = false;
 
 export const initializeFirebase = (): {
   app: FirebaseApp;
@@ -63,18 +67,46 @@ export const initializeFirebase = (): {
   if (!app) {
     app = initializeApp(firebaseConfig);
 
-    // Use initializeAuth with indexedDBLocalPersistence for native platforms
-    // This fixes Firebase Auth on Capacitor iOS where capacitor:// scheme is blocked
-    if (Capacitor.isNativePlatform()) {
-      auth = initializeAuth(app, {
-        persistence: indexedDBLocalPersistence,
-      });
+    // Check if running on native iOS/Android with Capacitor
+    const isNativePlatform = Capacitor.isNativePlatform();
+    const hasNativeAuth = isNativePlatform && (Capacitor as any).Plugins?.FirebaseAuthentication;
+
+    if (hasNativeAuth) {
+      // Use native Firebase Auth plugin on mobile (bypasses capacitor:// scheme issue)
+      console.log('⚡️ Using native Firebase Authentication plugin');
+      const FirebaseAuth = (Capacitor as any).Plugins.FirebaseAuthentication;
+
+      // Create auth-like interface for compatibility with existing code
+      auth = {
+        signInAnonymously: async () => {
+          const result = await FirebaseAuth.signInAnonymously();
+          auth.currentUser = result.user;
+          return result;
+        },
+        signOut: () => FirebaseAuth.signOut(),
+        currentUser: null,
+        onAuthStateChanged: (callback: (user: any) => void) => {
+          // Get current user immediately
+          FirebaseAuth.getCurrentUser().then((result: any) => {
+            auth.currentUser = result.user;
+            callback(result.user);
+          }).catch(() => callback(null));
+          // Listen for future changes
+          FirebaseAuth.addListener('authStateChange', (change: any) => {
+            auth.currentUser = change.user;
+            callback(change.user);
+          });
+          return () => {}; // Return unsubscribe function for compatibility
+        }
+      };
     } else {
+      // Use web Firebase Auth on browser
       auth = getAuth(app);
     }
 
     database = getDatabase(app);
-    functions = getFunctions(app);
+    // Initialize Firebase Functions with europe-west1 region (matches deployed functions)
+    functions = getFunctions(app, 'europe-west1');
 
     // Connect to emulators in development
     if (import.meta.env.DEV && import.meta.env.VITE_USE_FIREBASE_EMULATOR) {
@@ -82,6 +114,26 @@ export const initializeFirebase = (): {
       connectDatabaseEmulator(database, 'localhost', 9000);
       connectFunctionsEmulator(functions, 'localhost', 5001);
     }
+
+    // Listen for auth state changes
+    auth.onAuthStateChanged((user: any) => {
+      if (user) {
+        currentAuthUser = user;
+        if (!authReady) {
+          authReady = true;
+          authReadyResolve(user);
+        }
+      } else {
+        // Sign in anonymously if not authenticated
+        auth.signInAnonymously().catch((error: any) => {
+          console.warn('Anonymous auth failed:', error);
+          if (!authReady) {
+            authReady = true;
+            authReadyResolve(null);
+          }
+        });
+      }
+    });
   }
 
   return { app, auth: auth!, database: database!, functions: functions! };
