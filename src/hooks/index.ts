@@ -5,6 +5,9 @@
 export { useAuth } from './useAuth';
 export type { AuthState, UseAuthReturn } from './useAuth';
 
+export { useProfile, getXPForLevel, getRankTitle } from './useProfile';
+export type { UserProfile, UserProgression, UserStreaks, ProfileState } from './useProfile';
+
 export { useGameState } from './useGameState';
 export type { GameConfig, PlayerSetupData, UseGameStateReturn } from './useGameState';
 
