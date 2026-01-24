@@ -13,6 +13,7 @@ interface CoinDisplayProps {
   isLoading?: boolean;
   isClaimingBonus?: boolean;
   onClaimBonus?: () => void;
+  onOpenShop?: () => void;
 }
 
 // Format large numbers (matches index.html formatCoins)
@@ -26,7 +27,7 @@ function formatCoins(num: number): string {
   return num.toString();
 }
 
-export function CoinDisplay({ coinBalance, dailyBonusAvailable, isLoading, isClaimingBonus, onClaimBonus }: CoinDisplayProps) {
+export function CoinDisplay({ coinBalance, dailyBonusAvailable, isLoading, isClaimingBonus, onClaimBonus, onOpenShop }: CoinDisplayProps) {
   if (isLoading) {
     return (
       <div className="coin-display coin-display--loading">
@@ -37,7 +38,11 @@ export function CoinDisplay({ coinBalance, dailyBonusAvailable, isLoading, isCla
 
   return (
     <div className="coin-display">
-      <div className="coin-display__balance-container">
+      <button
+        className="coin-display__balance-container"
+        onClick={onOpenShop}
+        title="Open Coin Shop"
+      >
         <img
           src="/assets/coin-chip.png"
           alt="Coins"
@@ -46,7 +51,7 @@ export function CoinDisplay({ coinBalance, dailyBonusAvailable, isLoading, isCla
           height={16}
         />
         <span className="coin-display__balance">{formatCoins(coinBalance)}</span>
-      </div>
+      </button>
 
       {dailyBonusAvailable && (
         <button
