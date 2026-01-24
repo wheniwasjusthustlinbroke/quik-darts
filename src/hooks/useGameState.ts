@@ -426,6 +426,14 @@ export function useGameState(): UseGameStateReturn {
     setIsPowerCharging,
     resetGame,
     resetLeg,
+
+    // Setters for online sync
+    setPlayers,
+    setCurrentPlayerIndex,
+    setDartsThrown,
+    setCurrentTurnScore,
+    setDartPositions,
+    setWinner,
   };
 }
 
