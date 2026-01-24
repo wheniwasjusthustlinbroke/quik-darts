@@ -8,6 +8,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Dartboard, ScoreDisplay, PowerBar } from './components/game';
 import { useGameState, useSound } from './hooks';
+import { useWallet } from './hooks/useWallet';
+import { CoinDisplay } from './components/CoinDisplay';
 import { DartIcon, GlobeIcon, TargetIcon, TrophyIcon } from './components/icons';
 import {
   joinCasualQueue,
@@ -57,6 +59,9 @@ function App() {
 
   // Sound effects
   const { playSound } = useSound();
+
+  // Wallet state
+  const { coinBalance, dailyBonusAvailable, isLoading: walletLoading } = useWallet();
 
   // Matchmaking state
   const [isSearching, setIsSearching] = useState(false);
@@ -333,6 +338,13 @@ function App() {
       <div className="app">
         <div className="landing">
           <header className="landing__header">
+            <div className="landing__wallet">
+              <CoinDisplay
+                coinBalance={coinBalance}
+                dailyBonusAvailable={dailyBonusAvailable}
+                isLoading={walletLoading}
+              />
+            </div>
             <h1 className="landing__title">Quik Darts</h1>
             <p className="landing__subtitle">Championship Edition</p>
           </header>
