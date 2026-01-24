@@ -7,13 +7,16 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Dartboard, ScoreDisplay, PowerBar } from './components/game';
-import { useGameState, useSound } from './hooks';
+import { useGameState, useSound, useAuth } from './hooks';
 import { useWallet } from './hooks/useWallet';
 import { CoinDisplay } from './components/CoinDisplay';
-import { DartIcon, GlobeIcon, TargetIcon, TrophyIcon } from './components/icons';
+import { StakeSelector } from './components/StakeSelector';
+import { DartIcon, GlobeIcon, TargetIcon, TrophyIcon, CoinIcon } from './components/icons';
 import {
   joinCasualQueue,
   leaveCasualQueue,
+  joinWageredQueue,
+  leaveWageredQueue,
   subscribeToGameRoom,
   unsubscribeFromGameRoom,
   submitThrow,
@@ -63,6 +66,9 @@ function App() {
   // Wallet state
   const { coinBalance, dailyBonusAvailable, isLoading: walletLoading, isClaimingBonus, claimDailyBonus } = useWallet();
 
+  // Auth state (for user profile)
+  const { user } = useAuth();
+
   // Matchmaking state
   const [isSearching, setIsSearching] = useState(false);
   const [errorText, setErrorText] = useState<string | null>(null);
@@ -70,10 +76,17 @@ function App() {
   const [gameSnapshot, setGameSnapshot] = useState<any>(null);
   const [isSubmittingThrow, setIsSubmittingThrow] = useState(false);
 
+  // Wagered match state
+  const [showStakeSelection, setShowStakeSelection] = useState(false);
+  const [selectedStake, setSelectedStake] = useState(50);
+  const [isWageredMatch, setIsWageredMatch] = useState(false);
+  const [isCreatingEscrow, setIsCreatingEscrow] = useState(false);
+
   // Cleanup matchmaking on unmount
   useEffect(() => {
     return () => {
       void leaveCasualQueue();
+      void leaveWageredQueue();
       unsubscribeFromGameRoom();
     };
   }, []);
@@ -81,9 +94,15 @@ function App() {
   // Cleanup online state and return to menu
   const handleReturnToMenu = useCallback(() => {
     void leaveCasualQueue();
+    void leaveWageredQueue();
     unsubscribeFromGameRoom();
     setMatchData(null);
     setGameSnapshot(null);
+    setIsWageredMatch(false);
+    setShowStakeSelection(false);
+    setIsSearching(false);
+    setIsCreatingEscrow(false);
+    setErrorText(null);
     resetGame();
   }, [resetGame]);
 
@@ -147,23 +166,37 @@ function App() {
   }, [gameSnapshot, matchData, gameState, setGameState, setPlayers, setCurrentPlayerIndex, setDartsThrown, setCurrentTurnScore, setDartPositions, setWinner]);
 
   // Handle Play Online button
-  const handlePlayOnline = useCallback(() => {
+  const handlePlayOnline = useCallback(async () => {
     if (isSearching) {
-      // Cancel
-      void leaveCasualQueue();
+      // Cancel: reset BOTH queues cleanly (awaited)
+      await leaveCasualQueue();
+      await leaveWageredQueue();
       unsubscribeFromGameRoom();
       setIsSearching(false);
+      setIsCreatingEscrow(false);
       setErrorText(null);
       setMatchData(null);
       setGameSnapshot(null);
+      setIsWageredMatch(false);
       return;
     }
 
+    // Leave wagered queue before starting casual
+    await leaveWageredQueue();
+
     setIsSearching(true);
     setErrorText(null);
+    setIsWageredMatch(false);
+
+    // TODO: Pull flag/level from user profile when available
+    const profile = {
+      displayName: user?.displayName ?? 'Player',
+      flag: '🌍',
+      level: 1,
+    };
 
     joinCasualQueue(
-      { displayName: 'Player', flag: '🌍', level: 1 },
+      profile,
       playerSetup.gameMode,
       {
         onFound: (data) => {
@@ -194,7 +227,103 @@ function App() {
         },
       }
     );
-  }, [isSearching, playerSetup.gameMode]);
+  }, [isSearching, playerSetup.gameMode, user?.displayName]);
+
+  // Handle Play for Stakes button
+  const handlePlayWagered = useCallback(async () => {
+    if (isSearching || isCreatingEscrow) {
+      // Cancel: reset BOTH queues cleanly (awaited)
+      await leaveCasualQueue();
+      await leaveWageredQueue();
+      unsubscribeFromGameRoom();
+      setIsSearching(false);
+      setIsCreatingEscrow(false);
+      setErrorText(null);
+      setMatchData(null);
+      setGameSnapshot(null);
+      setIsWageredMatch(false);
+      return;
+    }
+    setShowStakeSelection(true);
+  }, [isSearching, isCreatingEscrow]);
+
+  // Start wagered matchmaking after stake selection
+  const startWageredMatchmaking = useCallback(async () => {
+    if (coinBalance < selectedStake) {
+      setErrorText('Insufficient balance');
+      return;
+    }
+
+    setShowStakeSelection(false);
+    setIsCreatingEscrow(true);
+    setErrorText(null);
+    setIsWageredMatch(true);
+
+    // Leave casual queue before starting wagered
+    await leaveCasualQueue();
+
+    // TODO: Pull flag/level from user profile when available
+    const profile = {
+      displayName: user?.displayName ?? 'Player',
+      flag: '🌍',
+      level: 1,
+    };
+
+    joinWageredQueue(
+      profile,
+      playerSetup.gameMode,
+      selectedStake,
+      {
+        onEscrowCreated: () => {
+          setIsCreatingEscrow(false);
+          setIsSearching(true);
+        },
+        onFound: (data) => {
+          setIsSearching(false);
+          setIsCreatingEscrow(false);
+          setMatchData(data);
+          subscribeToGameRoom(data.roomId, data.playerIndex, {
+            onGameUpdate: (gameData) => {
+              setGameSnapshot(gameData);
+            },
+            onOpponentDisconnect: (opponentName) => {
+              unsubscribeFromGameRoom();
+              setMatchData(null);
+              setGameSnapshot(null);
+              // TODO: Call forfeitGame for wagered matches to award coins
+              setErrorText(`${opponentName} disconnected`);
+            },
+            onError: (error) => {
+              setErrorText(error);
+            },
+          });
+        },
+        onError: (error) => {
+          setIsSearching(false);
+          setIsCreatingEscrow(false);
+          setIsWageredMatch(false);
+          setErrorText(error);
+        },
+        onTimeout: () => {
+          setIsSearching(false);
+          setIsCreatingEscrow(false);
+          setIsWageredMatch(false);
+          setErrorText('No opponent found');
+        },
+      }
+    );
+  }, [coinBalance, selectedStake, playerSetup.gameMode, user?.displayName]);
+
+  // Close stake selection modal
+  const handleCloseStakeSelection = useCallback(() => {
+    setShowStakeSelection(false);
+  }, []);
+
+  // Play free from stake selection modal
+  const handlePlayFreeFromModal = useCallback(async () => {
+    setShowStakeSelection(false);
+    await handlePlayOnline();
+  }, [handlePlayOnline]);
 
   // Power bar animation
   const powerIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -378,7 +507,20 @@ function App() {
 
             <button className="btn btn-ghost landing__btn" onClick={handlePlayOnline}>
               <GlobeIcon size={24} />
-              {isSearching ? 'Searching... (tap to cancel)' : errorText || 'Play Online'}
+              {isSearching && !isWageredMatch ? 'Searching... (tap to cancel)' : errorText || 'Play Online'}
+            </button>
+
+            <button
+              className="btn btn-ghost landing__btn"
+              onClick={handlePlayWagered}
+              disabled={walletLoading}
+            >
+              <CoinIcon size={24} />
+              {isCreatingEscrow
+                ? 'Creating match...'
+                : isSearching && isWageredMatch
+                  ? 'Searching... (tap to cancel)'
+                  : 'Play for Stakes'}
             </button>
 
             <button className="btn btn-ghost landing__btn" disabled>
@@ -392,6 +534,18 @@ function App() {
             <p>Quik Darts v2.0 - Built with React + TypeScript</p>
           </footer>
         </div>
+
+        {showStakeSelection && (
+          <StakeSelector
+            coinBalance={coinBalance}
+            selectedStake={selectedStake}
+            onSelectStake={setSelectedStake}
+            onConfirm={startWageredMatchmaking}
+            onPlayFree={handlePlayFreeFromModal}
+            onClose={handleCloseStakeSelection}
+            isLoading={isCreatingEscrow}
+          />
+        )}
       </div>
     );
   }
