@@ -13,6 +13,7 @@ import { useAchievements } from './hooks/useAchievements';
 import { useWallet } from './hooks/useWallet';
 import { CoinDisplay } from './components/CoinDisplay';
 import { StakeSelector } from './components/StakeSelector';
+import { AchievementToast } from './components/AchievementToast';
 import { DartIcon, GlobeIcon, TargetIcon, TrophyIcon, CoinIcon } from './components/icons';
 import {
   joinCasualQueue,
@@ -35,6 +36,9 @@ function App() {
   const [isOnlineGame, setIsOnlineGame] = useState(false);
   const [isPracticeMode, setIsPracticeMode] = useState(false);
   const [hasAIOpponent, setHasAIOpponent] = useState(false);
+
+  // Track recently unlocked achievements for toast display
+  const [recentUnlocks, setRecentUnlocks] = useState<string[]>([]);
 
   // === Matchmaking State (declared early for useAchievements) ===
   const [isSearching, setIsSearching] = useState(false);
@@ -59,8 +63,8 @@ function App() {
     hasAIOpponent: hasAIOpponent,
     isWagered: isWageredMatch,
     onUnlock: (achievementIds) => {
-      // TODO: Replace with toast/notification UI in PR 6.3
-      console.log('[Achievements] Unlocked:', achievementIds);
+      // Add to recent unlocks for toast display
+      setRecentUnlocks((prev) => [...prev, ...achievementIds]);
     },
   });
 
@@ -82,6 +86,11 @@ function App() {
     achievements.emitLegComplete,
     achievements.emitGameComplete,
   ]);
+
+  // Clear recent unlocks after toasts are dismissed
+  const handleAchievementsDismissed = useCallback(() => {
+    setRecentUnlocks([]);
+  }, []);
 
   // === Game State ===
   const {
@@ -639,6 +648,10 @@ function App() {
             isLoading={isCreatingEscrow}
           />
         )}
+        <AchievementToast
+          unlockedIds={recentUnlocks}
+          onDismissed={handleAchievementsDismissed}
+        />
       </div>
     );
   }
@@ -740,6 +753,10 @@ function App() {
             </button>
           </div>
         </div>
+        <AchievementToast
+          unlockedIds={recentUnlocks}
+          onDismissed={handleAchievementsDismissed}
+        />
       </div>
     );
   }
@@ -801,6 +818,10 @@ function App() {
             />
           </div>
         </div>
+        <AchievementToast
+          unlockedIds={recentUnlocks}
+          onDismissed={handleAchievementsDismissed}
+        />
       </div>
     );
   }
@@ -831,6 +852,10 @@ function App() {
             </button>
           </div>
         </div>
+        <AchievementToast
+          unlockedIds={recentUnlocks}
+          onDismissed={handleAchievementsDismissed}
+        />
       </div>
     );
   }
@@ -839,6 +864,10 @@ function App() {
   return (
     <div className="app">
       <div className="loading">Loading...</div>
+      <AchievementToast
+        unlockedIds={recentUnlocks}
+        onDismissed={handleAchievementsDismissed}
+      />
     </div>
   );
 }
