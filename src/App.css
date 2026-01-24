@@ -259,6 +259,17 @@
   margin-right: 12px;
 }
 
+.game-over__prize {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--color-accent);
+  margin-bottom: 24px;
+}
+
 .game-over__actions {
   display: flex;
   gap: 16px;
