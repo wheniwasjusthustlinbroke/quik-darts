@@ -14,6 +14,7 @@ import { useWallet } from './hooks/useWallet';
 import { CoinDisplay } from './components/CoinDisplay';
 import { StakeSelector } from './components/StakeSelector';
 import { AchievementToast } from './components/AchievementToast';
+import { AchievementGallery } from './components/AchievementGallery';
 import { DartIcon, GlobeIcon, TargetIcon, TrophyIcon, CoinIcon } from './components/icons';
 import {
   joinCasualQueue,
@@ -625,10 +626,12 @@ function App() {
                   : 'Play for Stakes'}
             </button>
 
-            <button className="btn btn-ghost landing__btn" disabled>
+            <button
+              className="btn btn-ghost landing__btn"
+              onClick={() => setGameState('achievements')}
+            >
               <TrophyIcon size={24} />
               Achievements
-              <span className="landing__coming-soon">Coming Soon</span>
             </button>
           </div>
 
@@ -753,6 +756,23 @@ function App() {
             </button>
           </div>
         </div>
+        <AchievementToast
+          unlockedIds={recentUnlocks}
+          onDismissed={handleAchievementsDismissed}
+        />
+      </div>
+    );
+  }
+
+  // Render achievements gallery
+  if (gameState === 'achievements') {
+    return (
+      <div className="app">
+        <AchievementGallery
+          achievementsState={achievements.getState()}
+          weeklyState={achievements.getWeeklyState()}
+          onClose={() => setGameState('landing')}
+        />
         <AchievementToast
           unlockedIds={recentUnlocks}
           onDismissed={handleAchievementsDismissed}
