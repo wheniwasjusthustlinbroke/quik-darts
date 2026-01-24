@@ -83,6 +83,11 @@ function App() {
 
     if (!player1 || !player2) return;
 
+    // Transition to playing when we have valid game data
+    if (gameState !== 'playing' && gameState !== 'gameOver') {
+      setGameState('playing');
+    }
+
     // Update players using functional update to avoid stale closure
     setPlayers(prev => {
       if (!prev?.[0] || !prev?.[1]) return prev;
@@ -112,7 +117,7 @@ function App() {
       const winnerData = serverWinner === 0 ? player1 : player2;
       setWinner({ name: winnerData.name, flag: winnerData.flag });
     }
-  }, [gameSnapshot, matchData, setPlayers, setCurrentPlayerIndex, setDartsThrown, setCurrentTurnScore, setDartPositions, setWinner]);
+  }, [gameSnapshot, matchData, gameState, setGameState, setPlayers, setCurrentPlayerIndex, setDartsThrown, setCurrentTurnScore, setDartPositions, setWinner]);
 
   // Handle Play Online button
   const handlePlayOnline = useCallback(() => {
@@ -176,6 +181,18 @@ function App() {
 
       // Online mode: send to server
       if (matchData) {
+        // Wait for valid game state from server
+        if (!gameSnapshot) {
+          console.warn('[handleBoardClick] No game snapshot yet');
+          return;
+        }
+
+        // Check if it's our turn
+        if (currentPlayerIndex !== matchData.playerIndex) {
+          console.log('[handleBoardClick] Not our turn');
+          return;
+        }
+
         try {
           setIsSubmittingThrow(true);
           const res = await submitThrow({
@@ -217,7 +234,7 @@ function App() {
         setTimeout(() => endTurn(), 1000);
       }
     },
-    [gameState, dartsThrown, throwDart, playSound, currentTurnScore, endTurn, matchData, isSubmittingThrow]
+    [gameState, dartsThrown, throwDart, playSound, currentTurnScore, endTurn, matchData, isSubmittingThrow, gameSnapshot, currentPlayerIndex]
   );
 
   // Handle aim position
