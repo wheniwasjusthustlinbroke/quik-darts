@@ -33,18 +33,18 @@ jobs:
       - name: Build obfuscated version
         run: npm run build
 
-      - name: Copy static assets to dist
+      - name: Copy static assets to www
         run: |
           # Copy all static files needed for the site
-          cp -r favicon*.png dist/ 2>/dev/null || true
-          cp -r favicon*.svg dist/ 2>/dev/null || true
-          cp -r favicon.ico dist/ 2>/dev/null || true
-          cp -r apple-touch-icon.png dist/ 2>/dev/null || true
-          cp -r site.webmanifest dist/ 2>/dev/null || true
-          cp -r robots.txt dist/ 2>/dev/null || true
-          cp -r assets dist/ 2>/dev/null || true
-          cp -r images dist/ 2>/dev/null || true
-          cp -r sounds dist/ 2>/dev/null || true
+          cp -r favicon*.png www/ 2>/dev/null || true
+          cp -r favicon*.svg www/ 2>/dev/null || true
+          cp -r favicon.ico www/ 2>/dev/null || true
+          cp -r apple-touch-icon.png www/ 2>/dev/null || true
+          cp -r site.webmanifest www/ 2>/dev/null || true
+          cp -r robots.txt www/ 2>/dev/null || true
+          cp -r assets www/ 2>/dev/null || true
+          cp -r images www/ 2>/dev/null || true
+          cp -r sounds www/ 2>/dev/null || true
 
       - name: Setup Pages
         uses: actions/configure-pages@v4
@@ -52,13 +52,13 @@ jobs:
       - name: Upload artifact for GitHub Pages
         uses: actions/upload-pages-artifact@v3
         with:
-          path: './dist'
+          path: './www'
 
       - name: Upload artifact for Firebase
         uses: actions/upload-artifact@v4
         with:
-          name: dist
-          path: './dist'
+          name: www
+          path: './www'
 
   deploy-github-pages:
     environment:
@@ -81,8 +81,8 @@ jobs:
       - name: Download build artifact
         uses: actions/download-artifact@v4
         with:
-          name: dist
-          path: './dist'
+          name: www
+          path: './www'
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
