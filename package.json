@@ -5,9 +5,9 @@
   "private": true,
   "main": "index.js",
   "scripts": {
-    "build": "node build.js",
+    "build": "tsc && vite build",
+    "build:legacy": "node build.js",
     "build:dev": "cp index.html dist/",
-    "build:vite": "tsc && vite build",
     "sync": "npm run build && npx cap sync",
     "ios": "npm run sync && npx cap open ios",
     "test": "cd functions && npm test",
