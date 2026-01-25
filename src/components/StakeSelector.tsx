@@ -5,7 +5,6 @@
  * Matches index.html lines 6496-6690 for parity.
  */
 
-import React from 'react';
 import { CloseIcon, CoinIcon, GlobeIcon } from './icons';
 
 interface StakeSelectorProps {

@@ -5,8 +5,6 @@
  * Read-only display - claim functionality added in PR 4.2.
  */
 
-import React from 'react';
-
 interface CoinDisplayProps {
   coinBalance: number;
   dailyBonusAvailable?: boolean;

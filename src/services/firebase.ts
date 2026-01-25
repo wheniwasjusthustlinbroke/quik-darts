@@ -44,7 +44,6 @@ let app: FirebaseApp | null = null;
 let auth: any = null;
 let database: Database | null = null;
 let functions: Functions | null = null;
-let currentAuthUser: any = null;
 
 // Promise that resolves when auth is ready
 let authReadyResolve: (user: any) => void;
@@ -118,7 +117,6 @@ export const initializeFirebase = (): {
     // Listen for auth state changes
     auth.onAuthStateChanged((user: any) => {
       if (user) {
-        currentAuthUser = user;
         if (!authReady) {
           authReady = true;
           authReadyResolve(user);
