@@ -192,8 +192,8 @@ async function addSelfToQueue(
   database: any,
   profile: { displayName?: string; flag?: string; level?: number; avatarUrl?: string | null },
   callbacks: MatchmakingCallbacks,
-  gameMode: 301 | 501,
-  functions: any
+  _gameMode: 301 | 501,
+  _functions: any
 ): Promise<void> {
   if (!myPlayerId) return;
 
@@ -726,7 +726,6 @@ let wageredQueueOnDisconnect: ReturnType<typeof onDisconnect> | null = null;
 let wageredQueueValueUnsubscribe: (() => void) | null = null;
 let wageredMatchmakingTimeout: ReturnType<typeof setTimeout> | null = null;
 let currentEscrowId: string | null = null;
-let currentStakeAmount: number | null = null;
 let currentIdempotencyKey: string | null = null;
 let isProcessingWageredMatch = false;
 
@@ -791,8 +790,8 @@ export async function joinWageredQueue(
     return;
   }
 
-  myPlayerId = authUser.uid;
-  currentStakeAmount = stakeAmount;
+  const playerId = authUser.uid;
+  myPlayerId = playerId;
   currentIdempotencyKey = generateIdempotencyKey();
   isProcessingWageredMatch = false;
 
@@ -819,12 +818,12 @@ export async function joinWageredQueue(
       // Try to claim an opponent atomically
       for (const [opponentKey, opponentData] of Object.entries(entries) as [string, WageredQueueEntry][]) {
         // Skip self, already claimed, or already matched entries
-        if (opponentKey === myPlayerId) continue;
+        if (opponentKey === playerId) continue;
         if (opponentData.claimedBy || opponentData.matchedGameId) continue;
         if (!opponentData.escrowId) continue;
 
         const opponentEntryRef = child(wageredQueueRef, opponentKey);
-        const claimed = await tryClaimOpponent(opponentEntryRef, myPlayerId);
+        const claimed = await tryClaimOpponent(opponentEntryRef, playerId);
 
         if (claimed) {
           // We won the claim - join their escrow
@@ -898,9 +897,9 @@ async function addSelfToWageredQueue(
   stakeAmount: number,
   escrowId: string,
   wageredQueueRef: DatabaseReference,
-  gameMode: 301 | 501,
+  _gameMode: 301 | 501,
   callbacks: WageredMatchCallbacks,
-  functions: any
+  _functions: any
 ): Promise<void> {
   if (!myPlayerId) return;
 
@@ -1120,7 +1119,6 @@ async function cleanupWageredMatchmaking(): Promise<void> {
   }
 
   currentEscrowId = null;
-  currentStakeAmount = null;
   currentIdempotencyKey = null;
 }
 

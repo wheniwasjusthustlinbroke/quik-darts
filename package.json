@@ -6,7 +6,7 @@
   "main": "index.js",
   "scripts": {
     "build": "tsc -p tsconfig.json && vite build",
-    "build:legacy": "node build.js",
+    "build:legacy": "node legacy/build.js",
     "build:dev": "cp index.html dist/",
     "sync": "npm run build && npx cap sync",
     "ios": "npm run sync && npx cap open ios",
@@ -36,13 +36,22 @@
     "@capacitor-firebase/authentication": "^8.0.1",
     "@capacitor/cli": "^8.0.0",
     "@capacitor/core": "^8.0.0",
-    "@capacitor/ios": "^8.0.0"
+    "@capacitor/ios": "^8.0.0",
+    "firebase": "^12.6.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0"
   },
   "devDependencies": {
     "@babel/core": "^7.23.7",
     "@babel/preset-react": "^7.23.3",
     "@playwright/test": "^1.57.0",
-    "javascript-obfuscator": "^4.1.0"
+    "@types/react": "^18.2.0",
+    "@types/react-dom": "^18.2.0",
+    "@vitejs/plugin-react": "^4.2.0",
+    "javascript-obfuscator": "^4.1.0",
+    "terser": "^5.27.0",
+    "typescript": "^5.3.0",
+    "vite": "^5.0.0"
   },
   "overrides": {
     "tar": "^7.5.6"

@@ -20,11 +20,7 @@ import {
   EvaluationResult,
   createEventId,
 } from '../services/achievements/types';
-import {
-  recordEvent,
-  createDefaultAchievementsState,
-  createDefaultWeeklyChallengeState,
-} from '../services/achievements/engine';
+import { recordEvent } from '../services/achievements/engine';
 import {
   loadAchievementsState,
   loadWeeklyChallengeState,

@@ -212,7 +212,17 @@ function App() {
     if (serverDartPositions) {
       const entries = Object.entries(serverDartPositions);
       entries.sort((a, b) => parseInt(a[0]) - parseInt(b[0]));
-      const positions = entries.map(([, pos]) => pos as { x: number; y: number });
+      const positions = entries.map(([key, pos]) => {
+        const p = pos as { x: number; y: number };
+        return {
+          id: `dart_${key}`,
+          x: p.x,
+          y: p.y,
+          score: 0,
+          multiplier: 1,
+          segment: '',
+        };
+      });
       setDartPositions(positions);
     } else {
       setDartPositions([]);
@@ -221,7 +231,13 @@ function App() {
     // Handle game finished
     if (status === 'finished' && serverWinner !== undefined) {
       const winnerData = serverWinner === 0 ? player1 : player2;
-      setWinner({ name: winnerData.name, flag: winnerData.flag });
+      setWinner({
+        id: `player_${serverWinner}`,
+        name: winnerData.name,
+        score: 0,
+        isAI: false,
+        flag: winnerData.flag,
+      });
 
       // Settle wagered match (only once per game via UI guard)
       // TODO: verify Cloud Function settlement is idempotent/transactional
@@ -353,8 +369,8 @@ function App() {
 
     joinWageredQueue(
       profile,
-      playerSetup.gameMode,
       selectedStake,
+      playerSetup.gameMode as 301 | 501,
       {
         onEscrowCreated: () => {
           setIsCreatingEscrow(false);

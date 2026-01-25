@@ -5,7 +5,7 @@
  * turn management, and game flow.
  */
 
-import { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import type {
   GameState,
   GameMode,
@@ -94,6 +94,14 @@ export interface UseGameStateReturn {
   setIsPowerCharging: (charging: boolean) => void;
   resetGame: () => void;
   resetLeg: () => void;
+
+  // Setters for online sync
+  setPlayers: React.Dispatch<React.SetStateAction<Player[]>>;
+  setCurrentPlayerIndex: React.Dispatch<React.SetStateAction<number>>;
+  setDartsThrown: React.Dispatch<React.SetStateAction<number>>;
+  setCurrentTurnScore: React.Dispatch<React.SetStateAction<number>>;
+  setDartPositions: React.Dispatch<React.SetStateAction<DartPosition[]>>;
+  setWinner: React.Dispatch<React.SetStateAction<Player | null>>;
 }
 
 const DEFAULT_PLAYER_SETUP: PlayerSetupData = {
@@ -211,6 +219,122 @@ export function useGameState(callbacks?: AchievementCallbacks): UseGameStateRetu
     callbacks?.onLegStart?.(legId);
   }, [playerSetup, callbacks]);
 
+  // Reset leg (for new leg in same match)
+  const resetLeg = useCallback(() => {
+    const newLegId = `leg_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+
+    setPlayers((prev) =>
+      prev.map((p) => ({ ...p, score: playerSetup.gameMode }))
+    );
+    setCurrentPlayerIndex(0);
+    setDartsThrown(0);
+    setCurrentTurnScore(0);
+    setDartPositions([]);
+    setCurrentTurnThrows([]);
+    setLegDartsThrown(0);
+    setWinner(null);
+
+    // Achievement callback
+    callbacks?.onLegStart?.(newLegId);
+  }, [playerSetup.gameMode, callbacks]);
+
+  // End turn
+  const endTurn = useCallback((busted = false) => {
+    // If busted, restore player's score by adding back currentTurnScore
+    // (Dart rules: when you bust, your ENTIRE turn is void)
+    if (busted && currentPlayer && currentTurnScore > 0) {
+      setPlayers((prev) =>
+        prev.map((p) =>
+          p.id === currentPlayer.id
+            ? { ...p, score: p.score + currentTurnScore }
+            : p
+        )
+      );
+    }
+
+    // Update highest 3-dart score (only if not busted)
+    if (!busted && currentPlayer && currentTurnScore > 0) {
+      setGameStats((prev) => {
+        const stats = prev[currentPlayer.id] || createInitialStats();
+        return {
+          ...prev,
+          [currentPlayer.id]: {
+            ...stats,
+            highest3DartScore: Math.max(
+              stats.highest3DartScore,
+              currentTurnScore
+            ),
+            one80s: stats.one80s + (currentTurnScore === 180 ? 1 : 0),
+          },
+        };
+      });
+
+      // Achievement callback: turn complete
+      callbacks?.onTurnComplete?.({
+        turnScore: currentTurnScore,
+        is180: currentTurnScore === 180,
+      });
+    }
+
+    // Move to next player
+    setCurrentPlayerIndex((prev) => (prev + 1) % players.length);
+    setDartsThrown(0);
+    setCurrentTurnScore(0);
+    setDartPositions([]);
+    setCurrentTurnThrows([]);
+  }, [currentPlayer, currentTurnScore, players.length, callbacks]);
+
+  // Handle leg won
+  const handleLegWon = useCallback((checkoutValue: number) => {
+    if (!currentPlayer) return;
+
+    // Achievement callbacks: checkout and leg complete
+    callbacks?.onCheckout?.(checkoutValue);
+    callbacks?.onLegComplete?.({
+      won: true,
+      dartsUsed: legDartsThrown,
+    });
+
+    // Create updated leg scores first, then use that value consistently
+    const newLegScores = [...legScores];
+    newLegScores[currentPlayerIndex] = (newLegScores[currentPlayerIndex] || 0) + 1;
+    setLegScores(newLegScores);
+
+    // Check if set is won (first to legsPerSet wins)
+    if (newLegScores[currentPlayerIndex] >= playerSetup.legsPerSet) {
+      // Player won the set - create updated set scores
+      const newSetScores = [...setScores];
+      newSetScores[currentPlayerIndex] = (newSetScores[currentPlayerIndex] || 0) + 1;
+      setSetScores(newSetScores);
+
+      // Check if match is won (first to setsToWin wins)
+      if (newSetScores[currentPlayerIndex] >= playerSetup.setsToWin) {
+        // Match won
+        callbacks?.onGameComplete?.(true);
+        setMatchWinner(currentPlayer);
+        setWinner(currentPlayer);
+        setGameState('gameOver');
+      } else {
+        // Reset legs for new set
+        setLegScores(new Array(players.length).fill(0));
+        resetLeg();
+      }
+    } else {
+      // Next leg
+      resetLeg();
+    }
+  }, [
+    currentPlayer,
+    currentPlayerIndex,
+    legScores,
+    setScores,
+    legDartsThrown,
+    callbacks,
+    playerSetup,
+    players.length,
+    resetLeg,
+  ]);
+
   // Throw a dart
   const throwDart = useCallback(
     (x: number, y: number): ThrowResult => {
@@ -307,121 +431,6 @@ export function useGameState(callbacks?: AchievementCallbacks): UseGameStateRetu
     },
     [currentPlayer, currentTurnScore, callbacks, endTurn, handleLegWon]
   );
-
-  // Handle leg won
-  const handleLegWon = useCallback((checkoutValue: number) => {
-    if (!currentPlayer) return;
-
-    // Achievement callbacks: checkout and leg complete
-    callbacks?.onCheckout?.(checkoutValue);
-    callbacks?.onLegComplete?.({
-      won: true,
-      dartsUsed: legDartsThrown,
-    });
-
-    // Create updated leg scores first, then use that value consistently
-    const newLegScores = [...legScores];
-    newLegScores[currentPlayerIndex] = (newLegScores[currentPlayerIndex] || 0) + 1;
-    setLegScores(newLegScores);
-
-    // Check if set is won (first to legsPerSet wins)
-    if (newLegScores[currentPlayerIndex] >= playerSetup.legsPerSet) {
-      // Player won the set - create updated set scores
-      const newSetScores = [...setScores];
-      newSetScores[currentPlayerIndex] = (newSetScores[currentPlayerIndex] || 0) + 1;
-      setSetScores(newSetScores);
-
-      // Check if match is won (first to setsToWin wins)
-      if (newSetScores[currentPlayerIndex] >= playerSetup.setsToWin) {
-        // Match won
-        callbacks?.onGameComplete?.(true);
-        setMatchWinner(currentPlayer);
-        setWinner(currentPlayer);
-        setGameState('gameOver');
-      } else {
-        // Reset legs for new set
-        setLegScores(new Array(players.length).fill(0));
-        resetLeg();
-      }
-    } else {
-      // Next leg
-      resetLeg();
-    }
-  }, [
-    currentPlayer,
-    currentPlayerIndex,
-    legScores,
-    setScores,
-    legDartsThrown,
-    callbacks,
-    playerSetup,
-    players.length,
-  ]);
-
-  // End turn
-  const endTurn = useCallback((busted = false) => {
-    // If busted, restore player's score by adding back currentTurnScore
-    // (Dart rules: when you bust, your ENTIRE turn is void)
-    if (busted && currentPlayer && currentTurnScore > 0) {
-      setPlayers((prev) =>
-        prev.map((p) =>
-          p.id === currentPlayer.id
-            ? { ...p, score: p.score + currentTurnScore }
-            : p
-        )
-      );
-    }
-
-    // Update highest 3-dart score (only if not busted)
-    if (!busted && currentPlayer && currentTurnScore > 0) {
-      setGameStats((prev) => {
-        const stats = prev[currentPlayer.id] || createInitialStats();
-        return {
-          ...prev,
-          [currentPlayer.id]: {
-            ...stats,
-            highest3DartScore: Math.max(
-              stats.highest3DartScore,
-              currentTurnScore
-            ),
-            one80s: stats.one80s + (currentTurnScore === 180 ? 1 : 0),
-          },
-        };
-      });
-
-      // Achievement callback: turn complete
-      callbacks?.onTurnComplete?.({
-        turnScore: currentTurnScore,
-        is180: currentTurnScore === 180,
-      });
-    }
-
-    // Move to next player
-    setCurrentPlayerIndex((prev) => (prev + 1) % players.length);
-    setDartsThrown(0);
-    setCurrentTurnScore(0);
-    setDartPositions([]);
-    setCurrentTurnThrows([]);
-  }, [currentPlayer, currentTurnScore, players.length, callbacks]);
-
-  // Reset leg (for new leg in same match)
-  const resetLeg = useCallback(() => {
-    const newLegId = `leg_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-
-    setPlayers((prev) =>
-      prev.map((p) => ({ ...p, score: playerSetup.gameMode }))
-    );
-    setCurrentPlayerIndex(0);
-    setDartsThrown(0);
-    setCurrentTurnScore(0);
-    setDartPositions([]);
-    setCurrentTurnThrows([]);
-    setLegDartsThrown(0);
-    setWinner(null);
-
-    // Achievement callback
-    callbacks?.onLegStart?.(newLegId);
-  }, [playerSetup.gameMode, callbacks]);
 
   // Reset entire game
   const resetGame = useCallback(() => {

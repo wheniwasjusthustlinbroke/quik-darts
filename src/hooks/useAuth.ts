@@ -40,8 +40,9 @@ export function useAuth(): UseAuthReturn {
     }
 
     // Native wrapper has onAuthStateChanged as method; web modular SDK uses function
-    const unsubscribe = typeof auth.onAuthStateChanged === 'function'
-      ? auth.onAuthStateChanged((firebaseUser: any) => {
+    const authAny = auth as any;
+    const unsubscribe = typeof authAny.onAuthStateChanged === 'function'
+      ? authAny.onAuthStateChanged((firebaseUser: any) => {
           setUser(firebaseUser);
           setIsLoading(false);
           setError(null);
@@ -75,8 +76,9 @@ export function useAuth(): UseAuthReturn {
       setIsLoading(true);
       setError(null);
       // Native wrapper has signInAnonymously as method; web modular SDK uses function
-      const result = typeof auth.signInAnonymously === 'function'
-        ? await auth.signInAnonymously()
+      const authAny = auth as any;
+      const result = typeof authAny.signInAnonymously === 'function'
+        ? await authAny.signInAnonymously()
         : await signInAnonymously(auth);
       setUser(result.user);
       return result.user;
@@ -97,8 +99,9 @@ export function useAuth(): UseAuthReturn {
 
     try {
       // Native wrapper has signOut as method; web modular SDK uses function
-      typeof auth.signOut === 'function'
-        ? await auth.signOut()
+      const authAny = auth as any;
+      typeof authAny.signOut === 'function'
+        ? await authAny.signOut()
         : await firebaseSignOut(auth);
       setUser(null);
     } catch (err) {

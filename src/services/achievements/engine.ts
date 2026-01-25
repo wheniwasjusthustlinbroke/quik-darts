@@ -381,6 +381,11 @@ function isAchievementUnlocked(
 
   const currentValue = stats[achievement.statKey];
 
+  // Only numeric stats can be compared to targets
+  if (typeof currentValue !== 'number') {
+    return false;
+  }
+
   if (achievement.isThreshold) {
     // Threshold: check if we've ever reached the target
     return currentValue >= achievement.target;
@@ -405,11 +410,17 @@ export function getAchievementProgress(
     return null;
   }
 
-  const current = stats[achievement.statKey];
-  const target = achievement.target;
-  const percentage = Math.min(100, Math.floor((current / target) * 100));
+  const currentValue = stats[achievement.statKey];
 
-  return { current, target, percentage };
+  // Only numeric stats can be tracked
+  if (typeof currentValue !== 'number') {
+    return null;
+  }
+
+  const target = achievement.target;
+  const percentage = Math.min(100, Math.floor((currentValue / target) * 100));
+
+  return { current: currentValue, target, percentage };
 }
 
 /**
