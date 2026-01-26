@@ -18,6 +18,7 @@ import { AchievementToast } from './components/AchievementToast';
 import { AchievementGallery } from './components/AchievementGallery';
 import { ProfileScreen } from './components/ProfileScreen';
 import { CoinShop } from './components/CoinShop';
+import { SoundToggle } from './components/SoundToggle';
 import { DartIcon, GlobeIcon, TargetIcon, TrophyIcon, CoinIcon, UserIcon } from './components/icons';
 import {
   joinCasualQueue,
@@ -132,7 +133,7 @@ function App() {
   } = useGameState(achievementCallbacks);
 
   // Sound effects
-  const { playSound } = useSound();
+  const { playSound, soundEnabled, setSoundEnabled } = useSound();
 
   // Wallet state
   const { coinBalance, dailyBonusAvailable, isLoading: walletLoading, isClaimingBonus, claimDailyBonus } = useWallet();
@@ -502,7 +503,9 @@ function App() {
       const result = throwDart(x, y);
 
       // Play appropriate sound
-      if (result.score === 0) {
+      if (result.isBust) {
+        playSound('bust');
+      } else if (result.score === 0) {
         playSound('miss');
       } else if (result.multiplier === 3) {
         playSound('triple');
@@ -570,8 +573,9 @@ function App() {
     }
 
     setIsPowerCharging(false);
+    playSound('throw');  // Play throw sound when dart is released
     handleBoardClick(aimPosition.x, aimPosition.y);
-  }, [isPowerCharging, setIsPowerCharging, handleBoardClick, aimPosition]);
+  }, [isPowerCharging, setIsPowerCharging, handleBoardClick, aimPosition, playSound]);
 
   // Cleanup power interval on unmount
   useEffect(() => {
@@ -581,6 +585,13 @@ function App() {
       }
     };
   }, []);
+
+  // Play checkout sound when winner is determined
+  useEffect(() => {
+    if (winner) {
+      playSound('checkout');
+    }
+  }, [winner, playSound]);
 
   // Render landing page
   if (gameState === 'landing') {
@@ -598,6 +609,10 @@ function App() {
                 onOpenShop={() => setShowCoinShop(true)}
               />
             </div>
+            <SoundToggle
+              enabled={soundEnabled}
+              onToggle={setSoundEnabled}
+            />
             <button
               className="landing__profile-btn"
               onClick={() => setGameState('profile')}

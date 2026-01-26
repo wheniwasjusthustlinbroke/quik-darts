@@ -1,6 +1,8 @@
 # GitHub language statistics
 # Exclude legacy and generated files from language detection
 
-index.legacy.html linguist-vendored
+legacy/** linguist-vendored
 www/** linguist-generated
 dist/** linguist-generated
+playwright-report/** linguist-generated
+functions/coverage/** linguist-generated
