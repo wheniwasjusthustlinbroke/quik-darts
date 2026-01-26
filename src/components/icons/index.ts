@@ -13,3 +13,4 @@ export { UsersIcon } from './UsersIcon';
 export { CoinIcon } from './CoinIcon';
 export { StakeChipIcon } from './StakeChipIcon';
 export { UserIcon } from './UserIcon';
+export { SoundOnIcon, SoundOffIcon } from './SoundIcon';
