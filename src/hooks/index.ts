@@ -14,6 +14,9 @@ export type { GameConfig, PlayerSetupData, UseGameStateReturn } from './useGameS
 export { useSound } from './useSound';
 export type { SoundType, UseSoundReturn } from './useSound';
 
+export { useTheme } from './useTheme';
+export type { ThemeOption, UseThemeReturn } from './useTheme';
+
 export {
   useLocalStorage,
   useAchievements,
