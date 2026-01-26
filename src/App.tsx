@@ -7,7 +7,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Dartboard, ScoreDisplay, PowerBar } from './components/game';
-import { useGameState, useSound, useAuth } from './hooks';
+import { useGameState, useSound, useAuth, useTheme } from './hooks';
 import type { AchievementCallbacks } from './hooks/useGameState';
 import { useAchievements } from './hooks/useAchievements';
 import { ACHIEVEMENTS } from './services/achievements';
@@ -19,6 +19,7 @@ import { AchievementGallery } from './components/AchievementGallery';
 import { ProfileScreen } from './components/ProfileScreen';
 import { CoinShop } from './components/CoinShop';
 import { SoundToggle } from './components/SoundToggle';
+import { ThemeSelector } from './components/ThemeSelector';
 import { DartIcon, GlobeIcon, TargetIcon, TrophyIcon, CoinIcon, UserIcon } from './components/icons';
 import {
   joinCasualQueue,
@@ -53,6 +54,7 @@ function App() {
   const [isSubmittingThrow, setIsSubmittingThrow] = useState(false);
   const [showStakeSelection, setShowStakeSelection] = useState(false);
   const [showCoinShop, setShowCoinShop] = useState(false);
+  const [showThemeSelector, setShowThemeSelector] = useState(false);
   const [selectedStake, setSelectedStake] = useState(50);
   const [isWageredMatch, setIsWageredMatch] = useState(false);
   const [isCreatingEscrow, setIsCreatingEscrow] = useState(false);
@@ -134,6 +136,9 @@ function App() {
 
   // Sound effects
   const { playSound, soundEnabled, setSoundEnabled } = useSound();
+
+  // Dartboard theme
+  const { theme, themeId, selectTheme } = useTheme();
 
   // Wallet state
   const { coinBalance, dailyBonusAvailable, isLoading: walletLoading, isClaimingBonus, claimDailyBonus } = useWallet();
@@ -614,6 +619,13 @@ function App() {
               onToggle={setSoundEnabled}
             />
             <button
+              className="landing__theme-btn"
+              onClick={() => setShowThemeSelector(true)}
+              title="Change Theme"
+            >
+              <TargetIcon size={24} />
+            </button>
+            <button
               className="landing__profile-btn"
               onClick={() => setGameState('profile')}
               title="Profile"
@@ -698,6 +710,16 @@ function App() {
           <CoinShop
             coinBalance={coinBalance}
             onClose={() => setShowCoinShop(false)}
+          />
+        )}
+        {showThemeSelector && (
+          <ThemeSelector
+            currentThemeId={themeId}
+            onSelectTheme={(id) => {
+              selectTheme(id);
+              setShowThemeSelector(false);
+            }}
+            onClose={() => setShowThemeSelector(false)}
           />
         )}
         <AchievementToast
@@ -876,6 +898,7 @@ function App() {
 
           <div className="game__board">
             <Dartboard
+              theme={theme}
               dartPositions={dartPositions}
               aimPosition={aimPosition}
               showAimCursor={!isPowerCharging}
