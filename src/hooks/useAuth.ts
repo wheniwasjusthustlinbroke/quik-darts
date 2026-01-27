@@ -8,6 +8,10 @@ import { useState, useEffect, useCallback } from 'react';
 import {
   onAuthStateChanged,
   signInAnonymously,
+  signInWithPopup,
+  GoogleAuthProvider,
+  FacebookAuthProvider,
+  OAuthProvider,
   signOut as firebaseSignOut,
   User,
 } from 'firebase/auth';
@@ -23,6 +27,9 @@ export interface AuthState {
 
 export interface UseAuthReturn extends AuthState {
   signInAnonymous: () => Promise<User | null>;
+  signInWithGoogle: () => Promise<User | null>;
+  signInWithFacebook: () => Promise<User | null>;
+  signInWithApple: () => Promise<User | null>;
   signOut: () => Promise<void>;
 }
 
@@ -92,6 +99,81 @@ export function useAuth(): UseAuthReturn {
     }
   }, []);
 
+  // Google sign in
+  const signInWithGoogle = useCallback(async (): Promise<User | null> => {
+    const auth = getFirebaseAuth();
+    if (!auth) {
+      setError('Firebase not configured');
+      return null;
+    }
+
+    try {
+      setIsLoading(true);
+      setError(null);
+      const provider = new GoogleAuthProvider();
+      const result = await signInWithPopup(auth, provider);
+      setUser(result.user);
+      return result.user;
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Google sign in failed';
+      setError(message);
+      console.error('Google sign in error:', err);
+      return null;
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  // Facebook sign in
+  const signInWithFacebook = useCallback(async (): Promise<User | null> => {
+    const auth = getFirebaseAuth();
+    if (!auth) {
+      setError('Firebase not configured');
+      return null;
+    }
+
+    try {
+      setIsLoading(true);
+      setError(null);
+      const provider = new FacebookAuthProvider();
+      const result = await signInWithPopup(auth, provider);
+      setUser(result.user);
+      return result.user;
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Facebook sign in failed';
+      setError(message);
+      console.error('Facebook sign in error:', err);
+      return null;
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  // Apple sign in
+  const signInWithApple = useCallback(async (): Promise<User | null> => {
+    const auth = getFirebaseAuth();
+    if (!auth) {
+      setError('Firebase not configured');
+      return null;
+    }
+
+    try {
+      setIsLoading(true);
+      setError(null);
+      const provider = new OAuthProvider('apple.com');
+      const result = await signInWithPopup(auth, provider);
+      setUser(result.user);
+      return result.user;
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Apple sign in failed';
+      setError(message);
+      console.error('Apple sign in error:', err);
+      return null;
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
   // Sign out
   const signOut = useCallback(async (): Promise<void> => {
     const auth = getFirebaseAuth();
@@ -118,6 +200,9 @@ export function useAuth(): UseAuthReturn {
     isAnonymous: user?.isAnonymous ?? false,
     error,
     signInAnonymous,
+    signInWithGoogle,
+    signInWithFacebook,
+    signInWithApple,
     signOut,
   };
 }
