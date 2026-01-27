@@ -100,6 +100,127 @@
   color: var(--color-accent);
 }
 
+/* User Info Section */
+.landing__user-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 12px;
+  margin-bottom: 24px;
+}
+
+.landing__avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+}
+
+.landing__user-details {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.landing__user-name {
+  font-weight: 600;
+  font-size: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.landing__guest-badge {
+  font-size: 0.65rem;
+  font-weight: 700;
+  padding: 2px 6px;
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 4px;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+.landing__player-id {
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+  font-family: monospace;
+}
+
+.landing__signout {
+  font-size: 0.85rem;
+  padding: 6px 12px;
+}
+
+/* Auth Section */
+.landing__auth {
+  margin-bottom: 24px;
+  text-align: center;
+}
+
+.landing__auth-prompt {
+  color: var(--color-text-muted);
+  font-size: 0.9rem;
+  margin-bottom: 12px;
+}
+
+.landing__auth-buttons {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.landing__auth-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border-radius: 8px;
+  font-weight: 500;
+  font-size: 0.9rem;
+  transition: all 0.2s ease;
+}
+
+.landing__auth-btn--google {
+  background: #ffffff;
+  color: #333333;
+  border: 1px solid #dadce0;
+}
+
+.landing__auth-btn--google:hover {
+  background: #f8f9fa;
+  border-color: #4285f4;
+}
+
+.landing__auth-btn--facebook {
+  background: #1877f2;
+  color: #ffffff;
+  border: 1px solid #1877f2;
+}
+
+.landing__auth-btn--facebook:hover {
+  background: #166fe5;
+}
+
+.landing__auth-btn--apple {
+  background: #000000;
+  color: #ffffff;
+  border: 1px solid #000000;
+}
+
+.landing__auth-btn--apple:hover {
+  background: #333333;
+}
+
+.landing__auth-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 /* Theme Selector */
 .theme-selector-overlay {
   position: fixed;
