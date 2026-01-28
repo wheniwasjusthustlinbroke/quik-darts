@@ -400,6 +400,12 @@
   text-transform: uppercase;
 }
 
+.landing__weekly-challenge {
+  width: 100%;
+  max-width: 320px;
+  margin-bottom: 1rem;
+}
+
 .landing__menu {
   display: flex;
   flex-direction: column;
