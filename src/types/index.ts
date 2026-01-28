@@ -164,6 +164,12 @@ export interface OnlinePlayer {
   lastHeartbeat: number;
 }
 
+/**
+ * Rhythm state returned from server during online games.
+ * Matches functions/src/gameplay/submitThrow.ts
+ */
+export type RhythmState = 'flow' | 'perfect' | 'neutral' | 'rushing' | 'hesitating';
+
 // ============================================
 // ACHIEVEMENTS
 // ============================================

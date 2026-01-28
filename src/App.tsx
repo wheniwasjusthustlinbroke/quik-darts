@@ -6,7 +6,8 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Dartboard, ScoreDisplay, PowerBar } from './components/game';
+import { Dartboard, ScoreDisplay, PowerBar, RhythmIndicator } from './components/game';
+import type { RhythmState } from './types';
 import { useGameState, useSound, useAuth, useTheme } from './hooks';
 import type { AchievementCallbacks } from './hooks/useGameState';
 import { useAchievements } from './hooks/useAchievements';
@@ -60,6 +61,7 @@ function App() {
   const [isWageredMatch, setIsWageredMatch] = useState(false);
   const [isCreatingEscrow, setIsCreatingEscrow] = useState(false);
   const [wageredPrize, setWageredPrize] = useState<number | null>(null);
+  const [rhythmState, setRhythmState] = useState<RhythmState>('neutral');
 
   // Ref to prevent duplicate settleGame calls (UI guard)
   const settledGameRef = useRef<string | null>(null);
@@ -182,6 +184,7 @@ function App() {
     setIsOnlineGame(false);
     setIsPracticeMode(false);
     setHasAIOpponent(false);
+    setRhythmState('neutral');
     resetGame();
   }, [resetGame]);
 
@@ -221,6 +224,11 @@ function App() {
     setCurrentPlayerIndex(currentPlayer ?? 0);
     setDartsThrown(serverDarts ?? 0);
     setCurrentTurnScore(serverTurnScore ?? 0);
+
+    // Reset rhythm state at start of new turn (when darts reset to 0)
+    if (!serverDarts || serverDarts === 0) {
+      setRhythmState('neutral');
+    }
 
     // dartPositions: server stores as object with keys "0", "1", "2"
     // Sort by key to preserve throw order
@@ -495,6 +503,11 @@ function App() {
           if (!res) {
             console.warn('[handleBoardClick] submitThrow failed');
           } else {
+            // Update rhythm state from server response
+            if (res.rhythm) {
+              setRhythmState(res.rhythm as RhythmState);
+            }
+
             // Play sound based on result
             if (res.score === 0) {
               playSound('miss');
@@ -985,6 +998,9 @@ function App() {
               onBoardMove={handleBoardMove}
               disabled={dartsThrown >= 3 || !!winner}
             />
+
+            {/* Rhythm indicator for online games */}
+            {matchData && <RhythmIndicator state={rhythmState} />}
 
             <div className="game__controls">
               <button
