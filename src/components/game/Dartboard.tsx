@@ -23,6 +23,7 @@ interface DartboardProps {
   theme?: DartboardTheme;
   dartPositions?: DartPosition[];
   aimPosition?: Position | null;
+  aimWobble?: Position;
   showAimCursor?: boolean;
   onBoardClick?: (x: number, y: number) => void;
   onBoardMove?: (x: number, y: number) => void;
@@ -35,6 +36,7 @@ export const Dartboard: React.FC<DartboardProps> = ({
   theme = THEME_CLASSIC,
   dartPositions = [],
   aimPosition = null,
+  aimWobble = { x: 0, y: 0 },
   showAimCursor = false,
   onBoardClick,
   onBoardMove,
@@ -343,20 +345,20 @@ export const Dartboard: React.FC<DartboardProps> = ({
       {/* Number labels */}
       {numberLabels}
 
-      {/* Aim cursor */}
+      {/* Aim cursor (with wobble offset applied) */}
       {showAimCursor && aimPosition && (
         <g>
           <circle
-            cx={aimPosition.x}
-            cy={aimPosition.y}
+            cx={aimPosition.x + aimWobble.x}
+            cy={aimPosition.y + aimWobble.y}
             r={8}
             fill="none"
             stroke="rgba(255, 255, 255, 0.8)"
             strokeWidth="2"
           />
           <circle
-            cx={aimPosition.x}
-            cy={aimPosition.y}
+            cx={aimPosition.x + aimWobble.x}
+            cy={aimPosition.y + aimWobble.y}
             r={2}
             fill="rgba(255, 255, 255, 0.9)"
           />

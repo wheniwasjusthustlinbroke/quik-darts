@@ -7,7 +7,12 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Dartboard, ScoreDisplay, PowerBar, RhythmIndicator } from './components/game';
-import type { RhythmState } from './types';
+import type { RhythmState, Position } from './types';
+import {
+  checkWobbleConditions,
+  generateWobbleOffset,
+  DEFAULT_WOBBLE_CONFIG,
+} from './utils/wobble';
 import { useGameState, useSound, useAuth, useTheme } from './hooks';
 import type { AchievementCallbacks } from './hooks/useGameState';
 import { useAchievements } from './hooks/useAchievements';
@@ -62,6 +67,11 @@ function App() {
   const [isCreatingEscrow, setIsCreatingEscrow] = useState(false);
   const [wageredPrize, setWageredPrize] = useState<number | null>(null);
   const [rhythmState, setRhythmState] = useState<RhythmState>('neutral');
+  const [aimWobble, setAimWobble] = useState<Position>({ x: 0, y: 0 });
+
+  // Skill level for wobble calculations (offline games only)
+  // TODO: Make configurable via difficulty settings
+  const offlineSkillLevel = 85;
 
   // Ref to prevent duplicate settleGame calls (UI guard)
   const settledGameRef = useRef<string | null>(null);
@@ -135,6 +145,8 @@ function App() {
     throwDart,
     endTurn,
     resetGame,
+    currentTurnThrows,
+    currentPlayer,
   } = useGameState(achievementCallbacks);
 
   // Sound effects
@@ -185,6 +197,7 @@ function App() {
     setIsPracticeMode(false);
     setHasAIOpponent(false);
     setRhythmState('neutral');
+    setAimWobble({ x: 0, y: 0 });
     resetGame();
   }, [resetGame]);
 
@@ -283,6 +296,47 @@ function App() {
       }
     }
   }, [gameSnapshot, matchData, gameState, setGameState, setPlayers, setCurrentPlayerIndex, setDartsThrown, setCurrentTurnScore, setDartPositions, setWinner]);
+
+  // Wobble effect for offline games (pressure situations)
+  useEffect(() => {
+    // Only apply wobble in offline games during play
+    if (matchData || gameState !== 'playing' || !currentPlayer) {
+      setAimWobble({ x: 0, y: 0 });
+      return;
+    }
+
+    const wobbleResult = checkWobbleConditions(
+      offlineSkillLevel,
+      currentTurnThrows,
+      dartsThrown,
+      currentPlayer.score,
+      aimPosition,
+      DEFAULT_WOBBLE_CONFIG
+    );
+
+    // Stop wobble when power charging (stabilize for throw)
+    if (wobbleResult.shouldWobble && !isPowerCharging) {
+      const interval = setInterval(() => {
+        setAimWobble(generateWobbleOffset(DEFAULT_WOBBLE_CONFIG.wobbleAmount));
+      }, DEFAULT_WOBBLE_CONFIG.wobbleInterval);
+
+      return () => {
+        clearInterval(interval);
+        setAimWobble({ x: 0, y: 0 });
+      };
+    } else {
+      setAimWobble({ x: 0, y: 0 });
+    }
+  }, [
+    matchData,
+    gameState,
+    currentPlayer,
+    currentTurnThrows,
+    dartsThrown,
+    aimPosition,
+    isPowerCharging,
+    offlineSkillLevel,
+  ]);
 
   // Handle Play Online button
   const handlePlayOnline = useCallback(async () => {
@@ -527,7 +581,10 @@ function App() {
         return;
       }
 
-      const result = throwDart(x, y);
+      // Apply wobble offset to throw position (offline games only)
+      const effectiveX = x + aimWobble.x;
+      const effectiveY = y + aimWobble.y;
+      const result = throwDart(effectiveX, effectiveY);
 
       // Play appropriate sound
       if (result.isBust) {
@@ -554,7 +611,7 @@ function App() {
         setTimeout(() => endTurn(), 1000);
       }
     },
-    [gameState, dartsThrown, throwDart, playSound, currentTurnScore, endTurn, matchData, isSubmittingThrow, gameSnapshot, currentPlayerIndex]
+    [gameState, dartsThrown, throwDart, playSound, currentTurnScore, endTurn, matchData, isSubmittingThrow, gameSnapshot, currentPlayerIndex, aimWobble]
   );
 
   // Handle aim position
@@ -994,6 +1051,7 @@ function App() {
               theme={theme}
               dartPositions={dartPositions}
               aimPosition={aimPosition}
+              aimWobble={aimWobble}
               showAimCursor={!isPowerCharging}
               onBoardMove={handleBoardMove}
               disabled={dartsThrown >= 3 || !!winner}
