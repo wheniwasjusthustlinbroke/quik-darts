@@ -1,0 +1,113 @@
+/**
+ * Rhythm Indicator Styles
+ *
+ * Visual feedback for throw rhythm states.
+ */
+
+.rhythm-indicator {
+  position: absolute;
+  top: 60px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-weight: 700;
+  font-size: 14px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  z-index: 100;
+  animation: rhythm-fade-in 0.3s ease-out;
+}
+
+@keyframes rhythm-fade-in {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+.rhythm-indicator__icon {
+  font-size: 18px;
+  line-height: 1;
+}
+
+.rhythm-indicator__label {
+  white-space: nowrap;
+}
+
+/* === Flow State - Gold glow, best rhythm === */
+.rhythm-indicator--flow {
+  background: linear-gradient(135deg, rgba(212, 160, 58, 0.3), rgba(255, 200, 87, 0.3));
+  border: 2px solid var(--color-accent);
+  color: var(--color-accent);
+  box-shadow: 0 0 20px rgba(212, 160, 58, 0.5);
+  animation: rhythm-fade-in 0.3s ease-out, rhythm-pulse 1.5s ease-in-out infinite;
+}
+
+/* === Perfect State - Green === */
+.rhythm-indicator--perfect {
+  background: linear-gradient(135deg, rgba(34, 197, 94, 0.3), rgba(74, 222, 128, 0.3));
+  border: 2px solid #22C55E;
+  color: #4ADE80;
+  box-shadow: 0 0 15px rgba(34, 197, 94, 0.4);
+}
+
+/* === Rushing State - Orange warning === */
+.rhythm-indicator--rushing {
+  background: linear-gradient(135deg, rgba(251, 146, 60, 0.3), rgba(251, 191, 36, 0.3));
+  border: 2px solid #F97316;
+  color: #FB923C;
+  box-shadow: 0 0 12px rgba(249, 115, 22, 0.3);
+  animation: rhythm-fade-in 0.3s ease-out, rhythm-shake 0.5s ease-in-out;
+}
+
+/* === Hesitating State - Orange warning === */
+.rhythm-indicator--hesitating {
+  background: linear-gradient(135deg, rgba(251, 146, 60, 0.3), rgba(251, 191, 36, 0.3));
+  border: 2px solid #F97316;
+  color: #FB923C;
+  box-shadow: 0 0 12px rgba(249, 115, 22, 0.3);
+}
+
+/* === Animations === */
+@keyframes rhythm-pulse {
+  0%, 100% {
+    box-shadow: 0 0 20px rgba(212, 160, 58, 0.5);
+  }
+  50% {
+    box-shadow: 0 0 30px rgba(212, 160, 58, 0.8);
+  }
+}
+
+@keyframes rhythm-shake {
+  0%, 100% {
+    transform: translateX(-50%) translateX(0);
+  }
+  20%, 60% {
+    transform: translateX(-50%) translateX(-3px);
+  }
+  40%, 80% {
+    transform: translateX(-50%) translateX(3px);
+  }
+}
+
+/* === Mobile Responsive === */
+@media (max-width: 480px) {
+  .rhythm-indicator {
+    top: 50px;
+    padding: 6px 12px;
+    font-size: 12px;
+    gap: 6px;
+  }
+
+  .rhythm-indicator__icon {
+    font-size: 16px;
+  }
+}

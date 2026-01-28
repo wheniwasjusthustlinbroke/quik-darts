@@ -5,3 +5,4 @@
 export { Dartboard } from './Dartboard';
 export { ScoreDisplay } from './ScoreDisplay';
 export { PowerBar } from './PowerBar';
+export { RhythmIndicator } from './RhythmIndicator';
