@@ -20,6 +20,7 @@ import { ProfileScreen } from './components/ProfileScreen';
 import { CoinShop } from './components/CoinShop';
 import { SoundToggle } from './components/SoundToggle';
 import { ThemeSelector } from './components/ThemeSelector';
+import { WeeklyChallengeBadge } from './components/WeeklyChallengeBadge';
 import { DartIcon, GlobeIcon, TargetIcon, TrophyIcon, CoinIcon, UserIcon } from './components/icons';
 import {
   joinCasualQueue,
@@ -711,6 +712,11 @@ function App() {
             </div>
           )}
 
+          {/* Weekly Challenge Badge */}
+          <div className="landing__weekly-challenge">
+            <WeeklyChallengeBadge onClick={() => setGameState('achievements')} />
+          </div>
+
           <div className="landing__menu">
             <button
               className="btn btn-primary landing__btn"
@@ -916,7 +922,6 @@ function App() {
       <div className="app">
         <AchievementGallery
           achievementsState={achievements.getState()}
-          weeklyState={achievements.getWeeklyState()}
           onClose={() => setGameState('landing')}
         />
         <AchievementToast

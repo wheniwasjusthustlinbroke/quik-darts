@@ -28,3 +28,10 @@ export type {
   AchievementStatsData,
   ThemeSettings,
 } from './useLocalStorage';
+
+export { useWeeklyChallenge } from './useWeeklyChallenge';
+export type {
+  WeeklyChallengeInfo,
+  WeeklyChallengeProgress,
+  UseWeeklyChallengeReturn,
+} from './useWeeklyChallenge';

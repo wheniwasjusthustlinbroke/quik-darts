@@ -8,21 +8,18 @@
 import { useMemo } from 'react';
 import {
   ACHIEVEMENTS,
-  getActiveWeeklyChallenge,
   getAchievementProgress,
-  getWeeklyChallengeProgress,
 } from '../services/achievements';
+import { useWeeklyChallenge } from '../hooks';
 import type {
   AchievementDefinition,
   AchievementsState,
-  WeeklyChallengeState,
   AchievementRarity,
 } from '../services/achievements/types';
 import './AchievementGallery.css';
 
 interface AchievementGalleryProps {
   achievementsState: AchievementsState;
-  weeklyState: WeeklyChallengeState;
   onClose: () => void;
 }
 
@@ -131,7 +128,6 @@ function calculateStats(
 
 export function AchievementGallery({
   achievementsState,
-  weeklyState,
   onClose,
 }: AchievementGalleryProps) {
   const { unlockedIds, stats } = achievementsState;
@@ -145,12 +141,8 @@ export function AchievementGallery({
     [unlockedIds]
   );
 
-  // Get active weekly challenge
-  const activeChallenge = useMemo(() => getActiveWeeklyChallenge(), []);
-  const weeklyProgress = useMemo(
-    () => getWeeklyChallengeProgress(weeklyState),
-    [weeklyState]
-  );
+  // Get active weekly challenge with countdown timer
+  const { challenge: activeChallenge, progress: weeklyProgress, completed: weeklyCompleted, timeRemaining } = useWeeklyChallenge();
 
   return (
     <div className="achievement-gallery">
@@ -173,7 +165,8 @@ export function AchievementGallery({
               <div className="weekly-challenge-card__label">Weekly Challenge</div>
               <div className="weekly-challenge-card__name">{activeChallenge.name}</div>
             </div>
-            {weeklyState.completed && (
+            <div className="weekly-challenge-card__timer">{timeRemaining}</div>
+            {weeklyCompleted && (
               <span className="weekly-challenge-card__complete">✓</span>
             )}
           </div>
