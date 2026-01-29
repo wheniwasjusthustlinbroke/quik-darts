@@ -79,6 +79,10 @@ function App() {
 
   // Ref to prevent duplicate settleGame calls (UI guard)
   const settledGameRef = useRef<string | null>(null);
+  // Ref to track wagered match state for callbacks (avoids stale closure)
+  const isWageredMatchRef = useRef(false);
+  // Ref to prevent double forfeit calls on disconnect
+  const disconnectHandledRef = useRef<string | null>(null);
 
   // === Achievement System ===
   // Initialize achievement system (reads context from refs for reactivity)
@@ -182,20 +186,32 @@ function App() {
     };
   }, []);
 
-  // Cleanup online state and return to menu
-  const handleReturnToMenu = useCallback(() => {
-    void leaveCasualQueue();
-    void leaveWageredQueue();
+  /**
+   * Stable reset function for all online flow cleanup.
+   * Safe to use in useCallback deps - all functions are stable module imports
+   * and React setters are stable by design.
+   */
+  const resetOnlineFlow = useCallback(() => {
     unsubscribeFromGameRoom();
+    setIsSearching(false);
+    setIsCreatingEscrow(false);
+    setErrorText(null);
     setMatchData(null);
     setGameSnapshot(null);
     setIsWageredMatch(false);
     setShowStakeSelection(false);
-    setIsSearching(false);
-    setIsCreatingEscrow(false);
-    setErrorText(null);
     setWageredPrize(null);
     settledGameRef.current = null;
+    isWageredMatchRef.current = false;
+    disconnectHandledRef.current = null;
+  }, []); // Empty deps: unsubscribeFromGameRoom is stable module export, setters are stable
+
+  // Cleanup online state and return to menu
+  const handleReturnToMenu = useCallback(() => {
+    // Use shared reset for online matchmaking state
+    void leaveCasualQueue();
+    void leaveWageredQueue();
+    resetOnlineFlow();
     // Reset achievement context
     setIsOnlineGame(false);
     setIsPracticeMode(false);
@@ -204,7 +220,7 @@ function App() {
     setAimWobble({ x: 0, y: 0 });
     setSessionSkillLevel(DEFAULT_SKILL_LEVEL);
     resetGame();
-  }, [resetGame]);
+  }, [resetGame, resetOnlineFlow]);
 
   // Sync online game state from server
   useEffect(() => {
@@ -343,90 +359,101 @@ function App() {
     sessionSkillLevel,
   ]);
 
-  // Handle Play Online button
+  /**
+   * Handle Play Online button - opens stake selector, or cancels if searching.
+   * All called functions are stable module imports or React setters.
+   */
   const handlePlayOnline = useCallback(async () => {
-    if (isSearching) {
-      // Cancel: reset BOTH queues cleanly (awaited)
-      await leaveCasualQueue();
-      await leaveWageredQueue();
-      unsubscribeFromGameRoom();
-      setIsSearching(false);
-      setIsCreatingEscrow(false);
-      setErrorText(null);
-      setMatchData(null);
-      setGameSnapshot(null);
-      setIsWageredMatch(false);
-      return;
-    }
-
-    // Leave wagered queue before starting casual
-    await leaveWageredQueue();
-
-    setIsSearching(true);
-    setErrorText(null);
-    setIsWageredMatch(false);
-    setIsOnlineGame(true);
-
-    // TODO: Pull flag/level from user profile when available
-    const profile = {
-      displayName: user?.displayName ?? 'Player',
-      flag: '🌍',
-      level: 1,
-    };
-
-    joinCasualQueue(
-      profile,
-      playerSetup.gameMode,
-      {
-        onFound: (data) => {
-          setIsSearching(false);
-          setMatchData(data);
-          subscribeToGameRoom(data.roomId, data.playerIndex, {
-            onGameUpdate: (gameData) => {
-              setGameSnapshot(gameData);
-            },
-            onOpponentDisconnect: (opponentName) => {
-              unsubscribeFromGameRoom();
-              setMatchData(null);
-              setGameSnapshot(null);
-              setErrorText(`${opponentName} disconnected`);
-            },
-            onError: (error) => {
-              setErrorText(error);
-            },
-          });
-        },
-        onError: (error) => {
-          setIsSearching(false);
-          setErrorText(error);
-        },
-        onTimeout: () => {
-          setIsSearching(false);
-          setErrorText('No opponent found');
-        },
-      }
-    );
-  }, [isSearching, playerSetup.gameMode, user?.displayName]);
-
-  // Handle Play for Stakes button
-  const handlePlayWagered = useCallback(async () => {
     if (isSearching || isCreatingEscrow) {
-      // Cancel: reset BOTH queues cleanly (awaited)
-      await leaveCasualQueue();
-      await leaveWageredQueue();
-      unsubscribeFromGameRoom();
-      setIsSearching(false);
-      setIsCreatingEscrow(false);
-      setErrorText(null);
-      setMatchData(null);
-      setGameSnapshot(null);
-      setIsWageredMatch(false);
+      // Cancel: reset both queues cleanly with error handling
+      try {
+        await Promise.all([
+          leaveCasualQueue().catch(() => {}),
+          leaveWageredQueue().catch(() => {}),
+        ]);
+      } finally {
+        resetOnlineFlow();
+      }
       return;
     }
+    // Open stake selector modal
     setShowStakeSelection(true);
-  }, [isSearching, isCreatingEscrow]);
+  }, [isSearching, isCreatingEscrow, resetOnlineFlow]);
 
-  // Start wagered matchmaking after stake selection
+  /**
+   * Start free (casual) matchmaking - called from stake selector "Play Free" button.
+   * Dependencies: playerSetup.gameMode and user?.displayName are the only non-stable values.
+   * All matchmaking functions are stable module imports.
+   */
+  const startFreeMatchmaking = useCallback(async () => {
+    setShowStakeSelection(false);
+    // Belt-and-braces: clear disconnect guard for new session
+    disconnectHandledRef.current = null;
+
+    try {
+      // Leave wagered queue before starting casual
+      await leaveWageredQueue().catch(() => {});
+
+      setIsSearching(true);
+      setErrorText(null);
+      setIsWageredMatch(false);
+      isWageredMatchRef.current = false;
+      setIsOnlineGame(true);
+
+      const profile = {
+        displayName: user?.displayName ?? 'Player',
+        flag: '🌍',
+        level: 1,
+      };
+
+      joinCasualQueue(
+        profile,
+        playerSetup.gameMode,
+        {
+          onFound: (data) => {
+            // Capture stable values from callback data
+            const gameId = data.roomId;
+            const playerIndex = data.playerIndex;
+
+            setIsSearching(false);
+            setMatchData(data);
+
+            subscribeToGameRoom(gameId, playerIndex, {
+              onGameUpdate: (gameData) => {
+                setGameSnapshot(gameData);
+              },
+              onOpponentDisconnect: (opponentName) => {
+                unsubscribeFromGameRoom();
+                setMatchData(null);
+                setGameSnapshot(null);
+                setErrorText(`${opponentName} disconnected`);
+              },
+              onError: (error) => {
+                setErrorText(error);
+              },
+            });
+          },
+          onError: (error) => {
+            setIsSearching(false);
+            setErrorText(error);
+          },
+          onTimeout: () => {
+            setIsSearching(false);
+            setErrorText('No opponent found');
+          },
+        }
+      );
+    } catch {
+      setIsSearching(false);
+      setErrorText('Failed to start matchmaking. Please try again.');
+    }
+  }, [playerSetup.gameMode, user?.displayName]);
+
+  /**
+   * Start wagered matchmaking after stake selection.
+   * Dependencies: coinBalance, selectedStake, playerSetup.gameMode, user?.displayName are non-stable.
+   * All matchmaking functions are stable module imports.
+   */
   const startWageredMatchmaking = useCallback(async () => {
     if (coinBalance < selectedStake) {
       setErrorText('Insufficient balance');
@@ -434,87 +461,107 @@ function App() {
     }
 
     setShowStakeSelection(false);
+    // Belt-and-braces: clear disconnect guard for new session
+    disconnectHandledRef.current = null;
     setIsCreatingEscrow(true);
     setErrorText(null);
     setIsWageredMatch(true);
+    isWageredMatchRef.current = true;
     setIsOnlineGame(true);
 
-    // Leave casual queue before starting wagered
-    await leaveCasualQueue();
+    try {
+      // Leave casual queue before starting wagered
+      await leaveCasualQueue().catch(() => {});
 
-    // TODO: Pull flag/level from user profile when available
-    const profile = {
-      displayName: user?.displayName ?? 'Player',
-      flag: '🌍',
-      level: 1,
-    };
+      const profile = {
+        displayName: user?.displayName ?? 'Player',
+        flag: '🌍',
+        level: 1,
+      };
 
-    joinWageredQueue(
-      profile,
-      selectedStake,
-      playerSetup.gameMode as 301 | 501,
-      {
-        onEscrowCreated: () => {
-          setIsCreatingEscrow(false);
-          setIsSearching(true);
-        },
-        onFound: (data) => {
-          setIsSearching(false);
-          setIsCreatingEscrow(false);
-          setMatchData(data);
-          subscribeToGameRoom(data.roomId, data.playerIndex, {
-            onGameUpdate: (gameData) => {
-              setGameSnapshot(gameData);
-            },
-            onOpponentDisconnect: (opponentName) => {
-              // Capture gameId before clearing state
-              const gameId = matchData?.roomId;
+      joinWageredQueue(
+        profile,
+        selectedStake,
+        playerSetup.gameMode as 301 | 501,
+        {
+          onEscrowCreated: () => {
+            setIsCreatingEscrow(false);
+            setIsSearching(true);
+          },
+          onFound: (data) => {
+            // Capture stable values from callback data - avoids stale closure
+            const gameId = data.roomId;
+            const playerIndex = data.playerIndex;
 
-              unsubscribeFromGameRoom();
-              setMatchData(null);
-              setGameSnapshot(null);
+            setIsSearching(false);
+            setIsCreatingEscrow(false);
+            setMatchData(data);
 
-              if (!isWageredMatch || !gameId) {
-                setErrorText(`${opponentName} disconnected`);
-                return;
-              }
+            subscribeToGameRoom(gameId, playerIndex, {
+              onGameUpdate: (gameData) => {
+                setGameSnapshot(gameData);
+              },
+              onOpponentDisconnect: (opponentName) => {
+                // Idempotency guard: prevent double forfeit if callback fires twice
+                if (disconnectHandledRef.current === gameId) {
+                  return;
+                }
+                disconnectHandledRef.current = gameId;
 
-              // Claim forfeit win for wagered match
-              forfeitGame({ gameId, reason: 'disconnect', claimWin: true })
-                .then((result) => {
-                  if (result.success && result.winnerPayout !== undefined) {
-                    setWageredPrize(result.winnerPayout);
-                    setErrorText(`${opponentName} disconnected. You won ${result.winnerPayout} coins!`);
-                    setGameState('gameOver');
-                  } else {
-                    setErrorText(`${opponentName} disconnected`);
-                  }
-                })
-                .catch((err) => {
-                  // Don't alert - forfeit might have been claimed already
-                  console.error('[forfeitGame] Error:', err);
+                unsubscribeFromGameRoom();
+                setMatchData(null);
+                setGameSnapshot(null);
+
+                // Use ref for wagered check (avoids stale closure)
+                if (!isWageredMatchRef.current || !gameId) {
                   setErrorText(`${opponentName} disconnected`);
-                });
-            },
-            onError: (error) => {
-              setErrorText(error);
-            },
-          });
-        },
-        onError: (error) => {
-          setIsSearching(false);
-          setIsCreatingEscrow(false);
-          setIsWageredMatch(false);
-          setErrorText(error);
-        },
-        onTimeout: () => {
-          setIsSearching(false);
-          setIsCreatingEscrow(false);
-          setIsWageredMatch(false);
-          setErrorText('No opponent found');
-        },
-      }
-    );
+                  return;
+                }
+
+                // Claim forfeit win for wagered match
+                forfeitGame({ gameId, reason: 'disconnect', claimWin: true })
+                  .then((result) => {
+                    if (result.success && result.winnerPayout !== undefined) {
+                      setWageredPrize(result.winnerPayout);
+                      setErrorText(`${opponentName} disconnected. You won ${result.winnerPayout} coins!`);
+                      setGameState('gameOver');
+                    } else {
+                      setErrorText(`${opponentName} disconnected`);
+                    }
+                  })
+                  .catch((err) => {
+                    // Don't alert - forfeit might have been claimed already
+                    console.error('[forfeitGame] Error:', err);
+                    setErrorText(`${opponentName} disconnected`);
+                  });
+              },
+              onError: (error) => {
+                setErrorText(error);
+              },
+            });
+          },
+          onError: (error) => {
+            setIsSearching(false);
+            setIsCreatingEscrow(false);
+            setIsWageredMatch(false);
+            isWageredMatchRef.current = false;
+            setErrorText(error);
+          },
+          onTimeout: () => {
+            setIsSearching(false);
+            setIsCreatingEscrow(false);
+            setIsWageredMatch(false);
+            isWageredMatchRef.current = false;
+            setErrorText('No opponent found');
+          },
+        }
+      );
+    } catch {
+      setIsCreatingEscrow(false);
+      setIsWageredMatch(false);
+      isWageredMatchRef.current = false;
+      setErrorText('Failed to start matchmaking. Please try again.');
+    }
   }, [coinBalance, selectedStake, playerSetup.gameMode, user?.displayName]);
 
   // Close stake selection modal
@@ -524,9 +571,8 @@ function App() {
 
   // Play free from stake selection modal
   const handlePlayFreeFromModal = useCallback(async () => {
-    setShowStakeSelection(false);
-    await handlePlayOnline();
-  }, [handlePlayOnline]);
+    await startFreeMatchmaking();
+  }, [startFreeMatchmaking]);
 
   // Power bar animation
   const powerIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -821,20 +867,9 @@ function App() {
 
             <button className="btn btn-ghost landing__btn" onClick={handlePlayOnline}>
               <GlobeIcon size={24} />
-              {isSearching && !isWageredMatch ? 'Searching... (tap to cancel)' : errorText || 'Play Online'}
-            </button>
-
-            <button
-              className="btn btn-ghost landing__btn"
-              onClick={handlePlayWagered}
-              disabled={walletLoading}
-            >
-              <CoinIcon size={24} />
-              {isCreatingEscrow
-                ? 'Creating match...'
-                : isSearching && isWageredMatch
-                  ? 'Searching... (tap to cancel)'
-                  : 'Play for Stakes'}
+              {isSearching || isCreatingEscrow
+                ? (isCreatingEscrow ? 'Creating match...' : 'Searching... (tap to cancel)')
+                : errorText || 'Play Online'}
             </button>
 
             <button
