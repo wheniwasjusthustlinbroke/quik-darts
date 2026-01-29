@@ -581,7 +581,8 @@ function App() {
   // Handle board click (throw dart)
   const handleBoardClick = useCallback(
     async (x: number, y: number) => {
-      if (gameState !== 'playing' || dartsThrown >= 3) return;
+      const isGameActive = gameState === 'playing' || gameState === 'practice';
+      if (!isGameActive || dartsThrown >= 3) return;
       if (isSubmittingThrow) return;
 
       // Online mode: send to server
@@ -668,7 +669,8 @@ function App() {
   // Handle aim position
   const handleBoardMove = useCallback(
     (x: number, y: number) => {
-      if (gameState !== 'playing') return;
+      const isGameActive = gameState === 'playing' || gameState === 'practice';
+      if (!isGameActive) return;
       setAimPosition({ x, y });
     },
     [gameState, setAimPosition]
@@ -676,7 +678,8 @@ function App() {
 
   // Start power charging
   const startPowerCharge = useCallback(() => {
-    if (gameState !== 'playing' || dartsThrown >= 3) return;
+    const isGameActive = gameState === 'playing' || gameState === 'practice';
+    if (!isGameActive || dartsThrown >= 3) return;
 
     setIsPowerCharging(true);
     setPower(0);
