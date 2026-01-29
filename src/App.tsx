@@ -27,6 +27,12 @@ import { CoinShop } from './components/CoinShop';
 import { SoundToggle } from './components/SoundToggle';
 import { ThemeSelector } from './components/ThemeSelector';
 import { WeeklyChallengeBadge } from './components/WeeklyChallengeBadge';
+import { DifficultySelector } from './components/DifficultySelector';
+import {
+  type GameDifficulty,
+  getSkillLevelForDifficulty,
+  DEFAULT_SKILL_LEVEL,
+} from './utils/difficulty';
 import { DartIcon, GlobeIcon, TargetIcon, TrophyIcon, CoinIcon, UserIcon } from './components/icons';
 import {
   joinCasualQueue,
@@ -68,10 +74,8 @@ function App() {
   const [wageredPrize, setWageredPrize] = useState<number | null>(null);
   const [rhythmState, setRhythmState] = useState<RhythmState>('neutral');
   const [aimWobble, setAimWobble] = useState<Position>({ x: 0, y: 0 });
-
-  // Skill level for wobble calculations (offline games only)
-  // TODO: Make configurable via difficulty settings
-  const offlineSkillLevel = 85;
+  const [gameDifficulty, setGameDifficulty] = useState<GameDifficulty>('medium');
+  const [sessionSkillLevel, setSessionSkillLevel] = useState<number>(DEFAULT_SKILL_LEVEL);
 
   // Ref to prevent duplicate settleGame calls (UI guard)
   const settledGameRef = useRef<string | null>(null);
@@ -198,6 +202,7 @@ function App() {
     setHasAIOpponent(false);
     setRhythmState('neutral');
     setAimWobble({ x: 0, y: 0 });
+    setSessionSkillLevel(DEFAULT_SKILL_LEVEL);
     resetGame();
   }, [resetGame]);
 
@@ -306,7 +311,7 @@ function App() {
     }
 
     const wobbleResult = checkWobbleConditions(
-      offlineSkillLevel,
+      sessionSkillLevel,
       currentTurnThrows,
       dartsThrown,
       currentPlayer.score,
@@ -335,7 +340,7 @@ function App() {
     dartsThrown,
     aimPosition,
     isPowerCharging,
-    offlineSkillLevel,
+    sessionSkillLevel,
   ]);
 
   // Handle Play Online button
@@ -957,6 +962,16 @@ function App() {
                 </div>
               </div>
             )}
+
+            {/* Difficulty selector (shown when AI opponent selected) */}
+            {playerSetup.count === 2 && playerSetup.aiPlayers[1] && (
+              <div className="setup__group">
+                <DifficultySelector
+                  value={gameDifficulty}
+                  onChange={setGameDifficulty}
+                />
+              </div>
+            )}
           </div>
 
           <div className="setup__actions">
@@ -971,6 +986,8 @@ function App() {
                 setHasAIOpponent(hasAI);
                 setIsPracticeMode(false);
                 setIsOnlineGame(false);
+                // Set session skill level based on difficulty (resolved once at start)
+                setSessionSkillLevel(getSkillLevelForDifficulty(gameDifficulty));
                 startGame();
               }}
             >
