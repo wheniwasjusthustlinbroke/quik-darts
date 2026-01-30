@@ -109,7 +109,7 @@ jobs:
           echo ".firebaserc contents:"
           cat .firebaserc
 
-      - name: Deploy to Firebase (Hosting + Functions)
-        run: firebase deploy --only hosting,functions --project quikdarts
+      - name: Deploy to Firebase (Hosting only)
+        run: firebase deploy --only hosting --project quikdarts
         env:
           FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
