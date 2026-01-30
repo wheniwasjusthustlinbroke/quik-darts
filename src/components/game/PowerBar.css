@@ -77,6 +77,11 @@
   box-shadow: 0 0 10px currentColor;
 }
 
+/* Overcharge fill color */
+.power-bar__fill--overcharge {
+  background: linear-gradient(180deg, #ff4444, #ff8800) !important;
+}
+
 .power-bar__indicator {
   position: absolute;
   background: white;
@@ -141,4 +146,146 @@
     transform: translate(-50%, -50%) scale(1.1);
     opacity: 0.9;
   }
+}
+
+/* === SPEED INDICATOR STYLES === */
+
+.power-bar__speed-label {
+  position: absolute;
+  top: -24px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 2px 8px;
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-radius: var(--radius-sm);
+  white-space: nowrap;
+  z-index: 10;
+}
+
+.power-bar__speed-label--slow {
+  background: rgba(100, 149, 237, 0.9);
+  color: white;
+}
+
+.power-bar__speed-label--normal {
+  background: rgba(128, 128, 128, 0.7);
+  color: white;
+}
+
+.power-bar__speed-label--fast {
+  background: rgba(255, 165, 0, 0.9);
+  color: white;
+  animation: fastPulse 0.3s ease-in-out infinite;
+}
+
+@keyframes fastPulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+
+/* Speed-based fill effects */
+.power-bar--fast .power-bar__fill {
+  box-shadow: 0 0 12px rgba(255, 165, 0, 0.5);
+}
+
+.power-bar--slow .power-bar__fill {
+  opacity: 0.9;
+}
+
+/* === OVERCHARGE STYLES === */
+
+/* Overcharge shake animation */
+.power-bar--overcharging {
+  animation: overchargeShake 0.08s infinite;
+}
+
+@keyframes overchargeShake {
+  0%, 100% {
+    transform: translateX(0);
+  }
+  25% {
+    transform: translateX(-2px);
+  }
+  75% {
+    transform: translateX(2px);
+  }
+}
+
+/* Overcharge indicator panel */
+.power-bar__overcharge-indicator {
+  position: absolute;
+  bottom: -60px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 10px;
+  background: rgba(255, 68, 68, 0.95);
+  border-radius: var(--radius-sm);
+  box-shadow: 0 2px 8px rgba(255, 68, 68, 0.4);
+  animation: overchargeWarning 0.4s ease-in-out infinite;
+  z-index: 20;
+}
+
+@keyframes overchargeWarning {
+  0%, 100% {
+    box-shadow: 0 2px 8px rgba(255, 68, 68, 0.4);
+  }
+  50% {
+    box-shadow: 0 2px 16px rgba(255, 68, 68, 0.8);
+  }
+}
+
+.power-bar__overcharge-label {
+  font-size: 0.6rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: white;
+}
+
+.power-bar__overcharge-bar {
+  width: 60px;
+  height: 6px;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.power-bar__overcharge-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #ffcc00, #ff4444);
+  border-radius: 3px;
+  transition: width 0.05s linear;
+}
+
+.power-bar__overcharge-percent {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: white;
+  font-family: var(--font-mono);
+}
+
+/* Vertical orientation overcharge positioning */
+.power-bar--vertical .power-bar__overcharge-indicator {
+  bottom: auto;
+  top: 50%;
+  left: calc(100% + 12px);
+  transform: translateY(-50%);
+}
+
+/* Horizontal orientation overcharge positioning */
+.power-bar--horizontal .power-bar__overcharge-indicator {
+  bottom: calc(100% + 12px);
+  left: 50%;
+  transform: translateX(-50%);
 }
