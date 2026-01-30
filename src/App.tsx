@@ -8,6 +8,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Dartboard, ScoreDisplay, PowerBar, RhythmIndicator } from './components/game';
 import type { RhythmState, Position } from './types';
+import { usePowerMeter } from './throwing/usePowerMeter';
+import {
+  applyScatter,
+  createSeededRng,
+  generateThrowSeed,
+  type RngFunction,
+} from './throwing/throwMeter';
 import {
   checkWobbleConditions,
   generateWobbleOffset,
@@ -84,6 +91,12 @@ function App() {
   // Ref to prevent double forfeit calls on disconnect
   const disconnectHandledRef = useRef<string | null>(null);
 
+  // === Offline Game Determinism State ===
+  // Stable gameId for offline sessions (generated once at game start)
+  const offlineGameIdRef = useRef<string>('');
+  // Total darts thrown in current offline game (for seeded RNG per-throw)
+  const offlineTotalDartsRef = useRef<number>(0);
+
   // === Achievement System ===
   // Initialize achievement system (reads context from refs for reactivity)
   const achievements = useAchievements({
@@ -137,10 +150,7 @@ function App() {
     setDartPositions,
     aimPosition,
     setAimPosition,
-    power,
-    setPower,
-    isPowerCharging,
-    setIsPowerCharging,
+    // power, setPower, isPowerCharging, setIsPowerCharging - now handled by usePowerMeter
     gameStats,
     winner,
     setWinner,
@@ -185,6 +195,23 @@ function App() {
       unsubscribeFromGameRoom();
     };
   }, []);
+
+  // Initialize offline game state when entering offline/practice mode
+  useEffect(() => {
+    const isOfflineGame = (gameState === 'playing' || gameState === 'practice') && !matchData;
+    if (isOfflineGame && !offlineGameIdRef.current) {
+      // Generate stable gameId for this session
+      offlineGameIdRef.current = typeof crypto !== 'undefined' && crypto.randomUUID
+        ? crypto.randomUUID()
+        : `offline-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+      offlineTotalDartsRef.current = 0;
+    }
+    // Reset when returning to menu
+    if (gameState === 'landing' || gameState === 'setup') {
+      offlineGameIdRef.current = '';
+      offlineTotalDartsRef.current = 0;
+    }
+  }, [gameState, matchData]);
 
   /**
    * Stable reset function for all online flow cleanup.
@@ -317,47 +344,6 @@ function App() {
       }
     }
   }, [gameSnapshot, matchData, gameState, setGameState, setPlayers, setCurrentPlayerIndex, setDartsThrown, setCurrentTurnScore, setDartPositions, setWinner]);
-
-  // Wobble effect for offline games (pressure situations)
-  useEffect(() => {
-    // Only apply wobble in offline games during play
-    if (matchData || gameState !== 'playing' || !currentPlayer) {
-      setAimWobble({ x: 0, y: 0 });
-      return;
-    }
-
-    const wobbleResult = checkWobbleConditions(
-      sessionSkillLevel,
-      currentTurnThrows,
-      dartsThrown,
-      currentPlayer.score,
-      aimPosition,
-      DEFAULT_WOBBLE_CONFIG
-    );
-
-    // Stop wobble when power charging (stabilize for throw)
-    if (wobbleResult.shouldWobble && !isPowerCharging) {
-      const interval = setInterval(() => {
-        setAimWobble(generateWobbleOffset(DEFAULT_WOBBLE_CONFIG.wobbleAmount));
-      }, DEFAULT_WOBBLE_CONFIG.wobbleInterval);
-
-      return () => {
-        clearInterval(interval);
-        setAimWobble({ x: 0, y: 0 });
-      };
-    } else {
-      setAimWobble({ x: 0, y: 0 });
-    }
-  }, [
-    matchData,
-    gameState,
-    currentPlayer,
-    currentTurnThrows,
-    dartsThrown,
-    aimPosition,
-    isPowerCharging,
-    sessionSkillLevel,
-  ]);
 
   /**
    * Handle Play Online button - opens stake selector, or cancels if searching.
@@ -574,18 +560,39 @@ function App() {
     await startFreeMatchmaking();
   }, [startFreeMatchmaking]);
 
-  // Power bar animation
-  const powerIntervalRef = useRef<NodeJS.Timeout | null>(null);
-  const powerDirection = useRef(1);
+  // === Seeded RNG for Offline Throws ===
+  // Holds the SINGLE RNG instance for the current throw - shared by meter + scatter
+  const currentThrowRngRef = useRef<RngFunction | null>(null);
 
-  // Handle board click (throw dart)
+  // Wrapper that uses the current throw's RNG (set once per throw on charge start)
+  const throwRng = useCallback((): number => {
+    return currentThrowRngRef.current?.() ?? Math.random();
+  }, []);
+
+  // Initialize RNG for a new throw (called once when charging starts via onChargeStart)
+  const initializeThrowRng = useCallback(() => {
+    if (!offlineGameIdRef.current || matchData) {
+      // Online or not initialized: use Math.random
+      currentThrowRngRef.current = Math.random;
+      return;
+    }
+    // Create seeded RNG for this specific throw
+    const seed = generateThrowSeed(
+      offlineGameIdRef.current,
+      Math.floor(offlineTotalDartsRef.current / 3), // visits = turns completed
+      offlineTotalDartsRef.current % 3 // dart within turn
+    );
+    currentThrowRngRef.current = createSeededRng(seed);
+  }, [matchData]);
+
+  // Handle board click (throw dart) - processes the final throw position
   const handleBoardClick = useCallback(
     async (x: number, y: number) => {
       const isGameActive = gameState === 'playing' || gameState === 'practice';
       if (!isGameActive || dartsThrown >= 3) return;
       if (isSubmittingThrow) return;
 
-      // Online mode: send to server
+      // Online mode: send to server (no client-side scatter)
       if (matchData) {
         // Wait for valid game state from server
         if (!gameSnapshot) {
@@ -633,10 +640,14 @@ function App() {
         return;
       }
 
-      // Apply wobble offset to throw position (offline games only)
-      const effectiveX = x + aimWobble.x;
-      const effectiveY = y + aimWobble.y;
-      const result = throwDart(effectiveX, effectiveY);
+      // Offline: throw dart at the given position (scatter already applied by caller)
+      const result = throwDart(x, y);
+
+      // Increment offline dart counter for next throw's seed
+      offlineTotalDartsRef.current += 1;
+
+      // Clear RNG after throw completes (hygiene)
+      currentThrowRngRef.current = null;
 
       // Play appropriate sound
       if (result.isBust) {
@@ -663,8 +674,47 @@ function App() {
         setTimeout(() => endTurn(), 1000);
       }
     },
-    [gameState, dartsThrown, throwDart, playSound, currentTurnScore, endTurn, matchData, isSubmittingThrow, gameSnapshot, currentPlayerIndex, aimWobble]
+    [gameState, dartsThrown, throwDart, playSound, currentTurnScore, endTurn, matchData, isSubmittingThrow, gameSnapshot, currentPlayerIndex]
   );
+
+  // Handle throw with power (called when power meter is released)
+  const handleThrowWithPower = useCallback(
+    (releasedPower: number) => {
+      playSound('throw');
+
+      if (matchData) {
+        // Online: ignore client power, use aim position directly
+        handleBoardClick(aimPosition.x, aimPosition.y);
+      } else {
+        // Offline: apply wobble + scatter based on power
+        const baseX = aimPosition.x + aimWobble.x;
+        const baseY = aimPosition.y + aimWobble.y;
+
+        // Use the SAME seeded RNG instance that was used for meter variance
+        const scattered = applyScatter(baseX, baseY, releasedPower, throwRng);
+        handleBoardClick(scattered.x, scattered.y);
+      }
+    },
+    [playSound, matchData, aimPosition, aimWobble, handleBoardClick, throwRng]
+  );
+
+  // === New Power Meter Hook ===
+  // Uses monotonic fill with rhythm variance, overcharge, and deterministic RNG
+  const {
+    // power (raw 0-150) available if needed for debugging
+    displayPower,
+    isCharging: isPowerCharging,
+    isOvercharging,
+    overchargePercent,
+    fillSpeedRatio,
+    speedLabel,
+    handlers: powerHandlers,
+  } = usePowerMeter({
+    onRelease: handleThrowWithPower,
+    onChargeStart: initializeThrowRng, // Initialize RNG once per throw
+    disabled: dartsThrown >= 3 || !!winner,
+    rng: throwRng, // Uses the SAME RNG instance set by onChargeStart
+  });
 
   // Handle aim position
   const handleBoardMove = useCallback(
@@ -676,53 +726,46 @@ function App() {
     [gameState, setAimPosition]
   );
 
-  // Start power charging
-  const startPowerCharge = useCallback(() => {
-    const isGameActive = gameState === 'playing' || gameState === 'practice';
-    if (!isGameActive || dartsThrown >= 3) return;
-
-    setIsPowerCharging(true);
-    setPower(0);
-    powerDirection.current = 1;
-
-    powerIntervalRef.current = setInterval(() => {
-      setPower((prev) => {
-        const newPower = prev + powerDirection.current * 2;
-        if (newPower >= 100) {
-          powerDirection.current = -1;
-          return 100;
-        }
-        if (newPower <= 0) {
-          powerDirection.current = 1;
-          return 0;
-        }
-        return newPower;
-      });
-    }, 20);
-  }, [gameState, dartsThrown, setIsPowerCharging, setPower]);
-
-  // Release power and throw
-  const releasePower = useCallback(() => {
-    if (!isPowerCharging) return;
-
-    if (powerIntervalRef.current) {
-      clearInterval(powerIntervalRef.current);
-      powerIntervalRef.current = null;
+  // Wobble effect for offline games (pressure situations)
+  useEffect(() => {
+    // Only apply wobble in offline games during play
+    if (matchData || gameState !== 'playing' || !currentPlayer) {
+      setAimWobble({ x: 0, y: 0 });
+      return;
     }
 
-    setIsPowerCharging(false);
-    playSound('throw');  // Play throw sound when dart is released
-    handleBoardClick(aimPosition.x, aimPosition.y);
-  }, [isPowerCharging, setIsPowerCharging, handleBoardClick, aimPosition, playSound]);
+    const wobbleResult = checkWobbleConditions(
+      sessionSkillLevel,
+      currentTurnThrows,
+      dartsThrown,
+      currentPlayer.score,
+      aimPosition,
+      DEFAULT_WOBBLE_CONFIG
+    );
 
-  // Cleanup power interval on unmount
-  useEffect(() => {
-    return () => {
-      if (powerIntervalRef.current) {
-        clearInterval(powerIntervalRef.current);
-      }
-    };
-  }, []);
+    // Stop wobble when power charging (stabilize for throw)
+    if (wobbleResult.shouldWobble && !isPowerCharging) {
+      const interval = setInterval(() => {
+        setAimWobble(generateWobbleOffset(DEFAULT_WOBBLE_CONFIG.wobbleAmount));
+      }, DEFAULT_WOBBLE_CONFIG.wobbleInterval);
+
+      return () => {
+        clearInterval(interval);
+        setAimWobble({ x: 0, y: 0 });
+      };
+    } else {
+      setAimWobble({ x: 0, y: 0 });
+    }
+  }, [
+    matchData,
+    gameState,
+    currentPlayer,
+    currentTurnThrows,
+    dartsThrown,
+    aimPosition,
+    isPowerCharging,
+    sessionSkillLevel,
+  ]);
 
   // Play checkout sound when winner is determined
   useEffect(() => {
@@ -1118,10 +1161,7 @@ function App() {
             <div className="game__controls">
               <button
                 className="btn btn-primary game__throw-btn"
-                onMouseDown={startPowerCharge}
-                onMouseUp={releasePower}
-                onTouchStart={startPowerCharge}
-                onTouchEnd={releasePower}
+                {...powerHandlers}
                 disabled={dartsThrown >= 3 || !!winner}
               >
                 {isPowerCharging ? 'Release to Throw!' : 'Hold to Throw'}
@@ -1131,8 +1171,12 @@ function App() {
 
           <div className="game__sidebar game__sidebar--right">
             <PowerBar
-              power={power}
+              power={displayPower}
               isCharging={isPowerCharging}
+              isOvercharging={isOvercharging}
+              overchargePercent={overchargePercent}
+              fillSpeedRatio={fillSpeedRatio}
+              speedLabel={speedLabel}
               orientation="vertical"
             />
           </div>
