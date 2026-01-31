@@ -136,15 +136,15 @@ export function shouldAttemptCheckout(score: number): boolean {
 export function getAIThinkingDelay(difficulty: AIDifficulty): number {
   switch (difficulty) {
     case 'easy':
-      return 1500 + Math.random() * 1000; // 1.5-2.5s
+      return 2000 + Math.random() * 1500; // 2-3.5s
     case 'medium':
-      return 1000 + Math.random() * 800; // 1-1.8s
+      return 1500 + Math.random() * 1000; // 1.5-2.5s
     case 'hard':
-      return 600 + Math.random() * 600; // 0.6-1.2s
+      return 1000 + Math.random() * 800; // 1-1.8s
     case 'expert':
-      return 400 + Math.random() * 400; // 0.4-0.8s
+      return 800 + Math.random() * 600; // 0.8-1.4s
     default:
-      return 1000;
+      return 1500;
   }
 }
 

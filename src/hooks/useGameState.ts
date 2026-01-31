@@ -269,11 +269,13 @@ export function useGameState(callbacks?: AchievementCallbacks): UseGameStateRetu
         };
       });
 
-      // Achievement callback: turn complete
-      callbacks?.onTurnComplete?.({
-        turnScore: currentTurnScore,
-        is180: currentTurnScore === 180,
-      });
+      // Achievement callback: turn complete (skip for AI players)
+      if (!currentPlayer?.isAI) {
+        callbacks?.onTurnComplete?.({
+          turnScore: currentTurnScore,
+          is180: currentTurnScore === 180,
+        });
+      }
     }
 
     // Move to next player
@@ -288,12 +290,14 @@ export function useGameState(callbacks?: AchievementCallbacks): UseGameStateRetu
   const handleLegWon = useCallback((checkoutValue: number) => {
     if (!currentPlayer) return;
 
-    // Achievement callbacks: checkout and leg complete
-    callbacks?.onCheckout?.(checkoutValue);
-    callbacks?.onLegComplete?.({
-      won: true,
-      dartsUsed: legDartsThrown,
-    });
+    // Achievement callbacks: checkout and leg complete (skip for AI players)
+    if (!currentPlayer?.isAI) {
+      callbacks?.onCheckout?.(checkoutValue);
+      callbacks?.onLegComplete?.({
+        won: true,
+        dartsUsed: legDartsThrown,
+      });
+    }
 
     // Create updated leg scores first, then use that value consistently
     const newLegScores = [...legScores];
@@ -309,8 +313,10 @@ export function useGameState(callbacks?: AchievementCallbacks): UseGameStateRetu
 
       // Check if match is won (first to setsToWin wins)
       if (newSetScores[currentPlayerIndex] >= playerSetup.setsToWin) {
-        // Match won
-        callbacks?.onGameComplete?.(true);
+        // Match won - achievement callback (skip for AI players)
+        if (!currentPlayer?.isAI) {
+          callbacks?.onGameComplete?.(true);
+        }
         setMatchWinner(currentPlayer);
         setWinner(currentPlayer);
         setGameState('gameOver');
@@ -365,14 +371,16 @@ export function useGameState(callbacks?: AchievementCallbacks): UseGameStateRetu
       setDartsThrown((prev) => prev + 1);
       setLegDartsThrown((prev) => prev + 1);
 
-      // Achievement callback: emit throw
-      callbacks?.onThrow?.({
-        score: result.score,
-        segment: result.segment,
-        multiplier: result.multiplier,
-        isBull: result.segment === 'BULL',
-        isTriple: result.multiplier === 3,
-      });
+      // Achievement callback: emit throw (skip for AI players)
+      if (!currentPlayer?.isAI) {
+        callbacks?.onThrow?.({
+          score: result.score,
+          segment: result.segment,
+          multiplier: result.multiplier,
+          isBull: result.segment === 'BULL',
+          isTriple: result.multiplier === 3,
+        });
+      }
 
       if (result.isBust) {
         // Bust! Show popup and end turn after delay (restores score)
