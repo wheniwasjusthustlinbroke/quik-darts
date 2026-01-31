@@ -272,6 +272,7 @@ export interface ThemeColors {
   wire: string;
   numbers: string;
   background: string;
+  frame: string;
 }
 
 export interface WireStyle {

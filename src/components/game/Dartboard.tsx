@@ -16,6 +16,9 @@ import {
   TRIPLE_OUTER,
   DOUBLE_INNER,
   DOUBLE_OUTER,
+  FRAME_INNER,
+  FRAME_OUTER,
+  NUMBER_RADIUS,
   THEME_CLASSIC,
 } from '../../constants';
 
@@ -214,7 +217,7 @@ export const Dartboard: React.FC<DartboardProps> = ({
   const numberLabels = useMemo(() => {
     const labels: React.ReactNode[] = [];
     const segmentAngle = 360 / 20;
-    const labelRadius = DOUBLE_OUTER + 16; // Match index.html: numberRadius = DOUBLE_OUTER + 16
+    const labelRadius = NUMBER_RADIUS; // Position outside the frame ring
 
     SEGMENTS.forEach((value, index) => {
       const angle = ((index * segmentAngle - 90) * Math.PI) / 180;
@@ -357,6 +360,16 @@ export const Dartboard: React.FC<DartboardProps> = ({
           strokeWidth={wireStyle.width}
         />
       </g>
+
+      {/* Blue frame ring */}
+      <circle
+        cx={CENTER}
+        cy={CENTER}
+        r={(FRAME_INNER + FRAME_OUTER) / 2}
+        fill="none"
+        stroke={colors.frame}
+        strokeWidth={FRAME_OUTER - FRAME_INNER}
+      />
 
       {/* Number labels */}
       {numberLabels}

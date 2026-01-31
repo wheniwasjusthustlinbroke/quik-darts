@@ -22,6 +22,11 @@ export const TRIPLE_OUTER = 134;
 export const DOUBLE_INNER = 200;
 export const DOUBLE_OUTER = 215;
 
+// Frame ring (blue surround)
+export const FRAME_INNER = 218;
+export const FRAME_OUTER = 235;
+export const NUMBER_RADIUS = 248;
+
 // Matchmaking timing
 export const MATCHMAKING_TIMINGS = Object.freeze({
   FOUND_TO_INTRO_DELAY_MS: 700,

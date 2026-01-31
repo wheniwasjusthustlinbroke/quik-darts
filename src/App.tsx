@@ -1455,6 +1455,26 @@ function App() {
               </button>
             </div>
           </div>
+
+          {/* Right sidebar - History */}
+          <div className="game__sidebar game__sidebar--right">
+            <div className="history-panel">
+              <h3 className="history-panel__title">HISTORY</h3>
+              <div className="history-panel__content">
+                {currentTurnThrows.length === 0 ? (
+                  <p className="history-panel__empty">No throws yet</p>
+                ) : (
+                  <ul className="history-panel__list">
+                    {currentTurnThrows.map((throwResult, idx) => (
+                      <li key={idx} className="history-panel__item">
+                        {throwResult.segment} - {throwResult.score}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </div>
+          </div>
         </div>
         <AchievementToast
           unlockedIds={recentUnlocks}
