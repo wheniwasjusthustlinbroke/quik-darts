@@ -210,7 +210,8 @@
 /* === Achievement Group === */
 
 .achievement-group {
-  background: var(--color-background-card);
+  background: #1C2128;
+  border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 16px;
   overflow: hidden;
 }
@@ -220,8 +221,8 @@
   align-items: center;
   gap: 10px;
   padding: 14px 16px;
-  background: rgba(255, 255, 255, 0.03);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  background: rgba(255, 255, 255, 0.08);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .achievement-group__icon {
@@ -247,7 +248,8 @@
   align-items: center;
   gap: 12px;
   padding: 14px 16px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.03);
   transition: background 0.2s ease;
 }
 
@@ -275,13 +277,13 @@
 .achievement-card__name {
   font-size: 14px;
   font-weight: 600;
-  color: var(--color-text);
+  color: #F5F5F5;
   margin-bottom: 2px;
 }
 
 .achievement-card__description {
   font-size: 12px;
-  color: var(--color-text-muted);
+  color: #A0A0A0;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -307,15 +309,20 @@
 /* === Locked State === */
 
 .achievement-card--locked {
-  opacity: 0.6;
+  background: rgba(255, 255, 255, 0.02);
 }
 
 .achievement-card--locked .achievement-card__icon {
-  filter: grayscale(100%);
+  filter: grayscale(50%);
+  opacity: 0.8;
 }
 
 .achievement-card--locked .achievement-card__name {
-  color: var(--color-text-muted);
+  color: #CCCCCC;
+}
+
+.achievement-card--locked .achievement-card__description {
+  color: #888888;
 }
 
 /* === Unlocked State === */

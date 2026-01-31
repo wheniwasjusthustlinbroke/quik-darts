@@ -1,6 +1,7 @@
 /* Quik Darts - Design System */
 
 :root {
+  /* === EXISTING LEGACY TOKENS (unchanged) === */
   --color-primary: #1B4332;
   --color-primary-light: #2D6A4F;
   --color-primary-dark: #143728;
@@ -25,6 +26,53 @@
   --shadow-lg: 0 16px 48px rgba(0, 0, 0, 0.5);
   --transition-fast: 0.15s ease;
   --transition-normal: 0.3s ease;
+
+  /* === NEW: Chip-Based Palette (for HomePage) === */
+  /* Green (from chips) */
+  --qd-green-dark: #143728;
+  --qd-green: #1B4332;
+  --qd-green-bright: #22C55E;
+  --qd-green-glow: rgba(34, 197, 94, 0.4);
+
+  /* Red (from chips) */
+  --qd-red-dark: #7F1D1D;
+  --qd-red: #DC2626;
+  --qd-red-bright: #EF4444;
+
+  /* Gold (from chips) */
+  --qd-gold-dark: #92400E;
+  --qd-gold: #D4A03A;
+  --qd-gold-bright: #FACC15;
+  --qd-gold-glow: rgba(212, 160, 58, 0.4);
+
+  /* Neutrals (from chips black) */
+  --qd-black: #0D1117;
+  --qd-charcoal: #161B22;
+  --qd-slate: #1C2128;
+
+  /* Text variants */
+  --qd-text-primary: #F8FAFC;
+  --qd-text-muted: #94A3B8;
+  --qd-text-dark: #0D1117;
+
+  /* === NEW: Play Card Gradients (LOCKED) === */
+  --card-online: linear-gradient(135deg, #22C55E 0%, #16A34A 100%);
+  --card-friends: linear-gradient(135deg, #F97316 0%, #EA580C 100%);
+  --card-ai: linear-gradient(135deg, #0D9488 0%, #0F766E 100%);
+  --card-practice: linear-gradient(135deg, #4B5563 0%, #374151 100%);
+  --card-shop: linear-gradient(135deg, #D4A03A 0%, #92400E 100%);
+  --card-dartsets: linear-gradient(135deg, #DC2626 0%, #991B1B 100%);
+
+  /* === NEW: HomePage Typography (system fonts for MVP) === */
+  --font-display: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-body: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-mono-ui: ui-monospace, 'SF Mono', 'Cascadia Code', monospace;
+
+  /* === NEW: Additional tokens for HomePage === */
+  --radius-xl: 18px;
+  --shadow-card: 0 8px 20px rgba(0, 0, 0, 0.45);
+  --shadow-card-hover: 0 12px 28px rgba(0, 0, 0, 0.5);
+  --transition-card: 0.12s ease;
 }
 
 * {
