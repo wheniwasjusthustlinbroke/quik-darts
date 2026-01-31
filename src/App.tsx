@@ -10,15 +10,15 @@ import { Dartboard, ScoreDisplay, PowerBar, RhythmIndicator } from './components
 import type { RhythmState, Position } from './types';
 import { usePowerMeter } from './throwing/usePowerMeter';
 import {
-  calculatePerfectZoneWidth,
   isInPerfectZone,
+  PERFECT_ZONE_WINNING_DOUBLE,
 } from './throwing/legacyMeter';
 import {
   createSeededRng,
   generateThrowSeed,
   type RngFunction,
 } from './throwing/throwMeter';
-import { addThrowRandomness } from './utils/scoring';
+import { addThrowRandomness, getWinningSegment, getAimedSegment } from './utils/scoring';
 import {
   checkWobbleConditions,
   generateWobbleOffset,
@@ -87,7 +87,12 @@ function App() {
   const [aimWobble, setAimWobble] = useState<Position>({ x: 0, y: 0 });
   const [gameDifficulty, setGameDifficulty] = useState<GameDifficulty>('medium');
   const [sessionSkillLevel, setSessionSkillLevel] = useState<number>(DEFAULT_SKILL_LEVEL);
-  const [perfectHits, setPerfectHits] = useState(0);
+  const [perfectShrinkAmount, setPerfectShrinkAmount] = useState(0);
+  const lastThrowPerfectRef = useRef(false);
+  const preThrowScoreRef = useRef<number | null>(null);
+  // Shrink reset paths: (1) dartsThrown === 0 effect, (2) currentPlayerIndex effect,
+  // (3) handleReturnToMenu, (4) setup startGame onClick, (5) Play Again onClick,
+  // (6) Practice Mode onClick
 
   // Ref to prevent duplicate settleGame calls (UI guard)
   const settledGameRef = useRef<string | null>(null);
@@ -192,19 +197,24 @@ function App() {
     signOut,
   } = useAuth();
 
-  // Calculate perfect zone width (dynamic based on perfect hits)
-  // KNOWN PARITY GAP: isCheckoutPosition used as proxy for isAimingAtWinningDouble
+  // Check if aiming at exact winning double/bull (no proxy)
+  const isAimingAtWinningDouble = useMemo(() => {
+    if (!currentPlayer) return false;
+    const winningSegment = getWinningSegment(currentPlayer.score);
+    if (!winningSegment) return false;
+    const aimedSegment = getAimedSegment(aimPosition.x + aimWobble.x, aimPosition.y + aimWobble.y);
+    return aimedSegment === winningSegment;
+  }, [currentPlayer, aimPosition, aimWobble]);
+
+  // Calculate perfect zone width
   const perfectZoneWidth = useMemo(() => {
-    const isAimingAtWinningDouble = currentPlayer
-      ? currentPlayer.score <= 170 && currentPlayer.score >= 2
-      : false;
-    return calculatePerfectZoneWidth(
-      sessionSkillLevel,
-      perfectHits,
-      !!matchData,
-      isAimingAtWinningDouble
-    );
-  }, [sessionSkillLevel, perfectHits, matchData, currentPlayer]);
+    // Exact winning double → force 2% zone (bypass shrink)
+    if (isAimingAtWinningDouble) {
+      return PERFECT_ZONE_WINNING_DOUBLE;
+    }
+    // Normal shrinking: zoneWidth = max(10 - perfectShrinkAmount, 4)
+    return Math.max(10 - perfectShrinkAmount, 4);
+  }, [isAimingAtWinningDouble, perfectShrinkAmount]);
 
   // Cleanup matchmaking on unmount
   useEffect(() => {
@@ -265,6 +275,10 @@ function App() {
     setRhythmState('neutral');
     setAimWobble({ x: 0, y: 0 });
     setSessionSkillLevel(DEFAULT_SKILL_LEVEL);
+    // Reset shrink state for new game
+    setPerfectShrinkAmount(0);
+    lastThrowPerfectRef.current = false;
+    preThrowScoreRef.current = null;
     resetGame();
   }, [resetGame, resetOnlineFlow]);
 
@@ -650,6 +664,33 @@ function App() {
           if (!res) {
             console.warn('[handleBoardClick] submitThrow failed');
           } else {
+            // Apply shrink based on server result (only if release was perfect)
+            if (lastThrowPerfectRef.current) {
+              const isTreble = !!res?.label && res.label.startsWith('T');
+              const isDouble = !!res?.label && res.label.startsWith('D');
+              const isBull = res?.label === 'BULL';
+              // Single includes outer bull (25) - only exclude MISS and inner BULL
+              const isSingle = !!res?.label && !isTreble && !isDouble && res.label !== 'MISS' && res.label !== 'BULL';
+
+              if (isTreble) {
+                // Perfect green + treble → shrink by 3%
+                setPerfectShrinkAmount(prev => prev + 3);
+              } else if (isDouble || isBull) {
+                // Perfect green + double/bull → check if winning segment (use pre-throw score)
+                const winningSegment = getWinningSegment(preThrowScoreRef.current ?? 0);
+                if (winningSegment && res.label === winningSegment) {
+                  // Winning double/bull → no shrink added
+                } else {
+                  // Non-winning double/bull → shrink by 1.5%
+                  setPerfectShrinkAmount(prev => prev + 1.5);
+                }
+              } else if (isSingle) {
+                // Perfect green + single (including outer bull 25) → shrink by 1.5%
+                setPerfectShrinkAmount(prev => prev + 1.5);
+              }
+              // MISS → no shrink
+            }
+
             // Update rhythm state from server response
             if (res.rhythm) {
               setRhythmState(res.rhythm as RhythmState);
@@ -676,6 +717,27 @@ function App() {
 
       // Offline: throw dart at the given position (scatter already applied by caller)
       const result = throwDart(x, y);
+
+      // Apply shrink based on actual result (only if release was perfect)
+      if (lastThrowPerfectRef.current) {
+        if (result.multiplier === 3) {
+          // Perfect green + treble → shrink by 3%
+          setPerfectShrinkAmount(prev => prev + 3);
+        } else if (result.multiplier === 2 || result.segment === 'BULL') {
+          // Perfect green + double/bull → check if winning segment (use pre-throw score)
+          const winningSegment = getWinningSegment(preThrowScoreRef.current ?? 0);
+          if (winningSegment && result.segment === winningSegment) {
+            // Winning double/bull → no shrink added
+          } else {
+            // Non-winning double/bull → shrink by 1.5%
+            setPerfectShrinkAmount(prev => prev + 1.5);
+          }
+        } else if (result.multiplier === 1 && result.score > 0) {
+          // Perfect green + single (including outer bull 25) → shrink by 1.5%
+          setPerfectShrinkAmount(prev => prev + 1.5);
+        }
+        // Miss (score === 0) or bust → no shrink
+      }
 
       // Increment offline dart counter for next throw's seed
       offlineTotalDartsRef.current += 1;
@@ -724,10 +786,10 @@ function App() {
       // Check if in perfect zone
       const isPerfect = isInPerfectZone(releasedPower, perfectZoneWidth);
 
-      // Increment perfect hits for zone shrinking
-      if (isPerfect) {
-        setPerfectHits((prev) => prev + 1);
-      }
+      // Capture pre-throw score and perfect status for shrink calculation
+      preThrowScoreRef.current = currentPlayer?.score ?? null;
+      lastThrowPerfectRef.current = isPerfect;
+      // Note: shrink is applied in handleBoardClick after actual result is known
 
       if (matchData) {
         // Online: pass aimPoint + powerValue for wagered anti-cheat
@@ -751,7 +813,7 @@ function App() {
         handleBoardClick(scattered.x, scattered.y);
       }
     },
-    [playSound, matchData, aimPosition, aimWobble, perfectZoneWidth, handleBoardClick, sessionSkillLevel]
+    [playSound, matchData, aimPosition, aimWobble, perfectZoneWidth, handleBoardClick, sessionSkillLevel, currentPlayer]
   );
 
   // === Oscillating Power Meter Hook ===
@@ -783,12 +845,21 @@ function App() {
     [gameState, setAimPosition]
   );
 
-  // Reset perfectHits on turn change (when dartsThrown resets to 0)
+  // Reset shrink on darts reset (start of turn after 3 darts)
   useEffect(() => {
     if (dartsThrown === 0) {
-      setPerfectHits(0);
+      setPerfectShrinkAmount(0);
+      lastThrowPerfectRef.current = false;
+      preThrowScoreRef.current = null;
     }
   }, [dartsThrown]);
+
+  // Reset shrink on player change (handles turn switching in multiplayer)
+  useEffect(() => {
+    setPerfectShrinkAmount(0);
+    lastThrowPerfectRef.current = false;
+    preThrowScoreRef.current = null;
+  }, [currentPlayerIndex]);
 
   // Wobble effect for offline games (pressure situations)
   useEffect(() => {
@@ -968,6 +1039,10 @@ function App() {
                 }));
                 setIsPracticeMode(true);
                 setIsOnlineGame(false);
+                // Reset shrink state for new game
+                setPerfectShrinkAmount(0);
+                lastThrowPerfectRef.current = false;
+                preThrowScoreRef.current = null;
                 setGameState('practice');
               }}
             >
@@ -1133,6 +1208,10 @@ function App() {
                 setIsOnlineGame(false);
                 // Set session skill level based on difficulty (resolved once at start)
                 setSessionSkillLevel(getSkillLevelForDifficulty(gameDifficulty));
+                // Reset shrink state for new game
+                setPerfectShrinkAmount(0);
+                lastThrowPerfectRef.current = false;
+                preThrowScoreRef.current = null;
                 startGame();
               }}
             >
@@ -1282,7 +1361,13 @@ function App() {
           )}
 
           <div className="game-over__actions">
-            <button className="btn btn-primary" onClick={startGame}>
+            <button className="btn btn-primary" onClick={() => {
+              // Reset shrink state for new game
+              setPerfectShrinkAmount(0);
+              lastThrowPerfectRef.current = false;
+              preThrowScoreRef.current = null;
+              startGame();
+            }}>
               Play Again
             </button>
             <button className="btn btn-ghost" onClick={handleReturnToMenu}>
