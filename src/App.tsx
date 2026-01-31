@@ -109,8 +109,6 @@ function App() {
   // === AI Turn State ===
   // Timer ref for AI throw delay (cleanup on turn change)
   const aiTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  // In-flight guard to prevent double-scheduling
-  const aiInFlightRef = useRef(false);
 
   // === Offline Game Determinism State ===
   // Stable gameId for offline sessions (generated once at game start)
@@ -944,8 +942,6 @@ function App() {
 
     // Prevent double scheduling: if timer already exists, don't reschedule
     if (aiTimeoutRef.current) return;
-    // Prevent scheduling if throw already in-flight
-    if (aiInFlightRef.current) return;
 
     const difficulty = currentPlayerObj.aiDifficulty || 'medium';
     const delay = getAIThinkingDelay(difficulty);
@@ -978,9 +974,6 @@ function App() {
         aiTimeoutRef.current = null;
         return;
       }
-
-      // Mark in-flight (cleared by separate effect)
-      aiInFlightRef.current = true;
 
       // Use live player state for targeting
       const liveDifficulty = livePlayer.aiDifficulty || 'medium';
@@ -1020,11 +1013,6 @@ function App() {
     playSound,
     handleBoardClick,
   ]);
-
-  // Clear AI in-flight flag when dartsThrown changes or leaving AI turn/playing mode
-  useEffect(() => {
-    aiInFlightRef.current = false;
-  }, [dartsThrown, currentPlayerIndex, gameState, matchData, winner]);
 
   // Play checkout sound when winner is determined
   useEffect(() => {
