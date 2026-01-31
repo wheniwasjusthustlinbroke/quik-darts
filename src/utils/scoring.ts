@@ -266,3 +266,27 @@ export function calculateCheckoutPercentage(
   if (checkoutAttempts === 0) return 0;
   return Math.round((checkoutsHit / checkoutAttempts) * 100);
 }
+
+/**
+ * Get the winning segment for a score (exact double/bull to finish).
+ * Returns segment in same format as calculateScore(): D20, BULL, etc.
+ */
+export function getWinningSegment(remainingScore: number): string | null {
+  // Bullseye finishes with score 50
+  if (remainingScore === 50) return 'BULL';
+  // Double finishes (D1=2, D2=4, ..., D20=40)
+  if (remainingScore % 2 === 0 && remainingScore >= 2 && remainingScore <= 40) {
+    return `D${remainingScore / 2}`;
+  }
+  // Cannot finish directly with one dart
+  return null;
+}
+
+/**
+ * Get the segment being aimed at from board position.
+ * Uses calculateScore internally - returns same format (D20, BULL, T19, etc.)
+ */
+export function getAimedSegment(x: number, y: number): string {
+  const result = calculateScore(x, y);
+  return result.segment;
+}
