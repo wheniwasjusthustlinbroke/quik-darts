@@ -1,140 +1,98 @@
 /**
- * PowerBar Component Styles
+ * PowerBar Component Styles - Horizontal Oscillating Layout
  */
 
-.power-bar {
-  position: relative;
+/* === BASE HORIZONTAL BAR === */
+.power-bar--horizontal {
+  width: 100%;
   display: flex;
   flex-direction: column;
-  align-items: center;
   gap: 8px;
-}
-
-.power-bar--vertical {
-  width: 40px;
-  height: 200px;
-}
-
-.power-bar--horizontal {
-  width: 200px;
-  height: 40px;
-  flex-direction: row;
-}
-
-.power-bar__track {
   position: relative;
-  background: var(--color-background-light);
-  border-radius: var(--radius-sm);
-  overflow: hidden;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.power-bar--vertical .power-bar__track {
-  width: 100%;
-  height: 100%;
 }
 
 .power-bar--horizontal .power-bar__track {
-  width: 100%;
-  height: 100%;
+  position: relative;
+  height: 30px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  overflow: hidden;
 }
 
-.power-bar__perfect-zone {
-  position: absolute;
-  background: rgba(45, 138, 45, 0.2);
-  border: 1px dashed var(--color-success);
-}
-
-.power-bar--vertical .power-bar__perfect-zone {
-  left: 0;
-  right: 0;
-}
-
-.power-bar--horizontal .power-bar__perfect-zone {
-  top: 0;
-  bottom: 0;
-}
-
-.power-bar__fill {
-  position: absolute;
-  transition: all 0.05s linear;
-  border-radius: var(--radius-sm);
-}
-
-.power-bar--vertical .power-bar__fill {
-  bottom: 0;
-  left: 0;
-  right: 0;
-}
-
+/* === POWER FILL === */
 .power-bar--horizontal .power-bar__fill {
+  position: absolute;
+  left: 0;
   top: 0;
   bottom: 0;
-  left: 0;
+  border-radius: 10px;
+  background: linear-gradient(90deg, var(--color-error), #e74c3c);
 }
 
-.power-bar--charging .power-bar__fill {
-  box-shadow: 0 0 10px currentColor;
+.power-bar--horizontal .power-bar__fill--perfect {
+  background: linear-gradient(90deg, #228b22, #32cd32) !important;
 }
 
-/* Overcharge fill color */
-.power-bar__fill--overcharge {
-  background: linear-gradient(180deg, #ff4444, #ff8800) !important;
-}
-
-.power-bar__indicator {
+/* === PERFECT ZONE INDICATOR === */
+.power-bar--horizontal .power-bar__perfect-zone {
   position: absolute;
-  background: white;
-  box-shadow: 0 0 4px rgba(255, 255, 255, 0.5);
-  transition: all 0.05s linear;
+  top: 0;
+  bottom: 0;
+  background: rgba(50, 205, 50, 0.25);
+  border-left: 2px dashed var(--color-success);
+  border-right: 2px dashed var(--color-success);
 }
 
-.power-bar--vertical .power-bar__indicator {
-  left: 0;
-  right: 0;
-  height: 2px;
-  transform: translateY(50%);
-}
-
-.power-bar--horizontal .power-bar__indicator {
+/* === CENTER LINE (50%) === */
+.power-bar--horizontal .power-bar__center-line {
+  position: absolute;
+  left: 50%;
   top: 0;
   bottom: 0;
   width: 2px;
-  transform: translateX(-50%);
+  margin-left: -1px;
+  background: var(--color-accent);
+  opacity: 0.6;
+  z-index: 1;
 }
 
-.power-bar__label {
+/* === LABELS === */
+.power-bar__labels {
   display: flex;
-  align-items: baseline;
-  gap: 2px;
-  font-family: var(--font-mono);
+  justify-content: space-between;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
-.power-bar__value {
-  font-size: 1.25rem;
-  font-weight: 700;
-  color: var(--color-text);
+.power-bar__label--weak {
+  color: var(--color-error);
 }
 
-.power-bar__unit {
-  font-size: 0.75rem;
-  color: var(--color-text-muted);
+.power-bar__label--perfect {
+  color: var(--color-success);
+  font-weight: 600;
 }
 
-.power-bar__perfect-label {
+.power-bar__label--strong {
+  color: var(--color-error);
+}
+
+/* === PERFECT FEEDBACK === */
+.power-bar__perfect-feedback {
   position: absolute;
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  padding: 4px 8px;
+  padding: 4px 12px;
   background: var(--color-success);
   color: white;
-  font-size: 0.7rem;
+  font-size: 12px;
   font-weight: 700;
   border-radius: var(--radius-sm);
-  text-transform: uppercase;
-  animation: perfectPulse 0.5s ease-in-out infinite;
-  white-space: nowrap;
+  animation: perfectPulse 0.4s ease-in-out infinite;
+  z-index: 10;
 }
 
 @keyframes perfectPulse {
@@ -143,149 +101,43 @@
     opacity: 1;
   }
   50% {
-    transform: translate(-50%, -50%) scale(1.1);
+    transform: translate(-50%, -50%) scale(1.05);
     opacity: 0.9;
   }
 }
 
-/* === SPEED INDICATOR STYLES === */
-
-.power-bar__speed-label {
-  position: absolute;
-  top: -24px;
-  left: 50%;
-  transform: translateX(-50%);
-  padding: 2px 8px;
-  font-size: 0.65rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  border-radius: var(--radius-sm);
-  white-space: nowrap;
-  z-index: 10;
-}
-
-.power-bar__speed-label--slow {
-  background: rgba(100, 149, 237, 0.9);
-  color: white;
-}
-
-.power-bar__speed-label--normal {
-  background: rgba(128, 128, 128, 0.7);
-  color: white;
-}
-
-.power-bar__speed-label--fast {
-  background: rgba(255, 165, 0, 0.9);
-  color: white;
-  animation: fastPulse 0.3s ease-in-out infinite;
-}
-
-@keyframes fastPulse {
-  0%, 100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.7;
-  }
-}
-
-/* Speed-based fill effects */
-.power-bar--fast .power-bar__fill {
-  box-shadow: 0 0 12px rgba(255, 165, 0, 0.5);
-}
-
-.power-bar--slow .power-bar__fill {
-  opacity: 0.9;
-}
-
-/* === OVERCHARGE STYLES === */
-
-/* Overcharge shake animation */
-.power-bar--overcharging {
-  animation: overchargeShake 0.08s infinite;
-}
-
-@keyframes overchargeShake {
-  0%, 100% {
-    transform: translateX(0);
-  }
-  25% {
-    transform: translateX(-2px);
-  }
-  75% {
-    transform: translateX(2px);
-  }
-}
-
-/* Overcharge indicator panel */
-.power-bar__overcharge-indicator {
-  position: absolute;
-  bottom: -60px;
-  left: 50%;
-  transform: translateX(-50%);
+/* === LEGACY VERTICAL SUPPORT (kept for backwards compat) === */
+.power-bar--vertical {
+  width: 40px;
+  height: 200px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
-  padding: 6px 10px;
-  background: rgba(255, 68, 68, 0.95);
-  border-radius: var(--radius-sm);
-  box-shadow: 0 2px 8px rgba(255, 68, 68, 0.4);
-  animation: overchargeWarning 0.4s ease-in-out infinite;
-  z-index: 20;
 }
 
-@keyframes overchargeWarning {
-  0%, 100% {
-    box-shadow: 0 2px 8px rgba(255, 68, 68, 0.4);
-  }
-  50% {
-    box-shadow: 0 2px 16px rgba(255, 68, 68, 0.8);
-  }
-}
-
-.power-bar__overcharge-label {
-  font-size: 0.6rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-  color: white;
-}
-
-.power-bar__overcharge-bar {
-  width: 60px;
-  height: 6px;
-  background: rgba(0, 0, 0, 0.3);
-  border-radius: 3px;
-  overflow: hidden;
-}
-
-.power-bar__overcharge-fill {
+.power-bar--vertical .power-bar__track {
+  position: relative;
+  width: 100%;
   height: 100%;
-  background: linear-gradient(90deg, #ffcc00, #ff4444);
-  border-radius: 3px;
-  transition: width 0.05s linear;
+  background: var(--color-background-light);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
-.power-bar__overcharge-percent {
-  font-size: 0.7rem;
-  font-weight: 700;
-  color: white;
-  font-family: var(--font-mono);
+.power-bar--vertical .power-bar__fill {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  border-radius: var(--radius-sm);
 }
 
-/* Vertical orientation overcharge positioning */
-.power-bar--vertical .power-bar__overcharge-indicator {
-  bottom: auto;
-  top: 50%;
-  left: calc(100% + 12px);
-  transform: translateY(-50%);
-}
-
-/* Horizontal orientation overcharge positioning */
-.power-bar--horizontal .power-bar__overcharge-indicator {
-  bottom: calc(100% + 12px);
-  left: 50%;
-  transform: translateX(-50%);
+.power-bar--vertical .power-bar__perfect-zone {
+  position: absolute;
+  left: 0;
+  right: 0;
+  background: rgba(45, 138, 45, 0.2);
+  border-top: 1px dashed var(--color-success);
+  border-bottom: 1px dashed var(--color-success);
 }

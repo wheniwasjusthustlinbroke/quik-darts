@@ -197,14 +197,16 @@ export function wouldBust(
 }
 
 /**
- * Add randomness to a throw based on skill level and power
+ * Add randomness to a throw based on skill level and power.
+ * Accepts optional RNG for deterministic seeded throws.
  */
 export function addThrowRandomness(
   targetX: number,
   targetY: number,
   skillLevel: number,
   power: number,
-  isInPerfectZone: boolean
+  isInPerfectZone: boolean,
+  rng: () => number = Math.random
 ): Position {
   // Perfect zone = no randomness
   if (isInPerfectZone) {
@@ -223,8 +225,8 @@ export function addThrowRandomness(
 
   const randomness = skillRandomness + powerRandomness + perfectZonePenalty;
 
-  const angle = Math.random() * Math.PI * 2;
-  const offset = Math.random() * randomness;
+  const angle = rng() * Math.PI * 2;
+  const offset = rng() * randomness;
 
   return {
     x: targetX + Math.cos(angle) * offset,
