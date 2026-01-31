@@ -5,7 +5,7 @@
  */
 
 // Board dimensions
-export const BOARD_SIZE = 500;
+export const BOARD_SIZE = 530;
 export const CENTER = BOARD_SIZE / 2;
 
 // Segment values in clockwise order starting from 20 at top
