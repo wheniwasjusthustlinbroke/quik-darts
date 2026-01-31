@@ -10,11 +10,15 @@ import { Dartboard, ScoreDisplay, PowerBar, RhythmIndicator } from './components
 import type { RhythmState, Position } from './types';
 import { usePowerMeter } from './throwing/usePowerMeter';
 import {
-  applyScatter,
+  calculatePerfectZoneWidth,
+  isInPerfectZone,
+} from './throwing/legacyMeter';
+import {
   createSeededRng,
   generateThrowSeed,
   type RngFunction,
 } from './throwing/throwMeter';
+import { addThrowRandomness } from './utils/scoring';
 import {
   checkWobbleConditions,
   generateWobbleOffset,
@@ -83,6 +87,7 @@ function App() {
   const [aimWobble, setAimWobble] = useState<Position>({ x: 0, y: 0 });
   const [gameDifficulty, setGameDifficulty] = useState<GameDifficulty>('medium');
   const [sessionSkillLevel, setSessionSkillLevel] = useState<number>(DEFAULT_SKILL_LEVEL);
+  const [perfectHits, setPerfectHits] = useState(0);
 
   // Ref to prevent duplicate settleGame calls (UI guard)
   const settledGameRef = useRef<string | null>(null);
@@ -186,6 +191,20 @@ function App() {
     signInWithApple,
     signOut,
   } = useAuth();
+
+  // Calculate perfect zone width (dynamic based on perfect hits)
+  // KNOWN PARITY GAP: isCheckoutPosition used as proxy for isAimingAtWinningDouble
+  const perfectZoneWidth = useMemo(() => {
+    const isAimingAtWinningDouble = currentPlayer
+      ? currentPlayer.score <= 170 && currentPlayer.score >= 2
+      : false;
+    return calculatePerfectZoneWidth(
+      sessionSkillLevel,
+      perfectHits,
+      !!matchData,
+      isAimingAtWinningDouble
+    );
+  }, [sessionSkillLevel, perfectHits, matchData, currentPlayer]);
 
   // Cleanup matchmaking on unmount
   useEffect(() => {
@@ -564,12 +583,7 @@ function App() {
   // Holds the SINGLE RNG instance for the current throw - shared by meter + scatter
   const currentThrowRngRef = useRef<RngFunction | null>(null);
 
-  // Wrapper that uses the current throw's RNG (set once per throw on charge start)
-  const throwRng = useCallback((): number => {
-    return currentThrowRngRef.current?.() ?? Math.random();
-  }, []);
-
-  // Initialize RNG for a new throw (called once when charging starts via onChargeStart)
+  // Initialize RNG for a new throw (called once when charging starts)
   const initializeThrowRng = useCallback(() => {
     if (!offlineGameIdRef.current || matchData) {
       // Online or not initialized: use Math.random
@@ -587,7 +601,12 @@ function App() {
 
   // Handle board click (throw dart) - processes the final throw position
   const handleBoardClick = useCallback(
-    async (x: number, y: number) => {
+    async (
+      x: number,
+      y: number,
+      aimPoint?: { x: number; y: number },
+      powerValue?: number
+    ) => {
       const isGameActive = gameState === 'playing' || gameState === 'practice';
       if (!isGameActive || dartsThrown >= 3) return;
       if (isSubmittingThrow) return;
@@ -608,10 +627,25 @@ function App() {
 
         try {
           setIsSubmittingThrow(true);
-          const res = await submitThrow({
+
+          // Build payload - include aimPoint/powerValue only for wagered matches
+          const payload: {
+            gameId: string;
+            dartPosition: { x: number; y: number };
+            aimPoint?: { x: number; y: number };
+            powerValue?: number;
+          } = {
             gameId: matchData.roomId,
             dartPosition: { x, y },
-          });
+          };
+
+          // Anti-cheat data for wagered matches only
+          if (isWageredMatchRef.current && aimPoint !== undefined && powerValue !== undefined) {
+            payload.aimPoint = aimPoint;
+            payload.powerValue = powerValue;
+          }
+
+          const res = await submitThrow(payload);
 
           if (!res) {
             console.warn('[handleBoardClick] submitThrow failed');
@@ -682,39 +716,62 @@ function App() {
     (releasedPower: number) => {
       playSound('throw');
 
-      if (matchData) {
-        // Online: ignore client power, use aim position directly
-        handleBoardClick(aimPosition.x, aimPosition.y);
-      } else {
-        // Offline: apply wobble + scatter based on power
-        const baseX = aimPosition.x + aimWobble.x;
-        const baseY = aimPosition.y + aimWobble.y;
+      // Capture aim position WITH wobble at release time (for wagered anti-cheat)
+      const capturedAimX = aimPosition.x + aimWobble.x;
+      const capturedAimY = aimPosition.y + aimWobble.y;
+      const capturedAimPoint = { x: capturedAimX, y: capturedAimY };
 
-        // Use the SAME seeded RNG instance that was used for meter variance
-        const scattered = applyScatter(baseX, baseY, releasedPower, throwRng);
+      // Check if in perfect zone
+      const isPerfect = isInPerfectZone(releasedPower, perfectZoneWidth);
+
+      // Increment perfect hits for zone shrinking
+      if (isPerfect) {
+        setPerfectHits((prev) => prev + 1);
+      }
+
+      if (matchData) {
+        // Online: pass aimPoint + powerValue for wagered anti-cheat
+        handleBoardClick(
+          capturedAimX,
+          capturedAimY,
+          capturedAimPoint,
+          releasedPower
+        );
+      } else {
+        // Offline: apply scatter based on power using seeded RNG
+        const rng = currentThrowRngRef.current ?? Math.random;
+        const scattered = addThrowRandomness(
+          capturedAimX,
+          capturedAimY,
+          sessionSkillLevel,
+          releasedPower,
+          isPerfect,
+          rng
+        );
         handleBoardClick(scattered.x, scattered.y);
       }
     },
-    [playSound, matchData, aimPosition, aimWobble, handleBoardClick, throwRng]
+    [playSound, matchData, aimPosition, aimWobble, perfectZoneWidth, handleBoardClick, sessionSkillLevel]
   );
 
-  // === New Power Meter Hook ===
-  // Uses monotonic fill with rhythm variance, overcharge, and deterministic RNG
+  // === Oscillating Power Meter Hook ===
   const {
-    // power (raw 0-150) available if needed for debugging
-    displayPower,
+    power,
     isCharging: isPowerCharging,
-    isOvercharging,
-    overchargePercent,
-    fillSpeedRatio,
-    speedLabel,
     handlers: powerHandlers,
   } = usePowerMeter({
     onRelease: handleThrowWithPower,
-    onChargeStart: initializeThrowRng, // Initialize RNG once per throw
     disabled: dartsThrown >= 3 || !!winner,
-    rng: throwRng, // Uses the SAME RNG instance set by onChargeStart
   });
+
+  // Wrapper to initialize RNG before starting power charge (works for both board and button)
+  const handleBoardPointerDown = useCallback(
+    (e: React.PointerEvent) => {
+      initializeThrowRng();
+      powerHandlers.onPointerDown(e);
+    },
+    [initializeThrowRng, powerHandlers]
+  );
 
   // Handle aim position
   const handleBoardMove = useCallback(
@@ -725,6 +782,13 @@ function App() {
     },
     [gameState, setAimPosition]
   );
+
+  // Reset perfectHits on turn change (when dartsThrown resets to 0)
+  useEffect(() => {
+    if (dartsThrown === 0) {
+      setPerfectHits(0);
+    }
+  }, [dartsThrown]);
 
   // Wobble effect for offline games (pressure situations)
   useEffect(() => {
@@ -1145,6 +1209,7 @@ function App() {
           </div>
 
           <div className="game__board">
+            {/* Dartboard with power handlers attached (primary input) */}
             <Dartboard
               theme={theme}
               dartPositions={dartPositions}
@@ -1152,33 +1217,43 @@ function App() {
               aimWobble={aimWobble}
               showAimCursor={!isPowerCharging}
               onBoardMove={handleBoardMove}
+              onPointerDown={handleBoardPointerDown}
+              onPointerUp={powerHandlers.onPointerUp}
+              onPointerCancel={powerHandlers.onPointerCancel}
+              onPointerLeave={powerHandlers.onPointerLeave}
+              onContextMenu={powerHandlers.onContextMenu}
               disabled={dartsThrown >= 3 || !!winner}
             />
 
             {/* Rhythm indicator for online games */}
             {matchData && <RhythmIndicator state={rhythmState} />}
 
+            {/* Horizontal power bar below dartboard */}
+            <div style={{ width: 'min(400px, 85vw)', marginTop: '20px' }}>
+              <PowerBar
+                power={power}
+                isCharging={isPowerCharging}
+                perfectZoneWidth={perfectZoneWidth}
+              />
+              <p style={{ color: 'var(--color-text-muted)', marginTop: '15px', fontSize: '13px', textAlign: 'center' }}>
+                {isPowerCharging ? 'Release to throw!' : 'Hold board to charge, release to throw'}
+              </p>
+            </div>
+
+            {/* Fallback throw button for accessibility */}
             <div className="game__controls">
               <button
                 className="btn btn-primary game__throw-btn"
-                {...powerHandlers}
+                onPointerDown={handleBoardPointerDown}
+                onPointerUp={powerHandlers.onPointerUp}
+                onPointerCancel={powerHandlers.onPointerCancel}
+                onPointerLeave={powerHandlers.onPointerLeave}
+                onContextMenu={powerHandlers.onContextMenu}
                 disabled={dartsThrown >= 3 || !!winner}
               >
-                {isPowerCharging ? 'Release to Throw!' : 'Hold to Throw'}
+                {isPowerCharging ? 'Release!' : 'Hold to Throw'}
               </button>
             </div>
-          </div>
-
-          <div className="game__sidebar game__sidebar--right">
-            <PowerBar
-              power={displayPower}
-              isCharging={isPowerCharging}
-              isOvercharging={isOvercharging}
-              overchargePercent={overchargePercent}
-              fillSpeedRatio={fillSpeedRatio}
-              speedLabel={speedLabel}
-              orientation="vertical"
-            />
           </div>
         </div>
         <AchievementToast

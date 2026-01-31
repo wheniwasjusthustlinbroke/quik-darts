@@ -1,60 +1,31 @@
 /**
- * usePowerMeter Hook
+ * usePowerMeter Hook - Oscillating Power System
  *
- * RAF-based monotonic power meter with state machine.
- * Handles pointer events, cancellation, rhythm variance, and double-throw guards.
+ * Legacy-matching oscillating power meter (0→100→0→100...).
+ * Uses setInterval at 20ms with ±2 step.
  */
 
 import { useState, useRef, useCallback, useEffect } from 'react';
-import {
-  calculateMeterValue,
-  generateFillDuration,
-  isOvercharging as checkOvercharging,
-  getOverchargePercent,
-  getFillSpeedRatio,
-  getSpeedLabel,
-  OVERCHARGE_MAX,
-  type RngFunction,
-  type SpeedLabel,
-} from './throwMeter';
-
-export type MeterState = 'idle' | 'charging' | 'released' | 'cancelled';
+import { OSCILLATION_INTERVAL_MS, OSCILLATION_STEP } from './legacyMeter';
 
 export interface UsePowerMeterOptions {
-  /** Callback when power is released */
+  /** Callback when power is released - receives final power value */
   onRelease?: (power: number) => void;
-  /** Callback when charging starts (use to initialize per-throw RNG) */
-  onChargeStart?: () => void;
   /** Disable charging */
   disabled?: boolean;
-  /** Injectable RNG for rhythm variance determinism */
-  rng?: RngFunction;
 }
 
 export interface UsePowerMeterReturn {
-  /** Raw power value (0-150, where 100+ is overcharge) */
+  /** Current power value (0-100) */
   power: number;
-  /** Display power clamped to 0-100 for main UI bar */
-  displayPower: number;
   /** Whether currently charging */
   isCharging: boolean;
-  /** Whether in overcharge zone */
-  isOvercharging: boolean;
-  /** Overcharge percentage (0-100) */
-  overchargePercent: number;
-  /** Current state machine state */
-  meterState: MeterState;
-  /** Fill speed ratio (1.0 = base, <1 = slower, >1 = faster) */
-  fillSpeedRatio: number;
-  /** Speed label for UI */
-  speedLabel: SpeedLabel;
   /** Pointer event handlers to spread on target element */
   handlers: {
     onPointerDown: (e: React.PointerEvent) => void;
     onPointerUp: (e: React.PointerEvent) => void;
     onPointerCancel: (e: React.PointerEvent) => void;
     onPointerLeave: (e: React.PointerEvent) => void;
-    onLostPointerCapture: (e: React.PointerEvent) => void;
     onContextMenu: (e: React.MouseEvent) => void;
   };
   /** Manual reset function */
@@ -64,162 +35,131 @@ export interface UsePowerMeterReturn {
 export function usePowerMeter(
   options: UsePowerMeterOptions = {}
 ): UsePowerMeterReturn {
-  const { onRelease, onChargeStart, disabled = false, rng = Math.random } = options;
+  const { onRelease, disabled = false } = options;
 
   const [power, setPower] = useState(0);
-  const [meterState, setMeterState] = useState<MeterState>('idle');
-  const [fillDuration, setFillDuration] = useState(() =>
-    generateFillDuration(rng)
-  );
+  const [isCharging, setIsCharging] = useState(false);
 
-  // Refs for RAF and timing
-  const rafRef = useRef<number | null>(null);
-  const startTimeRef = useRef<number | null>(null);
-  const powerRef = useRef(0); // Avoid stale state on release
-  const releasedRef = useRef(false); // Guard against double-release
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const powerRef = useRef(0);
+  const directionRef = useRef<'up' | 'down'>('up');
   const pointerIdRef = useRef<number | null>(null);
-  const fillDurationRef = useRef(fillDuration);
+  const releasedRef = useRef(false);
 
-  // Keep fillDurationRef in sync
-  useEffect(() => {
-    fillDurationRef.current = fillDuration;
-  }, [fillDuration]);
-
-  // Stop RAF loop
+  // Stop oscillation
   const stopCharging = useCallback(() => {
-    if (rafRef.current !== null) {
-      cancelAnimationFrame(rafRef.current);
-      rafRef.current = null;
-    }
-    startTimeRef.current = null;
-  }, []);
-
-  // RAF update loop
-  const updateMeter = useCallback((timestamp: number) => {
-    if (startTimeRef.current === null) {
-      startTimeRef.current = timestamp;
-    }
-
-    const elapsed = timestamp - startTimeRef.current;
-    const newPower = calculateMeterValue(elapsed, fillDurationRef.current);
-
-    powerRef.current = newPower;
-    setPower(newPower);
-
-    // Continue until max overcharge
-    if (newPower < OVERCHARGE_MAX) {
-      rafRef.current = requestAnimationFrame(updateMeter);
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
     }
   }, []);
 
-  // Start charging
+  // Start charging (oscillating)
   const startCharging = useCallback(
     (e: React.PointerEvent) => {
-      if (disabled || meterState === 'charging') return;
+      if (disabled || isCharging) return;
 
       // Capture pointer for reliable tracking
       try {
         (e.target as HTMLElement).setPointerCapture(e.pointerId);
         pointerIdRef.current = e.pointerId;
       } catch {
-        // Ignore capture errors
+        /* ignore */
       }
 
-      // Initialize per-throw RNG BEFORE generating fill duration
-      // This ensures the same RNG instance is used for variance + scatter
-      onChargeStart?.();
-
-      // Generate new fill duration for this throw (rhythm variance)
-      const newFillDuration = generateFillDuration(rng);
-      setFillDuration(newFillDuration);
-      fillDurationRef.current = newFillDuration;
+      // Clear any existing interval
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+      }
 
       releasedRef.current = false;
-      powerRef.current = 0;
+      setIsCharging(true);
       setPower(0);
-      setMeterState('charging');
-      startTimeRef.current = null;
-      rafRef.current = requestAnimationFrame(updateMeter);
+      powerRef.current = 0;
+      directionRef.current = 'up';
+
+      // OSCILLATING: 0→100→0→100... at 20ms intervals, ±2 per step
+      intervalRef.current = setInterval(() => {
+        if (directionRef.current === 'up') {
+          powerRef.current += OSCILLATION_STEP;
+          if (powerRef.current >= 100) {
+            powerRef.current = 100;
+            directionRef.current = 'down';
+          }
+        } else {
+          powerRef.current -= OSCILLATION_STEP;
+          if (powerRef.current <= 0) {
+            powerRef.current = 0;
+            directionRef.current = 'up';
+          }
+        }
+        setPower(powerRef.current);
+      }, OSCILLATION_INTERVAL_MS);
     },
-    [disabled, meterState, updateMeter, rng, onChargeStart]
+    [disabled, isCharging]
   );
 
   // Release and throw
   const release = useCallback(
     (e?: React.PointerEvent) => {
-      if (meterState !== 'charging' || releasedRef.current) return;
+      if (!isCharging || releasedRef.current) return;
 
       // Release pointer capture
       if (e && pointerIdRef.current !== null) {
         try {
           (e.target as HTMLElement).releasePointerCapture(pointerIdRef.current);
         } catch {
-          // Ignore
+          /* ignore */
         }
       }
       pointerIdRef.current = null;
 
       releasedRef.current = true;
       stopCharging();
-      setMeterState('released');
+      setIsCharging(false);
 
-      // Use powerRef for current value (avoid stale state)
       const finalPower = powerRef.current;
       onRelease?.(finalPower);
 
-      // Reset after short delay (show where user stopped)
+      // INTENTIONAL UX: Show where user stopped briefly before resetting
+      // Not legacy-derived - added for visual feedback
       setTimeout(() => {
         setPower(0);
         powerRef.current = 0;
-        setMeterState('idle');
-      }, 400);
+        directionRef.current = 'up';
+      }, 500);
     },
-    [meterState, stopCharging, onRelease]
+    [isCharging, stopCharging, onRelease]
   );
 
-  // Cancel charging (various edge cases)
+  // Cancel charging
   const cancel = useCallback(() => {
-    if (meterState !== 'charging') return;
-
+    if (!isCharging) return;
     pointerIdRef.current = null;
     stopCharging();
+    setIsCharging(false);
     setPower(0);
     powerRef.current = 0;
-    setMeterState('cancelled');
+    directionRef.current = 'up';
+  }, [isCharging, stopCharging]);
 
-    setTimeout(() => setMeterState('idle'), 100);
-  }, [meterState, stopCharging]);
-
-  // Handle pointer leave while charging
+  // Handle pointer leave
   const handlePointerLeave = useCallback(
     (_e: React.PointerEvent) => {
-      // Only cancel if we're charging
-      if (meterState === 'charging') {
-        cancel();
-      }
+      if (isCharging) cancel();
     },
-    [meterState, cancel]
-  );
-
-  // Handle lost pointer capture (critical for robustness)
-  const handleLostPointerCapture = useCallback(
-    (_e: React.PointerEvent) => {
-      if (meterState === 'charging') {
-        cancel();
-      }
-    },
-    [meterState, cancel]
+    [isCharging, cancel]
   );
 
   // Prevent context menu during charge
   const handleContextMenu = useCallback(
     (e: React.MouseEvent) => {
-      if (meterState === 'charging') {
+      if (isCharging) {
         e.preventDefault();
         cancel();
       }
     },
-    [meterState, cancel]
+    [isCharging, cancel]
   );
 
   // Manual reset
@@ -227,18 +167,24 @@ export function usePowerMeter(
     stopCharging();
     setPower(0);
     powerRef.current = 0;
-    setMeterState('idle');
+    directionRef.current = 'up';
+    setIsCharging(false);
     releasedRef.current = false;
     pointerIdRef.current = null;
   }, [stopCharging]);
 
-  // Handle blur and visibility change
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => stopCharging();
+  }, [stopCharging]);
+
+  // Handle blur/visibility
   useEffect(() => {
     const handleBlur = () => {
-      if (meterState === 'charging') cancel();
+      if (isCharging) cancel();
     };
     const handleVisibility = () => {
-      if (document.hidden && meterState === 'charging') cancel();
+      if (document.hidden && isCharging) cancel();
     };
 
     window.addEventListener('blur', handleBlur);
@@ -247,31 +193,17 @@ export function usePowerMeter(
     return () => {
       window.removeEventListener('blur', handleBlur);
       document.removeEventListener('visibilitychange', handleVisibility);
-      stopCharging();
     };
-  }, [cancel, stopCharging, meterState]);
-
-  // Derived values
-  const isOvercharging = checkOvercharging(power);
-  const overchargePercent = getOverchargePercent(power);
-  const fillSpeedRatio = getFillSpeedRatio(fillDuration);
-  const speedLabel = getSpeedLabel(fillSpeedRatio);
+  }, [isCharging, cancel]);
 
   return {
     power,
-    displayPower: Math.min(power, 100),
-    isCharging: meterState === 'charging',
-    isOvercharging,
-    overchargePercent,
-    meterState,
-    fillSpeedRatio,
-    speedLabel,
+    isCharging,
     handlers: {
       onPointerDown: startCharging,
       onPointerUp: release,
       onPointerCancel: () => cancel(),
       onPointerLeave: handlePointerLeave,
-      onLostPointerCapture: handleLostPointerCapture,
       onContextMenu: handleContextMenu,
     },
     reset,

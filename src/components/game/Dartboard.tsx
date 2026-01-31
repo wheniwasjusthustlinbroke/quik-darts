@@ -28,6 +28,12 @@ interface DartboardProps {
   onBoardClick?: (x: number, y: number) => void;
   onBoardMove?: (x: number, y: number) => void;
   onBoardLeave?: () => void;
+  // Power meter handlers (primary input for hold/release)
+  onPointerDown?: (e: React.PointerEvent<SVGSVGElement>) => void;
+  onPointerUp?: (e: React.PointerEvent<SVGSVGElement>) => void;
+  onPointerCancel?: (e: React.PointerEvent<SVGSVGElement>) => void;
+  onPointerLeave?: (e: React.PointerEvent<SVGSVGElement>) => void;
+  onContextMenu?: (e: React.MouseEvent<SVGSVGElement>) => void;
   disabled?: boolean;
   className?: string;
 }
@@ -41,6 +47,11 @@ export const Dartboard: React.FC<DartboardProps> = ({
   onBoardClick,
   onBoardMove,
   onBoardLeave,
+  onPointerDown,
+  onPointerUp,
+  onPointerCancel,
+  onPointerLeave,
+  onContextMenu,
   disabled = false,
   className = '',
 }) => {
@@ -298,6 +309,11 @@ export const Dartboard: React.FC<DartboardProps> = ({
       onMouseLeave={onBoardLeave}
       onTouchMove={handleTouchMove}
       onTouchEnd={onBoardLeave}
+      onPointerDown={onPointerDown}
+      onPointerUp={onPointerUp}
+      onPointerCancel={onPointerCancel}
+      onPointerLeave={onPointerLeave}
+      onContextMenu={onContextMenu}
       style={{
         width: '100%',
         maxWidth: '500px',

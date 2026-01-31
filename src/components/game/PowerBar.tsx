@@ -1,36 +1,26 @@
 /**
- * PowerBar Component
+ * PowerBar Component - Horizontal Oscillating Layout
  *
- * Visual power indicator for dart throws.
- * Shows current power level, perfect zone, overcharge state, and speed indicator.
+ * Matches legacy quikdarts.com design:
+ * - Horizontal bar below dartboard
+ * - WEAK | PERFECT | STRONG labels
+ * - Dynamic perfect zone width (shrinks on hits)
  */
 
 import React, { useMemo } from 'react';
 import {
-  PERFECT_ZONE_MIN,
-  PERFECT_ZONE_MAX,
-  isInPerfectZone,
-  type SpeedLabel,
-} from '../../throwing/throwMeter';
+  PERFECT_ZONE_CENTER,
+  isInPerfectZone as checkInPerfectZone,
+} from '../../throwing/legacyMeter';
 import './PowerBar.css';
 
 interface PowerBarProps {
-  /** Current power (0-100, clamped for display) */
+  /** Current power (0-100) */
   power: number;
   /** Whether currently charging */
   isCharging: boolean;
-  /** Whether in overcharge zone */
-  isOvercharging?: boolean;
-  /** Overcharge percentage (0-100) */
-  overchargePercent?: number;
-  /** Fill speed ratio for indicator */
-  fillSpeedRatio?: number;
-  /** Speed label for explicit UI feedback */
-  speedLabel?: SpeedLabel;
-  /** Show perfect zone indicator */
-  showPerfectZone?: boolean;
-  /** Orientation of the bar */
-  orientation?: 'horizontal' | 'vertical';
+  /** Perfect zone width (dynamic, based on hits) */
+  perfectZoneWidth: number;
   /** Additional CSS class */
   className?: string;
 }
@@ -38,125 +28,65 @@ interface PowerBarProps {
 export const PowerBar: React.FC<PowerBarProps> = ({
   power,
   isCharging,
-  isOvercharging = false,
-  overchargePercent = 0,
-  fillSpeedRatio = 1,
-  speedLabel = 'NORMAL',
-  showPerfectZone = true,
-  orientation = 'vertical',
+  perfectZoneWidth,
   className = '',
 }) => {
-  const inPerfectZone = isInPerfectZone(power);
-  const perfectZoneSize = PERFECT_ZONE_MAX - PERFECT_ZONE_MIN;
+  const inPerfectZone = checkInPerfectZone(power, perfectZoneWidth);
+  const perfectZoneLeft = PERFECT_ZONE_CENTER - perfectZoneWidth / 2;
 
-  // Determine power bar color
-  const powerColor = useMemo(() => {
-    if (isOvercharging) return 'var(--color-warning, #ff8800)';
+  // Determine fill color
+  const fillColor = useMemo(() => {
     if (inPerfectZone) return 'var(--color-success)';
     if (power < 30 || power > 70) return 'var(--color-error)';
     return 'var(--color-accent)';
-  }, [power, inPerfectZone, isOvercharging]);
+  }, [power, inPerfectZone]);
 
-  // Bar fill style
-  const barStyle = useMemo(() => {
-    if (orientation === 'vertical') {
-      return { height: `${power}%` };
+  // Shrink indicator text
+  const shrinkText = useMemo(() => {
+    if (perfectZoneWidth < 10) {
+      return ` (-${Math.round(10 - perfectZoneWidth)}%)`;
     }
-    return { width: `${power}%` };
-  }, [power, orientation]);
-
-  // Speed indicator class
-  const speedClass = useMemo(() => {
-    if (fillSpeedRatio < 0.96) return 'power-bar--slow';
-    if (fillSpeedRatio > 1.04) return 'power-bar--fast';
     return '';
-  }, [fillSpeedRatio]);
-
-  // Build class list
-  const classNames = [
-    'power-bar',
-    `power-bar--${orientation}`,
-    isCharging ? 'power-bar--charging' : '',
-    isOvercharging ? 'power-bar--overcharging' : '',
-    speedClass,
-    className,
-  ]
-    .filter(Boolean)
-    .join(' ');
+  }, [perfectZoneWidth]);
 
   return (
-    <div className={classNames}>
-      {/* Speed indicator label - only show while charging */}
-      {isCharging && (
-        <div className={`power-bar__speed-label power-bar__speed-label--${speedLabel.toLowerCase()}`}>
-          {speedLabel}
-        </div>
-      )}
-
+    <div className={`power-bar power-bar--horizontal ${className}`}>
       <div className="power-bar__track">
         {/* Perfect zone indicator */}
-        {showPerfectZone && (
-          <div
-            className="power-bar__perfect-zone"
-            style={
-              orientation === 'vertical'
-                ? {
-                    bottom: `${PERFECT_ZONE_MIN}%`,
-                    height: `${perfectZoneSize}%`,
-                  }
-                : {
-                    left: `${PERFECT_ZONE_MIN}%`,
-                    width: `${perfectZoneSize}%`,
-                  }
-            }
-          />
-        )}
-
-        {/* Power fill */}
         <div
-          className={`power-bar__fill ${isOvercharging ? 'power-bar__fill--overcharge' : ''}`}
+          className="power-bar__perfect-zone"
           style={{
-            ...barStyle,
-            backgroundColor: powerColor,
+            left: `${perfectZoneLeft}%`,
+            width: `${perfectZoneWidth}%`,
           }}
         />
 
-        {/* Power indicator line */}
+        {/* Center line at 50% */}
+        <div className="power-bar__center-line" />
+
+        {/* Power fill */}
         <div
-          className="power-bar__indicator"
-          style={
-            orientation === 'vertical'
-              ? { bottom: `${power}%` }
-              : { left: `${power}%` }
-          }
+          className={`power-bar__fill ${inPerfectZone ? 'power-bar__fill--perfect' : ''}`}
+          style={{
+            width: `${power}%`,
+            backgroundColor: fillColor,
+            transition: isCharging ? 'none' : 'width 0.2s',
+          }}
         />
       </div>
 
-      {/* Power value label */}
-      <div className="power-bar__label">
-        <span className="power-bar__value">{Math.round(power)}</span>
-        <span className="power-bar__unit">%</span>
+      {/* WEAK | PERFECT | STRONG labels */}
+      <div className="power-bar__labels">
+        <span className="power-bar__label--weak">WEAK</span>
+        <span className="power-bar__label--perfect">
+          PERFECT{shrinkText}
+        </span>
+        <span className="power-bar__label--strong">STRONG</span>
       </div>
 
-      {/* Perfect zone label - show when in perfect zone while charging */}
-      {inPerfectZone && isCharging && !isOvercharging && (
-        <div className="power-bar__perfect-label">PERFECT</div>
-      )}
-
-      {/* Overcharge indicator - critical for UX */}
-      {isOvercharging && isCharging && (
-        <div className="power-bar__overcharge-indicator">
-          <span className="power-bar__overcharge-label">OVERCHARGE</span>
-          <div className="power-bar__overcharge-bar">
-            <div
-              className="power-bar__overcharge-fill"
-              style={{ width: `${overchargePercent}%` }}
-            />
-          </div>
-          <span className="power-bar__overcharge-percent">
-            {Math.round(overchargePercent)}%
-          </span>
-        </div>
+      {/* Perfect zone feedback - show when in zone while charging */}
+      {inPerfectZone && isCharging && (
+        <div className="power-bar__perfect-feedback">PERFECT!</div>
       )}
     </div>
   );
