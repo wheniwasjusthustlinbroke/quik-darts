@@ -38,6 +38,7 @@ export const THEME_CLASSIC: DartboardTheme = {
     wire: '#888888',
     numbers: '#f5f0e8',
     background: '#1a1a1a',
+    frame: '#1a4a6e',
   },
   wireStyle: {
     width: 1.0,
@@ -60,6 +61,7 @@ export const THEME_PRO_WIRE: DartboardTheme = {
     wire: '#d4d4d4',
     numbers: '#ffffff',
     background: '#1a1a1a',
+    frame: '#2a5a8e',
   },
   wireStyle: {
     width: 0.8,
@@ -82,6 +84,7 @@ export const THEME_NEON_GLOW: DartboardTheme = {
     wire: '#00ffff',
     numbers: '#00ffff',
     background: '#050508',
+    frame: '#0a2a4a',
   },
   wireStyle: {
     width: 1.2,
@@ -106,6 +109,7 @@ export const THEME_GOLD_ELITE: DartboardTheme = {
     wire: '#d4a03a',
     numbers: '#d4a03a',
     background: '#0a0806',
+    frame: '#3a2a1a',
   },
   wireStyle: {
     width: 1.0,
@@ -131,6 +135,7 @@ export const THEME_STEALTH: DartboardTheme = {
     wire: '#4a4a4a',
     numbers: '#6a6a6a',
     background: '#050505',
+    frame: '#1a1a1a',
   },
   wireStyle: {
     width: 0.5,
