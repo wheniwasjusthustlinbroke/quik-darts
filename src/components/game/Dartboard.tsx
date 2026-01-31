@@ -324,15 +324,6 @@ export const Dartboard: React.FC<DartboardProps> = ({
         touchAction: 'none',
       }}
     >
-      {/* Background */}
-      <rect
-        x="0"
-        y="0"
-        width={BOARD_SIZE}
-        height={BOARD_SIZE}
-        fill={colors.background}
-      />
-
       {/* Segments */}
       {segments}
 
