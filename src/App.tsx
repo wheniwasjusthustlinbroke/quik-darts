@@ -44,6 +44,11 @@ import {
   getSkillLevelForDifficulty,
   DEFAULT_SKILL_LEVEL,
 } from './utils/difficulty';
+import {
+  getAITarget,
+  calculateAIThrow,
+  getAIThinkingDelay,
+} from './utils/ai';
 import { DartIcon, GlobeIcon, TargetIcon, TrophyIcon, CoinIcon, UserIcon } from './components/icons';
 import {
   joinCasualQueue,
@@ -100,6 +105,12 @@ function App() {
   const isWageredMatchRef = useRef(false);
   // Ref to prevent double forfeit calls on disconnect
   const disconnectHandledRef = useRef<string | null>(null);
+
+  // === AI Turn State ===
+  // Timer ref for AI throw delay (cleanup on turn change)
+  const aiTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // In-flight guard to prevent double-scheduling
+  const aiInFlightRef = useRef(false);
 
   // === Offline Game Determinism State ===
   // Stable gameId for offline sessions (generated once at game start)
@@ -773,9 +784,22 @@ function App() {
     [gameState, dartsThrown, throwDart, playSound, currentTurnScore, endTurn, matchData, isSubmittingThrow, gameSnapshot, currentPlayerIndex]
   );
 
+  // Compute if it's currently AI's turn (used to block human input)
+  const isAITurn = useMemo(() => {
+    return (
+      gameState === 'playing' &&
+      !matchData &&
+      !winner &&
+      !!players[currentPlayerIndex]?.isAI
+    );
+  }, [gameState, matchData, winner, players, currentPlayerIndex]);
+
   // Handle throw with power (called when power meter is released)
   const handleThrowWithPower = useCallback(
     (releasedPower: number) => {
+      // Safety net: block if AI's turn (should already be blocked by usePowerMeter)
+      if (isAITurn) return;
+
       playSound('throw');
 
       // Capture aim position WITH wobble at release time (for wagered anti-cheat)
@@ -813,7 +837,7 @@ function App() {
         handleBoardClick(scattered.x, scattered.y);
       }
     },
-    [playSound, matchData, aimPosition, aimWobble, perfectZoneWidth, handleBoardClick, sessionSkillLevel, currentPlayer]
+    [isAITurn, playSound, matchData, aimPosition, aimWobble, perfectZoneWidth, handleBoardClick, sessionSkillLevel, currentPlayer]
   );
 
   // === Oscillating Power Meter Hook ===
@@ -823,16 +847,17 @@ function App() {
     handlers: powerHandlers,
   } = usePowerMeter({
     onRelease: handleThrowWithPower,
-    disabled: dartsThrown >= 3 || !!winner,
+    disabled: dartsThrown >= 3 || !!winner || isAITurn,
   });
 
   // Wrapper to initialize RNG before starting power charge (works for both board and button)
   const handleBoardPointerDown = useCallback(
     (e: React.PointerEvent) => {
+      if (isAITurn) return;
       initializeThrowRng();
       powerHandlers.onPointerDown(e);
     },
-    [initializeThrowRng, powerHandlers]
+    [isAITurn, initializeThrowRng, powerHandlers]
   );
 
   // Handle aim position
@@ -840,9 +865,10 @@ function App() {
     (x: number, y: number) => {
       const isGameActive = gameState === 'playing' || gameState === 'practice';
       if (!isGameActive) return;
+      if (isAITurn) return;
       setAimPosition({ x, y });
     },
-    [gameState, setAimPosition]
+    [gameState, setAimPosition, isAITurn]
   );
 
   // Reset shrink on darts reset (start of turn after 3 darts)
@@ -901,6 +927,104 @@ function App() {
     isPowerCharging,
     sessionSkillLevel,
   ]);
+
+  // === AI Turn Handler ===
+  // Auto-throws when it's AI's turn in offline 'playing' mode
+  useEffect(() => {
+    // Only active during offline 'playing' mode (not practice, not online)
+    if (gameState !== 'playing') return;
+    if (matchData) return;
+    if (winner) return;
+    if (dartsThrown >= 3) return;
+    if (isSubmittingThrow) return;
+    if (isPowerCharging) return;
+
+    const currentPlayerObj = players[currentPlayerIndex];
+    if (!currentPlayerObj?.isAI) return;
+
+    // Prevent double scheduling: if timer already exists, don't reschedule
+    if (aiTimeoutRef.current) return;
+    // Prevent scheduling if throw already in-flight
+    if (aiInFlightRef.current) return;
+
+    const difficulty = currentPlayerObj.aiDifficulty || 'medium';
+    const delay = getAIThinkingDelay(difficulty);
+
+    if (import.meta.env.MODE !== 'production') {
+      console.debug('[AI] throw scheduled', {
+        player: currentPlayerObj.name,
+        difficulty,
+        delay,
+        dartsThrown,
+      });
+    }
+
+    aiTimeoutRef.current = setTimeout(() => {
+      // Stale timer guard: recheck all conditions with live state
+      const livePlayer = players[currentPlayerIndex];
+      const stillValid =
+        gameState === 'playing' &&
+        !matchData &&
+        !winner &&
+        livePlayer?.isAI &&
+        dartsThrown < 3 &&
+        !isSubmittingThrow &&
+        !isPowerCharging;
+
+      if (!stillValid) {
+        if (import.meta.env.MODE !== 'production') {
+          console.debug('[AI] throw cancelled (stale timer)');
+        }
+        aiTimeoutRef.current = null;
+        return;
+      }
+
+      // Mark in-flight (cleared by separate effect)
+      aiInFlightRef.current = true;
+
+      // Use live player state for targeting
+      const liveDifficulty = livePlayer.aiDifficulty || 'medium';
+      const target = getAITarget(liveDifficulty, livePlayer.score);
+      const throwPosition = calculateAIThrow(target, liveDifficulty);
+
+      // AI doesn't use power meter, so clear perfect zone refs
+      lastThrowPerfectRef.current = false;
+      preThrowScoreRef.current = null;
+
+      // Play throw sound (same as human path)
+      playSound('throw');
+
+      // Execute throw - handleBoardClick handles result sounds
+      handleBoardClick(throwPosition.x, throwPosition.y);
+
+      // Clear timeout ref (in-flight cleared by separate effect)
+      aiTimeoutRef.current = null;
+    }, delay);
+
+    // Cleanup on unmount/deps change
+    return () => {
+      if (aiTimeoutRef.current) {
+        clearTimeout(aiTimeoutRef.current);
+        aiTimeoutRef.current = null;
+      }
+    };
+  }, [
+    gameState,
+    matchData,
+    winner,
+    players,
+    currentPlayerIndex,
+    dartsThrown,
+    isSubmittingThrow,
+    isPowerCharging,
+    playSound,
+    handleBoardClick,
+  ]);
+
+  // Clear AI in-flight flag when dartsThrown changes or leaving AI turn/playing mode
+  useEffect(() => {
+    aiInFlightRef.current = false;
+  }, [dartsThrown, currentPlayerIndex, gameState, matchData, winner]);
 
   // Play checkout sound when winner is determined
   useEffect(() => {
@@ -1188,7 +1312,16 @@ function App() {
               <div className="setup__group">
                 <DifficultySelector
                   value={gameDifficulty}
-                  onChange={setGameDifficulty}
+                  onChange={(diff) => {
+                    setGameDifficulty(diff);
+                    // Only sync AI difficulty if Player 2 is actually AI (defensive guard)
+                    if (playerSetup.aiPlayers[1]) {
+                      setPlayerSetup((prev) => ({
+                        ...prev,
+                        aiDifficulty: [prev.aiDifficulty[0], diff],
+                      }));
+                    }
+                  }}
                 />
               </div>
             )}
@@ -1287,7 +1420,7 @@ function App() {
             </button>
           </div>
 
-          <div className="game__board">
+          <div className="game__board" style={isAITurn ? { pointerEvents: 'none' } : undefined}>
             {/* Dartboard with power handlers attached (primary input) */}
             <Dartboard
               theme={theme}
@@ -1301,7 +1434,7 @@ function App() {
               onPointerCancel={powerHandlers.onPointerCancel}
               onPointerLeave={powerHandlers.onPointerLeave}
               onContextMenu={powerHandlers.onContextMenu}
-              disabled={dartsThrown >= 3 || !!winner}
+              disabled={dartsThrown >= 3 || !!winner || isAITurn}
             />
 
             {/* Rhythm indicator for online games */}
@@ -1328,7 +1461,7 @@ function App() {
                 onPointerCancel={powerHandlers.onPointerCancel}
                 onPointerLeave={powerHandlers.onPointerLeave}
                 onContextMenu={powerHandlers.onContextMenu}
-                disabled={dartsThrown >= 3 || !!winner}
+                disabled={dartsThrown >= 3 || !!winner || isAITurn}
               >
                 {isPowerCharging ? 'Release!' : 'Hold to Throw'}
               </button>
