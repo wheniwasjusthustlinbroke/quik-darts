@@ -383,13 +383,17 @@ export function useGameState(callbacks?: AchievementCallbacks): UseGameStateRetu
       }
 
       if (result.isBust) {
+        // Lock turn immediately - state updates are processed in order, so this
+        // setDartsThrown(3) wins over the earlier setDartsThrown(prev => prev + 1)
+        setDartsThrown(3);
+
         // Bust! Show popup and end turn after delay (restores score)
         setShowScorePopup(result);
         setTimeout(() => {
           setShowScorePopup(null);
           endTurn(true); // Pass true to restore turn score
         }, 1500);
-        return result;
+        return result; // CRITICAL: early return prevents any code below from running
       }
 
       // Not bust - update scores normally
