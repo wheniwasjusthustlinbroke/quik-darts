@@ -772,8 +772,8 @@ function App() {
         playSound('180');
       }
 
-      // Auto end turn after 3 darts
-      if (dartsThrown + 1 >= 3) {
+      // Auto end turn after 3 darts (skip if bust - useGameState handles bust endTurn)
+      if (dartsThrown + 1 >= 3 && !result.isBust) {
         setTimeout(() => endTurn(), 1000);
       }
     },
