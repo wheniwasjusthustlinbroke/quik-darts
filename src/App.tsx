@@ -89,6 +89,7 @@ function App() {
   const [rhythmState, setRhythmState] = useState<RhythmState>('neutral');
   const [aimWobble, setAimWobble] = useState<Position>({ x: 0, y: 0 });
   const [gameDifficulty, setGameDifficulty] = useState<GameDifficulty>('medium');
+  const [isAIMode, setIsAIMode] = useState(false);
   const [sessionSkillLevel, setSessionSkillLevel] = useState<number>(DEFAULT_SKILL_LEVEL);
   const [perfectShrinkAmount, setPerfectShrinkAmount] = useState(0);
   const lastThrowPerfectRef = useRef(false);
@@ -276,6 +277,7 @@ function App() {
     void leaveWageredQueue();
     resetOnlineFlow();
     // Reset achievement context
+    setIsAIMode(false);
     setIsOnlineGame(false);
     setIsPracticeMode(false);
     setHasAIOpponent(false);
@@ -402,7 +404,8 @@ function App() {
       }
       return;
     }
-    // Open stake selector modal
+    // Open stake selector modal (reset AI mode since online is non-AI)
+    setIsAIMode(false);
     setShowStakeSelection(true);
   }, [isSearching, isCreatingEscrow, resetOnlineFlow]);
 
@@ -1042,12 +1045,21 @@ function App() {
   }, []);
 
   const handlePlayAI = useCallback(() => {
-    setPlayerSetup((prev) => ({
-      ...prev,
-      count: 2,
-      aiPlayers: [false, true],
-      aiDifficulty: [null, 'medium'],
-    }));
+    setPlayerSetup((prev) => {
+      const names = (prev.names ?? []).slice(0, 2);
+      const flags = (prev.flags ?? []).slice(0, 2);
+      return {
+        ...prev,
+        count: 2,
+        names: [names[0] ?? 'Player 1', 'AI'],
+        aiPlayers: [false, true],
+        aiDifficulty: [null, 'medium'],
+        flags: [flags[0] ?? '🏴󠁧󠁢󠁥󠁮󠁧󠁿', '🤖'],
+        legsPerSet: 3,
+        setsToWin: 2,
+      };
+    });
+    setIsAIMode(true);
     setIsPracticeMode(false);
     setIsOnlineGame(false);
     setPerfectShrinkAmount(0);
@@ -1063,6 +1075,7 @@ function App() {
       aiPlayers: [false],
       aiDifficulty: [null],
     }));
+    setIsAIMode(false);
     setIsPracticeMode(true);
     setIsOnlineGame(false);
     setPerfectShrinkAmount(0);
@@ -1142,25 +1155,27 @@ function App() {
     return (
       <div className="app">
         <div className="setup">
-          <h2 className="setup__title">Game Setup</h2>
+          <h2 className="setup__title">{isAIMode ? 'Play vs AI' : 'Game Setup'}</h2>
 
           <div className="setup__options">
-            <div className="setup__option">
-              <label className="setup__label">Players</label>
-              <div className="setup__buttons">
-                {[1, 2].map((count) => (
-                  <button
-                    key={count}
-                    className={`setup__btn ${playerSetup.count === count ? 'setup__btn--active' : ''}`}
-                    onClick={() =>
-                      setPlayerSetup((prev) => ({ ...prev, count }))
-                    }
-                  >
-                    {count}
-                  </button>
-                ))}
+            {!isAIMode && (
+              <div className="setup__option">
+                <label className="setup__label">Players</label>
+                <div className="setup__buttons">
+                  {[1, 2].map((count) => (
+                    <button
+                      key={count}
+                      className={`setup__btn ${playerSetup.count === count ? 'setup__btn--active' : ''}`}
+                      onClick={() =>
+                        setPlayerSetup((prev) => ({ ...prev, count }))
+                      }
+                    >
+                      {count}
+                    </button>
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
 
             <div className="setup__option">
               <label className="setup__label">Game Mode</label>
@@ -1182,7 +1197,7 @@ function App() {
               </div>
             </div>
 
-            {playerSetup.count === 2 && (
+            {!isAIMode && playerSetup.count === 2 && (
               <div className="setup__option">
                 <label className="setup__label">Player 2</label>
                 <div className="setup__buttons">
@@ -1214,28 +1229,68 @@ function App() {
               </div>
             )}
 
-            {/* Difficulty selector (shown when AI opponent selected) */}
-            {playerSetup.count === 2 && playerSetup.aiPlayers[1] && (
+            {/* Difficulty selector - different logic for AI mode vs non-AI mode */}
+            {isAIMode ? (
+              // AI MODE: Always show, single source of truth from playerSetup
               <div className="setup__group">
                 <DifficultySelector
-                  value={gameDifficulty}
+                  value={playerSetup.aiDifficulty[1] ?? 'medium'}
                   onChange={(diff) => {
-                    setGameDifficulty(diff);
-                    // Only sync AI difficulty if Player 2 is actually AI (defensive guard)
-                    if (playerSetup.aiPlayers[1]) {
-                      setPlayerSetup((prev) => ({
-                        ...prev,
-                        aiDifficulty: [prev.aiDifficulty[0], diff],
-                      }));
-                    }
+                    setPlayerSetup((prev) => ({
+                      ...prev,
+                      aiPlayers: [false, true], // Enforce AI stays AI
+                      aiDifficulty: [prev.aiDifficulty[0], diff],
+                    }));
                   }}
                 />
+              </div>
+            ) : (
+              // NON-AI MODE: Show only when Player 2 is AI
+              playerSetup.count === 2 && playerSetup.aiPlayers[1] && (
+                <div className="setup__group">
+                  <DifficultySelector
+                    value={gameDifficulty}
+                    onChange={(diff) => {
+                      setGameDifficulty(diff);
+                      // Only sync AI difficulty if Player 2 is actually AI (defensive guard)
+                      if (playerSetup.aiPlayers[1]) {
+                        setPlayerSetup((prev) => ({
+                          ...prev,
+                          aiDifficulty: [prev.aiDifficulty[0], diff],
+                        }));
+                      }
+                    }}
+                  />
+                </div>
+              )
+            )}
+
+            {/* Sets selector - only in AI mode */}
+            {isAIMode && (
+              <div className="setup__option">
+                <label className="setup__label">Sets</label>
+                <div className="setup__buttons">
+                  {[
+                    { label: 'Best of 1', value: 1 },
+                    { label: 'Best of 3', value: 2 },
+                    { label: 'Best of 5', value: 3 },
+                    { label: 'Best of 7', value: 4 },
+                  ].map((opt) => (
+                    <button
+                      key={opt.label}
+                      className={`setup__btn ${playerSetup.setsToWin === opt.value ? 'setup__btn--active' : ''}`}
+                      onClick={() => setPlayerSetup((prev) => ({ ...prev, setsToWin: opt.value }))}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
               </div>
             )}
           </div>
 
           <div className="setup__actions">
-            <button className="btn btn-ghost" onClick={() => setGameState('landing')}>
+            <button className="btn btn-ghost" onClick={() => { setIsAIMode(false); setGameState('landing'); }}>
               Back
             </button>
             <button
@@ -1246,8 +1301,11 @@ function App() {
                 setHasAIOpponent(hasAI);
                 setIsPracticeMode(false);
                 setIsOnlineGame(false);
-                // Set session skill level based on difficulty (resolved once at start)
-                setSessionSkillLevel(getSkillLevelForDifficulty(gameDifficulty));
+                // Set session skill level based on difficulty (read directly from source of truth)
+                const difficultyToUse = isAIMode
+                  ? (playerSetup.aiDifficulty[1] ?? 'medium')
+                  : gameDifficulty;
+                setSessionSkillLevel(getSkillLevelForDifficulty(difficultyToUse));
                 // Reset shrink state for new game
                 setPerfectShrinkAmount(0);
                 lastThrowPerfectRef.current = false;
