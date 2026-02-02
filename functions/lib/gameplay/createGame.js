@@ -95,48 +95,100 @@ exports.createGame = functions
             throw new functions.https.HttpsError('invalid-argument', 'Escrow players do not match game players');
         }
     }
+    // 3b. For casual games, atomically claim opponent (transaction prevents race)
+    let casualGameId = null;
+    if (!isWagered) {
+        // Pre-generate gameId BEFORE transaction
+        casualGameId = db.ref('games').push().key;
+        if (!casualGameId) {
+            throw new functions.https.HttpsError('internal', 'Failed to generate game id');
+        }
+        const queueEntryRef = db.ref(`matchmaking_queue/casual/${player1Id}`);
+        // Atomic claim via transaction
+        const claimResult = await queueEntryRef.transaction((entry) => {
+            if (!entry)
+                return undefined;
+            if (entry.matchedGameId)
+                return undefined;
+            if (entry.gameMode && entry.gameMode !== gameMode)
+                return undefined;
+            return {
+                ...entry,
+                matchedGameId: casualGameId,
+                matchedByName: sanitizeName(player2Name),
+                matchedByFlag: sanitizeFlag(player2Flag),
+            };
+        });
+        if (!claimResult.committed) {
+            throw new functions.https.HttpsError('failed-precondition', 'Opponent not available');
+        }
+    }
     // 4. Create game room
-    const gameRef = db.ref('games').push();
-    const gameId = gameRef.key;
-    const now = Date.now();
-    const gameData = {
-        player1: {
-            id: player1Id,
-            name: sanitizeName(player1Name),
-            flag: sanitizeFlag(player1Flag),
-            score: gameMode,
-            ready: true,
-            connected: false, // Will be set when player1 joins
-            lastHeartbeat: now,
-        },
-        player2: {
-            id: player2Id,
-            name: sanitizeName(player2Name),
-            flag: sanitizeFlag(player2Flag),
-            score: gameMode,
-            ready: true,
-            connected: true, // Player2 creates the game, so they're connected
-            lastHeartbeat: now,
-        },
-        currentPlayer: 0, // Player 1 starts
-        gameMode,
-        dartsThrown: 0,
-        currentTurnScore: 0,
-        throwHistory: {},
-        dartPositions: {},
-        legScores: { 0: 0, 1: 0 },
-        setScores: { 0: 0, 1: 0 },
-        status: 'playing',
-        createdAt: now,
-        ...(isWagered && {
-            wager: {
-                stakeAmount,
-                escrowId,
-                settled: false,
+    // Use pre-generated casualGameId if available, otherwise generate new
+    const fallbackId = casualGameId ? null : db.ref('games').push().key;
+    if (!casualGameId && !fallbackId) {
+        throw new functions.https.HttpsError('internal', 'Failed to generate game id');
+    }
+    const gameId = casualGameId || fallbackId;
+    const gameRef = db.ref(`games/${gameId}`);
+    try {
+        const now = Date.now();
+        const gameData = {
+            player1: {
+                id: player1Id,
+                name: sanitizeName(player1Name),
+                flag: sanitizeFlag(player1Flag),
+                score: gameMode,
+                ready: true,
+                connected: false, // Will be set when player1 joins
+                lastHeartbeat: now,
             },
-        }),
-    };
-    await gameRef.set(gameData);
+            player2: {
+                id: player2Id,
+                name: sanitizeName(player2Name),
+                flag: sanitizeFlag(player2Flag),
+                score: gameMode,
+                ready: true,
+                connected: true, // Player2 creates the game, so they're connected
+                lastHeartbeat: now,
+            },
+            currentPlayer: 0, // Player 1 starts
+            gameMode,
+            dartsThrown: 0,
+            currentTurnScore: 0,
+            throwHistory: {},
+            dartPositions: {},
+            legScores: { 0: 0, 1: 0 },
+            setScores: { 0: 0, 1: 0 },
+            status: 'playing',
+            createdAt: now,
+            ...(isWagered && {
+                wager: {
+                    stakeAmount,
+                    escrowId,
+                    settled: false,
+                },
+            }),
+        };
+        await gameRef.set(gameData);
+    }
+    catch (error) {
+        // Conditional rollback: only clear if still our claim
+        if (!isWagered && casualGameId) {
+            const rollbackResult = await db.ref(`matchmaking_queue/casual/${player1Id}/matchedGameId`).transaction((current) => {
+                if (current === casualGameId)
+                    return null;
+                return; // abort - someone else's claim
+            });
+            if (rollbackResult.committed) {
+                await db.ref(`matchmaking_queue/casual/${player1Id}`).update({
+                    matchedByName: null,
+                    matchedByFlag: null,
+                });
+            }
+        }
+        throw error;
+    }
     console.log(`[createGame] Created game ${gameId} between ${player1Id} and ${player2Id}`);
     return {
         success: true,

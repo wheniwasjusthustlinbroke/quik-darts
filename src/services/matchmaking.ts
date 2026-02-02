@@ -283,7 +283,7 @@ async function createGameWithOpponent(
   opponent: QueueEntry,
   profile: { displayName?: string; flag?: string; level?: number; avatarUrl?: string | null },
   gameMode: 301 | 501,
-  queueRef: DatabaseReference,
+  _queueRef: DatabaseReference,
   callbacks: MatchmakingCallbacks,
   functions: any
 ): Promise<void> {
@@ -316,13 +316,7 @@ async function createGameWithOpponent(
 
     const roomId = data.gameId;
 
-    // Notify opponent by updating their queue entry with matchedGameId
-    const opponentEntryRef = child(queueRef, opponentKey);
-    await update(opponentEntryRef, {
-      matchedGameId: roomId,
-      matchedByName: sanitizeName(profile.displayName) || 'Player',
-      matchedByFlag: sanitizeFlag(profile.flag) || '🌍'
-    });
+    // Server now handles match assignment in createGame Cloud Function
 
     myPlayerIndex = 1; // We're player2
 

@@ -58,15 +58,15 @@
           ".write": "auth != null && auth.uid === $playerId",
           ".validate": "!newData.exists() || (newData.hasChildren(['playerId', 'name', 'flag', 'timestamp']) && newData.child('playerId').val() === $playerId && newData.child('name').isString() && newData.child('name').val().length >= 1 && newData.child('name').val().length <= 20 && newData.child('flag').isString() && newData.child('flag').val().length <= 50 && (!newData.hasChild('level') || (newData.child('level').isNumber() && newData.child('level').val() >= 1 && newData.child('level').val() <= 999)) && (!newData.hasChild('avatarUrl') || (newData.child('avatarUrl').isString() && newData.child('avatarUrl').val().length <= 500 && newData.child('avatarUrl').val().beginsWith('https://'))))",
           "matchedGameId": {
-            ".write": "auth != null && data.parent().child('playerId').val() !== null",
+            ".write": false,
             ".validate": "newData.isString() && newData.val().length >= 10 && newData.val().length <= 50"
           },
           "matchedByName": {
-            ".write": "auth != null && data.parent().child('playerId').val() !== null",
+            ".write": false,
             ".validate": "newData.isString() && newData.val().length >= 1 && newData.val().length <= 20"
           },
           "matchedByFlag": {
-            ".write": "auth != null && data.parent().child('playerId').val() !== null",
+            ".write": false,
             ".validate": "newData.isString() && newData.val().length <= 50"
           },
           "matchedByLevel": {
