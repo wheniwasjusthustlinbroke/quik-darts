@@ -1031,12 +1031,7 @@ async function createWageredGameWithOpponent(
 
     const roomId = data.gameId;
 
-    // Notify opponent via matchedGameId
-    await update(opponentEntryRef, {
-      matchedGameId: roomId,
-      matchedByName: sanitizeName(profile.displayName) || 'Player',
-      matchedByFlag: sanitizeFlag(profile.flag) || '🌍',
-    });
+    // Server now handles match assignment in createGame Cloud Function
 
     myPlayerIndex = 1; // We're player2
 

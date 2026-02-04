@@ -162,13 +162,50 @@ export const createGame = functions
       }
     }
 
+    // 3c. For wagered games, atomically claim opponent (transaction prevents race)
+    let wageredGameId: string | null = null;
+    let wageredStakeLevel: string | null = null;
+    if (isWagered && stakeAmount) {
+      // Validate and normalize stakeLevel (capture once, reuse in rollback)
+      wageredStakeLevel = String(stakeAmount);
+      if (!['50', '100', '500', '2500'].includes(wageredStakeLevel)) {
+        throw new functions.https.HttpsError('invalid-argument', 'Invalid stake level');
+      }
+
+      // Pre-generate gameId BEFORE transaction
+      wageredGameId = db.ref('games').push().key;
+      if (!wageredGameId) {
+        throw new functions.https.HttpsError('internal', 'Failed to generate game id');
+      }
+
+      const queueEntryRef = db.ref(`matchmaking_queue/wagered/${wageredStakeLevel}/${player1Id}`);
+
+      // Atomic claim via transaction
+      const claimResult = await queueEntryRef.transaction((entry) => {
+        if (!entry) return undefined;
+        if (entry.matchedGameId) return undefined;
+        if (entry.gameMode && entry.gameMode !== gameMode) return undefined;
+        return {
+          ...entry,
+          matchedGameId: wageredGameId,
+          matchedByName: sanitizeName(player2Name),
+          matchedByFlag: sanitizeFlag(player2Flag),
+        };
+      });
+
+      if (!claimResult.committed) {
+        throw new functions.https.HttpsError('failed-precondition', 'Opponent not available');
+      }
+    }
+
     // 4. Create game room
-    // Use pre-generated casualGameId if available, otherwise generate new
-    const fallbackId = casualGameId ? null : db.ref('games').push().key;
-    if (!casualGameId && !fallbackId) {
+    // Use pre-generated gameId if available, otherwise generate new
+    const preGeneratedId = casualGameId || wageredGameId;
+    const fallbackId = preGeneratedId ? null : db.ref('games').push().key;
+    if (!preGeneratedId && !fallbackId) {
       throw new functions.https.HttpsError('internal', 'Failed to generate game id');
     }
-    const gameId = casualGameId || fallbackId;
+    const gameId = (preGeneratedId ?? fallbackId)!;
     const gameRef = db.ref(`games/${gameId}`);
 
     try {
@@ -222,6 +259,18 @@ export const createGame = functions
         });
         if (rollbackResult.committed) {
           await db.ref(`matchmaking_queue/casual/${player1Id}`).update({
+            matchedByName: null,
+            matchedByFlag: null,
+          });
+        }
+      }
+      if (isWagered && wageredGameId && wageredStakeLevel) {
+        const rollbackResult = await db.ref(`matchmaking_queue/wagered/${wageredStakeLevel}/${player1Id}/matchedGameId`).transaction((current) => {
+          if (current === wageredGameId) return null;
+          return; // abort - someone else's claim
+        });
+        if (rollbackResult.committed) {
+          await db.ref(`matchmaking_queue/wagered/${wageredStakeLevel}/${player1Id}`).update({
             matchedByName: null,
             matchedByFlag: null,
           });
