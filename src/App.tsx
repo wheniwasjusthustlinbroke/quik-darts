@@ -12,13 +12,16 @@ import { usePowerMeter } from './throwing/usePowerMeter';
 import {
   isInPerfectZone,
   PERFECT_ZONE_WINNING_DOUBLE,
+  getPerfectZoneBounds,
 } from './throwing/legacyMeter';
 import {
   createSeededRng,
   generateThrowSeed,
   type RngFunction,
+  USE_SEGMENT_MISS_MODEL,
 } from './throwing/throwMeter';
 import { addThrowRandomness, getWinningSegment, getAimedSegment } from './utils/scoring';
+import { applySegmentMiss } from './throwing/segmentMiss';
 import {
   checkWobbleConditions,
   generateWobbleOffset,
@@ -185,6 +188,9 @@ function App() {
     currentPlayer,
   } = useGameState(achievementCallbacks);
 
+  // Track previous gameState for transition detection (sound effects)
+  const prevGameStateRef = useRef<string>(gameState);
+
   // Sound effects
   const { playSound, soundEnabled, setSoundEnabled } = useSound();
 
@@ -271,10 +277,31 @@ function App() {
   }, []); // Empty deps: unsubscribeFromGameRoom is stable module export, setters are stable
 
   // Cleanup online state and return to menu
-  const handleReturnToMenu = useCallback(() => {
-    // Use shared reset for online matchmaking state
-    void leaveCasualQueue();
-    void leaveWageredQueue();
+  const handleReturnToMenu = useCallback(async () => {
+    // If active online match (still playing, no winner), forfeit before cleanup
+    const isActiveMatch = isOnlineGame && matchData && gameState === 'playing' && !winner;
+    if (isActiveMatch) {
+      const message = isWageredMatch
+        ? 'Leave this wagered match? You will forfeit your stake.'
+        : 'Leave this match? This counts as a forfeit.';
+
+      if (!window.confirm(message)) return;
+
+      try {
+        const result = await forfeitGame({ gameId: matchData.roomId, reason: 'forfeit', claimWin: false });
+        if (!result?.success) {
+          console.error('[handleReturnToMenu] forfeit failed:', result?.error ?? result);
+        }
+      } catch (err) {
+        console.error('[handleReturnToMenu] forfeit error:', err);
+      }
+    }
+
+    // Use shared reset for online matchmaking state - await cleanup to prevent stale entries
+    await Promise.all([
+      leaveCasualQueue().catch(() => {}),
+      leaveWageredQueue().catch(() => {}),
+    ]);
     resetOnlineFlow();
     // Reset achievement context
     setIsAIMode(false);
@@ -289,7 +316,7 @@ function App() {
     lastThrowPerfectRef.current = false;
     preThrowScoreRef.current = null;
     resetGame();
-  }, [resetGame, resetOnlineFlow]);
+  }, [resetGame, resetOnlineFlow, isOnlineGame, matchData, isWageredMatch, gameState, winner]);
 
   // Sync online game state from server
   useEffect(() => {
@@ -455,7 +482,9 @@ function App() {
                 unsubscribeFromGameRoom();
                 setMatchData(null);
                 setGameSnapshot(null);
+                setIsOnlineGame(false);
                 setErrorText(`${opponentName} disconnected`);
+                setGameState('landing');
               },
               onError: (error) => {
                 setErrorText(error);
@@ -635,6 +664,12 @@ function App() {
       if (!isGameActive || dartsThrown >= 3) return;
       if (isSubmittingThrow) return;
 
+      // CRITICAL: If online session ended but gameState still 'playing', block throws
+      if (isOnlineGame && !matchData) {
+        console.log('[handleBoardClick] Online session ended, blocking throw');
+        return;
+      }
+
       // Online mode: send to server (no client-side scatter)
       if (matchData) {
         // Wait for valid game state from server
@@ -780,7 +815,7 @@ function App() {
         setTimeout(() => endTurn(), 1000);
       }
     },
-    [gameState, dartsThrown, throwDart, playSound, currentTurnScore, endTurn, matchData, isSubmittingThrow, gameSnapshot, currentPlayerIndex]
+    [gameState, dartsThrown, throwDart, playSound, currentTurnScore, endTurn, matchData, isSubmittingThrow, gameSnapshot, currentPlayerIndex, isOnlineGame]
   );
 
   // Compute if it's currently AI's turn (used to block human input)
@@ -825,15 +860,38 @@ function App() {
       } else {
         // Offline: apply scatter based on power using seeded RNG
         const rng = currentThrowRngRef.current ?? Math.random;
-        const scattered = addThrowRandomness(
-          capturedAimX,
-          capturedAimY,
-          sessionSkillLevel,
-          releasedPower,
-          isPerfect,
-          rng
-        );
-        handleBoardClick(scattered.x, scattered.y);
+
+        let finalX: number;
+        let finalY: number;
+
+        if (USE_SEGMENT_MISS_MODEL) {
+          // V1 segment-neighbor miss system
+          const { left: perfectMin, right: perfectMax } = getPerfectZoneBounds(perfectZoneWidth);
+          const result = applySegmentMiss(
+            capturedAimX,
+            capturedAimY,
+            releasedPower,
+            perfectMin,
+            perfectMax,
+            rng
+          );
+          finalX = result.x;
+          finalY = result.y;
+        } else {
+          // Legacy XY scatter fallback
+          const scattered = addThrowRandomness(
+            capturedAimX,
+            capturedAimY,
+            sessionSkillLevel,
+            releasedPower,
+            isPerfect,
+            rng
+          );
+          finalX = scattered.x;
+          finalY = scattered.y;
+        }
+
+        handleBoardClick(finalX, finalY);
       }
     },
     [isAITurn, playSound, matchData, aimPosition, aimWobble, perfectZoneWidth, handleBoardClick, sessionSkillLevel, currentPlayer]
@@ -1015,12 +1073,17 @@ function App() {
     handleBoardClick,
   ]);
 
-  // Play checkout sound when winner is determined
+  // Play checkout sound once when entering gameOver state
   useEffect(() => {
-    if (winner) {
+    const enteringGameOver =
+      prevGameStateRef.current !== 'gameOver' && gameState === 'gameOver';
+
+    if (enteringGameOver && winner) {
       playSound('checkout');
     }
-  }, [winner, playSound]);
+
+    prevGameStateRef.current = gameState;
+  }, [gameState, winner, playSound]);
 
   // === Handlers for HomePage ===
   const handleShowToast = useCallback((message: string) => {
