@@ -16,8 +16,8 @@ export const OVERCHARGE_MAX = 150;
 export const OVERCHARGE_DURATION_MS = 600;
 
 // Feature toggle for segment-based miss system (V1)
-// Default OFF until server parity is complete (Step 8)
-export const USE_SEGMENT_MISS_MODEL = false;
+// Enabled for offline mode - server parity pending (Step 8)
+export const USE_SEGMENT_MISS_MODEL = true;
 
 // Scatter bounds (pixels)
 const SCATTER_MIN = 3;
