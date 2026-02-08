@@ -4,7 +4,6 @@
  * Core dartboard geometry for segment-neighbor miss system.
  * Single source of truth for ring boundaries, segment positions,
  * and neighbor relationships.
- *
  * NOTE: This file must stay in sync with src/throwing/dartboardGeometry.ts
  */
 
@@ -20,7 +19,6 @@ import {
   SEGMENTS,
 } from '../utils/scoreCalculator';
 
-// Position type (matches client)
 export interface Position {
   x: number;
   y: number;
@@ -78,7 +76,7 @@ export const RING_BOUNDARIES = {
   TRIPLE: { inner: TRIPLE_INNER, outer: TRIPLE_OUTER },
   OUTER_SINGLE: { inner: TRIPLE_OUTER, outer: DOUBLE_INNER },
   DOUBLE: { inner: DOUBLE_INNER, outer: DOUBLE_OUTER },
-  // MISS is outside DOUBLE_OUTER, up to board edge (drawable but no score)
+  // MISS is outside DOUBLE_OUTER, up to board edge
   MISS: { inner: DOUBLE_OUTER, outer: BOARD_SIZE / 2 },
 } as const;
 

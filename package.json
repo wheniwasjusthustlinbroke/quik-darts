@@ -15,7 +15,8 @@
     "test:e2e:ui": "npx playwright test --ui",
     "test:e2e:report": "npx playwright show-report",
     "deploy": "npm run build && firebase deploy --only hosting",
-    "deploy:all": "npm run build && firebase deploy"
+    "deploy:all": "npm run build && firebase deploy",
+    "check-parity": "bash scripts/check-throwing-parity.sh"
   },
   "repository": {
     "type": "git",
