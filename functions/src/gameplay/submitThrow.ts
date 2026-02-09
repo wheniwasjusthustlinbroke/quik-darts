@@ -50,12 +50,98 @@ export const RHYTHM_CONFIG = {
 // Rate limiting
 export const MIN_THROW_INTERVAL = 500; // ms - minimum time between throws
 
-// Validation configuration
-// TODO Step 8: Implement dynamic zone width tracking (perfectHitsThisTurn).
-// Until then, server uses static 10% zone (45-55). Parity will be WRONG for:
-// - Checkout scenarios (client uses ultra-narrow 2% zone)
-// - Shrink-per-perfect-hit (client shrinks zone after each perfect release)
+// Legacy static zone (kept for flag OFF / backward compat paths)
 export const PERFECT_ZONE = { min: 45, max: 55 };
+
+// =============================================================================
+// Dynamic Perfect Zone (Step 8.3) - used only when USE_SEGMENT_MISS_SERVER is ON
+// =============================================================================
+
+const PERFECT_ZONE_CENTER = 50;
+const PERFECT_ZONE_BASE_WIDTH = 10;  // 10% base width
+const PERFECT_ZONE_MIN_WIDTH = 4;    // Minimum after shrinking
+const PERFECT_ZONE_CHECKOUT = 2;     // Ultra-narrow for checkout
+
+// Shrink rates based on what was hit (matches client logic)
+const SHRINK_TREBLE = 3;
+const SHRINK_DOUBLE_SINGLE = 1.5;
+
+/**
+ * Normalize segment label for consistent comparison.
+ * Handles potential variations in bull/double naming.
+ */
+function normalizeLabel(label: string): string {
+  const upper = label.toUpperCase().trim();
+  if (upper === 'DBULL' || upper === 'D25' || upper === 'BULLSEYE') return 'BULL';
+  return upper;
+}
+
+/**
+ * Get the winning segment for a score (exact double/bull to finish).
+ * Returns normalized segment label: D20, BULL, etc. or null if can't finish.
+ */
+function getWinningSegment(remainingScore: number): string | null {
+  if (remainingScore === 50) return 'BULL';
+  if (remainingScore % 2 === 0 && remainingScore >= 2 && remainingScore <= 40) {
+    return `D${remainingScore / 2}`;
+  }
+  return null;
+}
+
+/**
+ * Calculate perfect zone bounds based on current shrink amount.
+ * @param shrinkAmount - Accumulated shrink this turn (0 for first throw)
+ * @param isCheckout - True if aiming at winning double/bull
+ * @returns { min, max } zone bounds (strict: power must be > min and < max)
+ */
+function calculatePerfectZoneBounds(
+  shrinkAmount: number,
+  isCheckout: boolean
+): { min: number; max: number } {
+  const width = isCheckout
+    ? PERFECT_ZONE_CHECKOUT
+    : Math.max(PERFECT_ZONE_BASE_WIDTH - shrinkAmount, PERFECT_ZONE_MIN_WIDTH);
+
+  return {
+    min: PERFECT_ZONE_CENTER - width / 2,
+    max: PERFECT_ZONE_CENTER + width / 2,
+  };
+}
+
+/**
+ * Calculate shrink amount to add based on score result.
+ * Only call this when wasPerfectHit is true.
+ * @param multiplier - Score multiplier (1=single, 2=double, 3=treble)
+ * @param score - Points scored
+ * @param label - Segment label (will be normalized)
+ * @param winningSegment - The winning segment for pre-throw score (or null)
+ * @returns Shrink amount to add (0, 1.5, or 3)
+ */
+function calculateShrinkToAdd(
+  multiplier: number,
+  score: number,
+  label: string,
+  winningSegment: string | null
+): number {
+  // Miss → no shrink
+  if (score === 0) return 0;
+
+  const normalizedLabel = normalizeLabel(label);
+
+  // Treble → 3%
+  if (multiplier === 3) return SHRINK_TREBLE;
+
+  // Double or Bull
+  if (multiplier === 2 || normalizedLabel === 'BULL') {
+    // Winning segment → no shrink
+    if (winningSegment && normalizedLabel === winningSegment) return 0;
+    // Non-winning double/bull → 1.5%
+    return SHRINK_DOUBLE_SINGLE;
+  }
+
+  // Single (score > 0) → 1.5%
+  return SHRINK_DOUBLE_SINGLE;
+}
 
 type RhythmState = 'flow' | 'perfect' | 'neutral' | 'rushing' | 'hesitating';
 
@@ -446,13 +532,28 @@ export const submitThrow = functions
       const seed = generateServerThrowSeed(gameId, playerIndex, playerThrowCount);
       const rng = createSeededRng(seed);
 
-      // Compute server-authoritative landing position
+      // Dynamic zone calculation (Step 8.3)
+      // Read current shrink from perfectShrinkThisTurn (new field, separate from count)
+      const currentShrink = ((game.perfectShrinkThisTurn ?? [0, 0]) as [number, number])[playerIndex] ?? 0;
+
+      // Pre-throw score and winning segment (hoisted for reuse in shrink calculation)
+      const preThrowScore = game[playerIndex === 0 ? 'player1' : 'player2'].score as number;
+      const winningSegment = getWinningSegment(preThrowScore);
+
+      // Check if aiming at winning segment (checkout scenario → ultra-narrow zone)
+      const aimedLabel = normalizeLabel(calculateScoreFromPosition(aimPoint.x, aimPoint.y).label);
+      const isAimingAtCheckout = winningSegment !== null && aimedLabel === winningSegment;
+
+      // Compute zone bounds ONCE - use for both applySegmentMiss and wasPerfectHit
+      const zoneBounds = calculatePerfectZoneBounds(currentShrink, isAimingAtCheckout);
+
+      // Compute server-authoritative landing position with dynamic zone
       const missResult = applySegmentMiss(
         aimPoint.x,
         aimPoint.y,
         powerValue,
-        PERFECT_ZONE.min,
-        PERFECT_ZONE.max,
+        zoneBounds.min,
+        zoneBounds.max,
         rng
       );
 
@@ -468,8 +569,8 @@ export const submitThrow = functions
 
       effectiveDartPosition = { x: missResult.x, y: missResult.y };
 
-      // Track if power was in perfect zone (strict bounds to match client semantics)
-      wasPerfectHit = powerValue > PERFECT_ZONE.min && powerValue < PERFECT_ZONE.max;
+      // Track if power was in perfect zone (strict bounds > / < to match client semantics)
+      wasPerfectHit = powerValue > zoneBounds.min && powerValue < zoneBounds.max;
 
       // NOTE: Skip legacy deviation-based plausibility when server computes position.
       // The server computed it - checking deviation against aimPoint is circular.
@@ -536,13 +637,18 @@ export const submitThrow = functions
     newPlayerTotalDarts[playerIndex] = (newPlayerTotalDarts[playerIndex] ?? 0) + 1;
     updates['playerTotalDarts'] = newPlayerTotalDarts;
 
-    // Track perfect hits this turn for dynamic zone shrinking (only when server scatter is ON)
-    const perfectHitsThisTurn = (game.perfectHitsThisTurn ?? [0, 0]) as [number, number];
-    const newPerfectHits = [...perfectHitsThisTurn] as [number, number];
+    // Track perfect SHRINK AMOUNT this turn for dynamic zone width (server scatter path only)
+    // This is the canonical field for zone calculation. perfectHitsThisTurn is legacy (not updated here).
+    // Note: currentScore is the pre-throw remaining score (read from game state before scoring)
+    const perfectShrinkThisTurn = (game.perfectShrinkThisTurn ?? [0, 0]) as [number, number];
+    const newPerfectShrink = [...perfectShrinkThisTurn] as [number, number];
     if (useServerScatter && wasPerfectHit) {
-      newPerfectHits[playerIndex] = (newPerfectHits[playerIndex] ?? 0) + 1;
+      // Calculate shrink based on what was actually hit (using pre-throw score for winning segment)
+      const winningSegmentForShrink = getWinningSegment(currentScore);
+      const shrinkToAdd = calculateShrinkToAdd(multiplier, score, label, winningSegmentForShrink);
+      newPerfectShrink[playerIndex] = (newPerfectShrink[playerIndex] ?? 0) + shrinkToAdd;
     }
-    updates['perfectHitsThisTurn'] = newPerfectHits;
+    updates['perfectShrinkThisTurn'] = newPerfectShrink;
     // Note: reset to [0, 0] happens below on turn end (bust/3-dart/checkout)
 
     // Update current turn throws for rhythm tracking
@@ -563,6 +669,7 @@ export const submitThrow = functions
       updates['completedAt'] = now;
       updates['currentTurnThrows'] = null; // Clear turn throws
       updates['perfectHitsThisTurn'] = [0, 0]; // Reset for game end
+      updates['perfectShrinkThisTurn'] = [0, 0]; // Reset shrink accumulator for game end
       gameEnded = true;
       turnEnded = true;
       winner = playerIndex;
@@ -576,6 +683,7 @@ export const submitThrow = functions
       updates['currentPlayer'] = playerIndex === 0 ? 1 : 0;
       updates['currentTurnThrows'] = null; // Clear turn throws for next player
       updates['perfectHitsThisTurn'] = [0, 0]; // Reset for next player's turn
+      updates['perfectShrinkThisTurn'] = [0, 0]; // Reset shrink accumulator for next player's turn
       // Clear dart positions using null (avoids Firebase update conflict with dartPositions/N)
       updates['dartPositions/0'] = null;
       updates['dartPositions/1'] = null;
@@ -596,6 +704,7 @@ export const submitThrow = functions
         updates['currentPlayer'] = playerIndex === 0 ? 1 : 0;
         updates['currentTurnThrows'] = null; // Clear turn throws for next player
         updates['perfectHitsThisTurn'] = [0, 0]; // Reset for next player's turn
+        updates['perfectShrinkThisTurn'] = [0, 0]; // Reset shrink accumulator for next player's turn
         // Clear dart positions using null (avoids Firebase update conflict with dartPositions/N)
         updates['dartPositions/0'] = null;
         updates['dartPositions/1'] = null;
