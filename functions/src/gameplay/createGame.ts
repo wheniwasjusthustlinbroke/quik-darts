@@ -240,8 +240,11 @@ export const createGame = functions
         setScores: { 0: 0, 1: 0 },
         // O(1) per-player throw counters (avoids throwHistory scan for RNG seed)
         playerTotalDarts: [0, 0],
-        // Per-player perfect hits THIS TURN (for dynamic zone shrinking, resets each turn)
+        // Per-player perfect hit COUNT this turn (legacy, kept for backward compat)
         perfectHitsThisTurn: [0, 0],
+        // Per-player accumulated SHRINK AMOUNT this turn (0, 1.5, 3, 4.5, ...)
+        // Used for dynamic zone width calculation. Resets each turn.
+        perfectShrinkThisTurn: [0, 0],
         status: 'playing',
         createdAt: now,
         ...(isWagered && {
