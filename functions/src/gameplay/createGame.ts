@@ -238,6 +238,10 @@ export const createGame = functions
         dartPositions: {},
         legScores: { 0: 0, 1: 0 },
         setScores: { 0: 0, 1: 0 },
+        // O(1) per-player throw counters (avoids throwHistory scan for RNG seed)
+        playerTotalDarts: [0, 0],
+        // Per-player perfect hits THIS TURN (for dynamic zone shrinking, resets each turn)
+        perfectHitsThisTurn: [0, 0],
         status: 'playing',
         createdAt: now,
         ...(isWagered && {
