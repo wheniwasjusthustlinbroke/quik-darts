@@ -420,6 +420,7 @@ export const submitThrow = functions
       USE_SEGMENT_MISS_SERVER && isWagered && aimPoint && powerValue !== undefined;
 
     let effectiveDartPosition: DartPosition = dartPosition;
+    let wasPerfectHit = false; // Track for dynamic zone shrinking (Step 8.3)
 
     if (useServerScatter) {
       // Validate inputs (belt-and-suspenders with isValidEnhancedPayload)
@@ -438,10 +439,9 @@ export const submitThrow = functions
         throw new functions.https.HttpsError('invalid-argument', 'Invalid aimPoint: out of bounds');
       }
 
-      // Count this player's throws from history for deterministic seed
-      // TODO: Replace with O(1) counter before enabling flag (perf)
-      const throwHistory = (game.throwHistory ?? {}) as Record<string, { player: number }>;
-      const playerThrowCount = Object.values(throwHistory).filter(t => t.player === playerIndex).length;
+      // O(1) per-player throw count from game state (replaces throwHistory scan)
+      const playerTotalDarts = (game.playerTotalDarts ?? [0, 0]) as [number, number];
+      const playerThrowCount = playerTotalDarts[playerIndex] ?? 0;
 
       const seed = generateServerThrowSeed(gameId, playerIndex, playerThrowCount);
       const rng = createSeededRng(seed);
@@ -467,6 +467,9 @@ export const submitThrow = functions
       }
 
       effectiveDartPosition = { x: missResult.x, y: missResult.y };
+
+      // Track if power was in perfect zone (strict bounds to match client semantics)
+      wasPerfectHit = powerValue > PERFECT_ZONE.min && powerValue < PERFECT_ZONE.max;
 
       // NOTE: Skip legacy deviation-based plausibility when server computes position.
       // The server computed it - checking deviation against aimPoint is circular.
@@ -527,6 +530,21 @@ export const submitThrow = functions
     const newDartsThrown = game.dartsThrown + 1;
     updates['dartsThrown'] = newDartsThrown;
 
+    // Increment per-player throw counter (O(1) for RNG seed)
+    const playerTotalDarts = (game.playerTotalDarts ?? [0, 0]) as [number, number];
+    const newPlayerTotalDarts = [...playerTotalDarts] as [number, number];
+    newPlayerTotalDarts[playerIndex] = (newPlayerTotalDarts[playerIndex] ?? 0) + 1;
+    updates['playerTotalDarts'] = newPlayerTotalDarts;
+
+    // Track perfect hits this turn for dynamic zone shrinking (only when server scatter is ON)
+    const perfectHitsThisTurn = (game.perfectHitsThisTurn ?? [0, 0]) as [number, number];
+    const newPerfectHits = [...perfectHitsThisTurn] as [number, number];
+    if (useServerScatter && wasPerfectHit) {
+      newPerfectHits[playerIndex] = (newPerfectHits[playerIndex] ?? 0) + 1;
+    }
+    updates['perfectHitsThisTurn'] = newPerfectHits;
+    // Note: reset to [0, 0] happens below on turn end (bust/3-dart/checkout)
+
     // Update current turn throws for rhythm tracking
     const newTurnThrow: TurnThrow = { timestamp: now, position: effectiveDartPosition };
     const updatedTurnThrows = [...currentTurnThrows, newTurnThrow];
@@ -544,6 +562,7 @@ export const submitThrow = functions
       updates['winner'] = playerIndex;
       updates['completedAt'] = now;
       updates['currentTurnThrows'] = null; // Clear turn throws
+      updates['perfectHitsThisTurn'] = [0, 0]; // Reset for game end
       gameEnded = true;
       turnEnded = true;
       winner = playerIndex;
@@ -556,6 +575,7 @@ export const submitThrow = functions
       updates['dartsThrown'] = 0;
       updates['currentPlayer'] = playerIndex === 0 ? 1 : 0;
       updates['currentTurnThrows'] = null; // Clear turn throws for next player
+      updates['perfectHitsThisTurn'] = [0, 0]; // Reset for next player's turn
       // Clear dart positions using null (avoids Firebase update conflict with dartPositions/N)
       updates['dartPositions/0'] = null;
       updates['dartPositions/1'] = null;
@@ -575,6 +595,7 @@ export const submitThrow = functions
         updates['dartsThrown'] = 0;
         updates['currentPlayer'] = playerIndex === 0 ? 1 : 0;
         updates['currentTurnThrows'] = null; // Clear turn throws for next player
+        updates['perfectHitsThisTurn'] = [0, 0]; // Reset for next player's turn
         // Clear dart positions using null (avoids Firebase update conflict with dartPositions/N)
         updates['dartPositions/0'] = null;
         updates['dartPositions/1'] = null;
