@@ -19,6 +19,9 @@ import { getLevelFromXP, getLevelUpCoins, XP_REWARDS } from '../utils/levelSyste
 
 const db = admin.database();
 
+// Settlement lock timeout - stale locks can be retried after this duration
+export const SETTLEMENT_LOCK_TIMEOUT_MS = 120_000;
+
 interface SettleGameRequest {
   gameId: string;
 }
@@ -151,7 +154,7 @@ export const settleGame = functions
         // (increased from 30s to handle server load and network latency)
         if (escrow.settlementRequestId) {
           const settlementAge = now - (escrow.settlementStartedAt || 0);
-          if (settlementAge < 120000) {
+          if (settlementAge < SETTLEMENT_LOCK_TIMEOUT_MS) {
             console.log(`[settleGame] Escrow ${game.wager.escrowId} already being settled by ${escrow.settlementRequestId}`);
             return; // Abort - another request is settling
           }

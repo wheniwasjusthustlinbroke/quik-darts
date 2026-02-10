@@ -15,19 +15,20 @@
 
 import * as functions from 'firebase-functions';
 import * as admin from 'firebase-admin';
+import { refundSingleEscrow } from './refundEscrow';
 
 const db = admin.database();
 
 // Valid stake amounts
-const VALID_STAKES = [50, 100, 500, 2500] as const;
+export const VALID_STAKES = [50, 100, 500, 2500] as const;
 type StakeLevel = typeof VALID_STAKES[number];
 
 // Escrow expiration (30 minutes)
-const ESCROW_EXPIRY_MS = 30 * 60 * 1000;
+export const ESCROW_EXPIRY_MS = 30 * 60 * 1000;
 
 // Rate limiting: max escrows per user in time window
-const MAX_ESCROWS_PER_HOUR = 5;
-const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000; // 1 hour
+export const MAX_ESCROWS_PER_HOUR = 5;
+export const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000; // 1 hour
 
 interface CreateEscrowRequest {
   escrowId?: string; // Optional: if provided, join existing escrow. If not, server generates secure ID.
@@ -152,11 +153,12 @@ export const createEscrow = functions
 
     const pendingEscrows = pendingEscrowSnap.val();
     if (pendingEscrows) {
-      for (const [, escrow] of Object.entries(pendingEscrows as Record<string, any>)) {
+      for (const [pendingEscrowId, escrow] of Object.entries(pendingEscrows as Record<string, any>)) {
         if (escrow.player1?.userId === userId || escrow.player2?.userId === userId) {
           // Check if it's expired
           if (escrow.expiresAt && escrow.expiresAt < now) {
-            // Expired - clean it up (will be handled by refund job)
+            // Expired — fully refund via shared helper (status + wallet credits)
+            await refundSingleEscrow(pendingEscrowId, 'expired_at_create');
             continue;
           }
           throw new functions.https.HttpsError(

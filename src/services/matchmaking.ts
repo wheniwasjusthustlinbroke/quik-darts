@@ -85,6 +85,7 @@ let queueEntryRef: DatabaseReference | null = null;
 let queueOnDisconnect: ReturnType<typeof onDisconnect> | null = null;
 let queueValueUnsubscribe: (() => void) | null = null;
 let matchmakingTimeout: ReturnType<typeof setTimeout> | null = null;
+let casualRecheckTimeout: ReturnType<typeof setTimeout> | null = null;
 let gameRoomRef: DatabaseReference | null = null;
 let gameRoomUnsubscribe: (() => void) | null = null;
 let gameRoomOnDisconnect: ReturnType<typeof onDisconnect> | null = null;
@@ -170,9 +171,9 @@ export async function joinCasualQueue(
 
         // Make sure we're not matching with ourselves (use key as ID)
         if (opponentKey !== myPlayerId) {
-          // Found an opponent - create game
-          await createGameWithOpponent(opponentKey, opponentData, profile, gameMode, queueRef, callbacks, functions);
-          return;
+          const matched = await createGameWithOpponent(opponentKey, opponentData, profile, gameMode, queueRef, callbacks, functions);
+          if (matched) return;
+          // Failed (race or error) — fall through to add self to queue
         }
       }
 
@@ -192,8 +193,8 @@ async function addSelfToQueue(
   database: any,
   profile: { displayName?: string; flag?: string; level?: number; avatarUrl?: string | null },
   callbacks: MatchmakingCallbacks,
-  _gameMode: 301 | 501,
-  _functions: any
+  gameMode: 301 | 501,
+  functions: any
 ): Promise<void> {
   if (!myPlayerId) return;
 
@@ -273,6 +274,29 @@ async function addSelfToQueue(
       callbacks.onTimeout?.();
     }
   }, 60000);
+
+  // One delayed re-check: catch opponents who joined around the same time
+  if (casualRecheckTimeout) clearTimeout(casualRecheckTimeout);
+  casualRecheckTimeout = setTimeout(async () => {
+    if (isProcessingMatch || !myPlayerId) return;
+    try {
+      const recheckQuery = query(queueRef, orderByChild('timestamp'), limitToFirst(5));
+      const recheckSnap = await get(recheckQuery);
+      if (!recheckSnap.exists()) return;
+
+      const entries = Object.entries(recheckSnap.val()) as [string, QueueEntry][];
+
+      for (const [key, val] of entries) {
+        if (isProcessingMatch) return;
+        if (key === myPlayerId) continue;
+        if ((val as any).matchedGameId) continue;
+        const matched = await createGameWithOpponent(key, val, profile, gameMode, queueRef, callbacks, functions);
+        if (matched) return;
+      }
+    } catch (err) {
+      console.error('[matchmaking] Re-check error:', err);
+    }
+  }, 2000 + Math.floor(Math.random() * 1000));
 }
 
 /**
@@ -286,13 +310,14 @@ async function createGameWithOpponent(
   _queueRef: DatabaseReference,
   callbacks: MatchmakingCallbacks,
   functions: any
-): Promise<void> {
+): Promise<boolean> {
   if (!myPlayerId) {
     callbacks.onError?.('Not authenticated');
-    return;
+    return false;
   }
 
   isProcessingMatch = true;
+  let success = false;
 
   try {
     const createGameFn = httpsCallable(functions, 'createGame');
@@ -310,18 +335,14 @@ async function createGameWithOpponent(
     const data = result.data as any;
     if (!data.success || !data.gameId) {
       callbacks.onError?.(data.error || 'Failed to create game');
-      isProcessingMatch = false;
-      return;
+      return false;
     }
 
-    const roomId = data.gameId;
-
-    // Server now handles match assignment in createGame Cloud Function
-
     myPlayerIndex = 1; // We're player2
+    success = true;
 
     callbacks.onFound?.({
-      roomId,
+      roomId: data.gameId,
       playerIndex: 1,
       opponent: {
         name: sanitizeName(opponent.name),
@@ -330,10 +351,19 @@ async function createGameWithOpponent(
         avatarUrl: sanitizeAvatarUrl(opponent.avatarUrl)
       }
     });
+    return true;
   } catch (error: any) {
     console.error('[matchmaking] Error creating game:', error);
+    // Known race: opponent's queue entry gone before server could claim it
+    if (error.code === 'functions/failed-precondition' ||
+        error.message?.includes('Opponent not available')) {
+      return false;
+    }
+    // Real errors — surface to user
     callbacks.onError?.(error.message || 'Failed to create game');
-    isProcessingMatch = false;
+    return false;
+  } finally {
+    if (!success) isProcessingMatch = false;
   }
 }
 
@@ -354,6 +384,11 @@ async function cleanupMatchmaking(): Promise<void> {
   if (matchmakingTimeout) {
     clearTimeout(matchmakingTimeout);
     matchmakingTimeout = null;
+  }
+
+  if (casualRecheckTimeout) {
+    clearTimeout(casualRecheckTimeout);
+    casualRecheckTimeout = null;
   }
 
   if (queueValueUnsubscribe) {
@@ -718,6 +753,7 @@ export interface WageredMatchCallbacks {
 let wageredQueueEntryRef: DatabaseReference | null = null;
 let wageredQueueOnDisconnect: ReturnType<typeof onDisconnect> | null = null;
 let wageredQueueValueUnsubscribe: (() => void) | null = null;
+let wageredEscrowGameIdUnsubscribe: (() => void) | null = null;
 let wageredMatchmakingTimeout: ReturnType<typeof setTimeout> | null = null;
 let currentEscrowId: string | null = null;
 let currentIdempotencyKey: string | null = null;
@@ -736,21 +772,23 @@ function generateIdempotencyKey(): string {
  */
 async function tryClaimOpponent(opponentEntryRef: DatabaseReference, myUid: string): Promise<boolean> {
   try {
-    const result = await runTransaction(opponentEntryRef, (currentData) => {
-      if (!currentData) {
-        // Entry was removed - abort
+    // First check if entry exists and is available
+    const snapshot = await get(opponentEntryRef);
+    if (!snapshot.exists()) return false;
+    const data = snapshot.val();
+    if (data.claimedBy || data.matchedGameId) return false;
+
+    // Write only to claimedBy child (not entire entry) to satisfy child rule
+    const claimedByRef = child(opponentEntryRef, 'claimedBy');
+    const result = await runTransaction(claimedByRef, (current) => {
+      if (current !== null) {
+        // Already claimed - abort
         return undefined;
       }
-      if (currentData.claimedBy || currentData.matchedGameId) {
-        // Already claimed or matched - abort
-        return undefined;
-      }
-      // Claim it
-      return { ...currentData, claimedBy: myUid };
+      return myUid;
     });
 
-    // Verify we actually won: committed AND claimedBy matches our uid
-    return result.committed && result.snapshot.val()?.claimedBy === myUid;
+    return result.committed && result.snapshot.val() === myUid;
   } catch (error) {
     console.error('[tryClaimOpponent] Transaction failed:', error);
     return false;
@@ -845,8 +883,11 @@ export async function joinWageredQueue(
           }
 
           // Failed to join escrow - release claim and try next
-          // Note: update({ claimedBy: null }) deletes the key in RTDB
-          await update(opponentEntryRef, { claimedBy: null });
+          // Release claim via child path transaction
+          await runTransaction(child(opponentEntryRef, 'claimedBy'), (current) => {
+            if (current === playerId) return null;
+            return; // abort if not our claim
+          });
         }
       }
     }
@@ -966,6 +1007,65 @@ async function addSelfToWageredQueue(
     }
   });
 
+  // Fallback: listen on escrow for gameId (covers case where queue notification failed)
+  const escrowGameIdRef = ref(database, `escrow/${escrowId}/gameId`);
+  wageredEscrowGameIdUnsubscribe = onValue(escrowGameIdRef, async (snapshot) => {
+    if (isProcessingWageredMatch) return;
+    if (!snapshot.exists()) return;
+
+    const matchedGameId = snapshot.val() as string;
+    if (!matchedGameId || typeof matchedGameId !== 'string') return;
+
+    // Fire-once: unsubscribe immediately before any await
+    const unsub = wageredEscrowGameIdUnsubscribe;
+    wageredEscrowGameIdUnsubscribe = null;
+    unsub?.();
+
+    isProcessingWageredMatch = true;
+    let success = false;
+    try {
+      // Validate escrow is still in a valid state before proceeding
+      const escrowSnap = await get(ref(database, `escrow/${escrowId}`));
+      const escrowData = escrowSnap.val();
+      if (!escrowData || escrowData.status === 'refunded' || escrowData.status === 'released') {
+        return; // Escrow was already settled/refunded — don't join the game
+      }
+
+      await cleanupWageredMatchmaking();
+      isProcessingWageredMatch = true; // Re-set after cleanup (cleanup resets to false)
+
+      // Fetch game data to get opponent info
+      const gameRef = ref(database, `${FIREBASE_PATHS.GAMES}/${matchedGameId}`);
+      const gameSnap = await get(gameRef);
+      const gameData = gameSnap.val();
+
+      if (!gameData || gameData.player1?.id !== myPlayerId) {
+        callbacks.onError?.('Invalid game data');
+        return;
+      }
+
+      myPlayerIndex = 0; // We're player1
+
+      success = true;
+      callbacks.onFound?.({
+        roomId: matchedGameId,
+        playerIndex: 0,
+        opponent: {
+          name: sanitizeName(gameData.player2?.name),
+          flag: sanitizeFlag(gameData.player2?.flag),
+          level: sanitizeLevel(gameData.player2?.level),
+          avatarUrl: sanitizeAvatarUrl(gameData.player2?.avatarUrl),
+        },
+        escrowId,
+        stakeAmount,
+      });
+    } catch (err: any) {
+      callbacks.onError?.('Failed to join game');
+    } finally {
+      if (!success) isProcessingWageredMatch = false;
+    }
+  });
+
   // Timeout after 90 seconds for wagered matches
   wageredMatchmakingTimeout = setTimeout(async () => {
     if (!isProcessingWageredMatch) {
@@ -1013,17 +1113,24 @@ async function createWageredGameWithOpponent(
 
     const data = result.data as any;
     if (!data.success || !data.gameId) {
-      // createGame failed - refund escrow to prevent locked stake
+      // createGame failed - try to refund escrow (server may have already handled it)
       if (currentEscrowId && currentIdempotencyKey) {
-        await refundEscrow({
-          escrowId: currentEscrowId,
-          reason: 'create_game_failed',
-          idempotencyKey: `${currentIdempotencyKey}-refund-create-game`,
-        });
+        try {
+          await refundEscrow({
+            escrowId: currentEscrowId,
+            reason: 'create_game_failed',
+            idempotencyKey: `${currentIdempotencyKey}-refund-create-game`,
+          });
+        } catch (refundErr) {
+          console.error('[wageredMatchmaking] Client refund failed (server may have handled it):', refundErr);
+        }
       }
       // Release claim to avoid stuck opponents
-      // Note: update({ claimedBy: null }) deletes the key in RTDB
-      await update(opponentEntryRef, { claimedBy: null });
+      // Release claim via child path transaction
+      await runTransaction(child(opponentEntryRef, 'claimedBy'), (current) => {
+        if (current === myPlayerId) return null;
+        return; // abort if not our claim
+      });
       callbacks.onError?.(data.error || 'Failed to create game');
       isProcessingWageredMatch = false;
       return;
@@ -1049,17 +1156,24 @@ async function createWageredGameWithOpponent(
     });
   } catch (error: any) {
     console.error('[wageredMatchmaking] Error creating game:', error);
-    // createGame threw - refund escrow to prevent locked stake
+    // createGame threw - try to refund escrow (server may have already handled it)
     if (currentEscrowId && currentIdempotencyKey) {
-      await refundEscrow({
-        escrowId: currentEscrowId,
-        reason: 'create_game_failed',
-        idempotencyKey: `${currentIdempotencyKey}-refund-create-game`,
-      });
+      try {
+        await refundEscrow({
+          escrowId: currentEscrowId,
+          reason: 'create_game_failed',
+          idempotencyKey: `${currentIdempotencyKey}-refund-create-game`,
+        });
+      } catch (refundErr) {
+        console.error('[wageredMatchmaking] Client refund failed (server may have handled it):', refundErr);
+      }
     }
     // Release claim to avoid stuck opponents
-    // Note: update({ claimedBy: null }) deletes the key in RTDB
-    await update(opponentEntryRef, { claimedBy: null });
+    // Release claim via child path transaction
+    await runTransaction(child(opponentEntryRef, 'claimedBy'), (current) => {
+      if (current === myPlayerId) return null;
+      return; // abort if not our claim
+    });
     callbacks.onError?.(error.message || 'Failed to create game');
     isProcessingWageredMatch = false;
   }
@@ -1071,11 +1185,31 @@ async function createWageredGameWithOpponent(
 export async function leaveWageredQueue(): Promise<void> {
   // Refund escrow if we have one
   if (currentEscrowId && currentIdempotencyKey) {
-    await refundEscrow({
-      escrowId: currentEscrowId,
-      reason: 'user_cancelled',
-      idempotencyKey: `${currentIdempotencyKey}-refund`,
-    });
+    try {
+      const result = await refundEscrow({
+        escrowId: currentEscrowId,
+        reason: 'user_cancelled',
+        idempotencyKey: `${currentIdempotencyKey}-refund`,
+      });
+      if (!result.success) {
+        console.error('[leaveWageredQueue] Refund failed:', result.error);
+      }
+    } catch (err) {
+      console.error('[leaveWageredQueue] Refund threw:', err);
+    }
+  }
+
+  // Safety net: clear any stale pending escrows (page refresh / crash recovery)
+  if (myPlayerId) {
+    try {
+      await refundEscrow({
+        escrowId: 'cleanup_pending',
+        reason: 'cleanup_before_new_match',
+        idempotencyKey: `${myPlayerId}-leave-cleanup-${Date.now()}`,
+      });
+    } catch (err) {
+      console.error('[leaveWageredQueue] Cleanup threw:', err);
+    }
   }
 
   await cleanupWageredMatchmaking();
@@ -1095,6 +1229,11 @@ async function cleanupWageredMatchmaking(): Promise<void> {
   if (wageredQueueValueUnsubscribe) {
     wageredQueueValueUnsubscribe();
     wageredQueueValueUnsubscribe = null;
+  }
+
+  if (wageredEscrowGameIdUnsubscribe) {
+    wageredEscrowGameIdUnsubscribe();
+    wageredEscrowGameIdUnsubscribe = null;
   }
 
   if (wageredQueueOnDisconnect) {
