@@ -19,6 +19,63 @@ import * as admin from 'firebase-admin';
 
 const db = admin.database();
 
+/**
+ * Shared helper: fully refund a single escrow (status change + wallet credits).
+ * Idempotent — safe to call multiple times for the same escrow.
+ * Preserves same eligibility checks as refundEscrow Cloud Function.
+ */
+export async function refundSingleEscrow(
+  escrowId: string,
+  reason: string,
+  options?: { forceLocked?: boolean }
+): Promise<{ refundedPlayers: string[]; refundedAmounts: number[] } | null> {
+  const now = Date.now();
+  const escrowRef = db.ref(`escrow/${escrowId}`);
+  const forceLocked = options?.forceLocked ?? false;
+
+  const refundResult = await escrowRef.transaction((currentEscrow) => {
+    if (!currentEscrow) return;  // node gone → abort
+
+    if (currentEscrow.status === 'released' || currentEscrow.status === 'refunded') {
+      return; // terminal → abort
+    }
+
+    const isLockedAndExpired = currentEscrow.status === 'locked' && currentEscrow.expiresAt && currentEscrow.expiresAt < now;
+    if (currentEscrow.status !== 'pending' && !isLockedAndExpired && !(forceLocked && currentEscrow.status === 'locked')) {
+      return; // active match → abort (unless forceLocked for server-side recovery)
+    }
+
+    return {
+      ...currentEscrow,
+      status: 'refunded',
+      refundedAt: now,
+      refundReason: reason,
+    };
+  });
+
+  if (!refundResult.committed || refundResult.snapshot.val()?.status !== 'refunded') {
+    return null;
+  }
+
+  const refunded = refundResult.snapshot.val();
+  const refundedPlayers: string[] = [];
+  const refundedAmounts: number[] = [];
+
+  if (refunded.player1) {
+    await refundPlayer(refunded.player1.userId, refunded.player1.amount, escrowId, reason, now);
+    refundedPlayers.push(refunded.player1.userId);
+    refundedAmounts.push(refunded.player1.amount);
+  }
+  if (refunded.player2) {
+    await refundPlayer(refunded.player2.userId, refunded.player2.amount, escrowId, reason, now);
+    refundedPlayers.push(refunded.player2.userId);
+    refundedAmounts.push(refunded.player2.amount);
+  }
+
+  console.log(`[refundSingleEscrow] Refunded escrow ${escrowId} (${reason})`);
+  return { refundedPlayers, refundedAmounts };
+}
+
 interface RefundEscrowRequest {
   escrowId: string;
   reason?: 'cancelled' | 'expired' | 'error';
@@ -85,7 +142,7 @@ export const refundEscrow = functions
         // Refund this escrow
         const escrowRef = db.ref(`escrow/${eid}`);
         const refundResult = await escrowRef.transaction((currentEscrow) => {
-          if (!currentEscrow) return currentEscrow;
+          if (!currentEscrow) return;
           if (currentEscrow.status === 'released' || currentEscrow.status === 'refunded') {
             return; // Already processed
           }
@@ -191,7 +248,7 @@ export const refundEscrow = functions
     // 6. CRITICAL: Use atomic transaction to prevent double-refund race condition
     // This atomically transitions escrow from pending/locked to refunded
     const refundResult = await escrowRef.transaction((currentEscrow) => {
-      if (!currentEscrow) return currentEscrow;
+      if (!currentEscrow) return;
 
       // Already refunded or released by another concurrent call - abort
       if (currentEscrow.status === 'released' || currentEscrow.status === 'refunded') {
@@ -334,7 +391,7 @@ export const cleanupExpiredEscrows = functions
 
         // CRITICAL: Use atomic transaction to prevent double-refund race condition
         const refundResult = await escrowRef.transaction((currentEscrow) => {
-          if (!currentEscrow) return currentEscrow;
+          if (!currentEscrow) return;
 
           // Already processed - abort
           if (currentEscrow.status === 'released' || currentEscrow.status === 'refunded') {

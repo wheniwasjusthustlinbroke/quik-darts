@@ -38,7 +38,7 @@ function getStripe(): Stripe {
 }
 
 // Coin packages (must match createStripeCheckout.ts)
-const COIN_PACKAGES: Record<string, { coins: number }> = {
+export const COIN_PACKAGES: Record<string, { coins: number }> = {
   'starter': { coins: 500 },
   'popular': { coins: 1200 },
   'best_value': { coins: 3500 },

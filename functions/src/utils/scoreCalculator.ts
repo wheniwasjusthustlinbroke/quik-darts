@@ -6,7 +6,7 @@
  */
 
 // Dartboard geometry constants (matches client)
-export const BOARD_SIZE = 500;
+export const BOARD_SIZE = 530;
 export const CENTER = BOARD_SIZE / 2; // 250
 
 // Ring distances from center
@@ -51,7 +51,7 @@ export function calculateScoreFromPosition(x: number, y: number): ScoreResult {
 
   // Inner bullseye (50 points)
   if (distance <= INNER_BULL) {
-    return { score: 50, label: 'BULL', multiplier: 1 };
+    return { score: 50, label: 'BULL', multiplier: 2 };  // Bull is a double for checkout
   }
 
   // Outer bullseye (25 points)
