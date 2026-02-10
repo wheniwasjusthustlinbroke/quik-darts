@@ -294,10 +294,11 @@ export function randomPointInSegment(segment: Segment, rng: () => number): Posit
   const boundaries = RING_BOUNDARIES[segment.ring];
 
   // Area-uniform radius sampling (NOT linear interpolation!)
-  // Clamp u with EPS to avoid landing exactly on ring boundary (rng()=0 → r=rMin)
+  // Clamp u to [EPS, 1-EPS] to avoid landing exactly on ring boundaries
   const rMinSq = boundaries.inner * boundaries.inner;
   const rMaxSq = boundaries.outer * boundaries.outer;
-  const u = Math.max(EPS, rng());
+  const uRaw = rng();
+  const u = Math.min(1 - EPS, Math.max(EPS, uRaw));
   const r = Math.sqrt(rMinSq + u * (rMaxSq - rMinSq));
 
   let theta: number;
