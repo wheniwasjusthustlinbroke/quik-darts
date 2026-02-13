@@ -11,6 +11,8 @@ import {
   getAuth,
   Auth,
   connectAuthEmulator,
+  signInAnonymously,
+  onAuthStateChanged,
 } from 'firebase/auth';
 import {
   getDatabase,
@@ -49,6 +51,9 @@ let functions: Functions | null = null;
 let authReadyResolve: (user: any) => void;
 export const authReadyPromise = new Promise<any>(resolve => { authReadyResolve = resolve; });
 let authReady = false;
+
+// HMR guard: prevent double-connecting auth emulator during hot reload
+let didConnectAuthEmulator = false;
 
 export const initializeFirebase = (): {
   app: FirebaseApp;
@@ -101,29 +106,38 @@ export const initializeFirebase = (): {
     } else {
       // Use web Firebase Auth on browser
       auth = getAuth(app);
+
+      // Connect auth emulator only for web auth, with HMR guard
+      if (import.meta.env.DEV && import.meta.env.VITE_USE_FIREBASE_EMULATOR && !didConnectAuthEmulator) {
+        connectAuthEmulator(auth, 'http://localhost:9099');
+        didConnectAuthEmulator = true;
+      }
     }
 
     database = getDatabase(app);
     // Initialize Firebase Functions with europe-west1 region (matches deployed functions)
     functions = getFunctions(app, 'europe-west1');
 
-    // Connect to emulators in development
+    // Connect to non-auth emulators in development
     if (import.meta.env.DEV && import.meta.env.VITE_USE_FIREBASE_EMULATOR) {
-      connectAuthEmulator(auth, 'http://localhost:9099');
       connectDatabaseEmulator(database, 'localhost', 9000);
       connectFunctionsEmulator(functions, 'localhost', 5001);
     }
 
-    // Listen for auth state changes
-    auth.onAuthStateChanged((user: any) => {
+    // Auth state callback - handles both initial state and changes
+    const authStateCallback = (user: any) => {
       if (user) {
         if (!authReady) {
           authReady = true;
           authReadyResolve(user);
         }
       } else {
-        // Sign in anonymously if not authenticated
-        auth.signInAnonymously().catch((error: any) => {
+        // Sign in anonymously if not authenticated - dual-path for native vs web
+        const doSignIn = typeof (auth as any).signInAnonymously === 'function'
+          ? () => (auth as any).signInAnonymously()
+          : () => signInAnonymously(auth);
+
+        doSignIn().catch((error: any) => {
           console.warn('Anonymous auth failed:', error);
           if (!authReady) {
             authReady = true;
@@ -131,7 +145,14 @@ export const initializeFirebase = (): {
           }
         });
       }
-    });
+    };
+
+    // Listen for auth state changes - dual-path for native wrapper vs web modular
+    if (typeof (auth as any).onAuthStateChanged === 'function') {
+      (auth as any).onAuthStateChanged(authStateCallback);
+    } else {
+      onAuthStateChanged(auth, authStateCallback);
+    }
   }
 
   return { app, auth: auth!, database: database!, functions: functions! };

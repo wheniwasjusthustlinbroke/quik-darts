@@ -160,21 +160,37 @@ export async function joinCasualQueue(
   // Small delay to avoid race condition (matches index.html line 2343)
   setTimeout(async () => {
     try {
-      // Look for available opponent in queue
-      const queueQuery = query(queueRef, orderByChild('timestamp'), limitToFirst(1));
+      // Look for available opponents in queue (query multiple to avoid stale head)
+      const queueQuery = query(queueRef, orderByChild('timestamp'), limitToFirst(5));
       const snapshot = await get(queueQuery);
 
       if (snapshot.exists()) {
-        const opponents = snapshot.val();
-        const opponentKey = Object.keys(opponents)[0];
-        const opponentData = opponents[opponentKey] as QueueEntry;
+        // Build ordered candidate list using forEach to preserve Firebase ordering
+        const candidates: Array<{ key: string; entry: QueueEntry }> = [];
+        snapshot.forEach((childSnap) => {
+          candidates.push({ key: childSnap.key!, entry: childSnap.val() as QueueEntry });
+        });
 
-        // Make sure we're not matching with ourselves (use key as ID)
-        if (opponentKey !== myPlayerId) {
-          const matched = await createGameWithOpponent(opponentKey, opponentData, profile, gameMode, queueRef, callbacks, functions);
-          if (matched) return;
-          // Failed (race or error) — fall through to add self to queue
+        // Try each candidate in order
+        for (const { key: opponentKey, entry } of candidates) {
+          // Skip self
+          if (opponentKey === myPlayerId) continue;
+          // Skip already matched
+          if (entry.matchedGameId != null) continue;
+
+          try {
+            const matched = await createGameWithOpponent(opponentKey, entry, profile, gameMode, queueRef, callbacks, functions);
+            if (matched) return; // Success - exit
+          } catch (err: any) {
+            // Only treat race condition as retryable, rethrow everything else
+            if (err?.code === 'functions/failed-precondition') {
+              console.debug('[matchmaking] Candidate race:', opponentKey);
+              continue;
+            }
+            throw err;
+          }
         }
+        // All candidates failed - fall through to add self to queue
       }
 
       // No opponent found (or only ourselves) - add self to queue
@@ -211,7 +227,21 @@ async function addSelfToQueue(
     timestamp: serverTimestamp()
   };
 
-  await set(myEntryRef, myQueueEntry);
+  // Use transaction to avoid overwriting matchedGameId set by opponent
+  const writeResult = await runTransaction(myEntryRef, (current) => {
+    // If already matched, abort - let the listener handle it
+    if (current && current.matchedGameId) {
+      return undefined;
+    }
+    // Merge pattern: preserve any existing fields
+    return { ...(current ?? {}), ...myQueueEntry };
+  });
+
+  // If transaction aborted (already matched), exit early
+  if (!writeResult.committed) {
+    console.log('[matchmaking] Already matched while joining, waiting for listener');
+    return;
+  }
 
   // Auto-remove from queue if user disconnects (matches index.html line 2456)
   queueOnDisconnect = onDisconnect(myEntryRef);
@@ -952,7 +982,21 @@ async function addSelfToWageredQueue(
     stakeAmount,
   };
 
-  await set(myEntryRef, myQueueEntry);
+  // Use transaction to avoid overwriting matchedGameId/claimedBy set by opponent
+  const writeResult = await runTransaction(myEntryRef, (current) => {
+    // If already matched or claimed, abort
+    if (current && (current.matchedGameId || current.claimedBy)) {
+      return undefined;
+    }
+    // Merge pattern: preserve any existing fields
+    return { ...(current ?? {}), ...myQueueEntry };
+  });
+
+  // If transaction aborted (already matched/claimed), exit early
+  if (!writeResult.committed) {
+    console.log('[wageredMatchmaking] Already matched/claimed while joining, waiting for listener');
+    return;
+  }
 
   // Auto-remove from queue on disconnect
   wageredQueueOnDisconnect = onDisconnect(myEntryRef);
