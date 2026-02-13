@@ -116,21 +116,6 @@ const HomePage: React.FC<HomePageProps> = ({
               </span>
             </div>
 
-            <div className="topbar__stats">
-              <div className="topbar__stat-pill">
-                <span className="topbar__stat-icon">🎯</span>
-                <span className="topbar__stat-value">—</span>
-              </div>
-              <div className="topbar__stat-pill">
-                <span className="topbar__stat-icon">🔥</span>
-                <span className="topbar__stat-value">—</span>
-              </div>
-              <div className="topbar__stat-pill">
-                <span className="topbar__stat-icon">🏆</span>
-                <span className="topbar__stat-value">—</span>
-              </div>
-            </div>
-
             <div className="topbar__right">
               <CoinDisplay
                 coinBalance={coinBalance}
