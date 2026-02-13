@@ -457,7 +457,18 @@
   gap: 16px;
 }
 
-/* Promo Banner */
+.home__bottom-left {
+  display: flex;
+  align-items: center;
+  align-self: flex-start;
+}
+
+/* Override App.css absolute positioning for sound toggle in footer */
+.home__bottom-left .sound-toggle {
+  position: static;
+}
+
+/* Promo Banner (unused - kept for future) */
 .promo {
   flex: 1;
   background: linear-gradient(135deg, var(--qd-charcoal), var(--qd-slate));

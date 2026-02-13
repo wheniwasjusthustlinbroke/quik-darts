@@ -140,7 +140,6 @@ const HomePage: React.FC<HomePageProps> = ({
                 onClaimBonus={onClaimBonus}
                 onOpenShop={onOpenShop}
               />
-              <SoundToggle enabled={soundEnabled} onToggle={onSoundToggle} />
               <button type="button" className="topbar__icon-btn" onClick={onOpenThemeSelector} title="Theme">
                 <TargetIcon size={20} />
               </button>
@@ -236,15 +235,8 @@ const HomePage: React.FC<HomePageProps> = ({
         </main>
 
         <footer className="home__bottom">
-          <div className="promo">
-            <div className="promo__content">
-              <span className="promo__icon">🏯</span>
-              <div className="promo__text">
-                <span className="promo__title">TOKYO BOARD</span>
-                <span className="promo__sub">Limited Time Event</span>
-              </div>
-            </div>
-            <span className="promo__timer">⏰ 3d 6h 08m</span>
+          <div className="home__bottom-left">
+            <SoundToggle enabled={soundEnabled} onToggle={onSoundToggle} />
           </div>
 
           <nav className="bottom-nav">
