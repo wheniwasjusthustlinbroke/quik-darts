@@ -6,33 +6,37 @@
 
 .home {
   min-height: 100vh;
-  background: var(--qd-black);
+  min-height: 100dvh; /* iOS Safari dynamic viewport fix */
   position: relative;
   overflow: hidden;
+  background-color: var(--qd-black); /* Fallback */
 }
 
-/* Radial green glow background */
+/* Background image - single cover layer */
 .home::before {
   content: '';
   position: absolute;
   inset: 0;
   z-index: 0;
-  background:
-    radial-gradient(ellipse 1200px 600px at 55% 35%, rgba(27, 67, 50, 0.35), transparent 60%),
-    radial-gradient(ellipse 800px 400px at 50% 50%, rgba(27, 67, 50, 0.2), transparent 70%);
+  background-image: var(--home-bg-url);
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
   pointer-events: none;
 }
 
-/* Dartboard texture overlay - 8-12% opacity with blur */
+/* Dark overlay for readability */
 .home::after {
   content: '';
   position: absolute;
   inset: 0;
   z-index: 1;
-  background: url('/assets/dartboard-pattern.svg') repeat;
-  background-size: 300px 300px;
-  opacity: 0.1;
-  filter: blur(0.5px);
+  background: linear-gradient(
+    to bottom,
+    rgba(13, 17, 23, 0.35) 0%,
+    rgba(13, 17, 23, 0.50) 50%,
+    rgba(13, 17, 23, 0.65) 100%
+  );
   pointer-events: none;
 }
 
@@ -557,11 +561,19 @@
 
 /* Tablet / narrow */
 @media (max-width: 1023px) {
-  /* Sidebar removed - no special layout needed */
+  /* Dual-layer background centers automatically */
 }
 
 /* Mobile */
 @media (max-width: 767px) {
+  /* Slightly darker overlay on mobile for better readability */
+  .home::after {
+    background: linear-gradient(
+      to bottom,
+      rgba(13, 17, 23, 0.45) 0%,
+      rgba(13, 17, 23, 0.65) 100%
+    );
+  }
   .topbar {
     flex-direction: column;
     height: auto;

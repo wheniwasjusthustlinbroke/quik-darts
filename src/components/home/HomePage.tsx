@@ -2,6 +2,7 @@ import React from 'react';
 import { CoinDisplay } from '../CoinDisplay';
 import { SoundToggle } from '../SoundToggle';
 import { TargetIcon } from '../icons';
+import homeBgWebp from '@/assets/backgrounds/home-bg-fantasy.webp';
 import './HomePage.css';
 
 interface HomePageProps {
@@ -92,7 +93,10 @@ const HomePage: React.FC<HomePageProps> = ({
   };
 
   return (
-    <div className="home">
+    <div
+      className="home"
+      style={{ '--home-bg-url': `url(${homeBgWebp})` } as React.CSSProperties}
+    >
       <div className="home__content">
         <header className="home__topbar">
           <div className="topbar">
