@@ -177,9 +177,7 @@ const HomePage: React.FC<HomePageProps> = ({
         <main className="home__main">
           <div className="home__center">
             <div className="logo">
-              <span className="logo__dart logo__dart--left">🎯</span>
               <h1 className="logo__text">QUIK DARTS</h1>
-              <span className="logo__dart logo__dart--right">🎯</span>
             </div>
 
             <div className="play-grid">
