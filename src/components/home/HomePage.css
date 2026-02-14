@@ -322,19 +322,6 @@
   margin: 0;
 }
 
-.logo__dart {
-  font-size: 28px;
-  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.4));
-}
-
-.logo__dart--left {
-  transform: rotate(-30deg);
-}
-
-.logo__dart--right {
-  transform: rotate(30deg) scaleX(-1);
-}
-
 /* ===========================================
    PLAY CARDS GRID
    =========================================== */
