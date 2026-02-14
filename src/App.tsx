@@ -29,13 +29,8 @@ import {
 } from './utils/wobble';
 import { useGameState, useSound, useAuth, useTheme } from './hooks';
 import { useProfile } from './hooks/useProfile';
-import type { AchievementCallbacks } from './hooks/useGameState';
-import { useAchievements } from './hooks/useAchievements';
-import { ACHIEVEMENTS } from './services/achievements';
 import { useWallet } from './hooks/useWallet';
 import { StakeSelector } from './components/StakeSelector';
-import { AchievementToast } from './components/AchievementToast';
-import { AchievementGallery } from './components/AchievementGallery';
 import { ProfileScreen } from './components/ProfileScreen';
 import { CoinShop } from './components/CoinShop';
 import { ThemeSelector } from './components/ThemeSelector';
@@ -68,16 +63,10 @@ import './App.css';
 import HomePage from './components/home/HomePage';
 
 function App() {
-  // === Achievement Context State ===
-  // Track game context for achievement tracking decisions
+  // === Match Context State ===
   const [isOnlineGame, setIsOnlineGame] = useState(false);
-  const [isPracticeMode, setIsPracticeMode] = useState(false);
-  const [hasAIOpponent, setHasAIOpponent] = useState(false);
 
-  // Track recently unlocked achievements for toast display
-  const [recentUnlocks, setRecentUnlocks] = useState<string[]>([]);
-
-  // === Matchmaking State (declared early for useAchievements) ===
+  // === Matchmaking State ===
   const [isSearching, setIsSearching] = useState(false);
   const [errorText, setErrorText] = useState<string | null>(null);
   const [matchData, setMatchData] = useState<MatchFoundData | null>(null);
@@ -119,43 +108,6 @@ function App() {
   // Total darts thrown in current offline game (for seeded RNG per-throw)
   const offlineTotalDartsRef = useRef<number>(0);
 
-  // === Achievement System ===
-  // Initialize achievement system (reads context from refs for reactivity)
-  const achievements = useAchievements({
-    isOnline: isOnlineGame,
-    isPractice: isPracticeMode,
-    hasAIOpponent: hasAIOpponent,
-    isWagered: isWageredMatch,
-    onUnlock: (achievementIds) => {
-      // Add to recent unlocks for toast display
-      setRecentUnlocks((prev) => [...prev, ...achievementIds]);
-    },
-  });
-
-  // Create callbacks to wire useGameState → useAchievements
-  const achievementCallbacks = useMemo<AchievementCallbacks>(() => ({
-    onMatchStart: achievements.startMatch,
-    onLegStart: achievements.startLeg,
-    onThrow: achievements.emitThrow,
-    onTurnComplete: achievements.emitTurnComplete,
-    onCheckout: achievements.emitCheckout,
-    onLegComplete: achievements.emitLegComplete,
-    onGameComplete: achievements.emitGameComplete,
-  }), [
-    achievements.startMatch,
-    achievements.startLeg,
-    achievements.emitThrow,
-    achievements.emitTurnComplete,
-    achievements.emitCheckout,
-    achievements.emitLegComplete,
-    achievements.emitGameComplete,
-  ]);
-
-  // Clear recent unlocks after toasts are dismissed
-  const handleAchievementsDismissed = useCallback(() => {
-    setRecentUnlocks([]);
-  }, []);
-
   // === Game State ===
   const {
     gameState,
@@ -187,7 +139,7 @@ function App() {
     resetGame,
     currentTurnThrows,
     currentPlayer,
-  } = useGameState(achievementCallbacks);
+  } = useGameState();
 
   // Track previous gameState for transition detection (sound effects)
   const prevGameStateRef = useRef<string>(gameState);
@@ -310,11 +262,9 @@ function App() {
       leaveWageredQueue().catch(() => {}),
     ]);
     resetOnlineFlow();
-    // Reset achievement context
+    // Reset local session context
     setIsAIMode(false);
     setIsOnlineGame(false);
-    setIsPracticeMode(false);
-    setHasAIOpponent(false);
     setRhythmState('neutral');
     setAimWobble({ x: 0, y: 0 });
     setSessionSkillLevel(DEFAULT_SKILL_LEVEL);
@@ -612,12 +562,16 @@ function App() {
             isWageredMatchRef.current = false;
             setErrorText(error);
           },
-          onTimeout: () => {
+          onTimeout: (refundFailed?: boolean) => {
             setIsSearching(false);
             setIsCreatingEscrow(false);
             setIsWageredMatch(false);
             isWageredMatchRef.current = false;
-            setErrorText('No opponent found');
+            if (refundFailed) {
+              setErrorText('No opponent found. Coin refund pending - will be processed shortly.');
+            } else {
+              setErrorText('No opponent found');
+            }
           },
         }
       );
@@ -694,7 +648,7 @@ function App() {
         try {
           setIsSubmittingThrow(true);
 
-          // Build payload - include aimPoint/powerValue only for wagered matches
+          // Build payload - include aimPoint/powerValue for all online matches
           const payload: {
             gameId: string;
             dartPosition: { x: number; y: number };
@@ -705,8 +659,8 @@ function App() {
             dartPosition: { x, y },
           };
 
-          // Anti-cheat data for wagered matches only
-          if (isWageredMatchRef.current && aimPoint !== undefined && powerValue !== undefined) {
+          // Include aim/power data for server-side scatter calculation
+          if (aimPoint !== undefined && powerValue !== undefined) {
             payload.aimPoint = aimPoint;
             payload.powerValue = powerValue;
           }
@@ -857,7 +811,7 @@ function App() {
       // Note: shrink is applied in handleBoardClick after actual result is known
 
       if (matchData) {
-        // Online: pass aimPoint + powerValue for wagered anti-cheat
+        // Online: pass aimPoint + powerValue for server-side scatter
         handleBoardClick(
           capturedAimX,
           capturedAimY,
@@ -1102,10 +1056,6 @@ function App() {
     setGameState('profile');
   }, [setGameState]);
 
-  const handleOpenAchievements = useCallback(() => {
-    setGameState('achievements');
-  }, [setGameState]);
-
   const handleOpenThemeSelector = useCallback(() => {
     setShowThemeSelector(true);
   }, []);
@@ -1130,7 +1080,6 @@ function App() {
       };
     });
     setIsAIMode(true);
-    setIsPracticeMode(false);
     setIsOnlineGame(false);
     setPerfectShrinkAmount(0);
     lastThrowPerfectRef.current = false;
@@ -1146,7 +1095,6 @@ function App() {
       aiDifficulty: [null],
     }));
     setIsAIMode(false);
-    setIsPracticeMode(true);
     setIsOnlineGame(false);
     setPerfectShrinkAmount(0);
     lastThrowPerfectRef.current = false;
@@ -1176,7 +1124,6 @@ function App() {
           onSoundToggle={setSoundEnabled}
           onOpenThemeSelector={handleOpenThemeSelector}
           onOpenProfile={handleOpenProfile}
-          onOpenAchievements={handleOpenAchievements}
           isSearching={isSearching}
           isCreatingEscrow={isCreatingEscrow}
           errorText={errorText}
@@ -1213,10 +1160,6 @@ function App() {
             onClose={() => setShowThemeSelector(false)}
           />
         )}
-        <AchievementToast
-          unlockedIds={recentUnlocks}
-          onDismissed={handleAchievementsDismissed}
-        />
       </div>
     );
   }
@@ -1367,10 +1310,6 @@ function App() {
             <button
               className="btn btn-primary"
               onClick={() => {
-                // Track AI opponent for achievement system
-                const hasAI = playerSetup.aiPlayers.some(Boolean);
-                setHasAIOpponent(hasAI);
-                setIsPracticeMode(false);
                 setIsOnlineGame(false);
                 // Set session skill level based on difficulty (read directly from source of truth)
                 const difficultyToUse = isAIMode
@@ -1388,26 +1327,6 @@ function App() {
             </button>
           </div>
         </div>
-        <AchievementToast
-          unlockedIds={recentUnlocks}
-          onDismissed={handleAchievementsDismissed}
-        />
-      </div>
-    );
-  }
-
-  // Render achievements gallery
-  if (gameState === 'achievements') {
-    return (
-      <div className="app">
-        <AchievementGallery
-          achievementsState={achievements.getState()}
-          onClose={() => setGameState('landing')}
-        />
-        <AchievementToast
-          unlockedIds={recentUnlocks}
-          onDismissed={handleAchievementsDismissed}
-        />
       </div>
     );
   }
@@ -1418,13 +1337,6 @@ function App() {
       <div className="app">
         <ProfileScreen
           onClose={() => setGameState('landing')}
-          onViewAchievements={() => setGameState('achievements')}
-          unlockedAchievementCount={achievements.getState().unlockedIds.size}
-          totalAchievementCount={ACHIEVEMENTS.length}
-        />
-        <AchievementToast
-          unlockedIds={recentUnlocks}
-          onDismissed={handleAchievementsDismissed}
         />
       </div>
     );
@@ -1524,10 +1436,6 @@ function App() {
             </div>
           </div>
         </div>
-        <AchievementToast
-          unlockedIds={recentUnlocks}
-          onDismissed={handleAchievementsDismissed}
-        />
       </div>
     );
   }
@@ -1564,10 +1472,6 @@ function App() {
             </button>
           </div>
         </div>
-        <AchievementToast
-          unlockedIds={recentUnlocks}
-          onDismissed={handleAchievementsDismissed}
-        />
       </div>
     );
   }
@@ -1576,10 +1480,6 @@ function App() {
   return (
     <div className="app">
       <div className="loading">Loading...</div>
-      <AchievementToast
-        unlockedIds={recentUnlocks}
-        onDismissed={handleAchievementsDismissed}
-      />
     </div>
   );
 }

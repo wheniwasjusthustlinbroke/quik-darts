@@ -39,22 +39,6 @@ export interface PlayerSetupData {
   flags: string[];
 }
 
-export interface AchievementCallbacks {
-  onMatchStart?: (matchId: string) => void;
-  onLegStart?: (legId: string) => void;
-  onThrow?: (params: {
-    score: number;
-    segment: string;
-    multiplier: number;
-    isBull: boolean;
-    isTriple: boolean;
-  }) => void;
-  onTurnComplete?: (params: { turnScore: number; is180: boolean }) => void;
-  onCheckout?: (checkoutValue: number) => void;
-  onLegComplete?: (params: { won: boolean; dartsUsed: number }) => void;
-  onGameComplete?: (won: boolean) => void;
-}
-
 export interface UseGameStateReturn {
   // State
   gameState: GameState;
@@ -128,7 +112,7 @@ const createInitialStats = (): PlayerStats => ({
   one80s: 0,
 });
 
-export function useGameState(callbacks?: AchievementCallbacks): UseGameStateReturn {
+export function useGameState(): UseGameStateReturn {
   // Core state
   const [gameState, setGameState] = useState<GameState>('landing');
   const [players, setPlayers] = useState<Player[]>([]);
@@ -137,7 +121,7 @@ export function useGameState(callbacks?: AchievementCallbacks): UseGameStateRetu
   const [currentTurnScore, setCurrentTurnScore] = useState(0);
   const [dartPositions, setDartPositions] = useState<DartPosition[]>([]);
   const [currentTurnThrows, setCurrentTurnThrows] = useState<ThrowResult[]>([]);
-  const [legDartsThrown, setLegDartsThrown] = useState(0);
+  const [, setLegDartsThrown] = useState(0);
 
   // Aiming state
   const [aimPosition, setAimPosition] = useState<Position>({
@@ -181,9 +165,6 @@ export function useGameState(callbacks?: AchievementCallbacks): UseGameStateRetu
 
   // Start a new game
   const startGame = useCallback(() => {
-    const matchId = `match_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-    const legId = `leg_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-
     const newPlayers: Player[] = [];
     const newStats: Record<string, PlayerStats> = {};
 
@@ -214,15 +195,10 @@ export function useGameState(callbacks?: AchievementCallbacks): UseGameStateRetu
     setSetScores(new Array(playerSetup.count).fill(0));
     setGameState('playing');
 
-    // Achievement callbacks
-    callbacks?.onMatchStart?.(matchId);
-    callbacks?.onLegStart?.(legId);
-  }, [playerSetup, callbacks]);
+  }, [playerSetup]);
 
   // Reset leg (for new leg in same match)
   const resetLeg = useCallback(() => {
-    const newLegId = `leg_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-
     setPlayers((prev) =>
       prev.map((p) => ({ ...p, score: playerSetup.gameMode }))
     );
@@ -234,9 +210,7 @@ export function useGameState(callbacks?: AchievementCallbacks): UseGameStateRetu
     setLegDartsThrown(0);
     setWinner(null);
 
-    // Achievement callback
-    callbacks?.onLegStart?.(newLegId);
-  }, [playerSetup.gameMode, callbacks]);
+  }, [playerSetup.gameMode]);
 
   // End turn
   const endTurn = useCallback((busted = false) => {
@@ -269,13 +243,6 @@ export function useGameState(callbacks?: AchievementCallbacks): UseGameStateRetu
         };
       });
 
-      // Achievement callback: turn complete (skip for AI players)
-      if (!currentPlayer?.isAI) {
-        callbacks?.onTurnComplete?.({
-          turnScore: currentTurnScore,
-          is180: currentTurnScore === 180,
-        });
-      }
     }
 
     // Move to next player
@@ -284,20 +251,11 @@ export function useGameState(callbacks?: AchievementCallbacks): UseGameStateRetu
     setCurrentTurnScore(0);
     setDartPositions([]);
     setCurrentTurnThrows([]);
-  }, [currentPlayer, currentTurnScore, players.length, callbacks]);
+  }, [currentPlayer, currentTurnScore, players.length]);
 
   // Handle leg won
-  const handleLegWon = useCallback((checkoutValue: number) => {
+  const handleLegWon = useCallback((_checkoutValue: number) => {
     if (!currentPlayer) return;
-
-    // Achievement callbacks: checkout and leg complete (skip for AI players)
-    if (!currentPlayer?.isAI) {
-      callbacks?.onCheckout?.(checkoutValue);
-      callbacks?.onLegComplete?.({
-        won: true,
-        dartsUsed: legDartsThrown,
-      });
-    }
 
     // Create updated leg scores first, then use that value consistently
     const newLegScores = [...legScores];
@@ -313,10 +271,6 @@ export function useGameState(callbacks?: AchievementCallbacks): UseGameStateRetu
 
       // Check if match is won (first to setsToWin wins)
       if (newSetScores[currentPlayerIndex] >= playerSetup.setsToWin) {
-        // Match won - achievement callback (skip for AI players)
-        if (!currentPlayer?.isAI) {
-          callbacks?.onGameComplete?.(true);
-        }
         setMatchWinner(currentPlayer);
         setWinner(currentPlayer);
         setGameState('gameOver');
@@ -334,8 +288,6 @@ export function useGameState(callbacks?: AchievementCallbacks): UseGameStateRetu
     currentPlayerIndex,
     legScores,
     setScores,
-    legDartsThrown,
-    callbacks,
     playerSetup,
     players.length,
     resetLeg,
@@ -370,17 +322,6 @@ export function useGameState(callbacks?: AchievementCallbacks): UseGameStateRetu
       setCurrentTurnThrows((prev) => [...prev, result]);
       setDartsThrown((prev) => prev + 1);
       setLegDartsThrown((prev) => prev + 1);
-
-      // Achievement callback: emit throw (skip for AI players)
-      if (!currentPlayer?.isAI) {
-        callbacks?.onThrow?.({
-          score: result.score,
-          segment: result.segment,
-          multiplier: result.multiplier,
-          isBull: result.segment === 'BULL',
-          isTriple: result.multiplier === 3,
-        });
-      }
 
       if (result.isBust) {
         // Lock turn immediately - state updates are processed in order, so this
@@ -441,7 +382,7 @@ export function useGameState(callbacks?: AchievementCallbacks): UseGameStateRetu
 
       return result;
     },
-    [currentPlayer, currentTurnScore, callbacks, endTurn, handleLegWon]
+    [currentPlayer, currentTurnScore, endTurn, handleLegWon]
   );
 
   // Reset entire game

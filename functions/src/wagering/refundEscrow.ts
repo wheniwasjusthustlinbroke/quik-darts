@@ -33,20 +33,31 @@ export async function refundSingleEscrow(
   const escrowRef = db.ref(`escrow/${escrowId}`);
   const forceLocked = options?.forceLocked ?? false;
 
-  const refundResult = await escrowRef.transaction((currentEscrow) => {
-    if (!currentEscrow) return;  // node gone → abort
+  // Pre-read to get escrow data (also populates cache)
+  const preSnap = await escrowRef.once('value');
+  const preEscrow = preSnap.val();
 
-    if (currentEscrow.status === 'released' || currentEscrow.status === 'refunded') {
+  if (!preEscrow) {
+    return null; // Escrow doesn't exist
+  }
+
+  const refundResult = await escrowRef.transaction((currentEscrow) => {
+    // CRITICAL FIX: Use pre-read escrow if callback receives null (Admin SDK cold start)
+    const esc = currentEscrow ?? preEscrow;
+
+    if (!esc) return;  // Should never happen since we pre-checked
+
+    if (esc.status === 'released' || esc.status === 'refunded') {
       return; // terminal → abort
     }
 
-    const isLockedAndExpired = currentEscrow.status === 'locked' && currentEscrow.expiresAt && currentEscrow.expiresAt < now;
-    if (currentEscrow.status !== 'pending' && !isLockedAndExpired && !(forceLocked && currentEscrow.status === 'locked')) {
+    const isLockedAndExpired = esc.status === 'locked' && esc.expiresAt && esc.expiresAt < now;
+    if (esc.status !== 'pending' && !isLockedAndExpired && !(forceLocked && esc.status === 'locked')) {
       return; // active match → abort (unless forceLocked for server-side recovery)
     }
 
     return {
-      ...currentEscrow,
+      ...esc,
       status: 'refunded',
       refundedAt: now,
       refundReason: reason,
@@ -110,19 +121,29 @@ export const refundEscrow = functions
       );
     }
 
-    // SPECIAL CASE: cleanup_pending - find and refund any pending escrows for this user
+    // SPECIAL CASE: cleanup_pending - find and refund pending OR expired locked escrows
     if (escrowId === 'cleanup_pending') {
-      console.log(`[refundEscrow] Cleaning up pending escrows`);
+      console.log(`[refundEscrow] Cleaning up pending/expired-locked escrows for user ${userId}`);
       const now = Date.now();
 
-      // Find all pending escrows where user is player1 or player2
-      const escrowsSnap = await db.ref('escrow')
+      // Query 1: Find all pending escrows
+      const pendingSnap = await db.ref('escrow')
         .orderByChild('status')
         .equalTo('pending')
         .once('value');
 
-      const escrows = escrowsSnap.val();
-      if (!escrows) {
+      // Query 2: Find expired escrows (any status) by expiresAt
+      const expiredSnap = await db.ref('escrow')
+        .orderByChild('expiresAt')
+        .endAt(now)
+        .once('value');
+
+      // Merge and dedupe (expired query may include already-refunded escrows)
+      const pendingEscrows = pendingSnap.val() || {};
+      const expiredEscrows = expiredSnap.val() || {};
+      const escrows = { ...pendingEscrows, ...expiredEscrows };
+
+      if (!Object.keys(escrows).length) {
         return { success: true, refundedPlayers: [], refundedAmounts: [] };
       }
 
@@ -133,21 +154,32 @@ export const refundEscrow = functions
         const isPlayer1 = escrow.player1?.userId === userId;
         const isPlayer2 = escrow.player2?.userId === userId;
 
+        // Skip if not this user's escrow
         if (!isPlayer1 && !isPlayer2) continue;
 
-        // Skip if not expired and locked
-        const isExpired = escrow.expiresAt && escrow.expiresAt < now;
-        if (escrow.status === 'locked' && !isExpired) continue;
+        // Skip if already processed
+        if (escrow.status === 'released' || escrow.status === 'refunded') continue;
+
+        // Safety predicate for locked escrows:
+        // Only refund if expired AND no active game
+        if (escrow.status === 'locked') {
+          const isExpired = escrow.expiresAt && escrow.expiresAt < now;
+          const hasNoGame = !escrow.gameId && !escrow.matchedGameId;
+          if (!isExpired || !hasNoGame) continue;  // Skip active games
+        }
 
         // Refund this escrow
         const escrowRef = db.ref(`escrow/${eid}`);
+        // Use escrow from query as fallback (Admin SDK cold start fix)
         const refundResult = await escrowRef.transaction((currentEscrow) => {
-          if (!currentEscrow) return;
-          if (currentEscrow.status === 'released' || currentEscrow.status === 'refunded') {
+          // CRITICAL FIX: Use query escrow if callback receives null
+          const esc = currentEscrow ?? escrow;
+          if (!esc) return;
+          if (esc.status === 'released' || esc.status === 'refunded') {
             return; // Already processed
           }
           return {
-            ...currentEscrow,
+            ...esc,
             status: 'refunded',
             refundedAt: now,
             refundReason: 'cleanup_before_new_match',
@@ -246,26 +278,37 @@ export const refundEscrow = functions
     }
 
     // 6. CRITICAL: Use atomic transaction to prevent double-refund race condition
+    // NOTE: We already have `escrow` from line 231. If transaction callback gets null
+    // (Admin SDK cold start quirk), we use the pre-read value to force a proper transaction.
+    // This triggers conflict detection if the server value changed.
+
     // This atomically transitions escrow from pending/locked to refunded
     const refundResult = await escrowRef.transaction((currentEscrow) => {
-      if (!currentEscrow) return;
+      // CRITICAL FIX: Use pre-read escrow if callback receives null (Admin SDK cold start)
+      const esc = currentEscrow ?? escrow;
+
+      if (!esc) {
+        console.log(`[refundEscrow] No escrow data available, aborting`);
+        return; // Abort - should never happen since we pre-checked
+      }
 
       // Already refunded or released by another concurrent call - abort
-      if (currentEscrow.status === 'released' || currentEscrow.status === 'refunded') {
-        console.log(`[refundEscrow] Escrow already processed, aborting`);
+      if (esc.status === 'released' || esc.status === 'refunded') {
+        console.log(`[refundEscrow] Escrow already processed (${esc.status}), aborting`);
         return; // Abort transaction
       }
 
       // Can only refund if pending OR (locked AND expired)
-      const isLockedAndExpired = currentEscrow.status === 'locked' && currentEscrow.expiresAt && currentEscrow.expiresAt < now;
-      if (currentEscrow.status !== 'pending' && !isLockedAndExpired) {
-        console.log(`[refundEscrow] Cannot refund - escrow in invalid state`);
+      const isLockedAndExpired = esc.status === 'locked' && esc.expiresAt && esc.expiresAt < now;
+      if (esc.status !== 'pending' && !isLockedAndExpired) {
+        console.log(`[refundEscrow] Cannot refund - escrow in invalid state: ${esc.status}`);
         return; // Abort transaction
       }
 
       // Atomically mark as refunded
+      console.log(`[refundEscrow] Marking escrow as refunded (was: ${esc.status})`);
       return {
-        ...currentEscrow,
+        ...esc,
         status: 'refunded',
         refundedAt: now,
         refundReason: reason,
@@ -274,11 +317,24 @@ export const refundEscrow = functions
 
     // Check if transaction was committed
     if (!refundResult.committed || refundResult.snapshot.val()?.status !== 'refunded') {
-      // Another concurrent call already processed this escrow
-      console.log(`[refundEscrow] Escrow already processed by another call`);
+      // Transaction aborted - re-read to check actual status
+      const latestSnap = await escrowRef.once('value');
+      const latestEscrow = latestSnap.val();
+
+      if (latestEscrow?.status === 'refunded' || latestEscrow?.status === 'released') {
+        // Actually was already processed by another call
+        console.log(`[refundEscrow] Escrow confirmed already processed: ${latestEscrow.status}`);
+        return {
+          success: true,
+          error: `Escrow already ${latestEscrow.status}`,
+        };
+      }
+
+      // Transaction failed for other reason (no cache, race condition, etc.)
+      console.error(`[refundEscrow] Transaction failed, escrow status: ${latestEscrow?.status ?? 'null'}`);
       return {
-        success: true,
-        error: 'Escrow already processed',
+        success: false,
+        error: 'Refund transaction failed - please retry',
       };
     }
 
@@ -389,23 +445,33 @@ export const cleanupExpiredEscrows = functions
 
         const escrowRef = db.ref(`escrow/${escrowId}`);
 
-        // CRITICAL: Use atomic transaction to prevent double-refund race condition
+        // Pre-read to verify escrow exists and get data for fallback
+        const preSnap = await escrowRef.once('value');
+        if (!preSnap.exists()) {
+          console.log(`[cleanupExpiredEscrows] Escrow ${escrowId} no longer exists, skipping`);
+          continue;
+        }
+        const preEscrow = preSnap.val();
+
+        // Use atomic transaction to prevent double-refund race condition
         const refundResult = await escrowRef.transaction((currentEscrow) => {
-          if (!currentEscrow) return;
+          // CRITICAL FIX: Use pre-read escrow if callback receives null (Admin SDK cold start)
+          const esc = currentEscrow ?? preEscrow;
+          if (!esc) return;
 
           // Already processed - abort
-          if (currentEscrow.status === 'released' || currentEscrow.status === 'refunded') {
+          if (esc.status === 'released' || esc.status === 'refunded') {
             return; // Abort transaction
           }
 
           // Not expired anymore (edge case with clock skew)
-          if (currentEscrow.expiresAt && currentEscrow.expiresAt > now) {
+          if (esc.expiresAt && esc.expiresAt > now) {
             return; // Abort transaction
           }
 
           // Atomically mark as refunded
           return {
-            ...currentEscrow,
+            ...esc,
             status: 'refunded',
             refundedAt: now,
             refundReason: 'expired',

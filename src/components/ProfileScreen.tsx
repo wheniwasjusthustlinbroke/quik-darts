@@ -23,16 +23,10 @@ function formatNumber(num: number): string {
 
 interface ProfileScreenProps {
   onClose: () => void;
-  onViewAchievements: () => void;
-  unlockedAchievementCount: number;
-  totalAchievementCount: number;
 }
 
 export function ProfileScreen({
   onClose,
-  onViewAchievements,
-  unlockedAchievementCount,
-  totalAchievementCount,
 }: ProfileScreenProps) {
   const { user } = useAuth();
   const { userProfile, userProgression, userStreaks, isSavingNickname, saveNickname } = useProfile();
@@ -68,11 +62,6 @@ export function ProfileScreen({
 
   // Display name
   const displayName = userProfile?.displayName || user?.displayName || 'Player';
-
-  // Achievement progress (from props)
-  const achievementProgress = totalAchievementCount > 0
-    ? (unlockedAchievementCount / totalAchievementCount) * 100
-    : 0;
 
   // Avatar initial
   const avatarInitial = useMemo(() => {
@@ -297,30 +286,6 @@ export function ProfileScreen({
               </div>
             </div>
 
-            {/* Achievements Progress */}
-            <div className="stats-card">
-              <div className="stats-card__header">
-                <h3 className="stats-card__title" style={{ margin: 0 }}>Achievements</h3>
-                <button
-                  onClick={onViewAchievements}
-                  className="stats-card__link"
-                >
-                  View All →
-                </button>
-              </div>
-              <div className="stats-card__header" style={{ marginTop: '12px' }}>
-                <span className="stats-card__label">Progress</span>
-                <span className="stats-card__value-accent">
-                  {unlockedAchievementCount} / {totalAchievementCount}
-                </span>
-              </div>
-              <div className="progress-bar progress-bar--small">
-                <div
-                  className="progress-bar__fill progress-bar__fill--accent"
-                  style={{ width: `${achievementProgress}%` }}
-                />
-              </div>
-            </div>
           </div>
         </div>
       </div>

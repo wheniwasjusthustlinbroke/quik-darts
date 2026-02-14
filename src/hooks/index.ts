@@ -19,19 +19,9 @@ export type { ThemeOption, UseThemeReturn } from './useTheme';
 
 export {
   useLocalStorage,
-  useAchievements,
-  useAchievementStats,
   useThemeSettings,
 } from './useLocalStorage';
 export type {
   UseLocalStorageOptions,
-  AchievementStatsData,
   ThemeSettings,
 } from './useLocalStorage';
-
-export { useWeeklyChallenge } from './useWeeklyChallenge';
-export type {
-  WeeklyChallengeInfo,
-  WeeklyChallengeProgress,
-  UseWeeklyChallengeReturn,
-} from './useWeeklyChallenge';
