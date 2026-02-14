@@ -41,6 +41,7 @@ export function ProfileScreen({
   // Nickname editing state
   const [isEditingNickname, setIsEditingNickname] = useState(false);
   const [nicknameInput, setNicknameInput] = useState('');
+  const [nicknameError, setNicknameError] = useState<string | null>(null);
 
   // Calculate level progress
   const level = userProgression?.level || 1;
@@ -82,12 +83,14 @@ export function ProfileScreen({
   const handleStartEdit = useCallback(() => {
     setNicknameInput(displayName);
     setIsEditingNickname(true);
+    setNicknameError(null);
   }, [displayName]);
 
   // Cancel editing
   const handleCancelEdit = useCallback(() => {
     setIsEditingNickname(false);
     setNicknameInput('');
+    setNicknameError(null);
   }, []);
 
   // Save nickname
@@ -95,10 +98,13 @@ export function ProfileScreen({
     const trimmed = nicknameInput.trim();
     if (trimmed.length < 1 || trimmed.length > 20) return;
 
-    const success = await saveNickname(trimmed);
-    if (success) {
+    const result = await saveNickname(trimmed);
+    if (result.success) {
       setIsEditingNickname(false);
       setNicknameInput('');
+      setNicknameError(null);
+    } else {
+      setNicknameError(result.error);
     }
   }, [nicknameInput, saveNickname]);
 
@@ -181,6 +187,9 @@ export function ProfileScreen({
                     Cancel
                   </button>
                 </div>
+                {nicknameError && (
+                  <span className="profile-card__nickname-error">{nicknameError}</span>
+                )}
               </div>
             ) : (
               <div className="profile-card__name-row">

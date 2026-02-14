@@ -28,6 +28,7 @@ import {
   DEFAULT_WOBBLE_CONFIG,
 } from './utils/wobble';
 import { useGameState, useSound, useAuth, useTheme } from './hooks';
+import { useProfile } from './hooks/useProfile';
 import type { AchievementCallbacks } from './hooks/useGameState';
 import { useAchievements } from './hooks/useAchievements';
 import { ACHIEVEMENTS } from './services/achievements';
@@ -210,6 +211,12 @@ function App() {
     signInWithApple,
     signOut,
   } = useAuth();
+
+  // Profile state (for edited display name from Firebase RTDB)
+  const { userProfile } = useProfile();
+
+  // ONE unified display name - use everywhere (RTDB > Auth > fallback)
+  const effectiveDisplayName = userProfile?.displayName || user?.displayName || 'Player';
 
   // Check if aiming at exact winning double/bull (no proxy)
   const isAimingAtWinningDouble = useMemo(() => {
@@ -457,7 +464,7 @@ function App() {
       setIsOnlineGame(true);
 
       const profile = {
-        displayName: user?.displayName ?? 'Player',
+        displayName: effectiveDisplayName,
         flag: '🌍',
         level: 1,
       };
@@ -505,7 +512,7 @@ function App() {
       setIsSearching(false);
       setErrorText('Failed to start matchmaking. Please try again.');
     }
-  }, [playerSetup.gameMode, user?.displayName]);
+  }, [playerSetup.gameMode, effectiveDisplayName]);
 
   /**
    * Start wagered matchmaking after stake selection.
@@ -532,7 +539,7 @@ function App() {
       await leaveCasualQueue().catch(() => {});
 
       const profile = {
-        displayName: user?.displayName ?? 'Player',
+        displayName: effectiveDisplayName,
         flag: '🌍',
         level: 1,
       };
@@ -620,7 +627,7 @@ function App() {
       isWageredMatchRef.current = false;
       setErrorText('Failed to start matchmaking. Please try again.');
     }
-  }, [coinBalance, selectedStake, playerSetup.gameMode, user?.displayName]);
+  }, [coinBalance, selectedStake, playerSetup.gameMode, effectiveDisplayName]);
 
   // Close stake selection modal
   const handleCloseStakeSelection = useCallback(() => {
@@ -1177,6 +1184,7 @@ function App() {
           onPlayAI={handlePlayAI}
           onPractice={handlePractice}
           onShowToast={handleShowToast}
+          profileDisplayName={effectiveDisplayName}
         />
         {showStakeSelection && (
           <StakeSelector

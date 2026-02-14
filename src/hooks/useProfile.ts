@@ -9,6 +9,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { ref, onValue, update, Unsubscribe } from 'firebase/database';
 import { onAuthStateChanged } from 'firebase/auth';
 import { getFirebaseDatabase, getFirebaseAuth } from '../services/firebase';
+import { validateNickname } from '../utils/nicknameValidation';
 
 /** User profile data */
 export interface UserProfile {
@@ -34,13 +35,16 @@ export interface UserStreaks {
   bestWinStreak: number;
 }
 
+/** Result of saveNickname operation */
+export type SaveNicknameResult = { success: true } | { success: false; error: string };
+
 export interface ProfileState {
   userProfile: UserProfile | null;
   userProgression: UserProgression | null;
   userStreaks: UserStreaks | null;
   isLoading: boolean;
   isSavingNickname: boolean;
-  saveNickname: (nickname: string) => Promise<boolean>;
+  saveNickname: (nickname: string) => Promise<SaveNicknameResult>;
 }
 
 /** Calculate XP required for a given level */
@@ -170,28 +174,34 @@ export function useProfile(): ProfileState {
     };
   }, []);
 
-  // Save nickname to Firebase
-  const saveNickname = useCallback(async (nickname: string): Promise<boolean> => {
+  // Save nickname to Firebase with profanity validation
+  const saveNickname = useCallback(async (nickname: string): Promise<SaveNicknameResult> => {
     const auth = getFirebaseAuth();
     const database = getFirebaseDatabase();
 
-    if (!auth || !database) return false;
+    if (!auth || !database) {
+      return { success: false, error: 'Not connected' };
+    }
 
     const user = auth.currentUser;
-    if (!user || user.isAnonymous) return false;
+    if (!user || user.isAnonymous) {
+      return { success: false, error: 'Must be signed in to change nickname' };
+    }
 
-    // Validate nickname
-    const trimmed = nickname.trim();
-    if (trimmed.length < 1 || trimmed.length > 20) return false;
+    // Validate nickname (length + profanity check)
+    const validation = validateNickname(nickname);
+    if (!validation.valid) {
+      return { success: false, error: validation.error };
+    }
 
     setIsSavingNickname(true);
     try {
       const profileRef = ref(database, `users/${user.uid}/profile`);
-      await update(profileRef, { displayName: trimmed });
-      return true;
+      await update(profileRef, { displayName: nickname.trim() });
+      return { success: true };
     } catch (error: any) {
       console.error('[useProfile] saveNickname error:', error.message);
-      return false;
+      return { success: false, error: 'Failed to save nickname' };
     } finally {
       setIsSavingNickname(false);
     }
