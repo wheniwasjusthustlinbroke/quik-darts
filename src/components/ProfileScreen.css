@@ -202,6 +202,13 @@
   cursor: pointer;
 }
 
+.profile-card__nickname-error {
+  display: block;
+  color: #ef4444;
+  font-size: 0.8rem;
+  margin-top: 8px;
+}
+
 /* Rank */
 .profile-card__rank {
   color: var(--color-text-muted);

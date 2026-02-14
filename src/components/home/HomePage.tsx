@@ -48,6 +48,9 @@ interface HomePageProps {
 
   // === Toast ===
   onShowToast: (message: string) => void;
+
+  // === Profile (edited nickname from RTDB) ===
+  profileDisplayName?: string;
 }
 
 const HomePage: React.FC<HomePageProps> = ({
@@ -76,6 +79,7 @@ const HomePage: React.FC<HomePageProps> = ({
   onPlayAI,
   onPractice,
   onShowToast,
+  profileDisplayName,
 }) => {
   const handleComingSoon = (feature: string) => {
     onShowToast(`${feature} - Coming Soon!`);
@@ -111,7 +115,7 @@ const HomePage: React.FC<HomePageProps> = ({
                 </div>
               </button>
               <span className="topbar__name">
-                {user?.displayName || 'Player'}
+                {profileDisplayName || 'Player'}
                 {isAnonymous && <span className="topbar__guest-badge">Guest</span>}
               </span>
             </div>
