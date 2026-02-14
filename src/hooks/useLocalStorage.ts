@@ -88,61 +88,6 @@ export function useLocalStorage<T>(
 }
 
 /**
- * Type-safe localStorage key for achievements
- */
-export function useAchievements() {
-  return useLocalStorage<string[]>('quikdarts_achievements', [], {
-    validator: (value): value is string[] =>
-      Array.isArray(value) && value.every((v) => typeof v === 'string'),
-  });
-}
-
-/**
- * Type-safe localStorage for achievement stats
- */
-export interface AchievementStatsData {
-  totalGamesPlayed: number;
-  totalGamesWon: number;
-  total180s: number;
-  totalNineDarters: number;
-  totalOnlineGames: number;
-  totalOnlineWins: number;
-  totalBulls: number;
-  totalTriples: number;
-  highestCheckout: number;
-}
-
-const DEFAULT_ACHIEVEMENT_STATS: AchievementStatsData = {
-  totalGamesPlayed: 0,
-  totalGamesWon: 0,
-  total180s: 0,
-  totalNineDarters: 0,
-  totalOnlineGames: 0,
-  totalOnlineWins: 0,
-  totalBulls: 0,
-  totalTriples: 0,
-  highestCheckout: 0,
-};
-
-export function useAchievementStats() {
-  return useLocalStorage<AchievementStatsData>(
-    'quikdarts_stats',
-    DEFAULT_ACHIEVEMENT_STATS,
-    {
-      validator: (value): value is AchievementStatsData => {
-        if (!value || typeof value !== 'object') return false;
-        const v = value as Record<string, unknown>;
-        return (
-          typeof v.totalGamesPlayed === 'number' &&
-          typeof v.totalGamesWon === 'number' &&
-          typeof v.total180s === 'number'
-        );
-      },
-    }
-  );
-}
-
-/**
  * Type-safe localStorage for theme settings
  */
 export interface ThemeSettings {

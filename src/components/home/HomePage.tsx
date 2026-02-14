@@ -34,7 +34,6 @@ interface HomePageProps {
 
   // === Navigation ===
   onOpenProfile: () => void;
-  onOpenAchievements: () => void;
 
   // === Play Online ===
   isSearching: boolean;
@@ -71,7 +70,6 @@ const HomePage: React.FC<HomePageProps> = ({
   onSoundToggle,
   onOpenThemeSelector,
   onOpenProfile,
-  onOpenAchievements,
   isSearching,
   isCreatingEscrow,
   errorText,
@@ -87,7 +85,6 @@ const HomePage: React.FC<HomePageProps> = ({
 
   const toastFriends = () => handleComingSoon('Play Friends');
   const toastDartSets = () => handleComingSoon('Dart Sets');
-  const toastLeaderboard = () => handleComingSoon('Leaderboard');
 
   const getPlayOnlineSubtitle = () => {
     if (isCreatingEscrow) return 'Creating match...';
@@ -225,17 +222,6 @@ const HomePage: React.FC<HomePageProps> = ({
           <div className="home__bottom-left">
             <SoundToggle enabled={soundEnabled} onToggle={onSoundToggle} />
           </div>
-
-          <nav className="bottom-nav">
-            <button type="button" className="bottom-nav__item" onClick={toastLeaderboard}>
-              <span className="bottom-nav__icon">🏆</span>
-              <span className="bottom-nav__label">Leaderboard</span>
-            </button>
-            <button type="button" className="bottom-nav__item" onClick={onOpenAchievements}>
-              <span className="bottom-nav__icon">⭐</span>
-              <span className="bottom-nav__label">Achievements</span>
-            </button>
-          </nav>
         </footer>
       </div>
     </div>

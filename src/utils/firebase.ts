@@ -90,9 +90,6 @@ export const FIREBASE_PATHS = {
   CASUAL_QUEUE: 'matchmaking_queue/casual',
   WAGERED_QUEUE: 'matchmaking_queue/wagered',
   ESCROW: 'escrow',
-  ACHIEVEMENTS: 'achievements',
-  DAILY_CHALLENGES: 'daily_challenges',
-  WEEKLY_CHALLENGES: 'weekly_challenges',
 } as const;
 
 /**

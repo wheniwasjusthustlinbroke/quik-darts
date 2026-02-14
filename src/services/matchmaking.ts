@@ -25,6 +25,9 @@ import { httpsCallable } from 'firebase/functions';
 import { getFirebaseDatabase, getFirebaseFunctions, authReadyPromise } from './firebase';
 import { FIREBASE_PATHS } from '../utils/firebase';
 
+// Debug tag for correlating logs across tabs
+const MM_DEBUG_TAG = `mm:${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
+
 // Types
 export interface QueueEntry {
   playerId: string;
@@ -33,6 +36,7 @@ export interface QueueEntry {
   level: number;
   avatarUrl: string | null;
   timestamp: object; // serverTimestamp()
+  gameMode?: 301 | 501;
   matchedGameId?: string;
   matchedByName?: string;
   matchedByFlag?: string;
@@ -86,6 +90,7 @@ let queueOnDisconnect: ReturnType<typeof onDisconnect> | null = null;
 let queueValueUnsubscribe: (() => void) | null = null;
 let matchmakingTimeout: ReturnType<typeof setTimeout> | null = null;
 let casualRecheckTimeout: ReturnType<typeof setTimeout> | null = null;
+let recheckInFlight = false; // Guard to prevent overlapping async rechecks
 let gameRoomRef: DatabaseReference | null = null;
 let gameRoomUnsubscribe: (() => void) | null = null;
 let gameRoomOnDisconnect: ReturnType<typeof onDisconnect> | null = null;
@@ -151,6 +156,12 @@ export async function joinCasualQueue(
   }
 
   myPlayerId = authUser.uid;
+  console.log(`[matchmaking][${MM_DEBUG_TAG}] Join start:`, {
+    myPlayerId,
+    authUid: authUser?.uid ?? null,
+    gameMode,
+    queuePath: FIREBASE_PATHS.CASUAL_QUEUE
+  });
   isProcessingMatch = false;
 
   callbacks.onSearching?.();
@@ -177,6 +188,10 @@ export async function joinCasualQueue(
           if (opponentKey === myPlayerId) continue;
           // Skip already matched
           if (entry.matchedGameId != null) continue;
+
+          // Deterministic initiator: only higher UID calls createGame
+          // Lower UID waits for matchedGameId via listener
+          if (myPlayerId! < opponentKey) continue;
 
           try {
             const matched = await createGameWithOpponent(opponentKey, entry, profile, gameMode, queueRef, callbacks, functions);
@@ -224,24 +239,29 @@ async function addSelfToQueue(
     flag: sanitizeFlag(profile.flag) || '🌍',
     level: profile.level || 1,
     avatarUrl: sanitizeAvatarUrl(profile.avatarUrl) || null,
+    gameMode,
     timestamp: serverTimestamp()
   };
 
-  // Use transaction to avoid overwriting matchedGameId set by opponent
-  const writeResult = await runTransaction(myEntryRef, (current) => {
-    // If already matched, abort - let the listener handle it
-    if (current && current.matchedGameId) {
-      return undefined;
-    }
-    // Merge pattern: preserve any existing fields
-    return { ...(current ?? {}), ...myQueueEntry };
-  });
+  // Use update() to merge fields without overwriting matchedGameId if it exists
+  await update(myEntryRef, myQueueEntry);
 
-  // If transaction aborted (already matched), exit early
-  if (!writeResult.committed) {
-    console.log('[matchmaking] Already matched while joining, waiting for listener');
-    return;
-  }
+  // Non-blocking verification - fire and forget
+  void get(myEntryRef)
+    .then((verifySnap) => {
+      console.log(`[matchmaking][${MM_DEBUG_TAG}] Queue entry verify:`, {
+        exists: verifySnap.exists(),
+        playerId: verifySnap.val()?.playerId ?? null,
+        matchedGameId: verifySnap.val()?.matchedGameId ?? null,
+        timestamp: verifySnap.val()?.timestamp ?? null,
+        timestampType: typeof verifySnap.val()?.timestamp,
+        allKeys: Object.keys(verifySnap.val() || {}),
+      });
+    })
+    .catch((e) => console.error(`[matchmaking][${MM_DEBUG_TAG}] Queue entry verify ERROR:`, {
+      code: (e as any)?.code ?? null,
+      message: (e as any)?.message ?? null,
+    }));
 
   // Auto-remove from queue if user disconnects (matches index.html line 2456)
   queueOnDisconnect = onDisconnect(myEntryRef);
@@ -264,36 +284,68 @@ async function addSelfToQueue(
       const opponentName = myEntry.matchedByName || 'Opponent';
       const opponentFlag = myEntry.matchedByFlag || '🌍';
 
-      // Validate game exists and we're player1
+      // Wait for game with retry (server may still be creating it after setting matchedGameId)
       const gameRef = ref(database, `${FIREBASE_PATHS.GAMES}/${roomId}`);
-      try {
-        const gameSnap = await get(gameRef);
-        const gameData = gameSnap.val();
+      let gameData: any = null;
+      const maxRetries = 5;
+      const baseDelay = 200;
 
-        if (!gameData || gameData.player1?.id !== myPlayerId) {
-          console.error('[matchmaking] Invalid game data');
+      for (let attempt = 0; attempt < maxRetries; attempt++) {
+        try {
+          const gameSnap = await get(gameRef);
+          gameData = gameSnap.val();
+
+          // Success - game exists and we're player1
+          if (gameData && gameData.player1?.id === myPlayerId) {
+            break;
+          }
+
+          // Fail fast: game exists with different player1 (not transient)
+          if (gameData?.player1?.id && gameData.player1.id !== myPlayerId) {
+            console.error('[matchmaking] Game has wrong player1:', gameData.player1.id);
+            isProcessingMatch = false;
+            callbacks.onError?.('Invalid game data');
+            return;
+          }
+
+          // Game not ready (null/missing) - retry
+          if (attempt < maxRetries - 1) {
+            console.log(`[matchmaking] Game not ready (attempt ${attempt + 1}/${maxRetries})`);
+            await new Promise(resolve => setTimeout(resolve, baseDelay * (attempt + 1)));
+          }
+        } catch (err: any) {
+          // Permission denied likely means game not created yet - retry
+          if (attempt < maxRetries - 1) {
+            console.log(`[matchmaking] Game read error (attempt ${attempt + 1}/${maxRetries})`);
+            await new Promise(resolve => setTimeout(resolve, baseDelay * (attempt + 1)));
+            continue;
+          }
+          console.error('[matchmaking] Failed to read game after retries:', err);
           isProcessingMatch = false;
-          callbacks.onError?.('Invalid game data');
+          callbacks.onError?.('Failed to join game');
           return;
         }
-
-        myPlayerIndex = 0; // We're player1
-
-        callbacks.onFound?.({
-          roomId,
-          playerIndex: 0,
-          opponent: {
-            name: sanitizeName(opponentName),
-            flag: sanitizeFlag(opponentFlag),
-            level: sanitizeLevel(gameData.player2?.level),
-            avatarUrl: sanitizeAvatarUrl(gameData.player2?.avatarUrl)
-          }
-        });
-      } catch (err: any) {
-        console.error('[matchmaking] Failed to read game:', err);
-        isProcessingMatch = false;
-        callbacks.onError?.('Failed to join game');
       }
+
+      if (!gameData || gameData.player1?.id !== myPlayerId) {
+        console.error('[matchmaking] Invalid game data after retries');
+        isProcessingMatch = false;
+        callbacks.onError?.('Invalid game data');
+        return;
+      }
+
+      myPlayerIndex = 0; // We're player1
+
+      callbacks.onFound?.({
+        roomId,
+        playerIndex: 0,
+        opponent: {
+          name: sanitizeName(opponentName),
+          flag: sanitizeFlag(opponentFlag),
+          level: sanitizeLevel(gameData.player2?.level),
+          avatarUrl: sanitizeAvatarUrl(gameData.player2?.avatarUrl)
+        }
+      });
     }
   });
 
@@ -305,28 +357,8 @@ async function addSelfToQueue(
     }
   }, 60000);
 
-  // One delayed re-check: catch opponents who joined around the same time
-  if (casualRecheckTimeout) clearTimeout(casualRecheckTimeout);
-  casualRecheckTimeout = setTimeout(async () => {
-    if (isProcessingMatch || !myPlayerId) return;
-    try {
-      const recheckQuery = query(queueRef, orderByChild('timestamp'), limitToFirst(5));
-      const recheckSnap = await get(recheckQuery);
-      if (!recheckSnap.exists()) return;
-
-      const entries = Object.entries(recheckSnap.val()) as [string, QueueEntry][];
-
-      for (const [key, val] of entries) {
-        if (isProcessingMatch) return;
-        if (key === myPlayerId) continue;
-        if ((val as any).matchedGameId) continue;
-        const matched = await createGameWithOpponent(key, val, profile, gameMode, queueRef, callbacks, functions);
-        if (matched) return;
-      }
-    } catch (err) {
-      console.error('[matchmaking] Re-check error:', err);
-    }
-  }, 2000 + Math.floor(Math.random() * 1000));
+  // Recurring recheck: catches opponents who join after us (recursive setTimeout)
+  scheduleCasualRecheck(queueRef, profile, gameMode, callbacks, functions, 2000 + Math.floor(Math.random() * 1000));
 }
 
 /**
@@ -347,6 +379,13 @@ async function createGameWithOpponent(
   }
 
   isProcessingMatch = true;
+  console.log(`[matchmaking][${MM_DEBUG_TAG}] createGameWithOpponent START:`, {
+    myPlayerId,
+    opponentKey,
+    opponentName: opponent?.name ?? null,
+    gameMode,
+    isProcessingMatch
+  });
   let success = false;
 
   try {
@@ -363,6 +402,11 @@ async function createGameWithOpponent(
     });
 
     const data = result.data as any;
+    console.log(`[matchmaking][${MM_DEBUG_TAG}] createGame response:`, {
+      success: data?.success ?? null,
+      gameId: data?.gameId ?? null,
+      error: data?.error ?? null
+    });
     if (!data.success || !data.gameId) {
       callbacks.onError?.(data.error || 'Failed to create game');
       return false;
@@ -370,6 +414,9 @@ async function createGameWithOpponent(
 
     myPlayerIndex = 1; // We're player2
     success = true;
+
+    // Cleanup before callback - stops recheck loop via queueEntryRef = null
+    await cleanupMatchmaking();
 
     callbacks.onFound?.({
       roomId: data.gameId,
@@ -384,6 +431,10 @@ async function createGameWithOpponent(
     return true;
   } catch (error: any) {
     console.error('[matchmaking] Error creating game:', error);
+    console.error(`[matchmaking][${MM_DEBUG_TAG}] createGameWithOpponent ERROR:`, {
+      code: error?.code ?? null,
+      message: error?.message ?? null
+    });
     // Known race: opponent's queue entry gone before server could claim it
     if (error.code === 'functions/failed-precondition' ||
         error.message?.includes('Opponent not available')) {
@@ -394,7 +445,103 @@ async function createGameWithOpponent(
     return false;
   } finally {
     if (!success) isProcessingMatch = false;
+    console.log(`[matchmaking][${MM_DEBUG_TAG}] createGameWithOpponent END:`, {
+      success,
+      isProcessingMatch
+    });
   }
+}
+
+/**
+ * Schedule a casual recheck with recursive setTimeout (not setInterval).
+ * Guarantees no overlapping async rechecks via recheckInFlight guard.
+ * Stops when: cleanup called (queueEntryRef nulled).
+ */
+function scheduleCasualRecheck(
+  queueRef: DatabaseReference,
+  profile: { displayName?: string; flag?: string; level?: number; avatarUrl?: string | null },
+  gameMode: 301 | 501,
+  callbacks: MatchmakingCallbacks,
+  functions: any,
+  delayMs: number = 3000
+): void {
+  const isActiveQueueSession = (): boolean => {
+    if (!queueEntryRef || !myPlayerId) return false;
+    return queueEntryRef.parent?.toString() === queueRef.toString();
+  };
+
+  // Clear any existing timeout before scheduling new one
+  if (casualRecheckTimeout) {
+    clearTimeout(casualRecheckTimeout);
+    casualRecheckTimeout = null;
+  }
+
+  casualRecheckTimeout = setTimeout(async () => {
+    // Hard stop: cleanup happened or new session started (stale closure guard)
+    if (!isActiveQueueSession()) {
+      console.log(`[matchmaking][${MM_DEBUG_TAG}] Recheck stopped: cleanup or stale`);
+      return;
+    }
+
+    // Overlap guard: previous recheck still running - reschedule shortly
+    if (recheckInFlight) {
+      console.log(`[matchmaking][${MM_DEBUG_TAG}] Recheck skipped (in-flight), rescheduling`);
+      scheduleCasualRecheck(queueRef, profile, gameMode, callbacks, functions, 1000);
+      return;
+    }
+
+    // createGame attempt in flight - reschedule, don't stop
+    if (isProcessingMatch) {
+      console.log(`[matchmaking][${MM_DEBUG_TAG}] Recheck deferred (processing match)`);
+      scheduleCasualRecheck(queueRef, profile, gameMode, callbacks, functions, 1000);
+      return;
+    }
+
+    recheckInFlight = true;
+    try {
+      console.log(`[matchmaking][${MM_DEBUG_TAG}] Recheck executing`, { time: Date.now() });
+
+      const recheckQuery = query(queueRef, orderByChild('timestamp'), limitToFirst(5));
+      const recheckSnap = await get(recheckQuery);
+      const snapshotVal = recheckSnap.val() || {};
+      console.log(`[matchmaking][${MM_DEBUG_TAG}] Recheck snapshot:`, {
+        exists: recheckSnap.exists(),
+        numChildren: Object.keys(snapshotVal).length,
+        keys: Object.keys(snapshotVal).slice(0, 10)
+      });
+
+      if (!recheckSnap.exists()) {
+        return; // No entries - will reschedule in finally
+      }
+
+      const entries = Object.entries(recheckSnap.val()) as [string, QueueEntry][];
+
+      for (const [key, val] of entries) {
+        // Re-check stop condition during iteration (use break to let finally reschedule)
+        if (!isActiveQueueSession()) break;
+        if (isProcessingMatch) break;
+        if (key === myPlayerId) continue;
+        if ((val as any).matchedGameId) continue;
+
+        // Deterministic initiator: only higher UID calls createGame
+        if (myPlayerId! < key) continue;
+
+        console.log(`[matchmaking][${MM_DEBUG_TAG}] Recheck: calling createGameWithOpponent`, { key });
+        const matched = await createGameWithOpponent(key, val, profile, gameMode, queueRef, callbacks, functions);
+        if (matched) return; // Success - cleanup already called, don't reschedule
+      }
+    } catch (err) {
+      console.error('[matchmaking] Recheck error:', err);
+    } finally {
+      recheckInFlight = false;
+      // Always reschedule if still queued (cleanup sets queueEntryRef = null)
+      // Use shorter delay if createGame is in flight
+      if (isActiveQueueSession()) {
+        const nextDelay = isProcessingMatch ? 1000 : 3000 + Math.floor(Math.random() * 1000);
+        scheduleCasualRecheck(queueRef, profile, gameMode, callbacks, functions, nextDelay);
+      }
+    }
+  }, Math.floor(delayMs));
 }
 
 /**
@@ -420,6 +567,7 @@ async function cleanupMatchmaking(): Promise<void> {
     clearTimeout(casualRecheckTimeout);
     casualRecheckTimeout = null;
   }
+  recheckInFlight = false; // Reset guard to prevent stale state
 
   if (queueValueUnsubscribe) {
     queueValueUnsubscribe();
@@ -775,7 +923,7 @@ export interface WageredMatchCallbacks {
   onEscrowCreated?: (escrowId: string, newBalance: number) => void;
   onFound?: (data: MatchFoundData & { escrowId: string; stakeAmount: number }) => void;
   onError?: (error: string) => void;
-  onTimeout?: () => void;
+  onTimeout?: (refundFailed?: boolean) => void;
 }
 
 // === Wagered Matchmaking State ===
@@ -897,6 +1045,7 @@ export async function joinWageredQueue(
 
           if (joinResult.success) {
             currentEscrowId = opponentData.escrowId;
+            console.log('[wageredMatchmaking] currentEscrowId SET (joined opponent):', currentEscrowId);
             callbacks.onEscrowCreated?.(opponentData.escrowId, joinResult.newBalance ?? 0);
 
             await createWageredGameWithOpponent(
@@ -934,6 +1083,7 @@ export async function joinWageredQueue(
     }
 
     currentEscrowId = escrowResult.escrowId;
+    console.log('[wageredMatchmaking] currentEscrowId SET (created own):', currentEscrowId);
     callbacks.onEscrowCreated?.(escrowResult.escrowId, escrowResult.newBalance ?? 0);
 
     await addSelfToWageredQueue(
@@ -962,7 +1112,7 @@ async function addSelfToWageredQueue(
   stakeAmount: number,
   escrowId: string,
   wageredQueueRef: DatabaseReference,
-  _gameMode: 301 | 501,
+  gameMode: 301 | 501,
   callbacks: WageredMatchCallbacks,
   _functions: any
 ): Promise<void> {
@@ -977,26 +1127,14 @@ async function addSelfToWageredQueue(
     flag: sanitizeFlag(profile.flag) || '🌍',
     level: profile.level || 1,
     avatarUrl: sanitizeAvatarUrl(profile.avatarUrl) || null,
+    gameMode,
     timestamp: serverTimestamp(),
     escrowId,
     stakeAmount,
   };
 
-  // Use transaction to avoid overwriting matchedGameId/claimedBy set by opponent
-  const writeResult = await runTransaction(myEntryRef, (current) => {
-    // If already matched or claimed, abort
-    if (current && (current.matchedGameId || current.claimedBy)) {
-      return undefined;
-    }
-    // Merge pattern: preserve any existing fields
-    return { ...(current ?? {}), ...myQueueEntry };
-  });
-
-  // If transaction aborted (already matched/claimed), exit early
-  if (!writeResult.committed) {
-    console.log('[wageredMatchmaking] Already matched/claimed while joining, waiting for listener');
-    return;
-  }
+  // Use update() to merge fields without overwriting matchedGameId/claimedBy if they exist
+  await update(myEntryRef, myQueueEntry);
 
   // Auto-remove from queue on disconnect
   wageredQueueOnDisconnect = onDisconnect(myEntryRef);
@@ -1018,36 +1156,70 @@ async function addSelfToWageredQueue(
       const opponentName = myEntry.matchedByName || 'Opponent';
       const opponentFlag = myEntry.matchedByFlag || '🌍';
 
-      // Validate game
+      // Wait for game with retry (server may still be creating it after setting matchedGameId)
       const gameRef = ref(database, `${FIREBASE_PATHS.GAMES}/${roomId}`);
-      try {
-        const gameSnap = await get(gameRef);
-        const gameData = gameSnap.val();
+      let gameData: any = null;
+      const maxRetries = 5;
+      const baseDelay = 200;
 
-        if (!gameData || gameData.player1?.id !== myPlayerId) {
+      for (let attempt = 0; attempt < maxRetries; attempt++) {
+        try {
+          const gameSnap = await get(gameRef);
+          gameData = gameSnap.val();
+
+          // Success - game exists and we're player1
+          if (gameData && gameData.player1?.id === myPlayerId) {
+            break;
+          }
+
+          // Fail fast: game exists with different player1 (not transient)
+          if (gameData?.player1?.id && gameData.player1.id !== myPlayerId) {
+            console.error('[matchmaking] Wagered game has wrong player1:', gameData.player1.id);
+            isProcessingWageredMatch = false;
+            callbacks.onError?.('Invalid game data');
+            return;
+          }
+
+          // Game not ready (null/missing) - retry
+          if (attempt < maxRetries - 1) {
+            console.log(`[matchmaking] Wagered game not ready (attempt ${attempt + 1}/${maxRetries})`);
+            await new Promise(resolve => setTimeout(resolve, baseDelay * (attempt + 1)));
+          }
+        } catch (err: any) {
+          // Permission denied likely means game not created yet - retry
+          if (attempt < maxRetries - 1) {
+            console.log(`[matchmaking] Wagered game read error (attempt ${attempt + 1}/${maxRetries})`);
+            await new Promise(resolve => setTimeout(resolve, baseDelay * (attempt + 1)));
+            continue;
+          }
+          console.error('[matchmaking] Failed to read wagered game after retries:', err);
           isProcessingWageredMatch = false;
-          callbacks.onError?.('Invalid game data');
+          callbacks.onError?.('Failed to join game');
           return;
         }
-
-        myPlayerIndex = 0; // We're player1
-
-        callbacks.onFound?.({
-          roomId,
-          playerIndex: 0,
-          opponent: {
-            name: sanitizeName(opponentName),
-            flag: sanitizeFlag(opponentFlag),
-            level: sanitizeLevel(gameData.player2?.level),
-            avatarUrl: sanitizeAvatarUrl(gameData.player2?.avatarUrl),
-          },
-          escrowId: gameData.wager?.escrowId || escrowId,
-          stakeAmount,
-        });
-      } catch (err: any) {
-        isProcessingWageredMatch = false;
-        callbacks.onError?.('Failed to join game');
       }
+
+      if (!gameData || gameData.player1?.id !== myPlayerId) {
+        console.error('[matchmaking] Invalid wagered game data after retries');
+        isProcessingWageredMatch = false;
+        callbacks.onError?.('Invalid game data');
+        return;
+      }
+
+      myPlayerIndex = 0; // We're player1
+
+      callbacks.onFound?.({
+        roomId,
+        playerIndex: 0,
+        opponent: {
+          name: sanitizeName(opponentName),
+          flag: sanitizeFlag(opponentFlag),
+          level: sanitizeLevel(gameData.player2?.level),
+          avatarUrl: sanitizeAvatarUrl(gameData.player2?.avatarUrl),
+        },
+        escrowId: gameData.wager?.escrowId || escrowId,
+        stakeAmount,
+      });
     }
   });
 
@@ -1078,12 +1250,45 @@ async function addSelfToWageredQueue(
       await cleanupWageredMatchmaking();
       isProcessingWageredMatch = true; // Re-set after cleanup (cleanup resets to false)
 
-      // Fetch game data to get opponent info
+      // Fetch game data with retry (server may still be creating it)
       const gameRef = ref(database, `${FIREBASE_PATHS.GAMES}/${matchedGameId}`);
-      const gameSnap = await get(gameRef);
-      const gameData = gameSnap.val();
+      let gameData: any = null;
+      const maxRetries = 5;
+      const baseDelay = 200;
+
+      for (let attempt = 0; attempt < maxRetries; attempt++) {
+        try {
+          const gameSnap = await get(gameRef);
+          gameData = gameSnap.val();
+
+          if (gameData && gameData.player1?.id === myPlayerId) {
+            break;
+          }
+
+          if (gameData?.player1?.id && gameData.player1.id !== myPlayerId) {
+            console.error('[matchmaking] Escrow game has wrong player1:', gameData.player1.id);
+            callbacks.onError?.('Invalid game data');
+            return;
+          }
+
+          if (attempt < maxRetries - 1) {
+            console.log(`[matchmaking] Escrow game not ready (attempt ${attempt + 1}/${maxRetries})`);
+            await new Promise(resolve => setTimeout(resolve, baseDelay * (attempt + 1)));
+          }
+        } catch (err: any) {
+          if (attempt < maxRetries - 1) {
+            console.log(`[matchmaking] Escrow game read error (attempt ${attempt + 1}/${maxRetries})`);
+            await new Promise(resolve => setTimeout(resolve, baseDelay * (attempt + 1)));
+            continue;
+          }
+          console.error('[matchmaking] Failed to read escrow game after retries:', err);
+          callbacks.onError?.('Failed to join game');
+          return;
+        }
+      }
 
       if (!gameData || gameData.player1?.id !== myPlayerId) {
+        console.error('[matchmaking] Invalid escrow game data after retries');
         callbacks.onError?.('Invalid game data');
         return;
       }
@@ -1110,13 +1315,14 @@ async function addSelfToWageredQueue(
     }
   });
 
-  // Timeout after 90 seconds for wagered matches
+  // Timeout after 30 seconds for wagered matches
   wageredMatchmakingTimeout = setTimeout(async () => {
+    console.log('[wageredMatchmaking] Timeout fired:', { isProcessingWageredMatch, currentEscrowId });
     if (!isProcessingWageredMatch) {
-      await leaveWageredQueue();
-      callbacks.onTimeout?.();
+      const result = await leaveWageredQueue();
+      callbacks.onTimeout?.(result.refundFailed);
     }
-  }, 90000);
+  }, 30000);
 }
 
 /**
@@ -1224,23 +1430,56 @@ async function createWageredGameWithOpponent(
 }
 
 /**
- * Leave wagered queue and refund escrow
+ * Retry helper for refund operations with exponential backoff.
+ * Uses escrow-scoped idempotency key for safe retries.
  */
-export async function leaveWageredQueue(): Promise<void> {
-  // Refund escrow if we have one
-  if (currentEscrowId && currentIdempotencyKey) {
+async function refundWithRetry(
+  escrowId: string,
+  maxRetries = 3
+): Promise<{ success: boolean; error?: string }> {
+  const idempotencyKey = `${escrowId}:refund`;  // Stable, escrow-scoped
+
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
     try {
       const result = await refundEscrow({
-        escrowId: currentEscrowId,
+        escrowId,
         reason: 'user_cancelled',
-        idempotencyKey: `${currentIdempotencyKey}-refund`,
+        idempotencyKey,
       });
-      if (!result.success) {
-        console.error('[leaveWageredQueue] Refund failed:', result.error);
-      }
-    } catch (err) {
-      console.error('[leaveWageredQueue] Refund threw:', err);
+      if (result.success) return { success: true };
+      // Already processed is a success (idempotent)
+      if (result.error?.includes('already')) return { success: true };
+      console.error(`[refundWithRetry] Attempt ${attempt + 1} failed:`, result.error);
+    } catch (err: any) {
+      console.error(`[refundWithRetry] Attempt ${attempt + 1} threw:`, err);
     }
+    // Exponential backoff before retry
+    if (attempt < maxRetries - 1) {
+      await new Promise(r => setTimeout(r, 1000 * (attempt + 1)));
+    }
+  }
+  return { success: false, error: 'Refund failed after retries' };
+}
+
+/**
+ * Leave wagered queue and refund escrow.
+ * Returns { refundFailed: true } if refund failed after retries.
+ */
+export async function leaveWageredQueue(): Promise<{ refundFailed?: boolean }> {
+  console.log('[leaveWageredQueue] Called with:', { currentEscrowId, myPlayerId });
+  let refundFailed = false;
+
+  // Refund escrow with retry if we have one
+  if (currentEscrowId) {
+    console.log('[leaveWageredQueue] Calling refundWithRetry for:', currentEscrowId);
+    const result = await refundWithRetry(currentEscrowId);
+    console.log('[leaveWageredQueue] refundWithRetry result:', result);
+    if (!result.success) {
+      console.error('[leaveWageredQueue] Refund failed after retries:', result.error);
+      refundFailed = true;
+    }
+  } else {
+    console.warn('[leaveWageredQueue] No currentEscrowId - cannot refund!');
   }
 
   // Safety net: clear any stale pending escrows (page refresh / crash recovery)
@@ -1249,7 +1488,7 @@ export async function leaveWageredQueue(): Promise<void> {
       await refundEscrow({
         escrowId: 'cleanup_pending',
         reason: 'cleanup_before_new_match',
-        idempotencyKey: `${myPlayerId}-leave-cleanup-${Date.now()}`,
+        idempotencyKey: `${myPlayerId}:cleanup`,  // Stable key
       });
     } catch (err) {
       console.error('[leaveWageredQueue] Cleanup threw:', err);
@@ -1257,6 +1496,7 @@ export async function leaveWageredQueue(): Promise<void> {
   }
 
   await cleanupWageredMatchmaking();
+  return { refundFailed };
 }
 
 /**
@@ -1290,6 +1530,7 @@ async function cleanupWageredMatchmaking(): Promise<void> {
     wageredQueueEntryRef = null;
   }
 
+  console.log('[cleanupWageredMatchmaking] Clearing currentEscrowId:', currentEscrowId);
   currentEscrowId = null;
   currentIdempotencyKey = null;
 }

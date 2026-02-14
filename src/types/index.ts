@@ -14,7 +14,6 @@ export type GameState =
   | 'playing'
   | 'gameOver'
   | 'practice'
-  | 'achievements'
   | 'profile';
 
 export type MatchmakingState =
@@ -171,34 +170,6 @@ export interface OnlinePlayer {
 export type RhythmState = 'flow' | 'perfect' | 'neutral' | 'rushing' | 'hesitating';
 
 // ============================================
-// ACHIEVEMENTS
-// ============================================
-
-export type AchievementCategory = 'offline' | 'online' | 'weekly' | 'daily';
-
-export interface Achievement {
-  id: string;
-  name: string;
-  description: string;
-  icon: string;
-  category: AchievementCategory;
-  requirement: number;
-  rewardCoins?: number;
-}
-
-export interface AchievementStats {
-  totalGamesPlayed: number;
-  totalGamesWon: number;
-  total180s: number;
-  totalNineDarters: number;
-  totalOnlineGames: number;
-  totalOnlineWins: number;
-  totalBulls: number;
-  totalTriples: number;
-  highestCheckout: number;
-}
-
-// ============================================
 // COIN SYSTEM & WAGERING
 // ============================================
 
@@ -283,31 +254,6 @@ export interface WireStyle {
 }
 
 // ============================================
-// CHALLENGES
-// ============================================
-
-export type ChallengeDifficulty = 'easy' | 'medium' | 'hard';
-
-export interface DailyChallenge {
-  id: string;
-  name: string;
-  description: string;
-  difficulty: ChallengeDifficulty;
-  requirement: number;
-  rewardCoins: number;
-  progress: number;
-  completed: boolean;
-}
-
-export interface WeeklyChallenge {
-  weekNumber: number;
-  challenge: Achievement;
-  progress: number;
-  completed: boolean;
-  expiresAt: number;
-}
-
-// ============================================
 // UI STATE
 // ============================================
 
@@ -317,11 +263,6 @@ export interface ScorePopup {
   position: Position;
   isBust: boolean;
   isCheckout: boolean;
-}
-
-export interface AchievementPopup {
-  achievement: Achievement;
-  timestamp: number;
 }
 
 // ============================================
