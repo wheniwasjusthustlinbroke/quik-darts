@@ -13,4 +13,5 @@
  * - Winner ID derived from server-authoritative game state, not user input
  */
 import * as functions from 'firebase-functions';
+export declare const SETTLEMENT_LOCK_TIMEOUT_MS = 120000;
 export declare const settleGame: functions.HttpsFunction & functions.Runnable<any>;

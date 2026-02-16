@@ -49,13 +49,18 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.submitThrow = void 0;
+exports.submitThrow = exports.PERFECT_ZONE = exports.MIN_THROW_INTERVAL = exports.RHYTHM_CONFIG = void 0;
 const functions = __importStar(require("firebase-functions"));
 const admin = __importStar(require("firebase-admin"));
 const scoreCalculator_1 = require("../utils/scoreCalculator");
+const segmentMiss_1 = require("../throwing/segmentMiss");
+const perfectZone_1 = require("./perfectZone");
 const db = admin.database();
+// Feature toggle for segment-based miss system (server)
+// Enabled for all online matches (casual + wagered)
+const USE_SEGMENT_MISS_SERVER = true;
 // Rhythm configuration
-const RHYTHM_CONFIG = {
+exports.RHYTHM_CONFIG = {
     rushThreshold: 1000, // < 1s = rushing
     idealMin: 1500, // 1.5-2.5s = perfect
     idealMax: 2500,
@@ -66,9 +71,9 @@ const RHYTHM_CONFIG = {
     consistencyBonus: 0.04, // Extra if all throws in rhythm
 };
 // Rate limiting
-const MIN_THROW_INTERVAL = 500; // ms - minimum time between throws
-// Validation configuration
-const PERFECT_ZONE = { min: 45, max: 55 };
+exports.MIN_THROW_INTERVAL = 500; // ms - minimum time between throws
+// Legacy static zone (kept for flag OFF / backward compat paths)
+exports.PERFECT_ZONE = { min: 45, max: 55 };
 /**
  * Calculate server-side rhythm bonus based on throw timestamps.
  * Rhythm is determined by the interval between consecutive throws.
@@ -82,16 +87,16 @@ function calculateServerRhythm(currentTurnThrows, currentTimestamp) {
     const interval = currentTimestamp - lastThrowTime;
     let bonus = 0;
     let state = 'neutral';
-    if (interval < RHYTHM_CONFIG.rushThreshold) {
-        bonus = RHYTHM_CONFIG.rushPenalty;
+    if (interval < exports.RHYTHM_CONFIG.rushThreshold) {
+        bonus = exports.RHYTHM_CONFIG.rushPenalty;
         state = 'rushing';
     }
-    else if (interval > RHYTHM_CONFIG.hesitateThreshold) {
-        bonus = RHYTHM_CONFIG.hesitatePenalty;
+    else if (interval > exports.RHYTHM_CONFIG.hesitateThreshold) {
+        bonus = exports.RHYTHM_CONFIG.hesitatePenalty;
         state = 'hesitating';
     }
-    else if (interval >= RHYTHM_CONFIG.idealMin && interval <= RHYTHM_CONFIG.idealMax) {
-        bonus = RHYTHM_CONFIG.perfectBonus;
+    else if (interval >= exports.RHYTHM_CONFIG.idealMin && interval <= exports.RHYTHM_CONFIG.idealMax) {
+        bonus = exports.RHYTHM_CONFIG.perfectBonus;
         state = 'perfect';
         // Check consistency across turn for flow state
         if (currentTurnThrows.length >= 2) {
@@ -99,10 +104,10 @@ function calculateServerRhythm(currentTurnThrows, currentTimestamp) {
                 if (i === 0)
                     return true;
                 const int = t.timestamp - currentTurnThrows[i - 1].timestamp;
-                return int >= RHYTHM_CONFIG.idealMin && int <= RHYTHM_CONFIG.idealMax;
+                return int >= exports.RHYTHM_CONFIG.idealMin && int <= exports.RHYTHM_CONFIG.idealMax;
             });
             if (allInRhythm) {
-                bonus += RHYTHM_CONFIG.consistencyBonus;
+                bonus += exports.RHYTHM_CONFIG.consistencyBonus;
                 state = 'flow';
             }
         }
@@ -116,6 +121,35 @@ function getDistance(p1, p2) {
     const dx = p1.x - p2.x;
     const dy = p1.y - p2.y;
     return Math.sqrt(dx * dx + dy * dy);
+}
+/**
+ * Create a seeded pseudo-random number generator.
+ * Uses mulberry32 algorithm for deterministic results.
+ */
+function createSeededRng(seed) {
+    let state = seed;
+    return function () {
+        state |= 0;
+        state = (state + 0x6d2b79f5) | 0;
+        let t = Math.imul(state ^ (state >>> 15), 1 | state);
+        t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+}
+/**
+ * Generate deterministic seed for a throw.
+ * Uses stable inputs only - NO timestamp (breaks idempotency).
+ * Includes playerIndex to ensure different seeds for each player's throws.
+ */
+function generateServerThrowSeed(gameId, playerIndex, playerThrowCount) {
+    let hash = 0;
+    for (let i = 0; i < gameId.length; i++) {
+        const char = gameId.charCodeAt(i);
+        hash = ((hash << 5) - hash + char) | 0;
+    }
+    // Combine with player + throw count for uniqueness per player per throw
+    // playerIndex * 10000 ensures different seeds for player 0 vs player 1
+    return (hash ^ (playerIndex * 10000 + playerThrowCount)) | 0;
 }
 /**
  * Validate that enhanced payload has valid types.
@@ -152,7 +186,7 @@ function validateThrowPlausibility(aimPoint, powerValue, finalPosition, rhythm, 
         }
     }
     // Validate aim point is within board bounds
-    if (aimPoint.x < 0 || aimPoint.x > 500 || aimPoint.y < 0 || aimPoint.y > 500) {
+    if (aimPoint.x < 0 || aimPoint.x > scoreCalculator_1.BOARD_SIZE || aimPoint.y < 0 || aimPoint.y > scoreCalculator_1.BOARD_SIZE) {
         return { valid: false, reason: 'aim_point_out_of_bounds' };
     }
     // Validate power value range
@@ -160,14 +194,14 @@ function validateThrowPlausibility(aimPoint, powerValue, finalPosition, rhythm, 
         return { valid: false, reason: 'power_value_out_of_range' };
     }
     // Determine if power was in perfect zone
-    const wasActuallyPerfect = powerValue >= PERFECT_ZONE.min && powerValue <= PERFECT_ZONE.max;
+    const wasActuallyPerfect = powerValue >= exports.PERFECT_ZONE.min && powerValue <= exports.PERFECT_ZONE.max;
     // Calculate max allowed deviation based on power
     let baseDeviation;
     if (wasActuallyPerfect) {
         baseDeviation = 5; // Very tight, 5px max for perfect zone
     }
     else {
-        const distanceFromPerfect = Math.min(Math.abs(powerValue - PERFECT_ZONE.min), Math.abs(powerValue - PERFECT_ZONE.max));
+        const distanceFromPerfect = Math.min(Math.abs(powerValue - exports.PERFECT_ZONE.min), Math.abs(powerValue - exports.PERFECT_ZONE.max));
         baseDeviation = 10 + (distanceFromPerfect * 2); // 10-100px
     }
     // Apply rhythm modifier (worse rhythm = more expected deviation)
@@ -205,7 +239,7 @@ exports.submitThrow = functions
         throw new functions.https.HttpsError('invalid-argument', 'Invalid game ID');
     }
     if (!(0, scoreCalculator_1.isValidDartPosition)(dartPosition)) {
-        throw new functions.https.HttpsError('invalid-argument', 'Invalid dart position. Must be {x: 0-500, y: 0-500}');
+        throw new functions.https.HttpsError('invalid-argument', `Invalid dart position. Must be {x: 0-${scoreCalculator_1.BOARD_SIZE}, y: 0-${scoreCalculator_1.BOARD_SIZE}}`);
     }
     // 3. Fetch game state
     const gameRef = db.ref(`games/${gameId}`);
@@ -241,16 +275,17 @@ exports.submitThrow = functions
     const currentTurnThrows = game.currentTurnThrows || [];
     if (currentTurnThrows.length > 0) {
         const lastThrowTime = currentTurnThrows[currentTurnThrows.length - 1].timestamp;
-        if (now - lastThrowTime < MIN_THROW_INTERVAL) {
+        if (now - lastThrowTime < exports.MIN_THROW_INTERVAL) {
             throw new functions.https.HttpsError('failed-precondition', 'Throwing too fast');
         }
     }
     // 8. Calculate server-side rhythm
     const rhythm = calculateServerRhythm(currentTurnThrows, now);
     // 8.5. Validate throw plausibility (anti-cheat)
-    // SECURITY: Don't just trust game.wagerAmount - verify the escrow is actually locked
+    // SECURITY: Don't just trust game state - verify the escrow is actually locked
+    // FIX: Changed from game.wagerAmount to game.wager?.stakeAmount (field mismatch bug)
     let isWagered = false;
-    if (game.wagerAmount && game.wagerAmount > 0 && game.wager?.escrowId) {
+    if (game.wager?.stakeAmount && game.wager.stakeAmount > 0 && game.wager?.escrowId) {
         // Verify escrow exists and is locked - prevents wagered match fraud
         const escrowRef = db.ref(`escrow/${game.wager.escrowId}`);
         const escrowSnap = await escrowRef.once('value');
@@ -273,14 +308,68 @@ exports.submitThrow = functions
             throw new functions.https.HttpsError('invalid-argument', 'Invalid throw payload: malformed aimPoint or powerValue');
         }
     }
-    // Validate throw plausibility (REQUIRED for wagered, optional for casual)
-    const plausibility = validateThrowPlausibility(aimPoint, powerValue, dartPosition, rhythm, isWagered);
-    if (!plausibility.valid) {
-        console.warn(`[submitThrow] Anti-cheat: Rejected throw in game ${gameId} - ${plausibility.reason}`);
-        throw new functions.https.HttpsError('failed-precondition', `Invalid throw: ${plausibility.reason}`);
+    // 8.6. Compute effective dart position (server-authoritative scatter)
+    // When USE_SEGMENT_MISS_SERVER is ON: server computes position, skips legacy plausibility
+    // When OFF: use client dartPosition with legacy plausibility validation
+    // Applies to ALL online matches (casual + wagered) when aimPoint/powerValue provided
+    const useServerScatter = USE_SEGMENT_MISS_SERVER && aimPoint && powerValue !== undefined;
+    let effectiveDartPosition = dartPosition;
+    let wasPerfectHit = false; // Track for dynamic zone shrinking (Step 8.3)
+    if (useServerScatter) {
+        // Validate inputs (belt-and-suspenders with isValidEnhancedPayload)
+        if (typeof powerValue !== 'number' || !Number.isFinite(powerValue) ||
+            typeof aimPoint.x !== 'number' || !Number.isFinite(aimPoint.x) ||
+            typeof aimPoint.y !== 'number' || !Number.isFinite(aimPoint.y)) {
+            throw new functions.https.HttpsError('invalid-argument', 'Invalid aim/power');
+        }
+        if (powerValue < 0 || powerValue > 100) {
+            throw new functions.https.HttpsError('invalid-argument', 'Invalid powerValue: must be 0-100');
+        }
+        // Validate aimPoint is within board bounds
+        if (aimPoint.x < 0 || aimPoint.x > scoreCalculator_1.BOARD_SIZE || aimPoint.y < 0 || aimPoint.y > scoreCalculator_1.BOARD_SIZE) {
+            throw new functions.https.HttpsError('invalid-argument', 'Invalid aimPoint: out of bounds');
+        }
+        // O(1) per-player throw count from game state (replaces throwHistory scan)
+        const playerTotalDarts = (game.playerTotalDarts ?? [0, 0]);
+        const playerThrowCount = playerTotalDarts[playerIndex] ?? 0;
+        const seed = generateServerThrowSeed(gameId, playerIndex, playerThrowCount);
+        const rng = createSeededRng(seed);
+        // Dynamic zone calculation (Step 8.3)
+        // Read current shrink from perfectShrinkThisTurn (new field, separate from count)
+        const currentShrink = (game.perfectShrinkThisTurn ?? [0, 0])[playerIndex] ?? 0;
+        // Pre-throw score and winning segment (hoisted for reuse in shrink calculation)
+        const preThrowScore = game[playerIndex === 0 ? 'player1' : 'player2'].score;
+        const winningSegment = (0, perfectZone_1.getWinningSegment)(preThrowScore);
+        // Check if aiming at winning segment (checkout scenario → ultra-narrow zone)
+        const aimedLabel = (0, perfectZone_1.normalizeLabel)((0, scoreCalculator_1.calculateScoreFromPosition)(aimPoint.x, aimPoint.y).label);
+        const isAimingAtCheckout = winningSegment !== null && aimedLabel === winningSegment;
+        // Compute zone bounds ONCE - use for both applySegmentMiss and wasPerfectHit
+        const zoneBounds = (0, perfectZone_1.calculatePerfectZoneBounds)(currentShrink, isAimingAtCheckout);
+        // Compute server-authoritative landing position with dynamic zone
+        const missResult = (0, segmentMiss_1.applySegmentMiss)(aimPoint.x, aimPoint.y, powerValue, zoneBounds.min, zoneBounds.max, rng);
+        // Validate output: finite + within board bounds (allows MISS zone outside scoring circle)
+        if (!Number.isFinite(missResult.x) || !Number.isFinite(missResult.y) ||
+            missResult.x < 0 || missResult.x > scoreCalculator_1.BOARD_SIZE ||
+            missResult.y < 0 || missResult.y > scoreCalculator_1.BOARD_SIZE) {
+            console.error(`[submitThrow] Server-scatter produced invalid position in game ${gameId}`);
+            throw new functions.https.HttpsError('failed-precondition', 'Invalid computed throw');
+        }
+        effectiveDartPosition = { x: missResult.x, y: missResult.y };
+        // Track if power was in perfect zone (strict bounds > / < to match client semantics)
+        wasPerfectHit = powerValue > zoneBounds.min && powerValue < zoneBounds.max;
+        // NOTE: Skip legacy deviation-based plausibility when server computes position.
+        // The server computed it - checking deviation against aimPoint is circular.
     }
-    // 9. Calculate score SERVER-SIDE (no client trust)
-    const scoreResult = (0, scoreCalculator_1.calculateScoreFromPosition)(dartPosition.x, dartPosition.y);
+    else {
+        // Legacy flow: validate client dartPosition plausibility
+        const plausibility = validateThrowPlausibility(aimPoint, powerValue, dartPosition, rhythm, isWagered);
+        if (!plausibility.valid) {
+            console.warn(`[submitThrow] Anti-cheat: Rejected throw in game ${gameId} - ${plausibility.reason}`);
+            throw new functions.https.HttpsError('failed-precondition', `Invalid throw: ${plausibility.reason}`);
+        }
+    }
+    // 9. Calculate score SERVER-SIDE (from effective position)
+    const scoreResult = (0, scoreCalculator_1.calculateScoreFromPosition)(effectiveDartPosition.x, effectiveDartPosition.y);
     const { score, label, multiplier } = scoreResult;
     // 9.5. Calculate new game state
     const playerKey = playerIndex === 0 ? 'player1' : 'player2';
@@ -300,18 +389,36 @@ exports.submitThrow = functions
         label,
         player: playerIndex,
         multiplier,
-        dartPosition,
+        dartPosition: effectiveDartPosition,
         timestamp: now,
         resultingScore: throwIsBust ? currentScore : newScore,
         rhythm: rhythm.state,
     };
     // Record dart position for display
-    updates[`dartPositions/${game.dartsThrown}`] = dartPosition;
+    updates[`dartPositions/${game.dartsThrown}`] = effectiveDartPosition;
     // Update darts thrown
     const newDartsThrown = game.dartsThrown + 1;
     updates['dartsThrown'] = newDartsThrown;
+    // Increment per-player throw counter (O(1) for RNG seed)
+    const playerTotalDarts = (game.playerTotalDarts ?? [0, 0]);
+    const newPlayerTotalDarts = [...playerTotalDarts];
+    newPlayerTotalDarts[playerIndex] = (newPlayerTotalDarts[playerIndex] ?? 0) + 1;
+    updates['playerTotalDarts'] = newPlayerTotalDarts;
+    // Track perfect SHRINK AMOUNT this turn for dynamic zone width (server scatter path only)
+    // This is the canonical field for zone calculation. perfectHitsThisTurn is legacy (not updated here).
+    // Note: currentScore is the pre-throw remaining score (read from game state before scoring)
+    const perfectShrinkThisTurn = (game.perfectShrinkThisTurn ?? [0, 0]);
+    const newPerfectShrink = [...perfectShrinkThisTurn];
+    if (useServerScatter && wasPerfectHit) {
+        // Calculate shrink based on what was actually hit (using pre-throw score for winning segment)
+        const winningSegmentForShrink = (0, perfectZone_1.getWinningSegment)(currentScore);
+        const shrinkToAdd = (0, perfectZone_1.calculateShrinkToAdd)(multiplier, score, label, winningSegmentForShrink);
+        newPerfectShrink[playerIndex] = (newPerfectShrink[playerIndex] ?? 0) + shrinkToAdd;
+    }
+    updates['perfectShrinkThisTurn'] = newPerfectShrink;
+    // Note: reset to [0, 0] happens below on turn end (bust/3-dart/checkout)
     // Update current turn throws for rhythm tracking
-    const newTurnThrow = { timestamp: now, position: dartPosition };
+    const newTurnThrow = { timestamp: now, position: effectiveDartPosition };
     const updatedTurnThrows = [...currentTurnThrows, newTurnThrow];
     // Determine turn/game state
     let turnEnded = false;
@@ -325,6 +432,8 @@ exports.submitThrow = functions
         updates['winner'] = playerIndex;
         updates['completedAt'] = now;
         updates['currentTurnThrows'] = null; // Clear turn throws
+        updates['perfectHitsThisTurn'] = [0, 0]; // Reset for game end
+        updates['perfectShrinkThisTurn'] = [0, 0]; // Reset shrink accumulator for game end
         gameEnded = true;
         turnEnded = true;
         winner = playerIndex;
@@ -337,6 +446,8 @@ exports.submitThrow = functions
         updates['dartsThrown'] = 0;
         updates['currentPlayer'] = playerIndex === 0 ? 1 : 0;
         updates['currentTurnThrows'] = null; // Clear turn throws for next player
+        updates['perfectHitsThisTurn'] = [0, 0]; // Reset for next player's turn
+        updates['perfectShrinkThisTurn'] = [0, 0]; // Reset shrink accumulator for next player's turn
         // Clear dart positions using null (avoids Firebase update conflict with dartPositions/N)
         updates['dartPositions/0'] = null;
         updates['dartPositions/1'] = null;
@@ -355,6 +466,8 @@ exports.submitThrow = functions
             updates['dartsThrown'] = 0;
             updates['currentPlayer'] = playerIndex === 0 ? 1 : 0;
             updates['currentTurnThrows'] = null; // Clear turn throws for next player
+            updates['perfectHitsThisTurn'] = [0, 0]; // Reset for next player's turn
+            updates['perfectShrinkThisTurn'] = [0, 0]; // Reset shrink accumulator for next player's turn
             // Clear dart positions using null (avoids Firebase update conflict with dartPositions/N)
             updates['dartPositions/0'] = null;
             updates['dartPositions/1'] = null;

@@ -12,6 +12,7 @@
 
 import * as functions from 'firebase-functions';
 import * as admin from 'firebase-admin';
+import { checkRateLimit, RATE_LIMITS } from '../utils/rateLimit';
 
 const db = admin.database();
 
@@ -42,6 +43,9 @@ export const forfeitGame = functions
 
     const userId = context.auth.uid;
     const { gameId, reason = 'forfeit', claimWin = false } = data;
+
+    // 1.5. Rate limiting
+    await checkRateLimit(userId, 'forfeitGame', RATE_LIMITS.forfeitGame.limit, RATE_LIMITS.forfeitGame.windowMs);
 
     // 2. Validate request
     if (!gameId || typeof gameId !== 'string') {
@@ -216,7 +220,19 @@ async function settleGameInternal(
   });
 
   if (!walletResult.committed) {
-    console.error(`[settleGameInternal] Failed to award payout - wallet transaction failed`);
+    console.error(`[settleGameInternal] Wallet credit failed - rolling back escrow`);
+    try {
+      await escrowRef.update({
+        status: 'locked',
+        settledAt: null,        // Clear release markers
+        winnerId,               // Keep for retry
+        settlementError: `wallet_failed_${Date.now()}`,
+      });
+    } catch (rollbackErr) {
+      console.error(`[settleGameInternal] CRITICAL: Rollback failed!`, rollbackErr);
+      // Manual intervention needed - escrow stuck in released without payout
+    }
+    return 0; // Return before logging transaction - payout not awarded
   }
 
   // Log transaction

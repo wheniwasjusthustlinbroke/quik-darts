@@ -12,6 +12,7 @@
 
 import * as functions from 'firebase-functions';
 import * as admin from 'firebase-admin';
+import { checkRateLimit, RATE_LIMITS } from '../utils/rateLimit';
 
 const db = admin.database();
 
@@ -46,6 +47,9 @@ export const createGame = functions
     }
 
     const userId = context.auth.uid;
+
+    // 1.5. Rate limiting
+    await checkRateLimit(userId, 'createGame', RATE_LIMITS.createGame.limit, RATE_LIMITS.createGame.windowMs);
 
     // 2. Validate request
     const {
@@ -133,6 +137,9 @@ export const createGame = functions
       }
     }
 
+    // Database URL for diagnostics (used in both casual and wagered flows)
+    const dbUrl = (db.app.options as any).databaseURL ?? 'UNDEFINED';
+
     // 3b. For casual games, atomically claim opponent (transaction prevents race)
     let casualGameId: string | null = null;
     if (!isWagered) {
@@ -142,13 +149,38 @@ export const createGame = functions
         throw new functions.https.HttpsError('internal', 'Failed to generate game id');
       }
 
-      const queueEntryRef = db.ref(`matchmaking_queue/casual/${player1Id}`);
+      const queuePath = `matchmaking_queue/casual/${player1Id}`;
+      const queueEntryRef = db.ref(queuePath);
+      console.log(`[createGame] Request context:`, {
+        callerUid: userId,
+        player1Id,
+        player2Id,
+        gameMode,
+        isWagered,
+        queuePath,
+        dbUrl,
+      });
 
-      // Atomic claim via transaction
+      // Atomic claim via parent-node transaction.
+      // Admin SDK may pass null on first callback (no local cache). Returning undefined
+      // aborts immediately. Returning null does NOT abort - it proposes null as the new
+      // value, triggering a server round-trip. If server value differs (entry exists),
+      // Firebase's built-in retry mechanism calls the callback again with the real value.
+      let abortReason: string | null = null;
       const claimResult = await queueEntryRef.transaction((entry) => {
-        if (!entry) return undefined;
-        if (entry.matchedGameId) return undefined;
-        if (entry.gameMode && entry.gameMode !== gameMode) return undefined;
+        if (!entry) {
+          abortReason = 'missing_entry_probe';
+          return null;  // Don't abort; let built-in retry fetch real value if it exists
+        }
+        if (entry.matchedGameId) {
+          abortReason = 'already_matched';
+          return;  // abort
+        }
+        if (entry.gameMode && entry.gameMode !== gameMode) {
+          abortReason = 'mode_mismatch';
+          return;  // abort
+        }
+        abortReason = 'claimed';
         return {
           ...entry,
           matchedGameId: casualGameId,
@@ -157,8 +189,21 @@ export const createGame = functions
         };
       });
 
-      if (!claimResult.committed) {
-        throw new functions.https.HttpsError('failed-precondition', 'Opponent not available');
+      const claimed = claimResult.snapshot?.val();
+      console.log(`[createGame] Transaction result:`, {
+        committed: claimResult.committed,
+        abortReason,
+        claimedGameId: claimed?.matchedGameId ?? null,
+        claimedPlayerId: claimed?.playerId ?? null,
+      });
+
+      // Verify claim succeeded with valid data (catches true missing entry, race conditions, malformed data)
+      if (!claimResult.committed || !claimed || claimed.matchedGameId !== casualGameId || !claimed.playerId) {
+        throw new functions.https.HttpsError('failed-precondition', 'Opponent not available', {
+          abortReason,
+          queuePath,
+          dbUrl,
+        });
       }
     }
 
@@ -178,13 +223,25 @@ export const createGame = functions
         throw new functions.https.HttpsError('internal', 'Failed to generate game id');
       }
 
-      const queueEntryRef = db.ref(`matchmaking_queue/wagered/${wageredStakeLevel}/${player1Id}`);
+      const wageredQueuePath = `matchmaking_queue/wagered/${wageredStakeLevel}/${player1Id}`;
+      const queueEntryRef = db.ref(wageredQueuePath);
 
-      // Atomic claim via transaction
+      // Atomic claim via parent-node transaction (same fix as casual flow)
+      let abortReason: string | null = null;
       const claimResult = await queueEntryRef.transaction((entry) => {
-        if (!entry) return undefined;
-        if (entry.matchedGameId) return undefined;
-        if (entry.gameMode && entry.gameMode !== gameMode) return undefined;
+        if (!entry) {
+          abortReason = 'missing_entry_probe';
+          return null;  // Don't abort; let built-in retry fetch real value if it exists
+        }
+        if (entry.matchedGameId) {
+          abortReason = 'already_matched';
+          return;  // abort
+        }
+        if (entry.gameMode && entry.gameMode !== gameMode) {
+          abortReason = 'mode_mismatch';
+          return;  // abort
+        }
+        abortReason = 'claimed';
         return {
           ...entry,
           matchedGameId: wageredGameId,
@@ -193,8 +250,13 @@ export const createGame = functions
         };
       });
 
-      if (!claimResult.committed) {
-        throw new functions.https.HttpsError('failed-precondition', 'Opponent not available');
+      const claimed = claimResult.snapshot?.val();
+      if (!claimResult.committed || !claimed || claimed.matchedGameId !== wageredGameId || !claimed.playerId) {
+        throw new functions.https.HttpsError('failed-precondition', 'Opponent not available', {
+          abortReason,
+          queuePath: wageredQueuePath,
+          dbUrl,
+        });
       }
     }
 
@@ -257,6 +319,14 @@ export const createGame = functions
       };
 
       await gameRef.set(gameData);
+
+      // Link escrow to game (for active game detection in refund paths)
+      if (isWagered && escrowId) {
+        await db.ref(`escrow/${escrowId}`).update({
+          gameId,
+          gameCreatedAt: now,
+        });
+      }
     } catch (error) {
       // Conditional rollback: only clear if still our claim
       if (!isWagered && casualGameId) {

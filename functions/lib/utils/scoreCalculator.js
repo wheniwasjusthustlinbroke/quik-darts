@@ -12,7 +12,7 @@ exports.isValidDartPosition = isValidDartPosition;
 exports.isBust = isBust;
 exports.isCheckout = isCheckout;
 // Dartboard geometry constants (matches client)
-exports.BOARD_SIZE = 500;
+exports.BOARD_SIZE = 530;
 exports.CENTER = exports.BOARD_SIZE / 2; // 250
 // Ring distances from center
 exports.INNER_BULL = 10;
@@ -40,7 +40,7 @@ function calculateScoreFromPosition(x, y) {
     }
     // Inner bullseye (50 points)
     if (distance <= exports.INNER_BULL) {
-        return { score: 50, label: 'BULL', multiplier: 1 };
+        return { score: 50, label: 'BULL', multiplier: 2 }; // Bull is a double for checkout
     }
     // Outer bullseye (25 points)
     if (distance <= exports.OUTER_BULL) {

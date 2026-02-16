@@ -52,6 +52,7 @@ exports.cleanupExpiredEscrows = exports.refundEscrow = void 0;
 exports.refundSingleEscrow = refundSingleEscrow;
 const functions = __importStar(require("firebase-functions"));
 const admin = __importStar(require("firebase-admin"));
+const rateLimit_1 = require("../utils/rateLimit");
 const db = admin.database();
 /**
  * Shared helper: fully refund a single escrow (status change + wallet credits).
@@ -115,6 +116,8 @@ exports.refundEscrow = functions
     }
     const userId = context.auth.uid;
     const { escrowId, reason = 'cancelled' } = data;
+    // 1.5. Rate limiting
+    await (0, rateLimit_1.checkRateLimit)(userId, 'refundEscrow', rateLimit_1.RATE_LIMITS.refundEscrow.limit, rateLimit_1.RATE_LIMITS.refundEscrow.windowMs);
     // 2. Validate request
     if (!escrowId || typeof escrowId !== 'string') {
         throw new functions.https.HttpsError('invalid-argument', 'Invalid escrow ID');
@@ -169,6 +172,10 @@ exports.refundEscrow = functions
                     return;
                 if (esc.status === 'released' || esc.status === 'refunded') {
                     return; // Already processed
+                }
+                // SECURITY: Block if active game exists (double-check inside transaction)
+                if (esc.gameId || esc.matchedGameId) {
+                    return; // Active game - must settle or forfeit
                 }
                 return {
                     ...esc,
@@ -265,6 +272,11 @@ exports.refundEscrow = functions
         if (esc.status === 'released' || esc.status === 'refunded') {
             console.log(`[refundEscrow] Escrow already processed (${esc.status}), aborting`);
             return; // Abort transaction
+        }
+        // SECURITY: Block refund if escrow has an active game
+        if (esc.gameId || esc.matchedGameId) {
+            console.log(`[refundEscrow] Cannot refund - active game exists: ${esc.gameId || esc.matchedGameId}`);
+            return; // Abort - game in progress, must settle or forfeit
         }
         // Can only refund if pending OR (locked AND expired)
         const isLockedAndExpired = esc.status === 'locked' && esc.expiresAt && esc.expiresAt < now;
@@ -391,6 +403,11 @@ exports.cleanupExpiredEscrows = functions
                 // Already processed - abort
                 if (esc.status === 'released' || esc.status === 'refunded') {
                     return; // Abort transaction
+                }
+                // SECURITY: Block if active game exists
+                if (esc.gameId || esc.matchedGameId) {
+                    console.log(`[cleanupExpiredEscrows] Skipping escrow with active game: ${esc.gameId || esc.matchedGameId}`);
+                    return; // Active game - must settle or forfeit
                 }
                 // Not expired anymore (edge case with clock skew)
                 if (esc.expiresAt && esc.expiresAt > now) {

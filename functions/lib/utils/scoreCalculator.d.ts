@@ -4,7 +4,7 @@
  * This mirrors the client-side calculation exactly to ensure
  * server-validated scores match what the client displays.
  */
-export declare const BOARD_SIZE = 500;
+export declare const BOARD_SIZE = 530;
 export declare const CENTER: number;
 export declare const INNER_BULL = 10;
 export declare const OUTER_BULL = 20;

@@ -47,17 +47,18 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.createEscrow = void 0;
+exports.createEscrow = exports.RATE_LIMIT_WINDOW_MS = exports.MAX_ESCROWS_PER_HOUR = exports.ESCROW_EXPIRY_MS = exports.VALID_STAKES = void 0;
 const functions = __importStar(require("firebase-functions"));
 const admin = __importStar(require("firebase-admin"));
+const refundEscrow_1 = require("./refundEscrow");
 const db = admin.database();
 // Valid stake amounts
-const VALID_STAKES = [50, 100, 500, 2500];
+exports.VALID_STAKES = [50, 100, 500, 2500];
 // Escrow expiration (30 minutes)
-const ESCROW_EXPIRY_MS = 30 * 60 * 1000;
+exports.ESCROW_EXPIRY_MS = 30 * 60 * 1000;
 // Rate limiting: max escrows per user in time window
-const MAX_ESCROWS_PER_HOUR = 5;
-const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000; // 1 hour
+exports.MAX_ESCROWS_PER_HOUR = 5;
+exports.RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000; // 1 hour
 exports.createEscrow = functions
     .region('europe-west1')
     .https.onCall(async (data, context) => {
@@ -74,8 +75,8 @@ exports.createEscrow = functions
     // 3. Validate stake amount
     const { stakeAmount } = data;
     let { escrowId } = data;
-    if (!VALID_STAKES.includes(stakeAmount)) {
-        throw new functions.https.HttpsError('invalid-argument', `Invalid stake amount. Valid stakes: ${VALID_STAKES.join(', ')}`);
+    if (!exports.VALID_STAKES.includes(stakeAmount)) {
+        throw new functions.https.HttpsError('invalid-argument', `Invalid stake amount. Valid stakes: ${exports.VALID_STAKES.join(', ')}`);
     }
     const now = Date.now();
     const isJoiningExisting = !!escrowId;
@@ -92,7 +93,7 @@ exports.createEscrow = functions
             };
         }
         // Check if we're in a new window
-        if (now - rateLimit.windowStart > RATE_LIMIT_WINDOW_MS) {
+        if (now - rateLimit.windowStart > exports.RATE_LIMIT_WINDOW_MS) {
             // New window - reset count
             return {
                 count: 1,
@@ -100,7 +101,7 @@ exports.createEscrow = functions
             };
         }
         // Same window - check limit
-        if (rateLimit.count >= MAX_ESCROWS_PER_HOUR) {
+        if (rateLimit.count >= exports.MAX_ESCROWS_PER_HOUR) {
             return; // Abort - rate limit exceeded
         }
         // Increment count
@@ -111,9 +112,9 @@ exports.createEscrow = functions
     });
     if (!rateLimitResult.committed) {
         console.warn(`[createEscrow] Rate limit exceeded for user ${userId} (${isJoiningExisting ? 'join' : 'create'})`);
-        throw new functions.https.HttpsError('resource-exhausted', `Too many wagered matches. You can create or join up to ${MAX_ESCROWS_PER_HOUR} matches per hour. Please try again later.`);
+        throw new functions.https.HttpsError('resource-exhausted', `Too many wagered matches. You can create or join up to ${exports.MAX_ESCROWS_PER_HOUR} matches per hour. Please try again later.`);
     }
-    console.log(`[createEscrow] Rate limit check passed: ${rateLimitResult.snapshot.val()?.count}/${MAX_ESCROWS_PER_HOUR} (${isJoiningExisting ? 'join' : 'create'})`);
+    console.log(`[createEscrow] Rate limit check passed: ${rateLimitResult.snapshot.val()?.count}/${exports.MAX_ESCROWS_PER_HOUR} (${isJoiningExisting ? 'join' : 'create'})`);
     // SECURITY: If escrowId is provided (joining existing), validate format
     // If not provided (creating new), generate a cryptographically secure ID server-side
     if (isJoiningExisting) {
@@ -137,11 +138,12 @@ exports.createEscrow = functions
         .once('value');
     const pendingEscrows = pendingEscrowSnap.val();
     if (pendingEscrows) {
-        for (const [, escrow] of Object.entries(pendingEscrows)) {
+        for (const [pendingEscrowId, escrow] of Object.entries(pendingEscrows)) {
             if (escrow.player1?.userId === userId || escrow.player2?.userId === userId) {
                 // Check if it's expired
                 if (escrow.expiresAt && escrow.expiresAt < now) {
-                    // Expired - clean it up (will be handled by refund job)
+                    // Expired — fully refund via shared helper (status + wallet credits)
+                    await (0, refundEscrow_1.refundSingleEscrow)(pendingEscrowId, 'expired_at_create');
                     continue;
                 }
                 throw new functions.https.HttpsError('failed-precondition', 'You already have a pending match. Complete or cancel it first.');
@@ -176,7 +178,7 @@ exports.createEscrow = functions
                 stakeLevel: stakeAmount,
                 status: 'pending',
                 createdAt: now,
-                expiresAt: now + ESCROW_EXPIRY_MS,
+                expiresAt: now + exports.ESCROW_EXPIRY_MS,
             };
         }
         else {

@@ -15,4 +15,7 @@
  * Events: checkout.session.completed
  */
 import * as functions from 'firebase-functions';
+export declare const COIN_PACKAGES: Record<string, {
+    coins: number;
+}>;
 export declare const stripeWebhook: functions.HttpsFunction;

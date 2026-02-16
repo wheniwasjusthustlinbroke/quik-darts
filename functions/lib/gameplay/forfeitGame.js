@@ -47,6 +47,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.forfeitGame = void 0;
 const functions = __importStar(require("firebase-functions"));
 const admin = __importStar(require("firebase-admin"));
+const rateLimit_1 = require("../utils/rateLimit");
 const db = admin.database();
 exports.forfeitGame = functions
     .region('europe-west1')
@@ -57,6 +58,8 @@ exports.forfeitGame = functions
     }
     const userId = context.auth.uid;
     const { gameId, reason = 'forfeit', claimWin = false } = data;
+    // 1.5. Rate limiting
+    await (0, rateLimit_1.checkRateLimit)(userId, 'forfeitGame', rateLimit_1.RATE_LIMITS.forfeitGame.limit, rateLimit_1.RATE_LIMITS.forfeitGame.windowMs);
     // 2. Validate request
     if (!gameId || typeof gameId !== 'string') {
         throw new functions.https.HttpsError('invalid-argument', 'Invalid game ID');
@@ -189,7 +192,20 @@ async function settleGameInternal(gameId, winnerIndex, winnerId, escrowId) {
         };
     });
     if (!walletResult.committed) {
-        console.error(`[settleGameInternal] Failed to award payout - wallet transaction failed`);
+        console.error(`[settleGameInternal] Wallet credit failed - rolling back escrow`);
+        try {
+            await escrowRef.update({
+                status: 'locked',
+                settledAt: null, // Clear release markers
+                winnerId, // Keep for retry
+                settlementError: `wallet_failed_${Date.now()}`,
+            });
+        }
+        catch (rollbackErr) {
+            console.error(`[settleGameInternal] CRITICAL: Rollback failed!`, rollbackErr);
+            // Manual intervention needed - escrow stuck in released without payout
+        }
+        return 0; // Return before logging transaction - payout not awarded
     }
     // Log transaction
     await db.ref(`users/${winnerId}/transactions`).push({

@@ -33,6 +33,7 @@
     "escrow": {
       ".read": false,
       ".write": false,
+      ".indexOn": ["status", "expiresAt"],
       "$escrowId": {
         ".read": "auth != null && (data.child('player1/userId').val() === auth.uid || data.child('player2/userId').val() === auth.uid)"
       }
@@ -56,7 +57,7 @@
         ".indexOn": ["timestamp"],
         "$playerId": {
           ".write": "auth != null && auth.uid === $playerId",
-          ".validate": "!newData.exists() || (newData.hasChildren(['playerId', 'name', 'flag', 'timestamp']) && newData.child('playerId').val() === $playerId && newData.child('name').isString() && newData.child('name').val().length >= 1 && newData.child('name').val().length <= 20 && newData.child('flag').isString() && newData.child('flag').val().length <= 50 && (!newData.hasChild('level') || (newData.child('level').isNumber() && newData.child('level').val() >= 1 && newData.child('level').val() <= 999)) && (!newData.hasChild('avatarUrl') || (newData.child('avatarUrl').isString() && newData.child('avatarUrl').val().length <= 500 && newData.child('avatarUrl').val().beginsWith('https://'))))",
+          ".validate": "!newData.exists() || (newData.hasChildren(['playerId', 'name', 'flag', 'timestamp']) && newData.child('playerId').val() === $playerId && newData.child('name').isString() && newData.child('name').val().length >= 1 && newData.child('name').val().length <= 20 && newData.child('flag').isString() && newData.child('flag').val().length <= 50 && (!newData.hasChild('level') || (newData.child('level').isNumber() && newData.child('level').val() >= 1 && newData.child('level').val() <= 999)) && (!newData.hasChild('avatarUrl') || (newData.child('avatarUrl').isString() && newData.child('avatarUrl').val().length <= 500 && newData.child('avatarUrl').val().beginsWith('https://'))) && ((!newData.hasChild('matchedGameId') && !data.hasChild('matchedGameId')) || (newData.child('matchedGameId').val() === data.child('matchedGameId').val())) && ((!newData.hasChild('matchedByName') && !data.hasChild('matchedByName')) || (newData.child('matchedByName').val() === data.child('matchedByName').val())) && ((!newData.hasChild('matchedByFlag') && !data.hasChild('matchedByFlag')) || (newData.child('matchedByFlag').val() === data.child('matchedByFlag').val())) && ((!newData.hasChild('matchedByLevel') && !data.hasChild('matchedByLevel')) || (newData.child('matchedByLevel').val() === data.child('matchedByLevel').val())) && ((!newData.hasChild('matchedByAvatar') && !data.hasChild('matchedByAvatar')) || (newData.child('matchedByAvatar').val() === data.child('matchedByAvatar').val())))",
           "matchedGameId": {
             ".write": false,
             ".validate": "newData.isString() && newData.val().length >= 10 && newData.val().length <= 50"
@@ -85,7 +86,7 @@
           ".indexOn": ["timestamp"],
           "$playerId": {
             ".write": "auth != null && auth.uid === $playerId && auth.token.firebase.sign_in_provider != 'anonymous'",
-            ".validate": "!newData.exists() || (newData.hasChildren(['playerId', 'name', 'flag', 'timestamp']) && newData.child('playerId').val() === $playerId && newData.child('name').isString() && newData.child('name').val().length >= 1 && newData.child('name').val().length <= 20 && newData.child('flag').isString() && newData.child('flag').val().length <= 50 && ($stakeLevel === '50' || $stakeLevel === '100' || $stakeLevel === '500' || $stakeLevel === '2500') && (!newData.hasChild('level') || (newData.child('level').isNumber() && newData.child('level').val() >= 1 && newData.child('level').val() <= 999)) && (!newData.hasChild('avatarUrl') || (newData.child('avatarUrl').isString() && newData.child('avatarUrl').val().length <= 500 && newData.child('avatarUrl').val().beginsWith('https://'))))",
+            ".validate": "!newData.exists() || (newData.hasChildren(['playerId', 'name', 'flag', 'timestamp']) && newData.child('playerId').val() === $playerId && newData.child('name').isString() && newData.child('name').val().length >= 1 && newData.child('name').val().length <= 20 && newData.child('flag').isString() && newData.child('flag').val().length <= 50 && ($stakeLevel === '50' || $stakeLevel === '100' || $stakeLevel === '500' || $stakeLevel === '2500') && (!newData.hasChild('level') || (newData.child('level').isNumber() && newData.child('level').val() >= 1 && newData.child('level').val() <= 999)) && (!newData.hasChild('avatarUrl') || (newData.child('avatarUrl').isString() && newData.child('avatarUrl').val().length <= 500 && newData.child('avatarUrl').val().beginsWith('https://'))) && ((!newData.hasChild('matchedGameId') && !data.hasChild('matchedGameId')) || (newData.child('matchedGameId').val() === data.child('matchedGameId').val())) && ((!newData.hasChild('matchedByName') && !data.hasChild('matchedByName')) || (newData.child('matchedByName').val() === data.child('matchedByName').val())) && ((!newData.hasChild('matchedByFlag') && !data.hasChild('matchedByFlag')) || (newData.child('matchedByFlag').val() === data.child('matchedByFlag').val())) && ((!newData.hasChild('matchedByLevel') && !data.hasChild('matchedByLevel')) || (newData.child('matchedByLevel').val() === data.child('matchedByLevel').val())) && ((!newData.hasChild('matchedByAvatar') && !data.hasChild('matchedByAvatar')) || (newData.child('matchedByAvatar').val() === data.child('matchedByAvatar').val())))",
             "matchedGameId": {
               ".write": false,
               ".validate": "newData.isString() && newData.val().length >= 10 && newData.val().length <= 50"
@@ -146,6 +147,10 @@
     },
     "weekly_completions": {
       ".read": "auth != null",
+      ".write": false
+    },
+    "rateLimits": {
+      ".read": false,
       ".write": false
     },
     "$other": {

@@ -47,6 +47,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.createGame = void 0;
 const functions = __importStar(require("firebase-functions"));
 const admin = __importStar(require("firebase-admin"));
+const rateLimit_1 = require("../utils/rateLimit");
 const db = admin.database();
 exports.createGame = functions
     .region('europe-west1')
@@ -56,6 +57,8 @@ exports.createGame = functions
         throw new functions.https.HttpsError('unauthenticated', 'Must be logged in');
     }
     const userId = context.auth.uid;
+    // 1.5. Rate limiting
+    await (0, rateLimit_1.checkRateLimit)(userId, 'createGame', rateLimit_1.RATE_LIMITS.createGame.limit, rateLimit_1.RATE_LIMITS.createGame.windowMs);
     // 2. Validate request
     const { player1Id, player1Name, player1Flag, player2Id, player2Name, player2Flag, gameMode, isWagered, stakeAmount, escrowId, } = data;
     // Caller must be one of the players
@@ -95,6 +98,8 @@ exports.createGame = functions
             throw new functions.https.HttpsError('invalid-argument', 'Escrow players do not match game players');
         }
     }
+    // Database URL for diagnostics (used in both casual and wagered flows)
+    const dbUrl = db.app.options.databaseURL ?? 'UNDEFINED';
     // 3b. For casual games, atomically claim opponent (transaction prevents race)
     let casualGameId = null;
     if (!isWagered) {
@@ -103,15 +108,37 @@ exports.createGame = functions
         if (!casualGameId) {
             throw new functions.https.HttpsError('internal', 'Failed to generate game id');
         }
-        const queueEntryRef = db.ref(`matchmaking_queue/casual/${player1Id}`);
-        // Atomic claim via transaction
+        const queuePath = `matchmaking_queue/casual/${player1Id}`;
+        const queueEntryRef = db.ref(queuePath);
+        console.log(`[createGame] Request context:`, {
+            callerUid: userId,
+            player1Id,
+            player2Id,
+            gameMode,
+            isWagered,
+            queuePath,
+            dbUrl,
+        });
+        // Atomic claim via parent-node transaction.
+        // Admin SDK may pass null on first callback (no local cache). Returning undefined
+        // aborts immediately. Returning null does NOT abort - it proposes null as the new
+        // value, triggering a server round-trip. If server value differs (entry exists),
+        // Firebase's built-in retry mechanism calls the callback again with the real value.
+        let abortReason = null;
         const claimResult = await queueEntryRef.transaction((entry) => {
-            if (!entry)
-                return undefined;
-            if (entry.matchedGameId)
-                return undefined;
-            if (entry.gameMode && entry.gameMode !== gameMode)
-                return undefined;
+            if (!entry) {
+                abortReason = 'missing_entry_probe';
+                return null; // Don't abort; let built-in retry fetch real value if it exists
+            }
+            if (entry.matchedGameId) {
+                abortReason = 'already_matched';
+                return; // abort
+            }
+            if (entry.gameMode && entry.gameMode !== gameMode) {
+                abortReason = 'mode_mismatch';
+                return; // abort
+            }
+            abortReason = 'claimed';
             return {
                 ...entry,
                 matchedGameId: casualGameId,
@@ -119,8 +146,20 @@ exports.createGame = functions
                 matchedByFlag: sanitizeFlag(player2Flag),
             };
         });
-        if (!claimResult.committed) {
-            throw new functions.https.HttpsError('failed-precondition', 'Opponent not available');
+        const claimed = claimResult.snapshot?.val();
+        console.log(`[createGame] Transaction result:`, {
+            committed: claimResult.committed,
+            abortReason,
+            claimedGameId: claimed?.matchedGameId ?? null,
+            claimedPlayerId: claimed?.playerId ?? null,
+        });
+        // Verify claim succeeded with valid data (catches true missing entry, race conditions, malformed data)
+        if (!claimResult.committed || !claimed || claimed.matchedGameId !== casualGameId || !claimed.playerId) {
+            throw new functions.https.HttpsError('failed-precondition', 'Opponent not available', {
+                abortReason,
+                queuePath,
+                dbUrl,
+            });
         }
     }
     // 3c. For wagered games, atomically claim opponent (transaction prevents race)
@@ -137,15 +176,24 @@ exports.createGame = functions
         if (!wageredGameId) {
             throw new functions.https.HttpsError('internal', 'Failed to generate game id');
         }
-        const queueEntryRef = db.ref(`matchmaking_queue/wagered/${wageredStakeLevel}/${player1Id}`);
-        // Atomic claim via transaction
+        const wageredQueuePath = `matchmaking_queue/wagered/${wageredStakeLevel}/${player1Id}`;
+        const queueEntryRef = db.ref(wageredQueuePath);
+        // Atomic claim via parent-node transaction (same fix as casual flow)
+        let abortReason = null;
         const claimResult = await queueEntryRef.transaction((entry) => {
-            if (!entry)
-                return undefined;
-            if (entry.matchedGameId)
-                return undefined;
-            if (entry.gameMode && entry.gameMode !== gameMode)
-                return undefined;
+            if (!entry) {
+                abortReason = 'missing_entry_probe';
+                return null; // Don't abort; let built-in retry fetch real value if it exists
+            }
+            if (entry.matchedGameId) {
+                abortReason = 'already_matched';
+                return; // abort
+            }
+            if (entry.gameMode && entry.gameMode !== gameMode) {
+                abortReason = 'mode_mismatch';
+                return; // abort
+            }
+            abortReason = 'claimed';
             return {
                 ...entry,
                 matchedGameId: wageredGameId,
@@ -153,8 +201,13 @@ exports.createGame = functions
                 matchedByFlag: sanitizeFlag(player2Flag),
             };
         });
-        if (!claimResult.committed) {
-            throw new functions.https.HttpsError('failed-precondition', 'Opponent not available');
+        const claimed = claimResult.snapshot?.val();
+        if (!claimResult.committed || !claimed || claimed.matchedGameId !== wageredGameId || !claimed.playerId) {
+            throw new functions.https.HttpsError('failed-precondition', 'Opponent not available', {
+                abortReason,
+                queuePath: wageredQueuePath,
+                dbUrl,
+            });
         }
     }
     // 4. Create game room
@@ -195,6 +248,13 @@ exports.createGame = functions
             dartPositions: {},
             legScores: { 0: 0, 1: 0 },
             setScores: { 0: 0, 1: 0 },
+            // O(1) per-player throw counters (avoids throwHistory scan for RNG seed)
+            playerTotalDarts: [0, 0],
+            // Per-player perfect hit COUNT this turn (legacy, kept for backward compat)
+            perfectHitsThisTurn: [0, 0],
+            // Per-player accumulated SHRINK AMOUNT this turn (0, 1.5, 3, 4.5, ...)
+            // Used for dynamic zone width calculation. Resets each turn.
+            perfectShrinkThisTurn: [0, 0],
             status: 'playing',
             createdAt: now,
             ...(isWagered && {
@@ -206,6 +266,13 @@ exports.createGame = functions
             }),
         };
         await gameRef.set(gameData);
+        // Link escrow to game (for active game detection in refund paths)
+        if (isWagered && escrowId) {
+            await db.ref(`escrow/${escrowId}`).update({
+                gameId,
+                gameCreatedAt: now,
+            });
+        }
     }
     catch (error) {
         // Conditional rollback: only clear if still our claim
