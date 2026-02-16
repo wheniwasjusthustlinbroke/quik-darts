@@ -52,7 +52,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.stripeWebhook = void 0;
+exports.stripeWebhook = exports.COIN_PACKAGES = void 0;
 const functions = __importStar(require("firebase-functions"));
 const admin = __importStar(require("firebase-admin"));
 const stripe_1 = __importDefault(require("stripe"));
@@ -72,7 +72,7 @@ function getStripe() {
     return stripe;
 }
 // Coin packages (must match createStripeCheckout.ts)
-const COIN_PACKAGES = {
+exports.COIN_PACKAGES = {
     'starter': { coins: 500 },
     'popular': { coins: 1200 },
     'best_value': { coins: 3500 },
@@ -144,7 +144,7 @@ async function handleSuccessfulPayment(session) {
         return;
     }
     // Get coins from package (prefer package definition over metadata for security)
-    const packageDef = COIN_PACKAGES[packageId];
+    const packageDef = exports.COIN_PACKAGES[packageId];
     const coinsToAward = packageDef?.coins || parseInt(coinsFromMeta || '0', 10);
     if (!coinsToAward || coinsToAward <= 0) {
         console.error(`[stripeWebhook] Invalid coins amount for package ${packageId}`);

@@ -16,6 +16,7 @@
 import * as functions from 'firebase-functions';
 import * as admin from 'firebase-admin';
 import { getLevelFromXP, getLevelUpCoins, XP_REWARDS } from '../utils/levelSystem';
+import { checkRateLimit, RATE_LIMITS } from '../utils/rateLimit';
 
 const db = admin.database();
 
@@ -48,6 +49,9 @@ export const settleGame = functions
 
     const userId = context.auth.uid;
     const { gameId } = data;
+
+    // 1.5. Rate limiting
+    await checkRateLimit(userId, 'settleGame', RATE_LIMITS.settleGame.limit, RATE_LIMITS.settleGame.windowMs);
 
     // 2. Validate request
     if (!gameId || typeof gameId !== 'string') {

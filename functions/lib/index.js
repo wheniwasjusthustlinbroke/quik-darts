@@ -41,8 +41,19 @@ var __importStar = (this && this.__importStar) || (function () {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.stripeWebhook = exports.createStripeCheckout = exports.cleanupExpiredEscrows = exports.refundEscrow = exports.settleGame = exports.createEscrow = exports.forfeitGame = exports.submitThrow = exports.createGame = exports.getUnclaimedAdReward = exports.admobCallback = exports.claimAdReward = exports.claimDailyBonus = exports.initializeNewUser = void 0;
 const admin = __importStar(require("firebase-admin"));
-// Initialize Firebase Admin
-admin.initializeApp();
+// Initialize Firebase Admin with explicit database URL
+// Must match client's VITE_FIREBASE_DATABASE_URL (europe-west1 instance)
+const PROD_DB_URL = 'https://quikdarts-default-rtdb.europe-west1.firebasedatabase.app';
+if (process.env.FIREBASE_DATABASE_EMULATOR_HOST) {
+    // Use defaults when running in emulator
+    admin.initializeApp();
+}
+else {
+    // Pin to prod RTDB instance
+    admin.initializeApp({
+        databaseURL: PROD_DB_URL,
+    });
+}
 // ============================================
 // COINS - Award and manage coin balance
 // ============================================

@@ -36,10 +36,8 @@ import {
 const db = admin.database();
 
 // Feature toggle for segment-based miss system (server)
-// OFF by default - flip after client-server parity testing (Step 8)
-// WARNING: When ON, parity will be WRONG until dynamic perfect-zone width is
-// implemented (checkout ultra-narrow zone, shrink-per-perfect-hit not tracked yet)
-const USE_SEGMENT_MISS_SERVER = false;
+// Enabled for all online matches (casual + wagered)
+const USE_SEGMENT_MISS_SERVER = true;
 
 // Rhythm configuration
 export const RHYTHM_CONFIG = {
@@ -376,9 +374,10 @@ export const submitThrow = functions
     const rhythm = calculateServerRhythm(currentTurnThrows, now);
 
     // 8.5. Validate throw plausibility (anti-cheat)
-    // SECURITY: Don't just trust game.wagerAmount - verify the escrow is actually locked
+    // SECURITY: Don't just trust game state - verify the escrow is actually locked
+    // FIX: Changed from game.wagerAmount to game.wager?.stakeAmount (field mismatch bug)
     let isWagered = false;
-    if (game.wagerAmount && game.wagerAmount > 0 && game.wager?.escrowId) {
+    if (game.wager?.stakeAmount && game.wager.stakeAmount > 0 && game.wager?.escrowId) {
       // Verify escrow exists and is locked - prevents wagered match fraud
       const escrowRef = db.ref(`escrow/${game.wager.escrowId}`);
       const escrowSnap = await escrowRef.once('value');
@@ -418,8 +417,9 @@ export const submitThrow = functions
     // 8.6. Compute effective dart position (server-authoritative scatter)
     // When USE_SEGMENT_MISS_SERVER is ON: server computes position, skips legacy plausibility
     // When OFF: use client dartPosition with legacy plausibility validation
+    // Applies to ALL online matches (casual + wagered) when aimPoint/powerValue provided
     const useServerScatter =
-      USE_SEGMENT_MISS_SERVER && isWagered && aimPoint && powerValue !== undefined;
+      USE_SEGMENT_MISS_SERVER && aimPoint && powerValue !== undefined;
 
     let effectiveDartPosition: DartPosition = dartPosition;
     let wasPerfectHit = false; // Track for dynamic zone shrinking (Step 8.3)

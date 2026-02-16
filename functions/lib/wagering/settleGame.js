@@ -47,11 +47,14 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.settleGame = void 0;
+exports.settleGame = exports.SETTLEMENT_LOCK_TIMEOUT_MS = void 0;
 const functions = __importStar(require("firebase-functions"));
 const admin = __importStar(require("firebase-admin"));
 const levelSystem_1 = require("../utils/levelSystem");
+const rateLimit_1 = require("../utils/rateLimit");
 const db = admin.database();
+// Settlement lock timeout - stale locks can be retried after this duration
+exports.SETTLEMENT_LOCK_TIMEOUT_MS = 120000;
 exports.settleGame = functions
     .region('europe-west1')
     .https.onCall(async (data, context) => {
@@ -61,6 +64,8 @@ exports.settleGame = functions
     }
     const userId = context.auth.uid;
     const { gameId } = data;
+    // 1.5. Rate limiting
+    await (0, rateLimit_1.checkRateLimit)(userId, 'settleGame', rateLimit_1.RATE_LIMITS.settleGame.limit, rateLimit_1.RATE_LIMITS.settleGame.windowMs);
     // 2. Validate request
     if (!gameId || typeof gameId !== 'string') {
         throw new functions.https.HttpsError('invalid-argument', 'Invalid game ID');
@@ -135,7 +140,7 @@ exports.settleGame = functions
             // (increased from 30s to handle server load and network latency)
             if (escrow.settlementRequestId) {
                 const settlementAge = now - (escrow.settlementStartedAt || 0);
-                if (settlementAge < 120000) {
+                if (settlementAge < exports.SETTLEMENT_LOCK_TIMEOUT_MS) {
                     console.log(`[settleGame] Escrow ${game.wager.escrowId} already being settled by ${escrow.settlementRequestId}`);
                     return; // Abort - another request is settling
                 }

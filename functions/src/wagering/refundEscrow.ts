@@ -16,6 +16,7 @@
 
 import * as functions from 'firebase-functions';
 import * as admin from 'firebase-admin';
+import { checkRateLimit, RATE_LIMITS } from '../utils/rateLimit';
 
 const db = admin.database();
 
@@ -113,6 +114,9 @@ export const refundEscrow = functions
     const userId = context.auth.uid;
     const { escrowId, reason = 'cancelled' } = data;
 
+    // 1.5. Rate limiting
+    await checkRateLimit(userId, 'refundEscrow', RATE_LIMITS.refundEscrow.limit, RATE_LIMITS.refundEscrow.windowMs);
+
     // 2. Validate request
     if (!escrowId || typeof escrowId !== 'string') {
       throw new functions.https.HttpsError(
@@ -177,6 +181,10 @@ export const refundEscrow = functions
           if (!esc) return;
           if (esc.status === 'released' || esc.status === 'refunded') {
             return; // Already processed
+          }
+          // SECURITY: Block if active game exists (double-check inside transaction)
+          if (esc.gameId || esc.matchedGameId) {
+            return; // Active game - must settle or forfeit
           }
           return {
             ...esc,
@@ -296,6 +304,12 @@ export const refundEscrow = functions
       if (esc.status === 'released' || esc.status === 'refunded') {
         console.log(`[refundEscrow] Escrow already processed (${esc.status}), aborting`);
         return; // Abort transaction
+      }
+
+      // SECURITY: Block refund if escrow has an active game
+      if (esc.gameId || esc.matchedGameId) {
+        console.log(`[refundEscrow] Cannot refund - active game exists: ${esc.gameId || esc.matchedGameId}`);
+        return; // Abort - game in progress, must settle or forfeit
       }
 
       // Can only refund if pending OR (locked AND expired)
@@ -462,6 +476,12 @@ export const cleanupExpiredEscrows = functions
           // Already processed - abort
           if (esc.status === 'released' || esc.status === 'refunded') {
             return; // Abort transaction
+          }
+
+          // SECURITY: Block if active game exists
+          if (esc.gameId || esc.matchedGameId) {
+            console.log(`[cleanupExpiredEscrows] Skipping escrow with active game: ${esc.gameId || esc.matchedGameId}`);
+            return; // Active game - must settle or forfeit
           }
 
           // Not expired anymore (edge case with clock skew)
