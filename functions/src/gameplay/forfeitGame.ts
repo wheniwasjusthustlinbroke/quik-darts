@@ -12,7 +12,9 @@
 
 import * as functions from 'firebase-functions';
 import * as admin from 'firebase-admin';
+import { randomUUID } from 'node:crypto';
 import { checkRateLimit, RATE_LIMITS } from '../utils/rateLimit';
+import { SETTLEMENT_LOCK_TIMEOUT_MS } from '../wagering/settlementConstants';
 
 const db = admin.database();
 
@@ -147,10 +149,17 @@ export const forfeitGame = functions
     if (game.wager && !game.wager.settled) {
       try {
         // Call settleGame internally and get payout
+        // Returns 0 for already-settled/in-progress (idempotent skip)
+        // Throws HttpsError on real failures
         winnerPayout = await settleGameInternal(gameId, winnerIndex, winnerId, game.wager.escrowId);
       } catch (error) {
-        console.error(`[forfeitGame] Failed to settle wagered game:`, error);
-        // Don't throw - game forfeit succeeded, settlement can be retried
+        // Let HttpsError propagate to client (real failures must surface)
+        if (error instanceof functions.https.HttpsError) {
+          throw error;
+        }
+        // Wrap unexpected errors
+        console.error(`[forfeitGame] Unexpected settlement error for game ${gameId}:`, error);
+        throw new functions.https.HttpsError('internal', 'Settlement failed. Please retry.');
       }
     }
 
@@ -165,7 +174,9 @@ export const forfeitGame = functions
 /**
  * Internal function to settle a wagered game
  * SECURITY: Uses atomic transaction on escrow to prevent double-payout race condition
- * Returns the payout amount (0 if already settled)
+ * Two-phase: locked → settling → (wallet credit) → released
+ * Wallet idempotency: settleMarkers[escrowId] prevents double-credit
+ * Returns the payout amount (0 only for already-settled/in-progress - throws on real failures)
  */
 async function settleGameInternal(
   gameId: string,
@@ -175,79 +186,166 @@ async function settleGameInternal(
 ): Promise<number> {
   const escrowRef = db.ref(`escrow/${escrowId}`);
   const now = Date.now();
+  const requestId = `forfeit_${winnerId}_${randomUUID()}`;
 
-  // CRITICAL: Use atomic transaction on escrow to prevent double-settlement race condition
-  // This atomically checks status and transitions to 'released' in one operation
+  // Phase 1: Acquire settlement lock (locked → settling)
   const escrowResult = await escrowRef.transaction((escrow) => {
-    if (!escrow) return escrow;
+    if (!escrow) return; // Abort - escrow missing
 
-    // Already settled or not in locked state - abort transaction
-    if (escrow.status !== 'locked') {
-      console.log(`[settleGameInternal] Escrow already processed, aborting`);
-      return; // Abort transaction - returns undefined
+    // Accept 'locked' or 'settling' (with stale check for takeover)
+    if (escrow.status !== 'locked' && escrow.status !== 'settling') {
+      console.log(`[settleGameInternal] Escrow already in terminal status: ${escrow.status}, aborting`);
+      return; // Abort transaction
     }
 
-    // Atomically transition escrow to released state
+    // For 'settling' status, verify lock is stale before allowing takeover
+    if (escrow.status === 'settling') {
+      const settlementAge = now - (escrow.settlementStartedAt || 0);
+      if (settlementAge < SETTLEMENT_LOCK_TIMEOUT_MS) {
+        console.log(`[settleGameInternal] Escrow still being settled (not stale), aborting`);
+        return; // Abort - settlement in progress
+      }
+      console.log(`[settleGameInternal] Stale settling lock (>120s), allowing takeover`);
+    }
+
+    // SAFETY NET: Guards against partial rollback where status reverted to 'locked'
+    // but settlementRequestId wasn't cleared (e.g., Firebase write interrupted).
+    if (escrow.status === 'locked' && escrow.settlementRequestId) {
+      const settlementAge = now - (escrow.settlementStartedAt || 0);
+      if (settlementAge < SETTLEMENT_LOCK_TIMEOUT_MS) {
+        console.log(`[settleGameInternal] Escrow has active settlement lock, aborting`);
+        return; // Abort
+      }
+    }
+
+    // Atomically acquire settlement lock
     return {
       ...escrow,
-      status: 'released',
-      settledAt: now,
+      status: 'settling',
+      settlementStartedAt: now,
+      settlementRequestId: requestId,
       winnerId,
     };
   });
 
-  // Check if escrow transaction was committed (status was 'locked' and we changed it)
-  if (!escrowResult.committed || escrowResult.snapshot.val()?.status !== 'released') {
-    console.log(`[settleGameInternal] Escrow already settled by another process, skipping payout`);
-    return 0;
+  // Check if WE acquired the settlement lock
+  const escrowAfterLock = escrowResult.snapshot.val();
+
+  if (!escrowResult.committed || escrowAfterLock?.settlementRequestId !== requestId) {
+    // Distinguish: missing escrow vs. already handled vs. unexpected state
+    if (!escrowAfterLock) {
+      console.error(`[settleGameInternal] CRITICAL: Escrow ${escrowId} missing for game ${gameId}`);
+      throw new functions.https.HttpsError('internal', 'Escrow record missing. Cannot settle.');
+    }
+
+    const status = escrowAfterLock.status as string | undefined;
+    if (status === 'released') {
+      console.log(`[settleGameInternal] Escrow ${escrowId} already released, skipping`);
+      return 0;
+    }
+
+    // locked can be a valid in-progress contention state (rollback race)
+    if (status === 'settling' || status === 'locked') {
+      console.log(`[settleGameInternal] Escrow ${escrowId} is ${status} by another process, skipping`);
+      return 0;
+    }
+
+    // Truly unexpected state
+    console.error(`[settleGameInternal] CRITICAL: Unexpected escrow state "${status}" for ${escrowId}`);
+    throw new functions.https.HttpsError('internal', `Unexpected escrow state: ${status}`);
   }
 
-  const escrow = escrowResult.snapshot.val();
-  const totalPot = escrow.totalPot;
+  const totalPot = escrowAfterLock.totalPot;
 
-  // Now safe to award coins - escrow is atomically marked as released
+  // Phase 2: Award coins to winner with idempotency marker
   const walletRef = db.ref(`users/${winnerId}/wallet`);
 
   const walletResult = await walletRef.transaction((wallet) => {
-    if (!wallet) return wallet;
+    if (!wallet) {
+      console.error(`[settleGameInternal] CRITICAL: Wallet missing for user ${winnerId} during settlement of game ${gameId}`);
+      return; // Abort - error handling below will rollback escrow and throw
+    }
+
+    // Idempotency: check if already settled
+    if (wallet.settleMarkers?.[escrowId]) return; // Abort - already applied
 
     return {
       ...wallet,
       coins: (wallet.coins || 0) + totalPot,
       lifetimeEarnings: (wallet.lifetimeEarnings || 0) + totalPot,
       version: (wallet.version || 0) + 1,
+      settleMarkers: {
+        ...(wallet.settleMarkers || {}),
+        [escrowId]: requestId,
+      },
     };
   });
 
+  let weAppliedCredit = walletResult.committed;
+
   if (!walletResult.committed) {
-    console.error(`[settleGameInternal] Wallet credit failed - rolling back escrow`);
+    // Follow-up read to check if already settled
+    let checkSnap;
     try {
+      checkSnap = await walletRef.child(`settleMarkers/${escrowId}`).once('value');
+    } catch (e) {
+      console.error(`[settleGameInternal] Marker read failed for ${winnerId}, escrowId: ${escrowId}:`, e);
       await escrowRef.update({
         status: 'locked',
-        settledAt: null,        // Clear release markers
-        winnerId,               // Keep for retry
-        settlementError: `wallet_failed_${Date.now()}`,
+        settlementRequestId: null,
+        settlementStartedAt: null,
+        settlementError: `marker_check_failed_${requestId}`,
+        winnerId,
       });
-    } catch (rollbackErr) {
-      console.error(`[settleGameInternal] CRITICAL: Rollback failed!`, rollbackErr);
-      // Manual intervention needed - escrow stuck in released without payout
+      throw new functions.https.HttpsError('internal', 'Failed to verify settlement. Please retry.');
     }
-    return 0; // Return before logging transaction - payout not awarded
+
+    if (checkSnap.exists()) {
+      // Already settled by another request - continue to finalize (idempotent)
+      console.log(`[settleGameInternal] Already settled by another request for escrowId: ${escrowId}`);
+    } else {
+      // Real failure: wallet missing or transaction failed
+      console.error(`[settleGameInternal] Wallet credit failed for ${winnerId} - releasing lock`);
+      await escrowRef.update({
+        status: 'locked',
+        settlementRequestId: null,
+        settlementStartedAt: null,
+        settlementError: `wallet_failed_${requestId}`,
+        winnerId,
+      });
+      throw new functions.https.HttpsError('internal', 'Failed to award payout. Please retry.');
+    }
   }
 
-  // Log transaction
-  await db.ref(`users/${winnerId}/transactions`).push({
-    type: 'payout',
-    amount: totalPot,
-    gameId,
-    description: 'Wagered game win',
-    timestamp: now,
+  // Phase 3: Finalize escrow release
+  await escrowRef.update({
+    status: 'released',
+    settledAt: now,
+    payoutAwarded: true,
+    settlementRequestId: null,
+    settlementStartedAt: null,
+    settlementError: null,
   });
+
+  // Log transaction only if WE applied credit
+  if (weAppliedCredit) {
+    try {
+      await db.ref(`users/${winnerId}/transactions`).push({
+        type: 'payout',
+        amount: totalPot,
+        gameId,
+        description: 'Wagered game win (forfeit)',
+        timestamp: now,
+      });
+    } catch (e) {
+      console.error(`[settleGameInternal] WARN - transaction log failed for ${winnerId}:`, e);
+    }
+  }
 
   // Mark game wager as settled
   await db.ref(`games/${gameId}/wager/settled`).set(true);
 
-  console.log(`[settleGameInternal] Game settled - payout awarded`);
+  console.log(`[settleGameInternal] Game settled - payout awarded to ${winnerId}`);
 
   return totalPot;
 }
