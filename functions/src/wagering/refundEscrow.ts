@@ -21,71 +21,142 @@ import { checkRateLimit, RATE_LIMITS } from '../utils/rateLimit';
 const db = admin.database();
 
 /**
+ * Result type for refundSingleEscrow - forces callers to check success
+ */
+export type RefundSingleEscrowResult = {
+  success: boolean;
+  refundedPlayers: string[];
+  refundedAmounts: number[];
+  error?: 'not_found' | 'not_eligible' | 'in_progress' | 'partial_failure';
+};
+
+/**
  * Shared helper: fully refund a single escrow (status change + wallet credits).
+ * Uses two-phase refunding → refunded state machine for safety.
  * Idempotent — safe to call multiple times for the same escrow.
- * Preserves same eligibility checks as refundEscrow Cloud Function.
  */
 export async function refundSingleEscrow(
   escrowId: string,
   reason: string,
   options?: { forceLocked?: boolean }
-): Promise<{ refundedPlayers: string[]; refundedAmounts: number[] } | null> {
+): Promise<RefundSingleEscrowResult> {
   const now = Date.now();
   const escrowRef = db.ref(`escrow/${escrowId}`);
   const forceLocked = options?.forceLocked ?? false;
+  const refundRequestId = `helper_${now}_${Math.random().toString(36).substring(2, 8)}`;
 
-  // Pre-read to get escrow data (also populates cache)
   const preSnap = await escrowRef.once('value');
   const preEscrow = preSnap.val();
 
   if (!preEscrow) {
-    return null; // Escrow doesn't exist
+    return { success: false, refundedPlayers: [], refundedAmounts: [], error: 'not_found' };
   }
 
+  // Phase 1: Transition to 'refunding' (intermediate state)
   const refundResult = await escrowRef.transaction((currentEscrow) => {
-    // CRITICAL FIX: Use pre-read escrow if callback receives null (Admin SDK cold start)
     const esc = currentEscrow ?? preEscrow;
+    if (!esc) return;
 
-    if (!esc) return;  // Should never happen since we pre-checked
+    if (esc.status === 'refunded') return;
+    if (esc.status === 'released') return;
+    if (esc.gameId || esc.matchedGameId) return;
 
-    if (esc.status === 'released' || esc.status === 'refunded') {
-      return; // terminal → abort
-    }
-
-    const isLockedAndExpired = esc.status === 'locked' && esc.expiresAt && esc.expiresAt < now;
-    if (esc.status !== 'pending' && !isLockedAndExpired && !(forceLocked && esc.status === 'locked')) {
-      return; // active match → abort (unless forceLocked for server-side recovery)
+    if (esc.status === 'refunding') {
+      const REFUND_STALE_MS = 60_000;
+      const refundAge = now - (esc.refundStartedAt || 0);
+      if (refundAge < REFUND_STALE_MS && esc.refundRequestId) return;
+    } else {
+      const isLockedAndExpired = esc.status === 'locked' && esc.expiresAt && esc.expiresAt < now;
+      if (esc.status !== 'pending' && !isLockedAndExpired && !(forceLocked && esc.status === 'locked')) return;
     }
 
     return {
       ...esc,
-      status: 'refunded',
-      refundedAt: now,
+      status: 'refunding',
+      refundRequestId,
+      refundStartedAt: now,
       refundReason: reason,
+      refundApplied: esc.refundApplied || { player1: false, player2: false },
     };
   });
 
-  if (!refundResult.committed || refundResult.snapshot.val()?.status !== 'refunded') {
-    return null;
+  const escrowAfterPhase1 = refundResult.snapshot.val();
+
+  if (!refundResult.committed || !escrowAfterPhase1) {
+    const latest = (await escrowRef.once('value')).val();
+    if (latest?.status === 'refunded') {
+      return { success: true, refundedPlayers: [], refundedAmounts: [] };
+    }
+    if (latest?.status === 'refunding') {
+      console.log(`[refundSingleEscrow] Escrow ${escrowId} refund in progress by another request`);
+      return { success: false, refundedPlayers: [], refundedAmounts: [], error: 'in_progress' };
+    }
+    return { success: false, refundedPlayers: [], refundedAmounts: [], error: 'not_eligible' };
   }
 
-  const refunded = refundResult.snapshot.val();
+  if (escrowAfterPhase1.status === 'refunded') {
+    return { success: true, refundedPlayers: [], refundedAmounts: [] };
+  }
+
+  if (escrowAfterPhase1.refundRequestId !== refundRequestId) {
+    console.log(`[refundSingleEscrow] Escrow ${escrowId} owned by another request`);
+    return { success: false, refundedPlayers: [], refundedAmounts: [], error: 'in_progress' };
+  }
+
+  // Phase 2: Credit wallets (idempotent via wallet markers)
   const refundedPlayers: string[] = [];
   const refundedAmounts: number[] = [];
+  let allSucceeded = true;
 
-  if (refunded.player1) {
-    await refundPlayer(refunded.player1.userId, refunded.player1.amount, escrowId, reason, now);
-    refundedPlayers.push(refunded.player1.userId);
-    refundedAmounts.push(refunded.player1.amount);
-  }
-  if (refunded.player2) {
-    await refundPlayer(refunded.player2.userId, refunded.player2.amount, escrowId, reason, now);
-    refundedPlayers.push(refunded.player2.userId);
-    refundedAmounts.push(refunded.player2.amount);
+  if (escrowAfterPhase1.player1 && !escrowAfterPhase1.refundApplied?.player1) {
+    const success = await refundPlayer(escrowAfterPhase1.player1.userId, escrowAfterPhase1.player1.amount, escrowId, reason, now, refundRequestId);
+    if (success) {
+      await escrowRef.child('refundApplied/player1').set(true);
+      refundedPlayers.push(escrowAfterPhase1.player1.userId);
+      refundedAmounts.push(escrowAfterPhase1.player1.amount);
+    } else {
+      allSucceeded = false;
+    }
+  } else if (escrowAfterPhase1.player1) {
+    refundedPlayers.push(escrowAfterPhase1.player1.userId);
+    refundedAmounts.push(escrowAfterPhase1.player1.amount);
   }
 
-  console.log(`[refundSingleEscrow] Refunded escrow ${escrowId} (${reason})`);
-  return { refundedPlayers, refundedAmounts };
+  if (escrowAfterPhase1.player2 && !escrowAfterPhase1.refundApplied?.player2) {
+    const success = await refundPlayer(escrowAfterPhase1.player2.userId, escrowAfterPhase1.player2.amount, escrowId, reason, now, refundRequestId);
+    if (success) {
+      await escrowRef.child('refundApplied/player2').set(true);
+      refundedPlayers.push(escrowAfterPhase1.player2.userId);
+      refundedAmounts.push(escrowAfterPhase1.player2.amount);
+    } else {
+      allSucceeded = false;
+    }
+  } else if (escrowAfterPhase1.player2) {
+    refundedPlayers.push(escrowAfterPhase1.player2.userId);
+    refundedAmounts.push(escrowAfterPhase1.player2.amount);
+  }
+
+  // Phase 3: Finalize ONLY if all credits succeeded
+  if (allSucceeded) {
+    await escrowRef.update({
+      status: 'refunded',
+      refundedAt: now,
+      refundError: null,
+      refundRequestId: null,
+      refundStartedAt: null,
+    });
+    console.log(`[refundSingleEscrow] Refunded escrow ${escrowId} (${reason})`);
+    return { success: true, refundedPlayers, refundedAmounts };
+  } else {
+    await escrowRef.update({
+      refundError: `wallet_credit_failed_${now}`,
+      lastRefundAttemptAt: now,
+      refundRequestId: null,
+      refundStartedAt: null,
+    });
+    console.error(`[refundSingleEscrow] Partial failure for escrow ${escrowId}`);
+    return { success: false, refundedPlayers, refundedAmounts, error: 'partial_failure' };
+  }
 }
 
 interface RefundEscrowRequest {
@@ -172,70 +243,23 @@ export const refundEscrow = functions
           if (!isExpired || !hasNoGame) continue;  // Skip active games
         }
 
-        // Refund this escrow
-        const escrowRef = db.ref(`escrow/${eid}`);
-        // Use escrow from query as fallback (Admin SDK cold start fix)
-        const refundResult = await escrowRef.transaction((currentEscrow) => {
-          // CRITICAL FIX: Use query escrow if callback receives null
-          const esc = currentEscrow ?? escrow;
-          if (!esc) return;
-          if (esc.status === 'released' || esc.status === 'refunded') {
-            return; // Already processed
-          }
-          // SECURITY: Block if active game exists (double-check inside transaction)
-          if (esc.gameId || esc.matchedGameId) {
-            return; // Active game - must settle or forfeit
-          }
-          return {
-            ...esc,
-            status: 'refunded',
-            refundedAt: now,
-            refundReason: 'cleanup_before_new_match',
-          };
-        });
+        // Use shared helper for two-phase refund
+        const result = await refundSingleEscrow(eid, 'cleanup_before_new_match');
 
-        if (refundResult.committed && refundResult.snapshot.val()?.status === 'refunded') {
-          const refundedEscrow = refundResult.snapshot.val();
-
-          // Refund player1
-          if (refundedEscrow.player1) {
-            const p1Amount = refundedEscrow.player1.amount;
-            await db.ref(`users/${refundedEscrow.player1.userId}/wallet`).transaction((wallet) => {
-              if (!wallet) return wallet;
-              return {
-                ...wallet,
-                coins: (wallet.coins || 0) + p1Amount,
-                lifetimeSpent: Math.max(0, (wallet.lifetimeSpent || 0) - p1Amount),
-                version: (wallet.version || 0) + 1,
-              };
-            });
-            refundedPlayers.push(refundedEscrow.player1.userId);
-            refundedAmounts.push(p1Amount);
-          }
-
-          // Refund player2 if exists
-          if (refundedEscrow.player2) {
-            const p2Amount = refundedEscrow.player2.amount;
-            await db.ref(`users/${refundedEscrow.player2.userId}/wallet`).transaction((wallet) => {
-              if (!wallet) return wallet;
-              return {
-                ...wallet,
-                coins: (wallet.coins || 0) + p2Amount,
-                lifetimeSpent: Math.max(0, (wallet.lifetimeSpent || 0) - p2Amount),
-                version: (wallet.version || 0) + 1,
-              };
-            });
-            refundedPlayers.push(refundedEscrow.player2.userId);
-            refundedAmounts.push(p2Amount);
-          }
+        if (result.success) {
+          refundedPlayers.push(...result.refundedPlayers);
+          refundedAmounts.push(...result.refundedAmounts);
 
           // Also remove from queue if still there
-          const queueStake = refundedEscrow.stakeLevel;
+          const queueStake = escrow.stakeLevel;
           if (queueStake) {
             await db.ref(`matchmaking_queue/wagered/${queueStake}/${userId}`).remove();
           }
-
-          console.log(`[refundEscrow] Cleaned up stale escrow`);
+          console.log(`[refundEscrow] Cleaned up stale escrow ${eid}`);
+        } else if (result.error === 'in_progress') {
+          console.log(`[refundEscrow] Escrow ${eid} refund in progress, skipping`);
+        } else if (result.error === 'partial_failure') {
+          console.error(`[refundEscrow] Partial failure cleaning escrow ${eid}`);
         }
       }
 
@@ -279,154 +303,121 @@ export const refundEscrow = functions
     }
 
     if (escrow.status === 'released' || escrow.status === 'refunded') {
+      // Idempotent success - already processed, nothing to do
       return {
         success: true,
-        error: `Escrow already ${escrow.status}`,
+        refundedPlayers: [],
+        refundedAmounts: [],
       };
     }
 
-    // 6. CRITICAL: Use atomic transaction to prevent double-refund race condition
-    // NOTE: We already have `escrow` from line 231. If transaction callback gets null
-    // (Admin SDK cold start quirk), we use the pre-read value to force a proper transaction.
-    // This triggers conflict detection if the server value changed.
+    // 6. Use shared helper for two-phase refund
+    const result = await refundSingleEscrow(escrowId, reason);
 
-    // This atomically transitions escrow from pending/locked to refunded
-    const refundResult = await escrowRef.transaction((currentEscrow) => {
-      // CRITICAL FIX: Use pre-read escrow if callback receives null (Admin SDK cold start)
-      const esc = currentEscrow ?? escrow;
-
-      if (!esc) {
-        console.log(`[refundEscrow] No escrow data available, aborting`);
-        return; // Abort - should never happen since we pre-checked
+    if (!result.success) {
+      if (result.error === 'not_found') {
+        throw new functions.https.HttpsError('not-found', 'Escrow not found');
       }
-
-      // Already refunded or released by another concurrent call - abort
-      if (esc.status === 'released' || esc.status === 'refunded') {
-        console.log(`[refundEscrow] Escrow already processed (${esc.status}), aborting`);
-        return; // Abort transaction
+      if (result.error === 'in_progress') {
+        console.log(`[refundEscrow] Escrow ${escrowId} refund in progress by another request`);
+        return { success: false, error: 'Refund in progress by another request. Please retry.' };
       }
-
-      // SECURITY: Block refund if escrow has an active game
-      if (esc.gameId || esc.matchedGameId) {
-        console.log(`[refundEscrow] Cannot refund - active game exists: ${esc.gameId || esc.matchedGameId}`);
-        return; // Abort - game in progress, must settle or forfeit
-      }
-
-      // Can only refund if pending OR (locked AND expired)
-      const isLockedAndExpired = esc.status === 'locked' && esc.expiresAt && esc.expiresAt < now;
-      if (esc.status !== 'pending' && !isLockedAndExpired) {
-        console.log(`[refundEscrow] Cannot refund - escrow in invalid state: ${esc.status}`);
-        return; // Abort transaction
-      }
-
-      // Atomically mark as refunded
-      console.log(`[refundEscrow] Marking escrow as refunded (was: ${esc.status})`);
-      return {
-        ...esc,
-        status: 'refunded',
-        refundedAt: now,
-        refundReason: reason,
-      };
-    });
-
-    // Check if transaction was committed
-    if (!refundResult.committed || refundResult.snapshot.val()?.status !== 'refunded') {
-      // Transaction aborted - re-read to check actual status
-      const latestSnap = await escrowRef.once('value');
-      const latestEscrow = latestSnap.val();
-
-      if (latestEscrow?.status === 'refunded' || latestEscrow?.status === 'released') {
-        // Actually was already processed by another call
-        console.log(`[refundEscrow] Escrow confirmed already processed: ${latestEscrow.status}`);
+      if (result.error === 'partial_failure') {
+        console.error(`[refundEscrow] Partial failure for escrow ${escrowId}`);
         return {
-          success: true,
-          error: `Escrow already ${latestEscrow.status}`,
+          success: false,
+          refundedPlayers: result.refundedPlayers,
+          refundedAmounts: result.refundedAmounts,
+          error: 'Partial failure - some credits failed. Please retry.',
         };
       }
-
-      // Transaction failed for other reason (no cache, race condition, etc.)
-      console.error(`[refundEscrow] Transaction failed, escrow status: ${latestEscrow?.status ?? 'null'}`);
-      return {
-        success: false,
-        error: 'Refund transaction failed - please retry',
-      };
-    }
-
-    // 7. Now refund players (safe - escrow is atomically marked as refunded)
-    const refundedEscrow = refundResult.snapshot.val();
-    const refundedPlayers: string[] = [];
-    const refundedAmounts: number[] = [];
-
-    // Refund player 1
-    if (refundedEscrow.player1) {
-      await refundPlayer(
-        refundedEscrow.player1.userId,
-        refundedEscrow.player1.amount,
-        escrowId,
-        reason,
-        now
-      );
-      refundedPlayers.push(refundedEscrow.player1.userId);
-      refundedAmounts.push(refundedEscrow.player1.amount);
-    }
-
-    // Refund player 2
-    if (refundedEscrow.player2) {
-      await refundPlayer(
-        refundedEscrow.player2.userId,
-        refundedEscrow.player2.amount,
-        escrowId,
-        reason,
-        now
-      );
-      refundedPlayers.push(refundedEscrow.player2.userId);
-      refundedAmounts.push(refundedEscrow.player2.amount);
+      return { success: false, error: 'Refund failed - please retry' };
     }
 
     console.log(`[refundEscrow] Escrow refunded successfully`);
-
     return {
       success: true,
-      refundedPlayers,
-      refundedAmounts,
+      refundedPlayers: result.refundedPlayers,
+      refundedAmounts: result.refundedAmounts,
     };
   });
 
 /**
  * Refund coins to a single player
+ * Uses idempotency marker (refundRequestId) to prevent double-credit
  */
 async function refundPlayer(
   playerId: string,
   amount: number,
   escrowId: string,
   reason: string,
-  timestamp: number
-): Promise<void> {
+  timestamp: number,
+  refundRequestId: string
+): Promise<boolean> {
   const walletRef = db.ref(`users/${playerId}/wallet`);
 
-  // Atomic transaction to return coins
-  await walletRef.transaction((wallet) => {
-    if (!wallet) return wallet;
+  let walletResult;
+  try {
+    walletResult = await walletRef.transaction((wallet) => {
+      // Abort if wallet doesn't exist
+      if (!wallet) return;
 
-    return {
-      ...wallet,
-      coins: (wallet.coins || 0) + amount,
-      // Don't add to lifetimeEarnings - this is a refund, not earnings
-      lifetimeSpent: Math.max(0, (wallet.lifetimeSpent || 0) - amount),
-      version: (wallet.version || 0) + 1,
-    };
-  });
+      // Abort if marker exists (already refunded by someone)
+      if (wallet.refundMarkers?.[escrowId]) return;
 
-  // Log transaction
-  await db.ref(`users/${playerId}/transactions`).push({
-    type: 'refund',
-    amount: amount,
-    escrowId,
-    description: `Escrow refund (${reason})`,
-    timestamp,
-  });
+      // Apply credit + set marker atomically
+      return {
+        ...wallet,
+        coins: (wallet.coins || 0) + amount,
+        // Don't add to lifetimeEarnings - this is a refund, not earnings
+        lifetimeSpent: Math.max(0, (wallet.lifetimeSpent || 0) - amount),
+        version: (wallet.version || 0) + 1,
+        refundMarkers: {
+          ...(wallet.refundMarkers || {}),
+          [escrowId]: refundRequestId,
+        },
+      };
+    });
+  } catch (e) {
+    console.error(`[refundPlayer] EXCEPTION for player ${playerId}, escrowId: ${escrowId}:`, e);
+    return false;
+  }
 
-  console.log(`[refundPlayer] Refund processed successfully`);
+  // Handle abort cases
+  if (!walletResult.committed) {
+    // Follow-up read to distinguish "already refunded" from "wallet missing"
+    let checkSnap;
+    try {
+      checkSnap = await walletRef.child(`refundMarkers/${escrowId}`).once('value');
+    } catch (e) {
+      console.error(`[refundPlayer] FAILED - marker read failed for player ${playerId}, escrowId: ${escrowId}:`, e);
+      return false;
+    }
+    if (checkSnap.exists()) {
+      // Marker exists - idempotent success (someone else applied it)
+      console.log(`[refundPlayer] Already refunded by another request for player ${playerId}`);
+      return true;
+    }
+    // Wallet missing or other failure
+    console.error(`[refundPlayer] FAILED - transaction aborted for player ${playerId}, escrowId: ${escrowId}`);
+    return false;
+  }
+
+  // We applied the credit - log it
+  try {
+    await db.ref(`users/${playerId}/transactions`).push({
+      type: 'refund',
+      amount: amount,
+      escrowId,
+      description: `Escrow refund (${reason})`,
+      timestamp,
+    });
+  } catch (e) {
+    console.error(`[refundPlayer] WARN - log write failed for player ${playerId}:`, e);
+  }
+
+  console.log(`[refundPlayer] Refund applied for player ${playerId}`);
+  return true;
 }
 
 /**
@@ -454,80 +445,22 @@ export const cleanupExpiredEscrows = functions
     let refundedCount = 0;
 
     for (const [escrowId, escrow] of Object.entries(escrows as Record<string, any>)) {
-      if (escrow.status === 'pending' || escrow.status === 'locked') {
-        console.log(`[cleanupExpiredEscrows] Processing expired escrow ${escrowId}`);
+      // Handle pending, locked, and refunding (stuck) escrows
+      if (escrow.status === 'pending' || escrow.status === 'locked' || escrow.status === 'refunding') {
+        console.log(`[cleanupExpiredEscrows] Processing expired escrow ${escrowId} (status: ${escrow.status})`);
 
-        const escrowRef = db.ref(`escrow/${escrowId}`);
+        // Use shared helper for two-phase refund
+        const result = await refundSingleEscrow(escrowId, 'expired');
 
-        // Pre-read to verify escrow exists and get data for fallback
-        const preSnap = await escrowRef.once('value');
-        if (!preSnap.exists()) {
-          console.log(`[cleanupExpiredEscrows] Escrow ${escrowId} no longer exists, skipping`);
-          continue;
-        }
-        const preEscrow = preSnap.val();
-
-        // Use atomic transaction to prevent double-refund race condition
-        const refundResult = await escrowRef.transaction((currentEscrow) => {
-          // CRITICAL FIX: Use pre-read escrow if callback receives null (Admin SDK cold start)
-          const esc = currentEscrow ?? preEscrow;
-          if (!esc) return;
-
-          // Already processed - abort
-          if (esc.status === 'released' || esc.status === 'refunded') {
-            return; // Abort transaction
-          }
-
-          // SECURITY: Block if active game exists
-          if (esc.gameId || esc.matchedGameId) {
-            console.log(`[cleanupExpiredEscrows] Skipping escrow with active game: ${esc.gameId || esc.matchedGameId}`);
-            return; // Active game - must settle or forfeit
-          }
-
-          // Not expired anymore (edge case with clock skew)
-          if (esc.expiresAt && esc.expiresAt > now) {
-            return; // Abort transaction
-          }
-
-          // Atomically mark as refunded
-          return {
-            ...esc,
-            status: 'refunded',
-            refundedAt: now,
-            refundReason: 'expired',
-          };
-        });
-
-        // Only process refunds if we successfully marked escrow as refunded
-        if (refundResult.committed && refundResult.snapshot.val()?.status === 'refunded') {
-          const refundedEscrow = refundResult.snapshot.val();
-
-          // Refund player 1
-          if (refundedEscrow.player1) {
-            await refundPlayer(
-              refundedEscrow.player1.userId,
-              refundedEscrow.player1.amount,
-              escrowId,
-              'expired',
-              now
-            );
-          }
-
-          // Refund player 2
-          if (refundedEscrow.player2) {
-            await refundPlayer(
-              refundedEscrow.player2.userId,
-              refundedEscrow.player2.amount,
-              escrowId,
-              'expired',
-              now
-            );
-          }
-
+        if (result.success) {
           refundedCount++;
           console.log(`[cleanupExpiredEscrows] Refunded expired escrow ${escrowId}`);
+        } else if (result.error === 'in_progress') {
+          console.log(`[cleanupExpiredEscrows] Escrow ${escrowId} refund in progress, will retry next run`);
+        } else if (result.error === 'partial_failure') {
+          console.error(`[cleanupExpiredEscrows] Partial failure for escrow ${escrowId}, will retry next run`);
         } else {
-          console.log(`[cleanupExpiredEscrows] Escrow ${escrowId} already processed, skipping`);
+          console.log(`[cleanupExpiredEscrows] Escrow ${escrowId} skipped: ${result.error}`);
         }
       }
     }
