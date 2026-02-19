@@ -171,17 +171,22 @@ export const claimDailyBonus = functions
       };
     }
 
-    // 7. Log transaction
+    // 7. Log transaction (non-critical - wallet already credited)
     const txnId = `daily_${now}`;
-    const newBalance = result.snapshot.val()?.coins || 0;
+    const newBalance = result.snapshot.val()?.coins ?? 0;
 
-    await transactionsRef.child(txnId).set({
-      type: 'daily',
-      amount: DAILY_BONUS,
-      description: 'Daily login bonus',
-      timestamp: now,
-      balanceAfter: newBalance,
-    });
+    try {
+      await transactionsRef.child(txnId).set({
+        type: 'daily',
+        amount: DAILY_BONUS,
+        description: 'Daily login bonus',
+        timestamp: now,
+        balanceAfter: newBalance,
+      });
+    } catch (e) {
+      console.error(`[claimDailyBonus] WARN - transaction log failed userId=${userId} txnId=${txnId}:`, e);
+      // Do NOT throw - wallet is already credited
+    }
 
     console.log(`[claimDailyBonus] Daily bonus claimed successfully`);
 

@@ -143,7 +143,6 @@ export const createEscrow = functions
     }
 
     const walletRef = db.ref(`users/${userId}/wallet`);
-    const escrowRef = db.ref(`escrow/${escrowId}`);
 
     // 4. Check if user already has pending escrow (prevent joining multiple games)
     const pendingEscrowSnap = await db.ref('escrow')
@@ -157,8 +156,29 @@ export const createEscrow = functions
         if (escrow.player1?.userId === userId || escrow.player2?.userId === userId) {
           // Check if it's expired
           if (escrow.expiresAt && escrow.expiresAt < now) {
-            // Expired — fully refund via shared helper (status + wallet credits)
-            await refundSingleEscrow(pendingEscrowId, 'expired_at_create');
+            // Expired — fully refund via shared helper (two-phase: refunding → refunded)
+            const refundResult = await refundSingleEscrow(pendingEscrowId, 'expired_at_create');
+
+            if (!refundResult.success) {
+              if (refundResult.error === 'in_progress') {
+                // Another request is refunding - fail fast, user can retry
+                throw new functions.https.HttpsError(
+                  'failed-precondition',
+                  'Previous escrow refund is in progress. Please retry.'
+                );
+              }
+
+              if (refundResult.error === 'partial_failure') {
+                // Wallet credit failed - fail fast, needs manual intervention or retry
+                console.error(`[createEscrow] Partial refund failure for ${pendingEscrowId}`, refundResult);
+                throw new functions.https.HttpsError(
+                  'internal',
+                  'Previous escrow refund failed. Please retry.'
+                );
+              }
+
+              // not_found / not_eligible -> ignore and continue (already processed or not our concern)
+            }
             continue;
           }
           throw new functions.https.HttpsError(
@@ -277,20 +297,22 @@ export const createEscrow = functions
       );
     }
 
-    // 7. Get final escrow state
-    const finalEscrowSnap = await escrowRef.once('value');
-    const finalEscrow = finalEscrowSnap.val();
+    // 7. Get final state from committed transaction snapshot (no extra reads needed)
+    const rootAfter = result.snapshot.val();
+    const finalEscrow = rootAfter?.escrow?.[escrowId!];
+    const finalWallet = rootAfter?.users?.[userId]?.wallet;
 
-    const finalWalletSnap = await walletRef.once('value');
-    const finalWallet = finalWalletSnap.val();
+    const escrowStatus = finalEscrow?.status ?? (isJoiningExisting ? 'locked' : 'pending');
+    const totalPot = finalEscrow?.totalPot ?? (isJoiningExisting ? stakeAmount * 2 : stakeAmount);
+    const newBalance = finalWallet?.coins ?? 0;
 
-    console.log(`[createEscrow] Escrow created/joined. Status: ${finalEscrow.status}`);
+    console.log(`[createEscrow] Escrow created/joined. Status: ${escrowStatus}`);
 
     return {
       success: true,
       escrowId,
-      escrowStatus: finalEscrow.status,
-      totalPot: finalEscrow.totalPot,
-      newBalance: finalWallet?.coins || 0,
+      escrowStatus,
+      totalPot,
+      newBalance,
     };
   });
