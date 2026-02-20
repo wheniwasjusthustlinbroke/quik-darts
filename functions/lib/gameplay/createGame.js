@@ -47,7 +47,9 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.createGame = void 0;
 const functions = __importStar(require("firebase-functions"));
 const admin = __importStar(require("firebase-admin"));
+const node_crypto_1 = require("node:crypto");
 const rateLimit_1 = require("../utils/rateLimit");
+const settlementConstants_1 = require("../wagering/settlementConstants");
 const db = admin.database();
 exports.createGame = functions
     .region('europe-west1')
@@ -219,8 +221,94 @@ exports.createGame = functions
     }
     const gameId = (preGeneratedId ?? fallbackId);
     const gameRef = db.ref(`games/${gameId}`);
+    const now = Date.now();
+    const requestId = `createGame_${(0, node_crypto_1.randomUUID)()}`;
+    let escrowLockAcquired = false;
+    let shouldRollbackQueue = true;
+    let phase2Committed = false;
     try {
-        const now = Date.now();
+        // Phase 1: For wagered games, acquire escrow lock AND reserve gameId (CAS)
+        if (isWagered && escrowId) {
+            const escrowRef = db.ref(`escrow/${escrowId}`);
+            const lockResult = await escrowRef.transaction((escrow) => {
+                if (!escrow)
+                    return;
+                if (escrow.status !== 'locked')
+                    return;
+                if (escrow.gameId && escrow.gameId !== gameId)
+                    return; // Different game linked
+                // Block if already completed (prevents game overwrite)
+                if (escrow.createGameStatus === 'completed' || escrow.gameCreatedAt)
+                    return;
+                if (escrow.createGameStatus === 'processing') {
+                    const age = now - (escrow.createGameStartedAt || 0);
+                    if (age < settlementConstants_1.CREATE_GAME_LOCK_TIMEOUT_MS)
+                        return;
+                }
+                return {
+                    ...escrow,
+                    gameId: escrow.gameId ?? gameId, // Reserve gameId if not set
+                    createGameStatus: 'processing',
+                    createGameRequestId: requestId,
+                    createGameStartedAt: now,
+                    createGameError: null,
+                };
+            });
+            const after = lockResult.snapshot.val();
+            if (!lockResult.committed || after?.createGameRequestId !== requestId) {
+                // Discriminate error cases
+                if (!after) {
+                    throw new functions.https.HttpsError('not-found', 'Escrow not found');
+                }
+                if (after.status !== 'locked') {
+                    throw new functions.https.HttpsError('failed-precondition', 'Escrow not in locked status');
+                }
+                if (after.gameId && after.gameId !== gameId) {
+                    throw new functions.https.HttpsError('failed-precondition', 'Escrow linked to different game');
+                }
+                // Already completed - check if game exists (idempotent)
+                if (after.createGameStatus === 'completed' || after.gameCreatedAt) {
+                    if (after.gameId === gameId && (await gameRef.once('value')).exists()) {
+                        return { success: true, gameId };
+                    }
+                    throw new functions.https.HttpsError('failed-precondition', 'Escrow marked created but game missing');
+                }
+                if (after.gameId === gameId && (await gameRef.once('value')).exists()) {
+                    return { success: true, gameId }; // Idempotent success
+                }
+                if (after.createGameStatus === 'processing') {
+                    shouldRollbackQueue = false; // Don't sabotage legitimate creator
+                }
+                throw new functions.https.HttpsError('aborted', 'Game creation in progress. Please retry.');
+            }
+            escrowLockAcquired = true;
+        }
+        // Pre-read: Don't overwrite existing game (belt-and-suspenders)
+        const existingGameSnap = await gameRef.once('value');
+        if (existingGameSnap.exists()) {
+            // Game exists - finalize and return (with commit-check)
+            if (escrowLockAcquired && escrowId) {
+                const earlyFinalizeResult = await db.ref(`escrow/${escrowId}`).transaction((escrow) => {
+                    if (!escrow || escrow.createGameRequestId !== requestId)
+                        return;
+                    return {
+                        ...escrow,
+                        createGameStatus: 'completed',
+                        createGameRequestId: null,
+                        createGameStartedAt: null,
+                        createGameError: null,
+                        createGameErrorAt: null,
+                    };
+                });
+                if (!earlyFinalizeResult.committed) {
+                    const latest = (await db.ref(`escrow/${escrowId}`).once('value')).val();
+                    if (latest?.createGameStatus !== 'completed') {
+                        throw new functions.https.HttpsError('aborted', 'Finalization incomplete. Please retry.');
+                    }
+                }
+            }
+            return { success: true, gameId };
+        }
         const gameData = {
             player1: {
                 id: player1Id,
@@ -265,41 +353,80 @@ exports.createGame = functions
                 },
             }),
         };
-        await gameRef.set(gameData);
-        // Link escrow to game (for active game detection in refund paths)
+        // Phase 2: Atomic multi-location update (gameId already reserved in Phase 1)
+        const updates = { [`games/${gameId}`]: gameData };
         if (isWagered && escrowId) {
-            await db.ref(`escrow/${escrowId}`).update({
-                gameId,
-                gameCreatedAt: now,
+            updates[`escrow/${escrowId}/gameCreatedAt`] = now;
+        }
+        await db.ref().update(updates);
+        phase2Committed = true;
+        // Phase 3: Owner-guarded finalize (commit-checked)
+        if (escrowLockAcquired && escrowId) {
+            const finalizeResult = await db.ref(`escrow/${escrowId}`).transaction((escrow) => {
+                if (!escrow || escrow.createGameRequestId !== requestId)
+                    return;
+                return {
+                    ...escrow,
+                    createGameStatus: 'completed',
+                    createGameRequestId: null,
+                    createGameStartedAt: null,
+                    createGameError: null,
+                    createGameErrorAt: null,
+                };
             });
+            if (!finalizeResult.committed) {
+                const latest = (await db.ref(`escrow/${escrowId}`).once('value')).val();
+                if (latest?.createGameStatus !== 'completed') {
+                    throw new functions.https.HttpsError('aborted', 'Finalization incomplete. Please retry.');
+                }
+            }
         }
     }
     catch (error) {
-        // Conditional rollback: only clear if still our claim
-        if (!isWagered && casualGameId) {
-            const rollbackResult = await db.ref(`matchmaking_queue/casual/${player1Id}/matchedGameId`).transaction((current) => {
-                if (current === casualGameId)
-                    return null;
-                return; // abort - someone else's claim
+        // Owner-guarded escrow rollback (conditionally clear gameId if Phase 2 didn't commit)
+        if (escrowLockAcquired && escrowId) {
+            await db.ref(`escrow/${escrowId}`).transaction((escrow) => {
+                if (!escrow || escrow.createGameRequestId !== requestId)
+                    return;
+                const shouldClearGameLink = !phase2Committed && escrow.gameId === gameId;
+                return {
+                    ...escrow,
+                    ...(shouldClearGameLink ? { gameId: null, gameCreatedAt: null } : {}),
+                    createGameStatus: null,
+                    createGameRequestId: null,
+                    createGameStartedAt: null,
+                    createGameError: `failed_${requestId}`,
+                    createGameErrorAt: now,
+                };
             });
-            if (rollbackResult.committed) {
-                await db.ref(`matchmaking_queue/casual/${player1Id}`).update({
-                    matchedByName: null,
-                    matchedByFlag: null,
-                });
-            }
         }
-        if (isWagered && wageredGameId && wageredStakeLevel) {
-            const rollbackResult = await db.ref(`matchmaking_queue/wagered/${wageredStakeLevel}/${player1Id}/matchedGameId`).transaction((current) => {
-                if (current === wageredGameId)
-                    return null;
-                return; // abort - someone else's claim
-            });
-            if (rollbackResult.committed) {
-                await db.ref(`matchmaking_queue/wagered/${wageredStakeLevel}/${player1Id}`).update({
-                    matchedByName: null,
-                    matchedByFlag: null,
+        // Queue rollback - only if shouldRollbackQueue AND !phase2Committed
+        if (shouldRollbackQueue && !phase2Committed) {
+            if (!isWagered && casualGameId) {
+                const rollbackResult = await db.ref(`matchmaking_queue/casual/${player1Id}/matchedGameId`).transaction((current) => {
+                    if (current === casualGameId)
+                        return null; // Intentional deletion
+                    return; // abort - someone else's claim
                 });
+                if (rollbackResult.committed) {
+                    await db.ref(`matchmaking_queue/casual/${player1Id}`).update({
+                        matchedByName: null,
+                        matchedByFlag: null,
+                    });
+                }
+            }
+            if (isWagered && wageredGameId && wageredStakeLevel) {
+                const rollbackResult = await db.ref(`matchmaking_queue/wagered/${wageredStakeLevel}/${player1Id}/matchedGameId`).transaction((current) => {
+                    if (current === wageredGameId)
+                        return null; // Intentional deletion
+                    return; // abort - someone else's claim
+                });
+                if (rollbackResult.committed) {
+                    await db.ref(`matchmaking_queue/wagered/${wageredStakeLevel}/${player1Id}`).update({
+                        matchedByName: null,
+                        matchedByFlag: null,
+                    });
+                }
             }
         }
         throw error;

@@ -17,3 +17,4 @@ export { settleGame } from './wagering/settleGame';
 export { refundEscrow, cleanupExpiredEscrows } from './wagering/refundEscrow';
 export { createStripeCheckout } from './payments/createStripeCheckout';
 export { stripeWebhook } from './payments/stripeWebhook';
+export { reconcileStuckStates } from './admin/reconcileStuckStates';
