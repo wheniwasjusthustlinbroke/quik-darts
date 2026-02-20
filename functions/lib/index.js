@@ -39,21 +39,10 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.stripeWebhook = exports.createStripeCheckout = exports.cleanupExpiredEscrows = exports.refundEscrow = exports.settleGame = exports.createEscrow = exports.forfeitGame = exports.submitThrow = exports.createGame = exports.getUnclaimedAdReward = exports.admobCallback = exports.claimAdReward = exports.claimDailyBonus = exports.initializeNewUser = void 0;
+exports.reconcileStuckStates = exports.stripeWebhook = exports.createStripeCheckout = exports.cleanupExpiredEscrows = exports.refundEscrow = exports.settleGame = exports.createEscrow = exports.forfeitGame = exports.submitThrow = exports.createGame = exports.getUnclaimedAdReward = exports.admobCallback = exports.claimAdReward = exports.claimDailyBonus = exports.initializeNewUser = void 0;
 const admin = __importStar(require("firebase-admin"));
-// Initialize Firebase Admin with explicit database URL
-// Must match client's VITE_FIREBASE_DATABASE_URL (europe-west1 instance)
-const PROD_DB_URL = 'https://quikdarts-default-rtdb.europe-west1.firebasedatabase.app';
-if (process.env.FIREBASE_DATABASE_EMULATOR_HOST) {
-    // Use defaults when running in emulator
-    admin.initializeApp();
-}
-else {
-    // Pin to prod RTDB instance
-    admin.initializeApp({
-        databaseURL: PROD_DB_URL,
-    });
-}
+// Initialize Firebase Admin
+admin.initializeApp();
 // ============================================
 // COINS - Award and manage coin balance
 // ============================================
@@ -94,4 +83,9 @@ Object.defineProperty(exports, "createStripeCheckout", { enumerable: true, get: 
 var stripeWebhook_1 = require("./payments/stripeWebhook");
 Object.defineProperty(exports, "stripeWebhook", { enumerable: true, get: function () { return stripeWebhook_1.stripeWebhook; } });
 // export { verifyApplePurchase } from './payments/verifyApplePurchase'; // TODO: Phase 5b
+// ============================================
+// ADMIN - Scheduled jobs and reconciliation
+// ============================================
+var reconcileStuckStates_1 = require("./admin/reconcileStuckStates");
+Object.defineProperty(exports, "reconcileStuckStates", { enumerable: true, get: function () { return reconcileStuckStates_1.reconcileStuckStates; } });
 //# sourceMappingURL=index.js.map

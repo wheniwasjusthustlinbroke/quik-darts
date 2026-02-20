@@ -57,6 +57,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.claimAdReward = void 0;
 const functions = __importStar(require("firebase-functions"));
 const admin = __importStar(require("firebase-admin"));
+const node_crypto_1 = require("node:crypto");
 const db = admin.database();
 // Coins per ad watched
 const AD_REWARD = 25;
@@ -64,6 +65,8 @@ const AD_REWARD = 25;
 const MAX_ADS_PER_DAY = 5;
 // Milliseconds in a day
 const DAY_MS = 24 * 60 * 60 * 1000;
+// Stale claim locks can be retried after this duration (2 minutes)
+const AD_REWARD_LOCK_TIMEOUT_MS = 120000;
 // Max age for unclaimed rewards (24 hours)
 const MAX_REWARD_AGE_MS = 24 * 60 * 60 * 1000;
 exports.claimAdReward = functions
@@ -91,127 +94,172 @@ exports.claimAdReward = functions
     }
     const now = Date.now();
     const verifiedRewardRef = db.ref(`verifiedAdRewards/${transactionId}`);
-    // 4. ATOMIC: Check and mark as claimed in a single transaction
-    // This prevents race conditions where two calls could both read unclaimed state
+    const requestId = `ad_${userId}_${(0, node_crypto_1.randomUUID)()}`;
+    // 4. ATOMIC: Acquire claim lock (verified → processing, with stale takeover)
     const claimResult = await verifiedRewardRef.transaction((reward) => {
-        if (reward === null) {
-            // Reward doesn't exist - abort
-            return;
-        }
+        // Strict null/shape check
+        if (reward == null || typeof reward !== 'object')
+            return; // Abort - missing/invalid
         // Verify the reward belongs to this user
-        if (reward.userId !== userId) {
-            // Return unchanged to abort (will check this after)
-            return reward;
-        }
-        // Check if already claimed
-        if (reward.claimed) {
-            // Return unchanged to abort
-            return reward;
-        }
+        if (reward.userId !== userId)
+            return; // Abort - wrong user (don't expose via error)
         // Check if reward is expired (24 hours max)
-        if (now - reward.verifiedAt > MAX_REWARD_AGE_MS) {
-            // Return unchanged to abort
-            return reward;
+        if (now - (reward.verifiedAt || 0) > MAX_REWARD_AGE_MS)
+            return; // Abort - expired
+        // State machine: verified → processing → completed
+        // Backward compat: treat claimed:true as 'completed'
+        const status = reward.status || (reward.claimed ? 'completed' : 'verified');
+        if (status === 'completed')
+            return; // Abort - already done
+        if (status === 'processing') {
+            // Check if stale (allow takeover after timeout)
+            const lockAge = now - (reward.processingStartedAt || 0);
+            if (lockAge < AD_REWARD_LOCK_TIMEOUT_MS) {
+                return; // Abort - another request is processing
+            }
+            console.log(`[claimAdReward] Stale processing lock (>${AD_REWARD_LOCK_TIMEOUT_MS}ms), allowing takeover for ${transactionId}`);
         }
-        // Mark as claimed atomically
+        if (status !== 'verified' && status !== 'processing') {
+            return; // Abort - unexpected state
+        }
+        // Acquire processing lock
         return {
             ...reward,
-            claimed: true,
-            claimedAt: now,
+            status: 'processing',
+            processingRequestId: requestId,
+            processingStartedAt: now,
+            claimError: null,
         };
     });
-    // Handle transaction results
-    if (!claimResult.committed) {
-        throw new functions.https.HttpsError('not-found', 'Ad reward not found. Please watch the complete ad.');
-    }
-    const verifiedReward = claimResult.snapshot.val();
-    // Check if it was actually claimed (not just read)
-    if (!verifiedReward.claimed || verifiedReward.claimedAt !== now) {
-        // Transaction didn't actually update - check why
-        if (verifiedReward.userId !== userId) {
-            throw new functions.https.HttpsError('permission-denied', 'This reward belongs to a different user');
+    // Handle lock acquisition results
+    const rewardAfterLock = claimResult.snapshot.val();
+    if (!claimResult.committed || rewardAfterLock?.processingRequestId !== requestId) {
+        // Discriminate: missing vs. expired vs. completed vs. in-progress
+        if (!rewardAfterLock) {
+            throw new functions.https.HttpsError('not-found', 'Ad reward not found. Please watch the complete ad.');
         }
-        if (verifiedReward.claimed) {
-            throw new functions.https.HttpsError('already-exists', 'This reward has already been claimed');
+        // Don't expose wrong-user (prevents transaction ID probing)
+        if (rewardAfterLock.userId !== userId) {
+            throw new functions.https.HttpsError('not-found', 'Ad reward not found. Please watch the complete ad.');
         }
-        if (now - verifiedReward.verifiedAt > MAX_REWARD_AGE_MS) {
+        if (now - (rewardAfterLock.verifiedAt || 0) > MAX_REWARD_AGE_MS) {
             throw new functions.https.HttpsError('deadline-exceeded', 'This reward has expired');
         }
-        // Unknown reason
-        throw new functions.https.HttpsError('internal', 'Failed to claim reward');
+        const status = rewardAfterLock.status || (rewardAfterLock.claimed ? 'completed' : 'verified');
+        if (status === 'completed' || rewardAfterLock.claimed) {
+            throw new functions.https.HttpsError('already-exists', 'This reward has already been claimed');
+        }
+        // processing = another request owns the lock, client can retry
+        if (status === 'processing') {
+            throw new functions.https.HttpsError('aborted', 'Claim in progress. Please retry in a moment.');
+        }
+        // verified but we didn't commit = abnormal (RTDB exhausted retries under contention)
+        // Log it but throw - client will retry naturally
+        console.error(`[claimAdReward] CRITICAL: Lock not acquired but status=${status} (txId=${transactionId})`);
+        throw new functions.https.HttpsError('internal', 'Failed to acquire claim lock.');
     }
-    // 5. Award coins with atomic transaction
+    // 5. Award coins with atomic transaction + idempotency marker
     const walletRef = db.ref(`users/${userId}/wallet`);
-    const transactionsRef = db.ref(`users/${userId}/transactions`);
     const walletResult = await walletRef.transaction((wallet) => {
-        if (wallet === null) {
+        if (wallet == null)
             return; // Abort - no wallet
-        }
+        // Idempotency: check if already credited for this transaction
+        const markers = wallet.rewardMarkers ?? {};
+        if (markers[transactionId])
+            return; // Abort - already applied
         // Check daily limit
-        const lastAdDay = wallet.lastAdReward
-            ? Math.floor(wallet.lastAdReward / DAY_MS)
-            : 0;
+        const lastAdDay = wallet.lastAdReward ? Math.floor(wallet.lastAdReward / DAY_MS) : 0;
         const currentDay = Math.floor(now / DAY_MS);
-        let adsToday = wallet.adRewardsToday || 0;
-        // Reset counter if it's a new day
-        if (currentDay > lastAdDay) {
-            adsToday = 0;
-        }
-        // Check if at limit
-        if (adsToday >= MAX_ADS_PER_DAY) {
-            return; // Abort - at limit
-        }
-        // Award coins
+        const adsToday = currentDay > lastAdDay ? 0 : (wallet.adRewardsToday ?? 0);
+        if (adsToday >= MAX_ADS_PER_DAY)
+            return; // Abort - daily limit (no marker written)
+        // Award coins with marker (atomic)
         return {
             ...wallet,
-            coins: (wallet.coins || 0) + AD_REWARD,
-            lifetimeEarnings: (wallet.lifetimeEarnings || 0) + AD_REWARD,
+            coins: (wallet.coins ?? 0) + AD_REWARD,
+            lifetimeEarnings: (wallet.lifetimeEarnings ?? 0) + AD_REWARD,
             lastAdReward: now,
             adRewardsToday: adsToday + 1,
-            version: (wallet.version || 0) + 1,
+            version: (wallet.version ?? 0) + 1,
+            rewardMarkers: {
+                ...markers,
+                [transactionId]: { requestId, ts: now, amount: AD_REWARD, type: 'ad' },
+            },
         };
     });
-    // Check if wallet transaction was aborted
+    // Track whether WE applied the credit (for transaction log)
+    let weAppliedCredit = walletResult.committed;
     if (!walletResult.committed) {
-        // SECURITY FIX: Do NOT revert the claim - this creates a race condition window
-        // Instead, mark the claim as failed but keep it claimed to prevent double-claiming
-        // A scheduled job can reconcile orphaned claims if needed
-        await verifiedRewardRef.update({
-            claimError: 'wallet_transaction_failed',
-            claimErrorAt: now,
-        });
-        console.error(`[claimAdReward] Wallet transaction failed for user ${userId}, transactionId ${transactionId}`);
-        const walletSnap = await walletRef.once('value');
-        const wallet = walletSnap.val();
-        if (!wallet) {
-            throw new functions.https.HttpsError('failed-precondition', 'Account not initialized. Please restart the app.');
+        // 1) Check if marker exists (idempotent success)
+        let markerSnap;
+        try {
+            markerSnap = await walletRef.child(`rewardMarkers/${transactionId}`).once('value');
         }
-        // Check if at daily limit
-        const lastAdDay = wallet.lastAdReward
-            ? Math.floor(wallet.lastAdReward / DAY_MS)
-            : 0;
-        const currentDay = Math.floor(now / DAY_MS);
-        const adsToday = currentDay > lastAdDay ? 0 : (wallet.adRewardsToday || 0);
-        if (adsToday >= MAX_ADS_PER_DAY) {
-            return {
-                success: false,
-                adsRemainingToday: 0,
-                error: `Daily limit reached (${MAX_ADS_PER_DAY} ads per day)`,
-            };
+        catch (e) {
+            console.error(`[claimAdReward] Marker read failed for ${userId}, txId=${transactionId}:`, e);
+            await verifiedRewardRef.update({
+                status: 'verified',
+                processingRequestId: null,
+                processingStartedAt: null,
+                claimError: `marker_check_failed_${requestId}`,
+                claimErrorAt: now,
+            });
+            throw new functions.https.HttpsError('unavailable', 'Failed to verify claim. Please retry.');
         }
-        throw new functions.https.HttpsError('internal', 'Failed to update wallet. Please try again or contact support.');
+        if (!markerSnap.exists()) {
+            // 2) No marker: determine if wallet missing or daily limit or transient failure
+            const walletSnap = await walletRef.once('value');
+            const wallet = walletSnap.val();
+            await verifiedRewardRef.update({
+                status: 'verified',
+                processingRequestId: null,
+                processingStartedAt: null,
+                claimError: `wallet_failed_${requestId}`,
+                claimErrorAt: now,
+            });
+            if (!wallet) {
+                throw new functions.https.HttpsError('failed-precondition', 'Account not initialized. Please restart the app.');
+            }
+            const lastAdDay = wallet.lastAdReward ? Math.floor(wallet.lastAdReward / DAY_MS) : 0;
+            const currentDay = Math.floor(now / DAY_MS);
+            const adsToday = currentDay > lastAdDay ? 0 : (wallet.adRewardsToday ?? 0);
+            if (adsToday >= MAX_ADS_PER_DAY) {
+                throw new functions.https.HttpsError('resource-exhausted', `Daily limit reached (${MAX_ADS_PER_DAY} ads per day)`);
+            }
+            throw new functions.https.HttpsError('unavailable', 'Failed to award coins. Please retry.');
+        }
+        // Marker exists: idempotent success, continue to finalize
+        console.log(`[claimAdReward] Already credited (marker present) txId=${transactionId}`);
     }
-    // 6. Log transaction
-    const newBalance = walletResult.snapshot.val()?.coins || 0;
-    const adsToday = walletResult.snapshot.val()?.adRewardsToday || 1;
-    await transactionsRef.child(`ad_${now}`).set({
-        type: 'ad',
-        amount: AD_REWARD,
-        description: 'Watched rewarded ad',
-        timestamp: now,
-        balanceAfter: newBalance,
-        transactionId,
+    // 6. Finalize reward (processing → completed)
+    await verifiedRewardRef.update({
+        status: 'completed',
+        claimed: true, // Backward compat
+        claimedAt: now,
+        processingRequestId: null,
+        processingStartedAt: null,
+        claimError: null,
+        claimErrorAt: null,
     });
+    // 7. Log transaction ONLY if WE applied the credit
+    const walletAfter = walletResult.snapshot.val() ?? (await walletRef.once('value')).val();
+    const newBalance = walletAfter?.coins ?? 0;
+    const adsToday = walletAfter?.adRewardsToday ?? 0;
+    if (weAppliedCredit) {
+        try {
+            await db.ref(`users/${userId}/transactions`).push({
+                type: 'ad',
+                amount: AD_REWARD,
+                description: 'Watched rewarded ad',
+                timestamp: now,
+                balanceAfter: newBalance,
+                transactionId,
+            });
+        }
+        catch (e) {
+            console.error(`[claimAdReward] WARN - transaction log failed for ${userId}:`, e);
+        }
+    }
     console.log(`[claimAdReward] Ad reward claimed successfully (${adsToday}/${MAX_ADS_PER_DAY} today)`);
     return {
         success: true,
