@@ -33,7 +33,7 @@
     "escrow": {
       ".read": false,
       ".write": false,
-      ".indexOn": ["status", "expiresAt"],
+      ".indexOn": ["status", "expiresAt", "settlementStartedAt", "refundStartedAt", "createGameStartedAt"],
       "$escrowId": {
         ".read": "auth != null && (data.child('player1/userId').val() === auth.uid || data.child('player2/userId').val() === auth.uid)"
       }
@@ -44,9 +44,15 @@
     },
     "verifiedAdRewards": {
       ".read": false,
-      ".write": false
+      ".write": false,
+      ".indexOn": ["status"]
     },
     "stripeFulfillments": {
+      ".read": false,
+      ".write": false,
+      ".indexOn": ["status"]
+    },
+    "reconciliation": {
       ".read": false,
       ".write": false
     },
