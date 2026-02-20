@@ -18,7 +18,6 @@ import {
   limitToFirst,
   onDisconnect,
   serverTimestamp,
-  runTransaction,
   DatabaseReference,
 } from 'firebase/database';
 import { httpsCallable } from 'firebase/functions';
@@ -915,7 +914,7 @@ export async function forfeitGame(params: ForfeitGameParams): Promise<ForfeitGam
 export interface WageredQueueEntry extends QueueEntry {
   escrowId: string;
   stakeAmount: number;
-  claimedBy?: string; // UID of player who claimed this entry
+  claimedBy?: string; // Server-only field (set by createGame, not client-writable)
 }
 
 export interface WageredMatchCallbacks {
@@ -942,35 +941,6 @@ let isProcessingWageredMatch = false;
  */
 function generateIdempotencyKey(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
-}
-
-/**
- * Atomically claim an opponent's queue entry.
- * Returns true if we won the claim, false if someone else did.
- */
-async function tryClaimOpponent(opponentEntryRef: DatabaseReference, myUid: string): Promise<boolean> {
-  try {
-    // First check if entry exists and is available
-    const snapshot = await get(opponentEntryRef);
-    if (!snapshot.exists()) return false;
-    const data = snapshot.val();
-    if (data.claimedBy || data.matchedGameId) return false;
-
-    // Write only to claimedBy child (not entire entry) to satisfy child rule
-    const claimedByRef = child(opponentEntryRef, 'claimedBy');
-    const result = await runTransaction(claimedByRef, (current) => {
-      if (current !== null) {
-        // Already claimed - abort
-        return undefined;
-      }
-      return myUid;
-    });
-
-    return result.committed && result.snapshot.val() === myUid;
-  } catch (error) {
-    console.error('[tryClaimOpponent] Transaction failed:', error);
-    return false;
-  }
 }
 
 /**
@@ -1025,49 +995,37 @@ export async function joinWageredQueue(
     if (snapshot.exists()) {
       const entries = snapshot.val();
 
-      // Try to claim an opponent atomically
+      // Try to join an opponent's escrow directly (server handles contention)
       for (const [opponentKey, opponentData] of Object.entries(entries) as [string, WageredQueueEntry][]) {
-        // Skip self, already claimed, or already matched entries
+        // Skip self or already matched entries
         if (opponentKey === playerId) continue;
-        if (opponentData.claimedBy || opponentData.matchedGameId) continue;
+        if (opponentData.matchedGameId) continue;
         if (!opponentData.escrowId) continue;
 
-        const opponentEntryRef = child(wageredQueueRef, opponentKey);
-        const claimed = await tryClaimOpponent(opponentEntryRef, playerId);
+        // Attempt to join their escrow - createEscrow handles race conditions
+        const joinResult = await createEscrow({
+          escrowId: opponentData.escrowId,
+          stakeAmount,
+          idempotencyKey: currentIdempotencyKey,
+        });
 
-        if (claimed) {
-          // We won the claim - join their escrow
-          const joinResult = await createEscrow({
-            escrowId: opponentData.escrowId,
+        if (joinResult.success) {
+          currentEscrowId = opponentData.escrowId;
+          console.log('[wageredMatchmaking] currentEscrowId SET (joined opponent):', currentEscrowId);
+          callbacks.onEscrowCreated?.(opponentData.escrowId, joinResult.newBalance ?? 0);
+
+          await createWageredGameWithOpponent(
+            opponentKey,
+            opponentData,
+            profile,
+            gameMode,
             stakeAmount,
-            idempotencyKey: currentIdempotencyKey,
-          });
-
-          if (joinResult.success) {
-            currentEscrowId = opponentData.escrowId;
-            console.log('[wageredMatchmaking] currentEscrowId SET (joined opponent):', currentEscrowId);
-            callbacks.onEscrowCreated?.(opponentData.escrowId, joinResult.newBalance ?? 0);
-
-            await createWageredGameWithOpponent(
-              opponentKey,
-              opponentData,
-              profile,
-              gameMode,
-              stakeAmount,
-              wageredQueueRef,
-              callbacks,
-              functions
-            );
-            return;
-          }
-
-          // Failed to join escrow - release claim and try next
-          // Release claim via child path transaction
-          await runTransaction(child(opponentEntryRef, 'claimedBy'), (current) => {
-            if (current === playerId) return null;
-            return; // abort if not our claim
-          });
+            callbacks,
+            functions
+          );
+          return;
         }
+        // Failed to join (likely already locked by someone else) - try next opponent
       }
     }
 
@@ -1140,7 +1098,7 @@ async function addSelfToWageredQueue(
   wageredQueueOnDisconnect = onDisconnect(myEntryRef);
   await wageredQueueOnDisconnect.remove();
 
-  // Listen for matchedGameId or claimedBy
+  // Listen for matchedGameId (when opponent creates game with us)
   wageredQueueValueUnsubscribe = onValue(myEntryRef, async (snapshot) => {
     if (isProcessingWageredMatch) return;
     if (!snapshot.exists()) return;
@@ -1334,7 +1292,6 @@ async function createWageredGameWithOpponent(
   profile: { displayName?: string; flag?: string; level?: number; avatarUrl?: string | null },
   gameMode: 301 | 501,
   stakeAmount: number,
-  wageredQueueRef: DatabaseReference,
   callbacks: WageredMatchCallbacks,
   functions: any
 ): Promise<void> {
@@ -1344,7 +1301,6 @@ async function createWageredGameWithOpponent(
   }
 
   isProcessingWageredMatch = true;
-  const opponentEntryRef = child(wageredQueueRef, opponentKey);
 
   try {
     const createGameFn = httpsCallable(functions, 'createGame');
@@ -1375,12 +1331,6 @@ async function createWageredGameWithOpponent(
           console.error('[wageredMatchmaking] Client refund failed (server may have handled it):', refundErr);
         }
       }
-      // Release claim to avoid stuck opponents
-      // Release claim via child path transaction
-      await runTransaction(child(opponentEntryRef, 'claimedBy'), (current) => {
-        if (current === myPlayerId) return null;
-        return; // abort if not our claim
-      });
       callbacks.onError?.(data.error || 'Failed to create game');
       isProcessingWageredMatch = false;
       return;
@@ -1418,12 +1368,6 @@ async function createWageredGameWithOpponent(
         console.error('[wageredMatchmaking] Client refund failed (server may have handled it):', refundErr);
       }
     }
-    // Release claim to avoid stuck opponents
-    // Release claim via child path transaction
-    await runTransaction(child(opponentEntryRef, 'claimedBy'), (current) => {
-      if (current === myPlayerId) return null;
-      return; // abort if not our claim
-    });
     callbacks.onError?.(error.message || 'Failed to create game');
     isProcessingWageredMatch = false;
   }
