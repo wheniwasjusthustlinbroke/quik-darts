@@ -39,3 +39,8 @@ export { refundEscrow, cleanupExpiredEscrows } from './wagering/refundEscrow';
 export { createStripeCheckout } from './payments/createStripeCheckout';
 export { stripeWebhook } from './payments/stripeWebhook';
 // export { verifyApplePurchase } from './payments/verifyApplePurchase'; // TODO: Phase 5b
+
+// ============================================
+// ADMIN - Scheduled jobs and reconciliation
+// ============================================
+export { reconcileStuckStates } from './admin/reconcileStuckStates';
