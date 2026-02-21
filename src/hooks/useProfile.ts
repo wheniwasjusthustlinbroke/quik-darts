@@ -6,9 +6,10 @@
  */
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { ref, onValue, update, Unsubscribe } from 'firebase/database';
+import { ref, onValue, Unsubscribe } from 'firebase/database';
 import { onAuthStateChanged } from 'firebase/auth';
-import { getFirebaseDatabase, getFirebaseAuth } from '../services/firebase';
+import { httpsCallable } from 'firebase/functions';
+import { getFirebaseDatabase, getFirebaseAuth, getFirebaseFunctions } from '../services/firebase';
 import { validateNickname } from '../utils/nicknameValidation';
 
 /** User profile data */
@@ -174,12 +175,12 @@ export function useProfile(): ProfileState {
     };
   }, []);
 
-  // Save nickname to Firebase with profanity validation
+  // Save nickname via Cloud Function (server-side sanitization)
   const saveNickname = useCallback(async (nickname: string): Promise<SaveNicknameResult> => {
     const auth = getFirebaseAuth();
-    const database = getFirebaseDatabase();
+    const functions = getFirebaseFunctions();
 
-    if (!auth || !database) {
+    if (!auth || !functions) {
       return { success: false, error: 'Not connected' };
     }
 
@@ -188,7 +189,7 @@ export function useProfile(): ProfileState {
       return { success: false, error: 'Must be signed in to change nickname' };
     }
 
-    // Validate nickname (length + profanity check)
+    // Client-side validation (length + profanity check) - server also sanitizes
     const validation = validateNickname(nickname);
     if (!validation.valid) {
       return { success: false, error: validation.error };
@@ -196,11 +197,21 @@ export function useProfile(): ProfileState {
 
     setIsSavingNickname(true);
     try {
-      const profileRef = ref(database, `users/${user.uid}/profile`);
-      await update(profileRef, { displayName: nickname.trim() });
-      return { success: true };
+      const updateProfileFn = httpsCallable(functions, 'updateProfile');
+      const result = await updateProfileFn({ displayName: nickname.trim() });
+      const data = result.data as { success: boolean; error?: string };
+
+      if (data.success) {
+        return { success: true };
+      } else {
+        return { success: false, error: data.error || 'Failed to save nickname' };
+      }
     } catch (error: any) {
       console.error('[useProfile] saveNickname error:', error.message);
+      // Handle rate limit errors
+      if (error.code === 'functions/resource-exhausted') {
+        return { success: false, error: 'Too many requests. Try again later.' };
+      }
       return { success: false, error: 'Failed to save nickname' };
     } finally {
       setIsSavingNickname(false);

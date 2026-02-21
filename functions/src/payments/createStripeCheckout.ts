@@ -12,6 +12,7 @@
 
 import * as functions from 'firebase-functions';
 import Stripe from 'stripe';
+import { checkRateLimit, RATE_LIMITS } from '../utils/rateLimit';
 
 // Lazy initialization - Stripe is created on first use
 // This is required because secrets aren't available at module load time
@@ -30,6 +31,23 @@ function getStripe(): Stripe {
   return stripe;
 }
 
+/**
+ * Get base URL for Stripe redirects.
+ * Uses environment variable (from .env.quikdarts) to avoid client-controlled URLs.
+ * Throws HttpsError if not configured (safe - only affects this call).
+ */
+function getBaseUrl(): string {
+  const baseUrl = process.env.APP_BASE_URL;
+  if (!baseUrl) {
+    throw new functions.https.HttpsError(
+      'failed-precondition',
+      'Server misconfigured: APP_BASE_URL not set'
+    );
+  }
+  // Trim trailing slashes
+  return baseUrl.replace(/\/+$/, '');
+}
+
 // Coin packages with prices (in cents)
 // These should match products created in Stripe Dashboard
 const COIN_PACKAGES: Record<string, { coins: number; priceUsd: number; name: string }> = {
@@ -42,8 +60,8 @@ const COIN_PACKAGES: Record<string, { coins: number; priceUsd: number; name: str
 
 interface CheckoutRequest {
   packageId: string;
-  successUrl: string;
-  cancelUrl: string;
+  // Security: URLs are now hardcoded server-side via getBaseUrl()
+  // Removed: successUrl, cancelUrl (client-controlled URLs were a security risk)
 }
 
 interface CheckoutResult {
@@ -78,8 +96,11 @@ export const createStripeCheckout = functions
       );
     }
 
+    // 2.5. Rate limiting
+    await checkRateLimit(userId, 'createStripeCheckout', RATE_LIMITS.createStripeCheckout.limit, RATE_LIMITS.createStripeCheckout.windowMs);
+
     // 3. Validate package selection
-    const { packageId, successUrl, cancelUrl } = data;
+    const { packageId } = data;
 
     if (!packageId || typeof packageId !== 'string') {
       throw new functions.https.HttpsError(
@@ -96,33 +117,8 @@ export const createStripeCheckout = functions
       );
     }
 
-    // 4. Validate URLs (basic check)
-    if (!successUrl || !cancelUrl) {
-      throw new functions.https.HttpsError(
-        'invalid-argument',
-        'Missing redirect URLs'
-      );
-    }
-
-    // Validate URLs are from allowed domains (production only)
-    const allowedDomains = ['quikdarts.com', 'quikdarts.web.app'];
-    const isValidUrl = (url: string): boolean => {
-      try {
-        const parsed = new URL(url);
-        return allowedDomains.some(domain =>
-          parsed.hostname === domain || parsed.hostname.endsWith('.' + domain)
-        );
-      } catch {
-        return false;
-      }
-    };
-
-    if (!isValidUrl(successUrl) || !isValidUrl(cancelUrl)) {
-      throw new functions.https.HttpsError(
-        'invalid-argument',
-        'Invalid redirect URLs'
-      );
-    }
+    // 4. Get server-controlled base URL for redirects
+    const baseUrl = getBaseUrl();
 
     try {
       // 5. Create Stripe Checkout session
@@ -142,8 +138,8 @@ export const createStripeCheckout = functions
           },
         ],
         mode: 'payment',
-        success_url: `${successUrl}?session_id={CHECKOUT_SESSION_ID}`,
-        cancel_url: cancelUrl,
+        success_url: `${baseUrl}/?purchase=success&session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: `${baseUrl}/?purchase=cancelled`,
         metadata: {
           userId,
           packageId,

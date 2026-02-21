@@ -44,3 +44,8 @@ export { stripeWebhook } from './payments/stripeWebhook';
 // ADMIN - Scheduled jobs and reconciliation
 // ============================================
 export { reconcileStuckStates } from './admin/reconcileStuckStates';
+
+// ============================================
+// PROFILE - User profile management
+// ============================================
+export { updateProfile } from './profile/updateProfile';

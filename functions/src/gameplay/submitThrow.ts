@@ -32,6 +32,7 @@ import {
   calculatePerfectZoneBounds,
   calculateShrinkToAdd,
 } from './perfectZone';
+import { checkRateLimit, RATE_LIMITS } from '../utils/rateLimit';
 
 const db = admin.database();
 
@@ -291,6 +292,10 @@ export const submitThrow = functions
     }
 
     const userId = context.auth.uid;
+
+    // 1.5. Rate limiting (prevents API spam)
+    await checkRateLimit(userId, 'submitThrow', RATE_LIMITS.submitThrow.limit, RATE_LIMITS.submitThrow.windowMs);
+
     const { gameId, dartPosition, aimPoint, powerValue, throwId } = data;
     const now = Date.now();
 

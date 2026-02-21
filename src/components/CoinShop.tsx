@@ -61,11 +61,8 @@ export function CoinShop({ coinBalance, onClose }: CoinShopProps) {
     setIsPurchasing(true);
     try {
       const createCheckout = httpsCallable(functions, 'createStripeCheckout');
-      const result = await createCheckout({
-        packageId,
-        successUrl: window.location.origin + '?purchase=success',
-        cancelUrl: window.location.origin + '?purchase=cancelled',
-      });
+      // Security: URLs are now hardcoded server-side
+      const result = await createCheckout({ packageId });
 
       const data = result.data as { success: boolean; url?: string };
       if (data.success && data.url) {

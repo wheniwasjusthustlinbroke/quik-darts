@@ -99,14 +99,24 @@ export function useWallet(): WalletState {
 
         // === Daily bonus availability (UI display hint only) ===
         // Server remains authoritative when claimDailyBonus is called
+        // Uses server-pinned timezone for date comparison (matches server logic)
         const lastBonus = wallet.lastDailyBonus || 0;
         const now = Date.now();
-        const getLocalDateString = (timestamp: number) => {
+        const storedTimezone = wallet.dailyBonusTimezone || '';
+        // Use stored timezone if set (server-pinned), otherwise user's local timezone
+        const effectiveTimezone = storedTimezone || Intl.DateTimeFormat().resolvedOptions().timeZone;
+
+        const getDateInTimezone = (timestamp: number, tz: string) => {
           if (!timestamp) return '';
-          return new Date(timestamp).toLocaleDateString('en-CA');
+          try {
+            return new Date(timestamp).toLocaleDateString('en-CA', { timeZone: tz });
+          } catch {
+            // Invalid timezone - fall back to local
+            return new Date(timestamp).toLocaleDateString('en-CA');
+          }
         };
-        const lastClaimDate = getLocalDateString(lastBonus);
-        const todayDate = getLocalDateString(now);
+        const lastClaimDate = getDateInTimezone(lastBonus, effectiveTimezone);
+        const todayDate = getDateInTimezone(now, effectiveTimezone);
         const bonusAvailable = !lastBonus || lastClaimDate !== todayDate;
         setDailyBonusAvailable(bonusAvailable);
 
