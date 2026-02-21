@@ -80,8 +80,12 @@ export async function checkRateLimit(
 
 // Pre-configured rate limiters for common functions
 export const RATE_LIMITS = {
-  createGame: { limit: 30, windowMs: 60000 },    // 30/min
-  settleGame: { limit: 20, windowMs: 60000 },    // 20/min
-  forfeitGame: { limit: 20, windowMs: 60000 },   // 20/min
-  refundEscrow: { limit: 10, windowMs: 60000 },  // 10/min
+  createGame: { limit: 30, windowMs: 60000 },          // 30/min
+  settleGame: { limit: 20, windowMs: 60000 },          // 20/min
+  forfeitGame: { limit: 20, windowMs: 60000 },         // 20/min
+  refundEscrow: { limit: 10, windowMs: 60000 },        // 10/min
+  claimDailyBonus: { limit: 5, windowMs: 60000 },      // 5/min
+  createStripeCheckout: { limit: 10, windowMs: 60000 }, // 10/min
+  submitThrow: { limit: 60, windowMs: 60000 },         // 60/min (high frequency gameplay)
+  updateProfile: { limit: 10, windowMs: 60000 },       // 10/min (Phase 5)
 } as const;

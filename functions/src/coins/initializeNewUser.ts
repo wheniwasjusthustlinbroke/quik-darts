@@ -13,6 +13,7 @@
 
 import * as functions from 'firebase-functions';
 import * as admin from 'firebase-admin';
+import { sanitizeDisplayName } from '../utils/sanitizeName';
 
 const db = admin.database();
 
@@ -79,7 +80,7 @@ export const initializeNewUser = functions
       if (currentData === null) {
         return {
           profile: {
-            displayName: token.name || 'Player',
+            displayName: sanitizeDisplayName(token.name),
             flag: '',
             uniqueId: generateUniqueId(),
             avatar: 'default',
@@ -91,6 +92,7 @@ export const initializeNewUser = functions
             lifetimeEarnings: STARTING_COINS,
             lifetimeSpent: 0,
             lastDailyBonus: 0,
+            dailyBonusTimezone: '', // Set on first daily bonus claim (server-pinned)
             lastAdReward: 0,
             adRewardsToday: 0,
             version: 1,
@@ -139,6 +141,7 @@ export const initializeNewUser = functions
           lifetimeEarnings: STARTING_COINS,
           lifetimeSpent: 0,
           lastDailyBonus: 0,
+          dailyBonusTimezone: '', // Set on first daily bonus claim (server-pinned)
           lastAdReward: 0,
           adRewardsToday: 0,
           version: 1,
